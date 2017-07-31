@@ -166,6 +166,18 @@ Available audio output drivers are:
         volumes or the global volume.
         By default the channel volumes are used.
 
+``dsound`` (Windows only)
+    DirectX DirectSound audio output driver
+
+    .. note:: This driver is for compatibility with old systems.
+
+    ``device=<devicenum>``
+        Sets the device number to use. Playing a file with ``-v`` will show a
+        list of available devices.
+
+    ``buffersize=<ms>``
+        DirectSound buffer size in milliseconds (default: 200).
+
 ``sdl``
     SDL 1.2+ audio output driver. Should work on any platform supported by SDL
     1.2, but may require the ``SDL_AUDIODRIVER`` environment variable to be set
