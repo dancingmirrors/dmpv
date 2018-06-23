@@ -55,6 +55,9 @@ local user_opts = {
     playlist_osd = true,        -- whether to show playlist OSD on next/prev
     chapter_fmt = "Chapter: %s", -- chapter print format for seekbar-hover. "no" to disable
     unicodeminus = false,       -- whether to use the Unicode minus sign character
+
+
+    mousewheel = true,           -- OSC handles (e.g.volume) and prevents default
 }
 
 -- read options from config and command-line
@@ -2823,7 +2826,7 @@ mp.set_key_bindings({
 do_enable_keybindings()
 
 --mouse input bindings
-mp.set_key_bindings({
+local mi = {
     {"mbtn_left",           function(e) process_event("mbtn_left", "up") end,
                             function(e) process_event("mbtn_left", "down")  end},
     {"shift+mbtn_left",     function(e) process_event("shift+mbtn_left", "up") end,
@@ -2833,12 +2836,15 @@ mp.set_key_bindings({
     -- alias to shift_mbtn_left for single-handed mouse use
     {"mbtn_mid",            function(e) process_event("shift+mbtn_left", "up") end,
                             function(e) process_event("shift+mbtn_left", "down")  end},
-    {"wheel_up",            function(e) process_event("wheel_up", "press") end},
-    {"wheel_down",          function(e) process_event("wheel_down", "press") end},
     {"mbtn_left_dbl",       "ignore"},
     {"shift+mbtn_left_dbl", "ignore"},
     {"mbtn_right_dbl",      "ignore"},
-}, "input", "force")
+}
+if user_opts.mousewheel then
+    mi[#mi+1] = {"wheel_up",   function(e) process_event("wheel_up", "press") end}
+    mi[#mi+1] = {"wheel_down", function(e) process_event("wheel_down", "press") end}
+end
+mp.set_key_bindings(mi, "input", "force")
 mp.enable_key_bindings("input")
 
 mp.set_key_bindings({
