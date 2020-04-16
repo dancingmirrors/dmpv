@@ -48,11 +48,16 @@
 #define DEFAULT_WIDTH 80
 #define DEFAULT_HEIGHT 25
 
+// https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec
+#define ESC_BSU "\033P=1s\033\\"  // begin synced update
+#define ESC_ESU "\033P=2s\033\\"  // end synced update
+
 struct vo_tct_opts {
     int algo;
     int width;   // 0 -> default
     int height;  // 0 -> default
     bool term256;  // 0 -> true color
+    bool termsync;  // 1 -> send BSU/ESU
 };
 
 struct lut_item {
@@ -261,6 +266,8 @@ static void flip_page(struct vo *vo)
     if (vo->dwidth != width || vo->dheight != height)
         reconfig(vo, vo->params);
 
+    if (p->opts.termsync)
+        printf(ESC_BSU);
     if (p->opts.algo == ALGO_PLAIN) {
         write_plain(
             vo->dwidth, vo->dheight, p->swidth, p->sheight,
@@ -272,6 +279,8 @@ static void flip_page(struct vo *vo)
             p->frame->planes[0], p->frame->stride[0],
             p->opts.term256, p->lut);
     }
+    if (p->opts.termsync)
+        printf(ESC_ESU);
     fflush(stdout);
 }
 
@@ -340,6 +349,7 @@ const struct vo_driver video_out_tct = {
         {"width", OPT_INT(opts.width)},
         {"height", OPT_INT(opts.height)},
         {"256", OPT_BOOL(opts.term256)},
+        {"sync", OPT_BOOL(opts.termsync)},
         {0}
     },
     .options_prefix = "vo-tct",

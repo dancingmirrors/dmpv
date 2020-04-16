@@ -382,6 +382,11 @@ Available video output drivers are:
     ``--vo-tct-256=<yes|no>`` (default: no)
         Use 256 colors - for terminals which don't support true color.
 
+    ``--vo-tct-sync=<yes|no>`` (default: no)
+        Completely avoid tearing by using the Synchronized-Updates terminal
+        feature. Note that very few terminals support it currently (update
+        begins with BSU: ``"\eP=1\e\\"``, and ends with ESU: ``"\eP=2\e\\"``).
+
 ``kitty``
     Graphical output for the terminal, using the kitty graphics protocol.
     Tested with kitty and Konsole.
