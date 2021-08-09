@@ -978,6 +978,7 @@ function run_ytdl_hook(url)
         else
             local playlist_index = parse_yt_playlist(url, json)
             local playlist = {"#EXTM3U"}
+            local items = {}
             for i, entry in pairs(json.entries) do
                 local site = entry.url
                 local title = entry.title
@@ -1005,8 +1006,10 @@ function run_ytdl_hook(url)
                     local prefix = site:find(":") and "ytdl://" or
                         "https://youtu.be/"
                     table.insert(playlist, prefix .. site)
+                    items[#items+1] = {filename = prefix .. site, title = title}
                 elseif url_is_safe(site) then
                     table.insert(playlist, site)
+                    items[#items+1] = {filename = site, title = title}
                 end
 
             end
@@ -1015,6 +1018,9 @@ function run_ytdl_hook(url)
                 not option_was_set("playlist-start") and playlist_index then
                 mp.set_property_number("playlist-start", playlist_index)
             end
+
+            local x = {base = url, list = items, time = mp.get_time()}
+            utils.shared_script_property_set("ytdl_hook-list", utils.format_json(x))
 
             mp.set_property("stream-open-filename", "memory://" .. table.concat(playlist, "\n"))
         end
