@@ -831,4 +831,9 @@ function mp_utils.shared_script_property_observe(name, cb)
     end)
 end
 
+local user_init = mp.find_config_file("init.lua")
+if user_init then
+    loadfile(user_init, "t")()
+end
+
 return {}
