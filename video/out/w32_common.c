@@ -187,6 +187,51 @@ static void subtract_window_borders(struct vo_w32_state *w32, HWND hwnd, RECT *r
     rc->bottom -= b.bottom;
 }
 
+// assuming the window has decorations/borders, change a work-area rect rc
+// into the maximum client rect so that it's fully visible inside the area.
+static void max_client_rect(struct vo_w32_state *w32, HWND hwnd, RECT *rc)
+{
+    if (!w32->opts->fit_border) {
+        // allow (some) decorations/borders to go outside the area.
+        //
+        // we know from observation with win 7/10 that windows doesn't allow to
+        // place a window manually with the caption [partially] above the top
+        // screen edge, so our client rect excludes the caption height fully.
+        // We also know from observation that the remaining rect is allowed, so
+        // the client rect can reach the sides/bottom of the screen (it can
+        // even be few px bigger in both dimensions, though still not as tall
+        // as the screen height, and this would not fit the area anyway).
+        //
+        // So verify that this client size is indeed allowed, and if not then
+        // fall back to fit-border=yes, because trying to squeeze one or two
+        // more pixels is not worth the code if it can't reach the screen
+        // edges anyway - but currently it apparently can. Probably likely to remain.
+
+        // default max window width/height including decorations, in pixels
+        int mww = GetSystemMetrics(SM_CXMAXTRACK);
+        int mwh = GetSystemMetrics(SM_CYMAXTRACK);
+
+        if (mww && mwh) {
+            RECT c = {0, 0, mww, mwh};
+            subtract_window_borders(w32, hwnd, &c);  // DPI-aware, this is OK.
+            MP_WARN(w32, "xwin:%dx%d  xclient:%ldx%ld  Warea:%ldx%ld(-%ld=%ld)\n",
+                         mww,mwh, rect_w(c),rect_h(c), rect_w(*rc),rect_h(*rc), c.top,rect_h(*rc)-c.top);
+
+            // c width/height are max client size, c.top is caption height
+            if (rect_w(c) >= rect_w(*rc) && rect_h(c) >= rect_h(*rc) - c.top) {
+                rc->top += c.top;  // exclude caption height and we're good
+                return;
+            }
+            // else can't reach the edges - don't bother with the exact limit
+        }
+
+        MP_WARN(w32, "Couldn't apply fit-border=no\n");
+    }
+
+    // max client rect is such that decorations are fully inside the area.
+    subtract_window_borders(w32, hwnd, rc);
+}
+
 static LRESULT borderless_nchittest(struct vo_w32_state *w32, int x, int y)
 {
     if (IsMaximized(w32->window))
@@ -843,7 +888,7 @@ static void fit_window_on_screen(struct vo_w32_state *w32)
 {
     RECT screen = get_working_area(w32);
     if (w32->opts->border)
-        subtract_window_borders(w32, w32->window, &screen);
+        max_client_rect(w32, w32->window, &screen);
 
     bool adjusted = fit_rect_size(&w32->windowrc, rect_w(screen), rect_h(screen));
 
@@ -1463,7 +1508,7 @@ static void gui_thread_reconfig(void *ptr)
     if (!w32->current_fs && !IsMaximized(w32->window) && w32->opts->border &&
         !w32->opts->geometry.xy_valid /* specific position not requested */)
     {
-        subtract_window_borders(w32, w32->window, &r);
+        max_client_rect(w32, w32->window, &r);
     }
     struct mp_rect screen = { r.left, r.top, r.right, r.bottom };
     struct vo_win_geometry geo;
