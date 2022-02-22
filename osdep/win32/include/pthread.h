@@ -96,4 +96,6 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 void pthread_set_name_np(pthread_t thread, const char *name);
 
+unsigned long long win32_pthread_cpu_time_ns(pthread_t thread);
+
 #endif

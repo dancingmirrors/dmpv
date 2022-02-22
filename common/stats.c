@@ -78,6 +78,10 @@ static int64_t get_thread_cpu_time_ns(pthread_t thread)
     {
         return tv.tv_sec * (1000LL * 1000LL * 1000LL) + tv.tv_nsec;
     }
+
+#elif HAVE_WIN32_INTERNAL_PTHREADS
+    return win32_pthread_cpu_time_ns(thread);
+
 #endif
     return -1;  // unsupported
 }

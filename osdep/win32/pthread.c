@@ -343,3 +343,98 @@ int sem_post(sem_t *sem)
     pthread_mutex_unlock(&sem->lock);
     return 0;
 }
+
+// 0 is only allowed as the exact string "0" (not "000" etc)
+static int env_atoi(const char *var, int low, int high, int def)
+{
+    const char *v = getenv(var);
+    if (v && *v) {
+        int i = atoi(v);
+        if (i != 0 || (*v == '0' && !v[1])) {
+            if (low <= i && i <= high)
+                return i;
+        }
+    }
+    return def;
+}
+
+#define CAL_DEF_MS 2    /* spin duration of one calibration measurement */
+#define CAL_DEF_N 5     /* number of calibration measurements to perform */
+
+uint64_t cns = 1;    // calibration ns
+uint64_t cpcns = 1;  // cycles per cns (default: cycle==ns, i.e. measure cycles)
+
+static void calibrate_cycle_duration_ns(void)
+{
+    int ms = env_atoi("MPV_CTC_MS", 0, 100, CAL_DEF_MS); // CTC: cpu time cal.
+    int n = env_atoi("MPV_CTC_N", 0, 10, CAL_DEF_N);
+    if (!ms || !n)
+        return;
+
+    uint64_t delta_cycles = 0;
+    HANDLE h = GetCurrentThread();
+
+    int pset = 0, p0 = GetThreadPriority(h);
+    if (p0 != THREAD_PRIORITY_ERROR_RETURN && p0 < THREAD_PRIORITY_HIGHEST)
+        pset = SetThreadPriority(h, THREAD_PRIORITY_HIGHEST); // failure allowed
+
+    // assuming CycleTime ticks at a fixed rate (~Y2K+ Intel/AMD), the main
+    // source of inaccuracy is counting too few cycles due to the thread going
+    // idle (context switch, etc), so iterate few times and get the max value.
+    for (int i = 0; i < n; i++) {
+        ULONG64 c0, c1;
+        if (!QueryThreadCycleTime(h, &c0))
+            goto done;
+
+        uint64_t deadline = mp_time_us() + 1000 * ms;
+        while (mp_time_us() < deadline)
+            /* spin */;
+
+        if (!QueryThreadCycleTime(h, &c1))
+            goto done;
+
+        if (delta_cycles < c1 - c0)
+            delta_cycles = c1 - c0;
+    }
+
+done:
+    if (pset)
+        SetThreadPriority(h, p0);
+
+    if (delta_cycles) {
+        cns = ms * 1e6;
+        cpcns = delta_cycles;
+
+        // assuming the type can hold any practical thread cpu-time in ns,
+        // the biggest intermediate value at the win32_pthread_cpu_time_ns
+        // calculation is (cpcns-1)*cns, so if it overflows - reduce
+        // accuracy till it fits. this shouldn't happen in practice.
+        // cpcns, cns won't be 0 (the prior step (1) breaks the loop).
+        while ((cpcns - 1) > UINT64_MAX / cns) {
+            cns /= 2;
+            cpcns /= 2;
+        }
+    }
+}
+
+unsigned long long win32_pthread_cpu_time_ns(pthread_t thread)
+{
+    static pthread_once_t calibrate = PTHREAD_ONCE_INIT;
+    pthread_once(&calibrate, calibrate_cycle_duration_ns);
+
+    unsigned long long cycles = 0;
+
+    HANDLE th = (thread == pthread_self())
+        ? GetCurrentThread()
+        : OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, thread);
+
+    if (th) {
+        ULONG64 n;
+        if (QueryThreadCycleTime(th, &n))
+            cycles = n;
+        CloseHandle(th);
+    }
+
+    return cycles / cpcns * cns           // full units of cns
+         + cycles % cpcns * cns / cpcns;  // fraction of cns
+}
