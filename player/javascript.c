@@ -67,6 +67,7 @@ struct script_ctx {
     char *last_error_str;
     size_t js_malloc_size;
     struct stats_ctx *stats;
+    const char *time_evloop;
 };
 
 static struct script_ctx *jctx(js_State *J)
@@ -864,6 +865,40 @@ static void script__hook_continue(js_State *J)
     push_status(J, mpv_hook_continue(jclient(J), jsL_checkuint64(J, 1)));
 }
 
+// args: op (uint), maybe name (str), maybe value (number)
+static void script__stats(js_State *J)
+{
+    struct script_ctx *ctx = jctx(J);
+    uint32_t op = jsL_checkuint64(J, 1);
+    const char *name = op <= 5 ? js_tostring(J, 2) : NULL;
+    double val = op <= 2 ? js_tonumber(J, 3) : 0;
+
+    switch (op) {  // keep the values in sync at defaults.js
+    case 1: stats_value(ctx->stats, name, val); break;
+    case 2: stats_size_value(ctx->stats, name, val); break;
+
+    case 3: stats_event(ctx->stats, name); break;
+    case 4: stats_time_start(ctx->stats, name); break;
+    case 5: stats_time_end(ctx->stats, name); break;
+
+    // evloop {on,off} starts/stops near mpv_wait_event
+    case 6:
+        ctx->time_evloop = "evloop";
+        break;
+    case 7:
+        if (ctx->time_evloop) {  // end explicitly. no issue if not started
+            stats_time_end(ctx->stats, ctx->time_evloop);
+            ctx->time_evloop = NULL;
+        }
+        break;
+
+    default:  // shouldn't happen when used via mp.stats members
+        js_error(J, "unsupported stats operation");
+    }
+
+    push_success(J);
+}
+
 /**********************************************************************
  *  mp.utils
  *********************************************************************/
@@ -1156,7 +1191,15 @@ static void makenode(void *ta_ctx, mpv_node *dst, js_State *J, int idx)
 static void script_wait_event(js_State *J, void *af)
 {
     double timeout = js_isnumber(J, 1) ? js_tonumber(J, 1) : -1;
+
+    struct script_ctx *ctx  = jctx(J);
+    if (ctx->time_evloop)
+        stats_time_end(ctx->stats, ctx->time_evloop);
+
     mpv_event *event = mpv_wait_event(jclient(J), timeout);
+
+    if (ctx->time_evloop)
+        stats_time_start(jctx(J)->stats, ctx->time_evloop);
 
     mpv_node *rn = new_af_mpv_node(af);
     mpv_event_to_node(rn, event);
@@ -1208,6 +1251,7 @@ static const struct fn_entry main_fns[] = {
     FN_ENTRY(input_set_section_mouse_area, 5),
     FN_ENTRY(last_error, 0),
     FN_ENTRY(_set_last_error, 1),
+    FN_ENTRY(_stats, 3),
     {0}
 };
 

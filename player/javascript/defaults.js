@@ -712,6 +712,20 @@ mp.utils.subprocess_detached = function subprocess_detached(t) {
 }
 
 
+// ---- stats: interface to the stats_* C functions ----
+mp.stats = {
+    value: function(n, v) { return mp._stats(1, "u/"+n, v) },
+    size: function(n, v) { return mp._stats(2, "u/"+n, v) },
+
+    event: function(n) { return mp._stats(3, "u/"+n) },
+    time_start: function(n) { return mp._stats(4, "u/"+n) },
+    time_end: function(n) { return mp._stats(5, "u/"+n) },
+
+    evloop_on: function() { return mp._stats(6) },
+    evloop_off: function() { return mp._stats(7) },
+};
+
+
 // ----- dump: like print, but expands objects/arrays recursively -----
 function replacer(k, v) {
     var t = typeof v;

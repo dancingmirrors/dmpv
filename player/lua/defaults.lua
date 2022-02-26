@@ -487,8 +487,21 @@ mp.msg = {
 
 _G.print = mp.msg.info
 
+mp.stats = {
+    value = function(n, v) return mp.raw_stats(1, "u/"..n, v) end,
+    size = function(n, v) return mp.raw_stats(2, "u/"..n, v) end,
+
+    event = function(n) return mp.raw_stats(3, "u/"..n) end,
+    time_start = function(n) return mp.raw_stats(4, "u/"..n) end,
+    time_end =  function(n) return mp.raw_stats(5, "u/"..n) end,
+
+    evloop_on =  function() return mp.raw_stats(6) end,
+    evloop_off =  function() return mp.raw_stats(7) end,
+}
+
 package.loaded["mp"] = mp
 package.loaded["mp.msg"] = mp.msg
+package.loaded["mp.stats"] = mp.stats
 
 function mp.wait_event(t)
     local r = mp.raw_wait_event(t)

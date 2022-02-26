@@ -95,6 +95,7 @@ struct script_ctx {
     lua_Alloc lua_allocf;
     void *lua_alloc_ud;
     struct stats_ctx *stats;
+    const char *time_evloop;
 };
 
 #if LUA_VERSION_NUM <= 501
@@ -548,7 +549,13 @@ static int script_raw_wait_event(lua_State *L, void *tmp)
 {
     struct script_ctx *ctx = get_ctx(L);
 
+    if (ctx->time_evloop)
+        stats_time_end(ctx->stats, ctx->time_evloop);
+
     mpv_event *event = mpv_wait_event(ctx->client, luaL_optnumber(L, 1, 1e20));
+
+    if (ctx->time_evloop)
+        stats_time_start(ctx->stats, ctx->time_evloop);
 
     struct mpv_node rn;
     mpv_event_to_node(&rn, event);
@@ -1203,6 +1210,41 @@ static int script_get_env_list(lua_State *L)
     return 1;
 }
 
+// args: op (uint), maybe name (str), maybe value (number)
+static int script_raw_stats(lua_State *L)
+{
+    struct script_ctx *ctx = get_ctx(L);
+    int op = luaL_checkinteger(L, 1);
+    const char *name = op <= 5 ? luaL_checkstring(L, 2) : NULL;
+    double val = op <= 2 ? lua_tonumber(L, 3) : 0;
+
+    switch (op) {  // keep the values in sync at defaults.lua
+    case 1: stats_value(ctx->stats, name, val); break;
+    case 2: stats_size_value(ctx->stats, name, val); break;
+
+    case 3: stats_event(ctx->stats, name); break;
+    case 4: stats_time_start(ctx->stats, name); break;
+    case 5: stats_time_end(ctx->stats, name); break;
+
+    // evloop {on,off} starts/stops near mpv_wait_event
+    case 6:
+        ctx->time_evloop = "evloop";
+        break;
+    case 7:
+        if (ctx->time_evloop) {  // end explicitly. no issue if not started
+            stats_time_end(ctx->stats, ctx->time_evloop);
+            ctx->time_evloop = NULL;
+        }
+        break;
+
+    default:  // shouldn't happen when used via mp.stats members
+        luaL_error(L, "unsupported stats operation\n");
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #define FN_ENTRY(name) {#name, script_ ## name, 0}
 #define AF_ENTRY(name) {#name, 0, script_ ## name}
 struct fn_entry {
@@ -1241,6 +1283,7 @@ static const struct fn_entry main_fns[] = {
     FN_ENTRY(get_wakeup_pipe),
     FN_ENTRY(raw_hook_add),
     FN_ENTRY(raw_hook_continue),
+    FN_ENTRY(raw_stats),
     {0}
 };
 
