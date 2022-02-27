@@ -310,8 +310,8 @@ void stats_time_end(struct stats_ctx *ctx, const char *name)
     pthread_mutex_lock(&ctx->base->lock);
     struct stat_entry *e = find_entry(ctx, name);
     if (e->type == VAL_TIME && e->time_start_us) {
-        e->val_rt += mp_time_us() - e->time_start_us;
         e->val_th += get_thread_cpu_time_ns(e->thread) - e->cpu_start_ns;
+        e->val_rt += mp_time_us() - e->time_start_us;
         e->time_start_us = 0;
     }
     pthread_mutex_unlock(&ctx->base->lock);
