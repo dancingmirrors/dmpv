@@ -79,7 +79,7 @@ static int64_t get_thread_cpu_time_ns(pthread_t thread)
         return tv.tv_sec * (1000LL * 1000LL * 1000LL) + tv.tv_nsec;
     }
 #endif
-    return 0;
+    return -1;  // unsupported
 }
 
 static void stats_destroy(void *p)
@@ -196,7 +196,8 @@ void stats_global_query(struct mpv_global *global, struct mpv_node *out)
                 e->cpu_start_ns = t;
             }
             double t_cpu = e->val_th / 1e6;
-            add_stat(out, e, "cpu", t_cpu, mp_tprintf(80, "%.2f ms", t_cpu));
+            if (e->cpu_start_ns >= 0)  // platform supports cpu-time
+                add_stat(out, e, "cpu", t_cpu, mp_tprintf(80, "%.2f ms", t_cpu));
             double t_rt = e->val_rt / 1e3;
             add_stat(out, e, "time", t_rt, mp_tprintf(80, "%.2f ms", t_rt));
             e->val_rt = e->val_th = 0;
@@ -207,7 +208,8 @@ void stats_global_query(struct mpv_global *global, struct mpv_node *out)
             if (!e->cpu_start_ns)
                 e->cpu_start_ns = t;
             double t_msec = (t - e->cpu_start_ns) / 1e6;
-            add_stat(out, e, NULL, t_msec, mp_tprintf(80, "%.2f ms", t_msec));
+            if (e->cpu_start_ns >= 0)  // platform supports cpu-time
+                add_stat(out, e, NULL, t_msec, mp_tprintf(80, "%.2f ms", t_msec));
             e->cpu_start_ns = t;
             break;
         }
