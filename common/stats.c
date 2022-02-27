@@ -188,6 +188,13 @@ void stats_global_query(struct mpv_global *global, struct mpv_node *out)
             e->val_d = 0;
             break;
         case VAL_TIME: {
+            if (e->time_start_us) {  // ongoing. effectively do end+start
+                e->val_rt += now - e->time_start_us;
+                e->time_start_us = now;
+                int64_t t = get_thread_cpu_time_ns(e->thread);
+                e->val_th += t - e->cpu_start_ns;
+                e->cpu_start_ns = t;
+            }
             double t_cpu = e->val_th / 1e6;
             add_stat(out, e, "cpu", t_cpu, mp_tprintf(80, "%.2f ms", t_cpu));
             double t_rt = e->val_rt / 1e3;
@@ -288,7 +295,9 @@ void stats_time_start(struct stats_ctx *ctx, const char *name)
         return;
     pthread_mutex_lock(&ctx->base->lock);
     struct stat_entry *e = find_entry(ctx, name);
-    e->cpu_start_ns = get_thread_cpu_time_ns(pthread_self());
+    e->type = VAL_TIME;
+    e->thread = pthread_self();
+    e->cpu_start_ns = get_thread_cpu_time_ns(e->thread);
     e->time_start_us = mp_time_us();
     pthread_mutex_unlock(&ctx->base->lock);
 }
@@ -300,10 +309,9 @@ void stats_time_end(struct stats_ctx *ctx, const char *name)
         return;
     pthread_mutex_lock(&ctx->base->lock);
     struct stat_entry *e = find_entry(ctx, name);
-    if (e->time_start_us) {
-        e->type = VAL_TIME;
+    if (e->type == VAL_TIME && e->time_start_us) {
         e->val_rt += mp_time_us() - e->time_start_us;
-        e->val_th += get_thread_cpu_time_ns(pthread_self()) - e->cpu_start_ns;
+        e->val_th += get_thread_cpu_time_ns(e->thread) - e->cpu_start_ns;
         e->time_start_us = 0;
     }
     pthread_mutex_unlock(&ctx->base->lock);
