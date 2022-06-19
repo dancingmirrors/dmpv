@@ -41,6 +41,7 @@ class Common: NSObject {
     var appNotificationObservers: [NSObjectProtocol] = []
 
     var cursorVisibilityWanted: Bool = true
+    var cursorVisibilityLast: Bool = true
 
     var title: String = "mpv" {
         didSet { if let window = window { window.title = title } }
@@ -392,7 +393,18 @@ class Common: NSObject {
     }
 
     func setCursorVisibility(_ visible: Bool) {
-        NSCursor.setHiddenUntilMouseMoves(!visible && (view?.canHideCursor() ?? false))
+        let hide = !visible && (view?.canHideCursor() ?? false)
+        let applying = cursorVisibilityLast != !hide
+        // log.sendWarning("setCursorVisiblility(\(visible)) -> (\(!hide)) -> applying: \(applying)")  // noisy
+
+        if cursorVisibilityLast != !hide {
+            if hide {
+                NSCursor.hide()
+            } else {
+                NSCursor.unhide()
+            }
+            cursorVisibilityLast = !hide
+        }
     }
 
     func updateICCProfile() {
