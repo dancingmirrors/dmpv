@@ -54,6 +54,7 @@ class View: NSView {
         if containsMouseLocation() {
             cocoa_put_key_with_modifiers(SWIFT_KEY_MOUSE_LEAVE, 0)
         }
+        common.log.sendWarning("updateTrackingAreas")
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -120,12 +121,14 @@ class View: NSView {
             cocoa_put_key_with_modifiers(SWIFT_KEY_MOUSE_ENTER, 0)
         }
         common.updateCursorVisibility()
+        common.log.sendWarning("mouseEntered")
     }
 
     override func mouseExited(with event: NSEvent) {
         if mpv?.mouseEnabled() ?? true {
             cocoa_put_key_with_modifiers(SWIFT_KEY_MOUSE_LEAVE, 0)
         }
+        common.log.sendWarning("mouseExited")
         common.titleBar?.hide()
         common.setCursorVisibility(true)
     }
@@ -213,6 +216,14 @@ class View: NSView {
         if !(common.window?.isMoving ?? false) {
             mpv?.setMousePosition(point)
         }
+
+        // if cursor-autohide=always, and we enter from top over the titlebar
+        // then the updateCursorVisibility fromn mouseEntered will NOT hide the
+        // cursor because the pointer is over the titlebar (can't hide), and
+        // later if we keep moving it down then updateCursorVisibility will not
+        // be called anymore, and the cursor will never hide.
+        // instead, update visibility on every move (only applied on change).
+        common.updateCursorVisibility()
     }
 
     func preciseScroll(_ event: NSEvent) {
