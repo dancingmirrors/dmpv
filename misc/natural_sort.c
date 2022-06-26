@@ -15,16 +15,19 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+
 #include "misc/ctype.h"
 
 #include "natural_sort.h"
 
-// Comparison function for an ASCII-only "natural" sort. Case is ignored and
-// numbers are ordered by value regardless of padding. Two filenames that differ
-// only in the padding of numbers will be considered equal and end up in
-// arbitrary order. Bytes outside of A-Z/a-z/0-9 will by sorted by byte value.
+// Comparison function for "natural" sort. Case insensitive (ASCII-only), and
+// numbers are ordered by value (ignoring 00... prefix). If the two names
+// end up equal, then it falls back to strcmp for higher-resolution order.
 int mp_natural_sort_cmp(const char *name1, const char *name2)
 {
+    const char *name1_orig = name1, *name2_orig = name2;
+
     while (name1[0] && name2[0]) {
         if (mp_isdigit(name1[0]) && mp_isdigit(name2[0])) {
             while (name1[0] == '0')
@@ -63,5 +66,7 @@ int mp_natural_sort_cmp(const char *name1, const char *name2)
         return -1;
     if (name1[0])
         return 1;
-    return 0;
+
+    // equal as natural, fall back to strcmp
+    return strcmp(name1_orig, name2_orig);
 }
