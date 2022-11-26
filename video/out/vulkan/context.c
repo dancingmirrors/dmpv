@@ -22,6 +22,8 @@
 #include "context.h"
 #include "utils.h"
 
+#include <libavutil/uuid.h>
+
 struct vulkan_opts {
     char *device; // force a specific GPU
     int swap_mode;
@@ -39,6 +41,10 @@ static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
     // Create a dummy instance to validate/list the devices
     VkInstanceCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pApplicationInfo = &(VkApplicationInfo) {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .apiVersion = VK_API_VERSION_1_1,
+        }
     };
 
     VkInstance inst;
@@ -64,21 +70,39 @@ static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
         ret = M_OPT_EXIT;
     }
 
+    AVUUID param_uuid;
+    bool is_uuid = av_uuid_parse(*value, param_uuid) == 0;
+
     for (int i = 0; i < num; i++) {
-        VkPhysicalDeviceProperties prop;
-        vkGetPhysicalDeviceProperties(devices[i], &prop);
+        VkPhysicalDeviceIDPropertiesKHR id_prop = { 0 };
+        id_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR;
+
+        VkPhysicalDeviceProperties2KHR prop2 = { 0 };
+        prop2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+        prop2.pNext = &id_prop;
+
+        vkGetPhysicalDeviceProperties2(devices[i], &prop2);
+
+        const VkPhysicalDeviceProperties *prop = &prop2.properties;
 
         if (help) {
-            mp_info(log, "  '%s' (GPU %d, ID %x:%x)\n", prop.deviceName, i,
-                    (unsigned)prop.vendorID, (unsigned)prop.deviceID);
-        } else if (bstr_equals0(param, prop.deviceName)) {
+            char device_uuid[37];
+            av_uuid_unparse(id_prop.deviceUUID, device_uuid);
+            mp_info(log, "  '%s' (GPU %d, PCI ID %x:%x, UUID %s)\n",
+                    prop->deviceName, i, (unsigned)prop->vendorID,
+                    (unsigned)prop->deviceID, device_uuid);
+        } else if (bstr_equals0(param, prop->deviceName)) {
+            ret = 0;
+            goto done;
+        } else if (is_uuid && av_uuid_equal(param_uuid, id_prop.deviceUUID)) {
             ret = 0;
             goto done;
         }
     }
 
     if (!help)
-        mp_err(log, "No device with name '%.*s'!\n", BSTR_P(param));
+        mp_err(log, "No device with %s '%.*s'!\n", is_uuid ? "UUID" : "name",
+               BSTR_P(param));
 
 done:
     talloc_free(devices);
@@ -207,21 +231,29 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
 
     features.pNext = &atomic_float_feature;
 
+    AVUUID param_uuid = { 0 };
+    bool is_uuid = p->opts->device &&
+                   av_uuid_parse(p->opts->device, param_uuid) == 0;
+
     mp_assert(vk->pllog);
     mp_assert(vk->vkinst);
-    vk->vulkan = pl_vulkan_create(vk->pllog, &(struct pl_vulkan_params) {
+    struct pl_vulkan_params device_params = {
         .instance = vk->vkinst->instance,
         .get_proc_addr = vk->vkinst->get_proc_addr,
         .surface = vk->surface,
         .async_transfer = p->opts->async_transfer,
         .async_compute = p->opts->async_compute,
         .queue_count = p->opts->queue_count,
-        .device_name = p->opts->device,
         .extra_queues = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
         .opt_extensions = opt_extensions,
         .num_opt_extensions = MP_ARRAY_SIZE(opt_extensions),
         .features = &features,
-    });
+        .device_name = is_uuid ? NULL : p->opts->device,
+    };
+    if (is_uuid)
+        av_uuid_copy(device_params.device_uuid, param_uuid);
+
+    vk->vulkan = pl_vulkan_create(vk->pllog, &device_params);
     if (!vk->vulkan)
         goto error;
 
