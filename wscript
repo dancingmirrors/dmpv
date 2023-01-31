@@ -1054,7 +1054,7 @@ def configure(ctx):
 
     ctx.add_os_flags('LIBRARY_PATH')
 
-    ctx.load('compiler_c python')
+    ctx.load('compiler_c')
     ctx.load('waf_customizations')
     ctx.load('dependencies')
     ctx.load('detections.compiler_swift')
@@ -1113,11 +1113,16 @@ def configure(ctx):
     Logs.error("WARNING: Building mpv with waf is deprecated and will be removed the future! It is recommended to switch to meson as soon as possible.")
 
 def __write_version__(ctx):
+    ctx.env.VERSIONH_ST = '--versionh="%s"'
+    ctx.env.CWD_ST = '--cwd="%s"'
+    ctx.env.VERSIONSH_CWD = [ctx.srcnode.abspath()]
+
     ctx(
-        source = 'version.py',
+        source = 'version.sh',
         target = 'generated/version.h',
-        rule   = '${PYTHON} ${SRC} ${TGT}',
-        always = True)
+        rule   = 'sh ${SRC} ${CWD_ST:VERSIONSH_CWD} ${VERSIONH_ST:TGT}',
+        always = True,
+        update_outputs = True)
 
 def build(ctx):
     if ctx.options.variant not in ctx.all_envs:
