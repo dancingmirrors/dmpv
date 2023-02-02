@@ -435,6 +435,9 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
                           opts->audio_output_channels.num_chmaps);
     }
 
+    if (!has_video_track(mpctx))
+        ao_flags |= AO_INIT_MEDIA_ROLE_MUSIC;
+
     mpctx->ao_filter_fmt = out_fmt;
 
     mpctx->ao = ao_init_best(mpctx->global, ao_flags, mp_wakeup_core_cb,

@@ -57,6 +57,8 @@ enum {
     AO_INIT_STREAM_SILENCE = 1 << 2,
     // Force exclusive mode, i.e. lock out the system mixer.
     AO_INIT_EXCLUSIVE = 1 << 3,
+    // Initialize with music role.
+    AO_INIT_MEDIA_ROLE_MUSIC = 1 << 4,
 };
 
 enum aocontrol_media_role {
