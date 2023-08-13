@@ -434,7 +434,7 @@ static void keyboard_handle_key(void *data, struct wl_keyboard *wl_keyboard,
         mp_input_put_key(wl->vo->input_ctx, mpkey | state | wl->mpmod);
     if (state == MP_KEY_STATE_DOWN)
         wl->mpkey = mpkey;
-    if (wl->mpkey == mpkey && state == MP_KEY_STATE_UP)
+    if (mpkey && state == MP_KEY_STATE_UP)
         wl->mpkey = 0;
 }
 
