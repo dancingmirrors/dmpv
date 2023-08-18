@@ -21,12 +21,9 @@
 #include <libplacebo/colorspace.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/shaders/lut.h>
+#include <libplacebo/shaders/icc.h>
 #include <libplacebo/utils/libav.h>
 #include <libplacebo/utils/frame_queue.h>
-
-#ifdef PL_HAVE_LCMS
-#include <libplacebo/shaders/icc.h>
-#endif
 
 #include "config.h"
 #include "common/common.h"
@@ -137,11 +134,9 @@ struct priv {
     const struct pl_filter_config *frame_mixer;
     enum mp_csp_levels output_levels;
 
-#ifdef PL_HAVE_LCMS
     struct pl_icc_params icc;
     struct pl_icc_profile icc_profile;
     char *icc_path;
-#endif
 
     struct user_lut image_lut;
     struct user_lut target_lut;
@@ -842,7 +837,6 @@ static void apply_target_options(struct priv *p, struct pl_frame *target)
         tbits->sample_depth = opts->dither_depth;
     }
 
-#ifdef PL_HAVE_LCMS
     target->profile = p->icc_profile;
 
     if (opts->icc_opts->icc_use_luma) {
@@ -854,7 +848,6 @@ static void apply_target_options(struct priv *p, struct pl_frame *target)
         if (!p->icc.max_luma)
             p->icc.max_luma = pl_icc_default_params.max_luma;
     }
-#endif
 }
 
 static void apply_crop(struct pl_frame *frame, struct mp_rect crop,
@@ -1137,8 +1130,6 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
 
 static bool update_auto_profile(struct priv *p, int *events)
 {
-#ifdef PL_HAVE_LCMS
-
     const struct gl_video_opts *opts = p->opts_cache->opts;
     if (!opts->icc_opts || !opts->icc_opts->profile_auto || p->icc_path)
         return false;
@@ -1160,8 +1151,6 @@ static bool update_auto_profile(struct priv *p, int *events)
         pl_icc_profile_compute_signature(&p->icc_profile);
         return true;
     }
-
-#endif // PL_HAVE_LCMS
 
     return false;
 }
@@ -1665,8 +1654,6 @@ static const struct pl_hook *load_hook(struct priv *p, const char *path)
     return hook;
 }
 
-#ifdef PL_HAVE_LCMS
-
 static stream_t *icc_open_cache(struct priv *p, uint64_t sig, int flags)
 {
     const struct gl_video_opts *opts = p->opts_cache->opts;
@@ -1731,14 +1718,10 @@ static bool icc_load(void *priv, uint64_t sig, uint8_t *cache, size_t size)
     return len == size;
 }
 
-#endif // PL_HAVE_LCMS
-
 static void update_icc_opts(struct priv *p, const struct mp_icc_opts *opts)
 {
     if (!opts)
         return;
-
-#ifdef PL_HAVE_LCMS
 
     if (!opts->profile_auto && !p->icc_path && p->icc_profile.len) {
         // Un-set any auto-loaded profiles if icc-profile-auto was disabled
@@ -1783,8 +1766,6 @@ static void update_icc_opts(struct priv *p, const struct mp_icc_opts *opts)
     // Update cached path
     talloc_free(p->icc_path);
     p->icc_path = talloc_strdup(p, opts->profile);
-
-#endif // PL_HAVE_LCMS
 }
 
 static void update_lut(struct priv *p, struct user_lut *lut)
