@@ -40,11 +40,6 @@ struct playlist_entry {
 
     char *title;
 
-    // If the user plays a playlist, then the playlist's URL will be appended
-    // as redirect to each entry. (Same for directories etc.)
-    char **redirects;
-    int num_redirects;
-
     // Used for unshuffling: the pl_index before it was shuffled. -1 => unknown.
     int original_index;
 
@@ -107,7 +102,6 @@ struct playlist_entry *playlist_get_first_in_next_playlist(struct playlist *pl,
 struct playlist_entry *playlist_get_first_in_same_playlist(struct playlist_entry *entry,
                                                            char *current_playlist_path);
 void playlist_add_base_path(struct playlist *pl, bstr base_path);
-void playlist_add_redirect(struct playlist *pl, const char *redirected_from);
 void playlist_set_stream_flags(struct playlist *pl, int flags);
 int64_t playlist_transfer_entries(struct playlist *pl, struct playlist *source_pl);
 int64_t playlist_append_entries(struct playlist *pl, struct playlist *source_pl);
