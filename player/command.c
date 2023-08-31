@@ -70,6 +70,7 @@
 
 #include "osdep/io.h"
 #include "osdep/subprocess.h"
+#include "osdep/terminal.h"
 
 #include "core.h"
 
@@ -2772,6 +2773,23 @@ static int mp_property_osd_ass(void *ctx, struct m_property *prop,
     return m_property_read_sub(props, action, arg);
 }
 
+static int mp_property_term_size(void *ctx, struct m_property *prop,
+                                  int action, void *arg)
+{
+    int w = -1, h = -1;
+    terminal_get_size(&w, &h);
+    if (w == -1 || h == -1)
+        return M_PROPERTY_UNAVAILABLE;
+
+    struct m_sub_property props[] = {
+        {"w",      SUB_PROP_INT(w)},
+        {"h",      SUB_PROP_INT(h)},
+        {0}
+    };
+
+    return m_property_read_sub(props, action, arg);
+}
+
 static int mp_property_mouse_pos(void *ctx, struct m_property *prop,
                                     int action, void *arg)
 {
@@ -3982,6 +4000,7 @@ static const struct m_property mp_properties_base[] = {
 
     {"shared-script-properties", mp_property_script_props},
     {"user-data", mp_property_udata},
+    {"term-size", mp_property_term_size},
 
     M_PROPERTY_ALIAS("video", "vid"),
     M_PROPERTY_ALIAS("audio", "aid"),
