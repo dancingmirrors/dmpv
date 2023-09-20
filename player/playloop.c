@@ -1037,6 +1037,7 @@ int handle_force_window(struct MPContext *mpctx, bool force)
             .imgfmt = config_format,
             .w = w,   .h = h,
             .p_w = 1, .p_h = 1,
+            .force_window = true,
         };
         if (vo_reconfig(vo, &p) < 0)
             goto err;
