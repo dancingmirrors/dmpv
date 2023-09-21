@@ -106,14 +106,9 @@ struct command_ctx {
 
     struct mp_cmd_ctx *cache_dump_cmd; // in progress cache dumping
 
-    char **script_props;
     mpv_node udata;
 
     double cached_window_scale;
-};
-
-static const struct m_option script_props_type = {
-    .type = &m_option_type_keyvalue_list
 };
 
 static const struct m_option udata_type = {
@@ -3629,26 +3624,6 @@ static int mp_property_bindings(void *ctx, struct m_property *prop,
 }
 
 
-static int mp_property_script_props(void *ctx, struct m_property *prop,
-                                    int action, void *arg)
-{
-    MPContext *mpctx = ctx;
-    struct command_ctx *cmd = mpctx->command_ctx;
-    switch (action) {
-    case M_PROPERTY_GET_TYPE:
-        *(struct m_option *)arg = script_props_type;
-        return M_PROPERTY_OK;
-    case M_PROPERTY_GET:
-        m_option_copy(&script_props_type, arg, &cmd->script_props);
-        return M_PROPERTY_OK;
-    case M_PROPERTY_SET:
-        m_option_copy(&script_props_type, &cmd->script_props, arg);
-        mp_notify_property(mpctx, prop->name);
-        return M_PROPERTY_OK;
-    }
-    return M_PROPERTY_NOT_IMPLEMENTED;
-}
-
 static int do_list_udata(int item, int action, void *arg, void *ctx);
 
 struct udata_ctx {
@@ -4019,7 +3994,6 @@ static const struct m_property mp_properties_base[] = {
     {"command-list", mp_property_commands},
     {"input-bindings", mp_property_bindings},
 
-    {"shared-script-properties", mp_property_script_props},
     {"user-data", mp_property_udata},
     {"term-size", mp_property_term_size},
 
@@ -6846,8 +6820,6 @@ void command_uninit(struct MPContext *mpctx)
 
     overlay_uninit(mpctx);
     ao_hotplug_destroy(ctx->hotplug);
-
-    m_option_free(&script_props_type, &ctx->script_props);
 
     talloc_free(mpctx->command_ctx);
     mpctx->command_ctx = NULL;
