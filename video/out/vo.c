@@ -967,7 +967,8 @@ static bool render_frame(struct vo *vo)
     pthread_cond_broadcast(&in->wakeup); // for vo_wait_frame()
 
 done:
-    talloc_free(frame);
+    if (!vo->driver->frame_owner)
+        talloc_free(frame);
     if (in->wakeup_on_done && !still_displaying(vo)) {
         in->wakeup_on_done = false;
         wakeup_core(vo);
@@ -1005,7 +1006,7 @@ static void do_redraw(struct vo *vo)
     vo->driver->draw_frame(vo, frame);
     vo->driver->flip_page(vo);
 
-    if (frame != &dummy)
+    if (frame != &dummy && !vo->driver->frame_owner)
         talloc_free(frame);
 }
 
