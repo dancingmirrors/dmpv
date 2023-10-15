@@ -186,7 +186,8 @@ int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_ns)
     struct buffer_state *p = ao->buffer_state;
     mp_assert(!ao->driver->write);
 
-    mp_mutex_lock(&p->lock);
+    if (pthread_mutex_trylock(&p->lock))
+        return 0;
 
     int pos = read_buffer(ao, data, samples, &(bool){0});
 
