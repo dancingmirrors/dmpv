@@ -116,6 +116,7 @@ int mp_rect_subtract(const struct mp_rect *rc1, const struct mp_rect *rc2,
 
 unsigned int mp_log2(uint32_t v);
 uint32_t mp_round_next_power_of_2(uint32_t v);
+int mp_lcm(int x, int y);
 
 int mp_snprintf_cat(char *str, size_t size, const char *format, ...)
     PRINTF_ATTRIBUTE(3, 4);
