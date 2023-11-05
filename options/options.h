@@ -113,6 +113,7 @@ struct mp_subtitle_opts {
 struct mp_sub_filter_opts {
     bool sub_filter_SDH;
     bool sub_filter_SDH_harder;
+    char *sub_filter_SDH_enclosures;
     bool rf_enable;
     bool rf_plain;
     char **rf_items;
