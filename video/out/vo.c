@@ -444,7 +444,7 @@ static void update_vsync_timing_after_swap(struct vo *vo,
     }
 
     in->num_successive_vsyncs++;
-    if (in->num_successive_vsyncs <= 2)
+    if (in->num_successive_vsyncs <= vo->opts->swapchain_depth)
         return;
 
     if (in->num_vsync_samples >= MAX_VSYNC_SAMPLES)
