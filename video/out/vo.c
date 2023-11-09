@@ -176,7 +176,7 @@ static void read_opts(struct vo *vo)
     struct vo_internal *in = vo->in;
 
     pthread_mutex_lock(&in->lock);
-    in->timing_offset = (uint64_t)(vo->opts->timing_offset * 1e6);
+    in->timing_offset = (uint64_t)(MP_TIME_S_TO_NS(vo->opts->timing_offset));
     pthread_mutex_unlock(&in->lock);
 }
 
@@ -462,7 +462,7 @@ static void update_vsync_timing_after_swap(struct vo *vo,
     vsync_skip_detection(vo);
 
     MP_STATS(vo, "value %f jitter", in->estimated_vsync_jitter);
-    MP_STATS(vo, "value %f vsync-diff", in->vsync_samples[0] / 1e9);
+    MP_STATS(vo, "value %f vsync-diff", MP_TIME_NS_TO_S(in->vsync_samples[0]));
 }
 
 // to be called from VO thread only
@@ -846,7 +846,7 @@ static bool render_frame(struct vo *vo)
     in->dropped_frame &= frame->can_drop;
     // Even if we're hopelessly behind, rather degrade to 10 FPS playback,
     // instead of just freezing the display forever.
-    in->dropped_frame &= now - (in->prev_vsync / 1000.0) < 100 * 1000;
+    in->dropped_frame &= now - in->prev_vsync < MP_TIME_MS_TO_NS(100);
     in->dropped_frame &= in->hasframe_rendered;
 
     // Setup parameters for the next time this frame is drawn. ("frame" is the
@@ -1032,7 +1032,7 @@ static void *vo_thread(void *ptr)
         vo->driver->control(vo, VOCTRL_CHECK_EVENTS, NULL);
         bool working = render_frame(vo);
         int64_t now = mp_time_ns();
-        int64_t wait_until = now + (working ? 0 : (int64_t)1e9);
+        int64_t wait_until = now + MP_TIME_S_TO_NS(working ? 0 : 1000);
 
         pthread_mutex_lock(&in->lock);
         if (in->wakeup_pts) {
@@ -1251,7 +1251,7 @@ double vo_get_delay(struct vo *vo)
             res = 0;
     }
     pthread_mutex_unlock(&in->lock);
-    return res ? (res - mp_time_ns()) / 1e9 : 0;
+    return res ? MP_TIME_NS_TO_S(res - mp_time_ns()) : 0;
 }
 
 void vo_discard_timing_info(struct vo *vo)
