@@ -360,6 +360,7 @@ static double vsync_stddef(struct vo *vo, double ref_vsync)
 }
 
 #define MAX_VSYNC_SAMPLES 1000
+#define DELAY_VSYNC_SAMPLES 10
 
 // Check if we should switch to measured average display FPS if it seems
 // "better" then the system-reported one. (Note that small differences are
@@ -444,7 +445,7 @@ static void update_vsync_timing_after_swap(struct vo *vo,
     }
 
     in->num_successive_vsyncs++;
-    if (in->num_successive_vsyncs <= vo->opts->swapchain_depth)
+    if (in->num_successive_vsyncs <= DELAY_VSYNC_SAMPLES)
         return;
 
     if (in->num_vsync_samples >= MAX_VSYNC_SAMPLES)
