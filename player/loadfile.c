@@ -257,7 +257,7 @@ static void print_stream(struct MPContext *mpctx, struct track *t)
         if (s && s->codec->samplerate)
             APPEND(b, " %dHz", s->codec->samplerate);
     }
-    if (s->hls_bitrate > 0)
+    if (s && s->hls_bitrate > 0)
         APPEND(b, " (%d kbps)", (s->hls_bitrate + 500) / 1000);
     if (t->is_external)
         APPEND(b, " (external)");

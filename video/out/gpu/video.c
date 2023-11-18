@@ -1701,6 +1701,7 @@ static void reinit_scaler(struct gl_video *p, struct scaler *scaler,
                           double scale_factor,
                           int sizes[])
 {
+    assert(conf);
     if (scaler_conf_eq(scaler->conf, *conf) &&
         scaler->scale_factor == scale_factor &&
         scaler->initialized)
@@ -1708,13 +1709,13 @@ static void reinit_scaler(struct gl_video *p, struct scaler *scaler,
 
     uninit_scaler(p, scaler);
 
-    if (conf && scaler->index == SCALER_DSCALE && (!conf->kernel.name ||
+    if (scaler->index == SCALER_DSCALE && (!conf->kernel.name ||
         !conf->kernel.name[0]))
     {
         conf = &p->opts.scaler[SCALER_SCALE];
     }
 
-    if (conf && scaler->index == SCALER_CSCALE && (!conf->kernel.name ||
+    if (scaler->index == SCALER_CSCALE && (!conf->kernel.name ||
         !conf->kernel.name[0]))
     {
         conf = &p->opts.scaler[SCALER_SCALE];
