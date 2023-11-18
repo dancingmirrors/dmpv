@@ -54,7 +54,7 @@ static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
         goto done;
 
     devices = talloc_array(NULL, VkPhysicalDevice, num);
-    vkEnumeratePhysicalDevices(inst, &num, devices);
+    res = vkEnumeratePhysicalDevices(inst, &num, devices);
     if (res != VK_SUCCESS)
         goto done;
 
