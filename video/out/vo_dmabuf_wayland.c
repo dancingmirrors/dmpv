@@ -745,12 +745,6 @@ static int preinit(struct vo *vo)
         goto err;
     }
 
-    if (!vo->wl->viewport) {
-        MP_FATAL(vo->wl, "Compositor doesn't support the %s protocol!\n",
-                 wp_viewporter_interface.name);
-        goto err;
-    }
-
         int width = 1;
         int height = 1;
         int stride = MP_ALIGN_UP(width * 4, 16);
