@@ -7249,7 +7249,7 @@ void mp_option_run_callback(struct MPContext *mpctx, int index)
         handle_force_window(mpctx, true);
         reinit_video_chain(mpctx);
         if (track)
-            reselect_demux_stream(mpctx, track, true);
+            queue_seek(mpctx, MPSEEK_RELATIVE, 0.0, MPSEEK_EXACT, 0);
 
         mp_wakeup_core(mpctx);
     }
