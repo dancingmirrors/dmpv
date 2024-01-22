@@ -22,7 +22,7 @@
 struct deint_priv {
     struct mp_subfilter sub;
     int prev_imgfmt;
-    int prev_setting;
+    bool deinterlace_active;
     struct m_config_cache *opts;
 };
 
@@ -46,15 +46,18 @@ static void deint_process(struct mp_filter *f)
         return;
     }
 
+    struct mp_image *img = frame.data;
+    bool interlaced = img->fields & MP_IMGFIELD_INTERLACED;
+
     m_config_cache_update(p->opts);
     struct filter_opts *opts = p->opts->opts;
+    bool should_deinterlace = (opts->deinterlace == -1 && interlaced) ||
+                               opts->deinterlace == 1;
 
-    if (!opts->deinterlace)
+    if (!should_deinterlace)
         mp_subfilter_destroy(&p->sub);
 
-    struct mp_image *img = frame.data;
-
-    if (img->imgfmt == p->prev_imgfmt && p->prev_setting == opts->deinterlace) {
+    if (img->imgfmt == p->prev_imgfmt && p->deinterlace_active == should_deinterlace) {
         mp_subfilter_continue(&p->sub);
         return;
     }
@@ -65,8 +68,8 @@ static void deint_process(struct mp_filter *f)
     mp_assert(!p->sub.filter);
 
     p->prev_imgfmt = img->imgfmt;
-    p->prev_setting = opts->deinterlace;
-    if (!p->prev_setting) {
+    p->deinterlace_active = should_deinterlace;
+    if (!p->deinterlace_active) {
         mp_subfilter_continue(&p->sub);
         return;
     }
