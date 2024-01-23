@@ -224,7 +224,7 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
             num_channels                = dts_hd_spdif_channel_count;
         } else {
             sample_format               = AF_FORMAT_S_DTS;
-            samplerate                  = 48000;
+            samplerate                  = c_rate > 44100 ? 48000 : 44100;
             num_channels                = 2;
         }
         break;
