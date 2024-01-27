@@ -1037,7 +1037,7 @@ static bool render_frame(struct vo *vo)
     mp_cond_broadcast(&in->wakeup); // for vo_wait_frame()
 
 done:
-    if (!vo->driver->frame_owner)
+    if (!vo->driver->frame_owner || in->dropped_frame)
         talloc_free(frame);
     mp_mutex_unlock(&in->lock);
 
