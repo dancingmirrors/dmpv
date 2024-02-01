@@ -448,7 +448,8 @@ char *format_file_size(int64_t size);
 #define UPDATE_LAVFI_COMPLEX    (1 << 19) // --lavfi-complex
 #define UPDATE_HWDEC            (1 << 20) // --hwdec
 #define UPDATE_SUB_HARD         (1 << 21) // subtitle opts. that need full reinit
-#define UPDATE_OPT_LAST         (1 << 22)
+#define UPDATE_VIDEO            (1 << 22) // force redraw if needed
+#define UPDATE_OPT_LAST         (1 << 23)
 
 // All bits between _FIRST and _LAST (inclusive)
 #define UPDATE_OPTS_MASK \
