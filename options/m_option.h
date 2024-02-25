@@ -387,6 +387,9 @@ struct m_option {
     // If the option is an alias, use the prefix of sub option.
     bool alias_use_prefix;
 
+    // Always force an option update even if the written value does not change.
+    bool force_update;
+
     int offset;
 
     // Most numeric types restrict the range to [min, max] if min<max (this
