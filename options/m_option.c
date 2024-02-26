@@ -76,7 +76,6 @@ int m_option_parse(struct mp_log *log, const m_option_t *opt,
     if (r < 0)
         return r;
 
-/* FIXME
     if (opt->validate) {
         r = opt->validate(log, opt, name, dst);
         if (r < 0) {
@@ -85,8 +84,7 @@ int m_option_parse(struct mp_log *log, const m_option_t *opt,
             return r;
         }
     }
-    return 1; */
-return 0;
+    return 1;
 }
 
 char *m_option_strerror(int code)
