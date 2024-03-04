@@ -60,10 +60,14 @@ static const char *mp_get_platform_path(void *talloc_ctx,
     mp_assert(talloc_ctx);
 
     if (global->configdir && global->configdir[0]) {
+        // Return NULL for all platform paths if --no-config is passed
+        if (!global->configdir[0])
+            return NULL;
+
         // force all others to NULL, only first returns the path
         for (int n = 0; n < MP_ARRAY_SIZE(config_dirs); n++) {
             if (strcmp(config_dirs[n], type) == 0)
-                return n == 0 ? global->configdir : NULL;
+                return (n == 0) ? global->configdir : NULL;
         }
     }
 
