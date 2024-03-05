@@ -37,6 +37,7 @@
 #include "input/event.h"
 #include "stream/stream.h"
 #include "video/csputils.h"
+#include "video/filter/refqueue.h"
 #include "video/hwdec.h"
 #include "video/image_writer.h"
 #include "sub/osd.h"
@@ -354,9 +355,16 @@ const struct m_sub_options filter_conf = {
     .opts = (const struct m_option[]){
         {"deinterlace", OPT_CHOICE(deinterlace,
             {"no", 0}, {"yes", 1}, {"auto", -1})},
+        {"deinterlace-field-parity", OPT_CHOICE(field_parity, 
+            {"tff", MP_FIELD_PARITY_TFF}, 
+            {"bff", MP_FIELD_PARITY_BFF}, 
+            {"auto", MP_FIELD_PARITY_AUTO})},
         {0}
     },
     .size = sizeof(OPT_BASE_STRUCT),
+    .defaults = &(const struct filter_opts){
+        .field_parity = MP_FIELD_PARITY_AUTO,
+    },
     .change_flags = UPDATE_IMGPAR,
 };
 
