@@ -1609,10 +1609,10 @@ static void guess_focus(struct vo_wayland_state *wl)
     // the user has no keyboard.
     if ((!wl->focused && wl->activated && wl->has_keyboard_input) ||
         (wl->focused && !wl->activated))
-     {
-         wl->focused = !wl->focused;
-         wl->pending_vo_events |= VO_EVENT_FOCUS;
-     }
+    {
+        wl->focused = !wl->focused;
+        wl->pending_vo_events |= VO_EVENT_FOCUS;
+    }
 }
 
 static struct vo_wayland_output *find_output(struct vo_wayland_state *wl)

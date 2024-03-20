@@ -91,13 +91,13 @@ int drm_prime_create_framebuffer(struct mp_log *log, int fd,
         for (int object = 0; object < descriptor->nb_objects; object++) {
             drm_prime_add_handle_ref(handle_refs, framebuffer->gem_handles[object]);
         }
-   }
+    }
 
-   return 0;
+    return 0;
 
 fail:
-   memset(framebuffer, 0, sizeof(*framebuffer));
-   return -1;
+    memset(framebuffer, 0, sizeof(*framebuffer));
+    return -1;
 }
 
 void drm_prime_destroy_framebuffer(struct mp_log *log, int fd,

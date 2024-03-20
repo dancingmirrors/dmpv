@@ -4566,9 +4566,9 @@ static void cmd_overlay_add(void *pcmd)
     int dw = cmd->args[9].v.i, dh = cmd->args[10].v.i;
 
     if (dw <= 0)
-      dw = w;
+        dw = w;
     if (dh <= 0)
-      dh = h;
+        dh = h;
     if (strcmp(fmt, "bgra") != 0) {
         MP_ERR(mpctx, "overlay-add: unsupported OSD format '%s'\n", fmt);
         goto error;
