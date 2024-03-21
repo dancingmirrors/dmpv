@@ -57,7 +57,7 @@
 #define input_lock(ictx)    pthread_mutex_lock(&ictx->mutex)
 #define input_unlock(ictx)  pthread_mutex_unlock(&ictx->mutex)
 
-#define MP_MAX_KEY_DOWN 4
+#define MP_MAX_KEY_DOWN 16
 
 struct cmd_bind {
     int keys[MP_MAX_KEY_DOWN];
