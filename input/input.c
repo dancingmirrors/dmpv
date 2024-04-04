@@ -1440,6 +1440,7 @@ void mp_input_run_cmd(struct input_ctx *ictx, const char **cmd)
 
 void mp_input_bind_key(struct input_ctx *ictx, int key, bstr command)
 {
+    input_lock(ictx);
     struct cmd_bind_section *bs = get_bind_section(ictx, (bstr){0});
     struct cmd_bind *bind = NULL;
 
@@ -1474,6 +1475,7 @@ void mp_input_bind_key(struct input_ctx *ictx, int key, bstr command)
                  bind->cmd, bind->location);
         talloc_free(s);
     }
+    input_unlock(ictx);
 }
 
 struct mpv_node mp_input_get_bindings(struct input_ctx *ictx)
