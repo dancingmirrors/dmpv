@@ -135,7 +135,7 @@ static bool select_format(struct priv *p, int input_fmt,
     return true;
 }
 
-static void process(struct mp_filter *f)
+static void hwupload_process(struct mp_filter *f)
 {
     struct priv *p = f->priv;
 
@@ -220,7 +220,7 @@ error:
     mp_filter_internal_mark_failed(f);
 }
 
-static void destroy(struct mp_filter *f)
+static void hwupload_destroy(struct mp_filter *f)
 {
     struct priv *p = f->priv;
 
@@ -231,8 +231,8 @@ static void destroy(struct mp_filter *f)
 static const struct mp_filter_info hwupload_filter = {
     .name = "hwupload",
     .priv_size = sizeof(struct priv),
-    .process = process,
-    .destroy = destroy,
+    .process = hwupload_process,
+    .destroy = hwupload_destroy,
 };
 
 // The VO layer might have restricted format support. It might actually
