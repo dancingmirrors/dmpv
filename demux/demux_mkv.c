@@ -1359,6 +1359,7 @@ static const char *const mkv_video_tags[][2] = {
     {"V_DIRAC",             "dirac"},
     {"V_PRORES",            "prores"},
     {"V_MPEGH/ISO/HEVC",    "hevc"},
+    {"V_MPEGI/ISO/VVC",     "vvc"},
     {"V_SNOW",              "snow"},
     {"V_AV1",               "av1"},
     {"V_PNG",               "png"},
