@@ -107,4 +107,6 @@ AVRational encoder_get_mux_timebase_unlocked(struct encoder_context *p);
 
 double encoder_get_offset(struct encoder_context *p);
 
+void encoder_update_log(struct dmpv_global *global);
+
 #endif
