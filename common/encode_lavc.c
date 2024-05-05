@@ -121,12 +121,6 @@ struct encode_lavc_context *encode_lavc_init(struct dmpv_global *global)
     if (!strcmp(filename, "-"))
         filename = "pipe:1";
 
-    if (filename && (
-            !strcmp(filename, "/dev/stdout") ||
-            !strcmp(filename, "pipe:") ||
-            !strcmp(filename, "pipe:1")))
-        mp_msg_force_stderr(global, true);
-
     encode_lavc_discontinuity(ctx);
 
     p->muxer = avformat_alloc_context();
@@ -947,6 +941,19 @@ double encoder_get_offset(struct encoder_context *p)
     case AVMEDIA_TYPE_AUDIO: return p->options->aoffset;
     default:                 return 0;
     }
+}
+
+void encoder_update_log(struct dmpv_global *global)
+{
+    struct encode_opts *options = mp_get_config_group(NULL, global, &encode_config);
+    if (options->file && (!strcmp(options->file, "-") ||
+                          !strcmp(options->file, "/dev/stdout") ||
+                          !strcmp(options->file, "pipe:") ||
+                          !strcmp(options->file, "pipe:1")))
+    {
+        mp_msg_force_stderr(global, true);
+    }
+    talloc_free(options);
 }
 
 // vim: ts=4 sw=4 et
