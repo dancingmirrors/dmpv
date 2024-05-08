@@ -107,6 +107,10 @@ struct mp_codec_params {
     int stereo_mode;      // mp_stereo3d_mode (0 if none/unknown)
     struct mp_colorspace color; // colorspace info where available
 
+    bool dovi;
+    uint8_t dv_profile;
+    uint8_t dv_level;
+
     // STREAM_VIDEO + STREAM_AUDIO
     int bits_per_coded_sample;
 
