@@ -47,6 +47,8 @@ bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
 
 static inline bool gl_parse_3dlut_size(const char *arg, int *p1, int *p2, int *p3)
 {
+    if (!arg)
+        return false;
     if (!strcmp(arg, "auto")) {
         *p1 = *p2 = *p3 = 0;
         return true;
