@@ -305,7 +305,7 @@ void mp_write_watch_later_conf(struct MPContext *mpctx)
     write_filename(mpctx, file, cur->filename);
 
     bool write_start = true;
-    double pos = get_current_time(mpctx);
+    double pos = get_playback_time(mpctx);
 
     if ((demux && (!demux->seekable || demux->partially_seekable)) ||
         pos == MP_NOPTS_VALUE)
