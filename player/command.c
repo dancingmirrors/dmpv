@@ -863,6 +863,13 @@ static int mp_property_playback_time(void *ctx, struct m_property *prop,
     return property_time(action, arg, get_playback_time(mpctx));
 }
 
+static int mp_property_remaining_file_loops(void *ctx, struct m_property *prop,
+        int action, void *arg)
+{
+    MPContext *mpctx = ctx;
+    return m_property_int_ro(action, arg, mpctx->remaining_file_loops);
+}
+
 /// Current chapter (RW)
 static int mp_property_chapter(void *ctx, struct m_property *prop,
                                int action, void *arg)
@@ -3979,6 +3986,7 @@ static const struct m_property mp_properties_base[] = {
 
     {"ab-loop-a", mp_property_ab_loop},
     {"ab-loop-b", mp_property_ab_loop},
+    {"remaining-file-loops", mp_property_remaining_file_loops},
 
 #define PROPERTY_BITRATE(name, old, type) \
     {name, mp_property_packet_bitrate, (void *)(uintptr_t)((type)|(old?0x100:0))}
@@ -7238,6 +7246,11 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
 
     if (opt_ptr == &opts->cursor_autohide_delay)
         mpctx->mouse_timer = 0;
+
+    if (opt_ptr == &opts->loop_file) {
+        mpctx->remaining_file_loops = opts->loop_file;
+        mp_notify_property(mpctx, "remaining-file-loops");
+    }
 
     if (opt_ptr == &opts->ab_loop[0] || opt_ptr == &opts->ab_loop[1]) {
         update_ab_loop_clip(mpctx);
