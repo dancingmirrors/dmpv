@@ -188,6 +188,10 @@ static const struct format_hack format_hacks[] = {
     // (e.g. gain map)
     {"jpeg_pipe", .first_frame_only = true},
 
+    // Ignore additional metadata as frames from some single frame JPEGs
+    // (e.g. gain map)
+    {"jpeg_pipe", .first_frame_only = true},
+
     // At some point, FFmpeg lost the ability to read gif from unseekable
     // streams.
     {"gif", .readall_on_no_streamseek = true},
@@ -1261,8 +1265,8 @@ static bool demux_lavf_read_packet(struct demuxer *demux,
     struct sh_stream *stream = info->sh;
     AVStream *st = priv->avfc->streams[pkt->stream_index];
 
-    // Never send additional frames for streams that are a single frame jpeg.
-    if (stream->image && !strcmp(priv->avif->name, "jpeg_pipe") && pkt->pos != 0) {
+    // Never send additional frames for streams that are a single frame.
+    if (stream->image && priv->format_hack.first_frame_only && pkt->pos != 0) {
         av_packet_unref(pkt);
         return true;
     }
