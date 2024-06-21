@@ -318,8 +318,6 @@ check(desc      = "FFmpeg",
                     "libswresample  >= 3.0.100"),
       required  = "Unable to find development files for some of the required \
 FFmpeg libraries.")
-check("-av_channel_layout*",
-      sources   = "audio/chmap_avchannel.c")
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 57.0.0"))
 
@@ -762,6 +760,7 @@ check("-macos-cocoa-cb*",
 add_sources(
     "audio/aframe.c",
     "audio/chmap.c",
+    "audio/chmap_avchannel.c",
     "audio/chmap_sel.c",
     "audio/decode/ad_lavc.c",
     "audio/decode/ad_spdif.c",
