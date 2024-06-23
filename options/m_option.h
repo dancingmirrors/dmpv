@@ -376,6 +376,9 @@ struct m_option {
     // See \ref OptionFlags.
     unsigned int flags;
 
+    // If the option is an alias, use the prefix of sub option.
+    bool alias_use_prefix;
+
     int offset;
 
     // Most numeric types restrict the range to [min, max] if min<max (this
