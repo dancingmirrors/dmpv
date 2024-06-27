@@ -33,6 +33,7 @@ struct wayland_opts {
     bool disable_vsync;
     int edge_pixels_pointer;
     int edge_pixels_touch;
+    bool present;
 };
 
 struct vo_wayland_state {
@@ -110,6 +111,7 @@ struct vo_wayland_state {
     struct vo_wayland_feedback_pool *fback_pool;
     struct mp_present *present;
     int64_t refresh_interval;
+    bool present_clock;
     bool use_present;
 
     /* xdg-decoration */
