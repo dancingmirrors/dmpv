@@ -240,4 +240,5 @@ const struct m_sub_options ra_ctx_conf = {
         {0}
     },
     .size = sizeof(struct ra_ctx_opts),
+    .change_flags = UPDATE_VO,
 };
