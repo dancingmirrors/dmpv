@@ -275,7 +275,7 @@ static bool wgl_init(struct ra_ctx *ctx)
     GL *gl = &p->gl;
 
     if (!vo_w32_init(ctx->vo))
-        goto fail;
+        return false;
 
     vo_w32_run_on_thread(ctx->vo, create_ctx, ctx);
     if (!p->context)
