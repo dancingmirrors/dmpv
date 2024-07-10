@@ -1281,6 +1281,10 @@ static void open_demux_reentrant(struct MPContext *mpctx)
     if (!mpctx->open_active)
         start_open(mpctx, url, mpctx->playing->stream_flags, false);
 
+    // If thread failed to start, cancel the playback
+    if (!mpctx->open_active)
+        goto cancel;
+
     // User abort should cancel the opener now.
     mp_cancel_set_parent(mpctx->open_cancel, mpctx->playback_abort);
 
@@ -1299,6 +1303,7 @@ static void open_demux_reentrant(struct MPContext *mpctx)
         mpctx->error_playing = mpctx->open_res_error;
     }
 
+cancel:
     cancel_open(mpctx); // cleanup
 }
 
