@@ -291,6 +291,9 @@ check("-wasapi*",
                    "audio/out/ao_wasapi_changenotify.c",
                    "audio/out/ao_wasapi_utils.c"])
 
+# OpenBSD
+check("wsdisplay-usl-io-h*",
+      fn        = lambda: check_cc(include = "dev/wscons/wsdisplay_usl_io.h"))
 check("vt_h*",
       fn        = lambda: check_cc(include = ["sys/vt.h", "sys/ioctl.h"],
                                    expr = "int m; ioctl(0, VT_GETMODE, &m);"))
@@ -300,7 +303,7 @@ check("consio_h*",
                                    expr = "int m; ioctl(0, VT_GETMODE, &m);"))
 check("-drm*",
       desc      = "Direct Rendering Manager",
-      deps_any  = ["vt_h", "consio_h"],
+      deps_any  = ["wsdisplay-usl-io-h", "vt_h", "consio_h"],
       fn        = lambda: check_pkg_config("libdrm >= 2.4.105"),
       sources   = ["video/out/drm_atomic.c",
                    "video/out/drm_common.c",
