@@ -422,7 +422,10 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
         bstr_xappend_asprintf(root, &root->buffer, "%s", log->partial);
     log->partial[0] = '\0';
 
-    bstr_xappend_vasprintf(root, &root->buffer, format, va);
+    if (bstr_xappend_vasprintf(root, &root->buffer, format, va) < 0) {
+        bstr_xappend(root, &root->buffer, bstr0("format error: "));
+        bstr_xappend(root, &root->buffer, bstr0(format));
+    }
 
     char *text = root->buffer.start;
 
