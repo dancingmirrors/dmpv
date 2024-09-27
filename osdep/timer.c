@@ -34,7 +34,6 @@ static pthread_once_t timer_init_once = PTHREAD_ONCE_INIT;
 static void do_timer_init(void)
 {
     mp_raw_time_init();
-    mp_rand_seed(mp_raw_time_ns());
     raw_time_offset = mp_raw_time_ns();
     mp_assert(raw_time_offset > 0);
 }
