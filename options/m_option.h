@@ -458,6 +458,8 @@ char *format_file_size(int64_t size);
 #define M_OPT_DEFAULT_NAN       (1 << 23)
 
 // type time: string "no" maps to MP_NOPTS_VALUE (if unset, NOPTS is rejected)
+// and
+// parsing: "--no-opt" is parsed as "--opt=no"
 #define M_OPT_ALLOW_NO          (1 << 24)
 
 // type channels: disallow "auto" (still accept ""), limit list to at most 1 item.
