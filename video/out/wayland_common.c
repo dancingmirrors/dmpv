@@ -1335,6 +1335,11 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
         wl->shm = wl_registry_bind(reg, id, &wl_shm_interface, 1);
     }
 
+    if (!strcmp(interface, wp_fifo_manager_v1_interface.name) && found++) {
+        ver = 1;
+        wl->has_fifo = true;
+    }
+
     if (!strcmp(interface, wp_fractional_scale_manager_v1_interface.name) && found++) {
         wl->fractional_scale_manager = wl_registry_bind(reg, id, &wp_fractional_scale_manager_v1_interface, 1);
     }
@@ -1345,6 +1350,8 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     }
 
     if (!strcmp(interface, wp_presentation_interface.name) && found++) {
+        ver = MPMIN(ver, 2);
+        wl->present_v2 = ver == 2;
         wl->presentation = wl_registry_bind(reg, id, &wp_presentation_interface, 1);
         wp_presentation_add_listener(wl->presentation, &pres_listener, wl);
     }

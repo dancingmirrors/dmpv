@@ -91,6 +91,9 @@ struct vo_wayland_state {
     struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
     struct wp_cursor_shape_device_v1 *cursor_shape_device;
 
+    /* fifo */
+    bool has_fifo;
+
     /* fractional-scale */
     struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
     struct wp_fractional_scale_v1 *fractional_scale;
@@ -111,6 +114,7 @@ struct vo_wayland_state {
     struct mp_present *present;
     int64_t refresh_interval;
     bool present_clock;
+    bool present_v2;
     bool use_present;
 
     /* xdg-activation */
