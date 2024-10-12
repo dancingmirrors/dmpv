@@ -30,7 +30,7 @@ typedef struct {
 
 struct wayland_opts {
     int configure_bounds;
-    bool disable_vsync;
+    int wl_internal_vsync;
     int edge_pixels_pointer;
     int edge_pixels_touch;
     bool present;
