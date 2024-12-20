@@ -304,13 +304,13 @@ static void swapchain_step(struct vo *vo)
     }
 }
 
-static void draw_frame(struct vo *vo, struct vo_frame *frame)
+static bool draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct vo_drm_state *drm = vo->drm;
     struct priv *p = vo->priv;
 
     if (!drm->active)
-        return;
+        goto done;
 
     drm->still = frame->still;
 
@@ -323,6 +323,9 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     }
 
     enqueue_frame(vo, fb);
+
+done:
+    return VO_TRUE;
 }
 
 static void queue_flip(struct vo *vo, struct drm_frame *frame)

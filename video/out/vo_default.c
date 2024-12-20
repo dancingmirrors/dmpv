@@ -893,7 +893,7 @@ static void update_tm_viz(struct pl_color_map_params *params,
     params->visualize_hue = M_PI / 4.0;
 }
 
-static void draw_frame(struct vo *vo, struct vo_frame *frame)
+static bool draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
     pl_options pars = p->pars;
@@ -1004,7 +1004,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
 #endif
             ));
         }
-        return;
+        return VO_FALSE;
     }
 
     bool valid = false;
@@ -1139,6 +1139,7 @@ done:
 
     pl_gpu_flush(gpu);
     p->frame_pending = true;
+    return VO_TRUE;
 }
 
 static void flip_page(struct vo *vo)
