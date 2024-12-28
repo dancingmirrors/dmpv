@@ -112,7 +112,7 @@ struct lavc_conv *lavc_conv_create(struct mp_log *log,
  error:
     MP_FATAL(priv, "Could not open libavcodec subtitle converter\n");
     av_dict_free(&opts);
-    av_free(avctx);
+    avcodec_free_context(&avctx);
     mp_free_av_packet(&priv->avpkt);
     mp_free_av_packet(&priv->avpkt_vtt);
     talloc_free(priv);
