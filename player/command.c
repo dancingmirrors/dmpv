@@ -5325,7 +5325,10 @@ static void cmd_frame_step(void *p)
         return;
     }
 
-    if (frames > 0 && !flags && cmd->cmd->is_up_down) {
+    if (flags) {
+        if (!cmd->cmd->is_up)
+            add_step_frame(mpctx, frames, flags);
+    } else {
         if (cmd->cmd->is_up) {
             if (mpctx->step_frames < 1)
                 set_pause_state(mpctx, true);
@@ -5336,8 +5339,6 @@ static void cmd_frame_step(void *p)
                 add_step_frame(mpctx, frames, flags);
             }
         }
-    } else {
-        add_step_frame(mpctx, frames, flags);
     }
 }
 
