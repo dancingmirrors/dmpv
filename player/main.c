@@ -390,6 +390,8 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     cocoa_set_mpv_handle(ctx);
 #endif
 
+    mpctx->ipc_ctx = mp_init_ipc(mpctx->clients, mpctx->global);
+
     if (opts->encode_opts->file && opts->encode_opts->file[0]) {
         mpctx->encode_lavc_ctx = encode_lavc_init(mpctx->global);
         if(!mpctx->encode_lavc_ctx) {
