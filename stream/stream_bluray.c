@@ -87,13 +87,6 @@ struct bluray_priv_s {
     bool use_nav;
 };
 
-static void destruct(struct bluray_priv_s *priv)
-{
-    if (priv->title_info)
-        bd_free_title_info(priv->title_info);
-    bd_close(priv->bd);
-}
-
 inline static int play_playlist(struct bluray_priv_s *priv, int playlist)
 {
     return bd_select_playlist(priv->bd, playlist);
@@ -106,7 +99,14 @@ inline static int play_title(struct bluray_priv_s *priv, int title)
 
 static void bluray_stream_close(stream_t *s)
 {
-    destruct(s->priv);
+    struct bluray_priv_s *priv = s->priv;
+    if (!priv)
+        return;
+
+    if (priv->title_info)
+        bd_free_title_info(priv->title_info);
+    if (priv->bd)
+        bd_close(priv->bd);
 }
 
 static void handle_event(stream_t *s, const BD_EVENT *ev)
@@ -371,6 +371,7 @@ static int bluray_stream_open_internal(stream_t *s)
 {
     struct bluray_priv_s *b = s->priv;
 
+    int ret = 0;
     char *device = NULL;
     /* find the requested device */
     if (b->cfg_device && b->cfg_device[0]) {
@@ -382,7 +383,8 @@ static int bluray_stream_open_internal(stream_t *s)
 
     if (!device || !device[0]) {
         MP_ERR(s, "No Blu-ray device/location was specified ...\n");
-        return STREAM_UNSUPPORTED;
+        ret = STREAM_UNSUPPORTED;
+        goto err;
     }
 
     if (!mp_msg_test(s->log, MSGL_DEBUG))
@@ -392,26 +394,28 @@ static int bluray_stream_open_internal(stream_t *s)
     BLURAY *bd = bd_open(device, NULL);
     if (!bd) {
         MP_ERR(s, "Couldn't open Blu-ray device: %s\n", device);
-        return STREAM_UNSUPPORTED;
+        ret = STREAM_UNSUPPORTED;
+        goto err;
     }
     b->bd = bd;
 
     if (!check_disc_info(s)) {
-        destruct(b);
-        return STREAM_UNSUPPORTED;
+        ret = STREAM_UNSUPPORTED;
+        goto err;
     }
 
     int title_guess = BLURAY_DEFAULT_TITLE;
     if (b->use_nav) {
         MP_FATAL(s, "BluRay menu support has been removed.\n");
-        return STREAM_ERROR;
+        ret = STREAM_ERROR;
+        goto err;
     } else {
         /* check for available titles on disc */
         b->num_titles = bd_get_titles(bd, TITLES_RELEVANT, 0);
         if (!b->num_titles) {
             MP_ERR(s, "Can't find any Blu-ray-compatible title here.\n");
-            destruct(b);
-            return STREAM_UNSUPPORTED;
+            ret = STREAM_UNSUPPORTED;
+            goto err;
         }
 
         MP_INFO(s, "List of available titles:\n");
@@ -456,6 +460,10 @@ static int bluray_stream_open_internal(stream_t *s)
     MP_VERBOSE(s, "Blu-ray successfully opened.\n");
 
     return STREAM_OK;
+
+err:
+    bluray_stream_close(s);
+    return ret;
 }
 
 const stream_info_t stream_info_bdnav;
