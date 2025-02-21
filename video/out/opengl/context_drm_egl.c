@@ -701,7 +701,7 @@ static bool drm_egl_init(struct ra_ctx *ctx)
         MP_VERBOSE(ctx, "Could not find path to render node. VA-API hwdec will be disabled\n");
     }
 
-    struct ra_gl_ctx_params params = {
+    struct ra_ctx_params params = {
         .external_swapchain = &drm_egl_swapchain,
         .get_vsync          = &drm_egl_get_vsync,
     };

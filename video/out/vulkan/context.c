@@ -112,7 +112,7 @@ const struct m_sub_options vulkan_conf = {
 struct priv {
     struct dmpvk_ctx *vk;
     struct vulkan_opts *opts;
-    struct ra_vk_ctx_params params;
+    struct ra_ctx_params params;
     struct ra_tex proxy_tex;
 };
 
@@ -148,7 +148,7 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
 }
 
 bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
-                    struct ra_vk_ctx_params params,
+                    struct ra_ctx_params params,
                     VkPresentModeKHR preferred_mode)
 {
     struct ra_swapchain *sw = ctx->swapchain = talloc_zero(NULL, struct ra_swapchain);
