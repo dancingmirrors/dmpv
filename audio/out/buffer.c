@@ -182,7 +182,7 @@ static int read_buffer(struct ao *ao, void **data, int samples, bool *eof)
 int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_us)
 {
     struct buffer_state *p = ao->buffer_state;
-    assert(!ao->driver->write);
+    mp_assert(!ao->driver->write);
 
     pthread_mutex_lock(&p->lock);
 
@@ -214,8 +214,8 @@ int ao_read_data_converted(struct ao *ao, struct ao_convert_fmt *fmt,
     if (!ao_need_conversion(fmt))
         return ao_read_data(ao, data, samples, out_time_us);
 
-    assert(ao->format == fmt->src_fmt);
-    assert(ao->channels.num == fmt->channels);
+    mp_assert(ao->format == fmt->src_fmt);
+    mp_assert(ao->channels.num == fmt->channels);
 
     bool planar = af_fmt_is_planar(fmt->src_fmt);
     int planes = planar ? fmt->channels : 1;
@@ -503,10 +503,10 @@ bool init_buffer_post(struct ao *ao)
 {
     struct buffer_state *p = ao->buffer_state;
 
-    assert(ao->driver->start);
+    mp_assert(ao->driver->start);
     if (ao->driver->write) {
-        assert(ao->driver->reset);
-        assert(ao->driver->get_state);
+        mp_assert(ao->driver->reset);
+        mp_assert(ao->driver->get_state);
     }
 
     pthread_mutex_init(&p->lock, NULL);
@@ -591,7 +591,7 @@ static bool ao_play_data(struct ao *ao)
     int space = state.free_samples;
     if (!space)
         return false;
-    assert(space >= 0);
+    mp_assert(space >= 0);
 
     int samples = 0;
     bool got_eof = false;
@@ -605,7 +605,7 @@ static bool ao_play_data(struct ao *ao)
             return false;
         }
         planes = (void **)mp_aframe_get_data_rw(p->temp_buf);
-        assert(planes);
+        mp_assert(planes);
 
         if (p->recover_pause) {
             samples = MPCLAMP(p->prepause_state.delay * ao->samplerate, 0, space);
