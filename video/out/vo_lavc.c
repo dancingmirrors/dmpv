@@ -61,13 +61,6 @@ static void uninit(struct vo *vo)
         encoder_encode(enc, NULL); // finish encoding
 }
 
-static void on_ready(void *ptr)
-{
-    struct vo *vo = ptr;
-
-    vo_event(vo, VO_EVENT_INITIAL_UNBLOCK);
-}
-
 static int reconfig2(struct vo *vo, struct mp_image *img)
 {
     struct priv *vc = vo->priv;
@@ -149,7 +142,7 @@ static int reconfig2(struct vo *vo, struct mp_image *img)
     else
         encoder->framerate = (AVRational){ 240, 1 };
 
-    if (!encoder_init_codec_and_muxer(vc->enc, on_ready, vo))
+    if (!encoder_init_codec_and_muxer(vc->enc))
         goto error;
 
     return 0;
@@ -257,7 +250,6 @@ const struct vo_driver video_out_lavc = {
     .encode = true,
     .description = "video encoding using libavcodec",
     .name = "lavc",
-    .initially_blocked = true,
     .untimed = true,
     .priv_size = sizeof(struct priv),
     .preinit = preinit,

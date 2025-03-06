@@ -70,8 +70,6 @@ struct buffer_state {
                                 // and is considered as a temporary solution;
                                 // DO NOT USE IT IN OTHER PLACES.
 
-    bool initial_unblocked;
-
     // "Push" AOs only (AOs with driver->write).
     bool recover_pause;         // non-hw_paused: needs to recover delay
     struct mp_pcm_state prepause_state;
@@ -684,9 +682,7 @@ static void *playthread(void *arg)
     while (1) {
         mp_mutex_lock(&p->lock);
 
-        bool retry = false;
-        if (!ao->driver->initially_blocked || p->initial_unblocked)
-            retry = ao_play_data(ao);
+        bool retry = ao_play_data(ao);
 
         // Wait until the device wants us to write more data to it.
         // Fallback to guessing.
@@ -715,15 +711,4 @@ static void *playthread(void *arg)
         mp_mutex_unlock(&p->pt_lock);
     }
     return NULL;
-}
-
-void ao_unblock(struct ao *ao)
-{
-    if (ao->driver->write) {
-        struct buffer_state *p = ao->buffer_state;
-        mp_mutex_lock(&p->lock);
-        p->initial_unblocked = true;
-        mp_mutex_unlock(&p->lock);
-        ao_wakeup_playthread(ao);
-    }
 }

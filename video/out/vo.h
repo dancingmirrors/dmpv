@@ -43,14 +43,11 @@ enum {
     VO_EVENT_AMBIENT_LIGHTING_CHANGED   = 1 << 4,
     // For VOCTRL_GET_HIDPI_SCALE changes.
     VO_EVENT_DPI                        = 1 << 5,
-    // Special thing for encode mode (vo_driver.initially_blocked).
-    // Part of VO_EVENTS_USER to make vo_is_ready_for_frame() work properly.
-    VO_EVENT_INITIAL_UNBLOCK            = 1 << 6,
-    VO_EVENT_FOCUS                      = 1 << 7,
+    VO_EVENT_FOCUS                      = 1 << 6,
 
     // Set of events the player core may be interested in.
     VO_EVENTS_USER = VO_EVENT_RESIZE | VO_EVENT_WIN_STATE | VO_EVENT_DPI |
-                     VO_EVENT_INITIAL_UNBLOCK | VO_EVENT_FOCUS,
+                     VO_EVENT_FOCUS,
 };
 
 enum mp_voctrl {
@@ -294,12 +291,6 @@ struct vo_vsync_info {
 struct vo_driver {
     // Encoding functionality, which can be invoked via --o only.
     bool encode;
-
-    // This requires waiting for a VO_EVENT_INITIAL_UNBLOCK event before the
-    // first frame can be sent. Doing vo_reconfig*() calls is allowed though.
-    // Encode mode uses this, the core uses vo_is_ready_for_frame() to
-    // implicitly check for this.
-    bool initially_blocked;
 
     // VO_CAP_* bits
     int caps;
