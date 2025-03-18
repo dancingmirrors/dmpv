@@ -181,6 +181,8 @@ enum {
     VO_CAP_NORETAIN     = 1 << 2,
     // VO supports applying film grain
     VO_CAP_FILM_GRAIN   = 1 << 3,
+    // VO does handle mp_image_params.vflip
+    VO_CAP_VFLIP        = 1 << 4,
 };
 
 enum {

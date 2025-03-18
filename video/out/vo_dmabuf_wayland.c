@@ -672,6 +672,10 @@ static int query_format(struct vo *vo, int format)
     return format == IMGFMT_DRMPRIME || format == IMGFMT_VAAPI;
 }
 
+static const int32_t transform_enum_lut[4][2] = {
+    {0, 6}, {1, 5}, {2, 4}, {3, 7},
+};
+
 static int reconfig(struct vo *vo, struct mp_image *img)
 {
     struct priv *p = vo->priv;
@@ -714,8 +718,8 @@ done:
     if (!vo_wayland_reconfig(vo))
         return VO_ERROR;
 
-    // dmpv doesn't have target_params or support rotation in VO
-    wl_surface_set_buffer_transform(vo->wl->video_surface, 0);
+    wl_surface_set_buffer_transform(vo->wl->video_surface,
+        transform_enum_lut[img->params.rotate / 90][!!img->params.vflip]);
 
     // Immediately destroy all buffers if params change.
     destroy_buffers(vo);
