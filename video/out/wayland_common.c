@@ -1331,7 +1331,8 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     }
 
     if (!strcmp(interface, wp_cursor_shape_manager_v1_interface.name) && found++) {
-        wl->cursor_shape_manager = wl_registry_bind(reg, id, &wp_cursor_shape_manager_v1_interface, 1);
+        ver = MPMIN(ver, 2);
+        wl->cursor_shape_manager = wl_registry_bind(reg, id, &wp_cursor_shape_manager_v1_interface, ver);
     }
 
     if (!strcmp(interface, wp_presentation_interface.name) && found++) {
