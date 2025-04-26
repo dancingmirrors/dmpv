@@ -123,7 +123,6 @@ static void process(struct mp_filter *f)
 error:
     mp_frame_unref(&frame);
     mp_filter_internal_mark_failed(f);
-    return;
 }
 
 static const struct mp_filter_info sws_filter = {

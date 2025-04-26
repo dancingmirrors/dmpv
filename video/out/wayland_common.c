@@ -1718,7 +1718,6 @@ static void remove_output(struct vo_wayland_output *out)
     talloc_free(out->make);
     talloc_free(out->model);
     talloc_free(out);
-    return;
 }
 
 static void set_cursor_shape(struct vo_wayland_state *wl)
