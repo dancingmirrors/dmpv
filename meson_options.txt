@@ -23,7 +23,7 @@ option('lua',
     type: 'combo',
     choices: ['lua', 'lua52', 'lua5.2', 'lua-5.2', 'luajit', 'lua51',
               'lua5.1', 'lua-5.1', 'auto', 'enabled', 'disabled'],
-    value: 'auto',
+    value: 'disabled',
     description: 'Lua'
 )
 option('pthread-debug', type: 'feature', value: 'disabled', description: 'pthread runtime debugging wrappers')
