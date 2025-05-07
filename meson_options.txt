@@ -93,7 +93,7 @@ option('vaapi-x-egl', type: 'feature', value: 'auto', description: 'VAAPI EGL on
 option('vulkan', type: 'feature', value: 'auto', description: 'Vulkan context support')
 option('wayland', type: 'feature', value: 'auto', description: 'Wayland')
 option('x11', type: 'feature', value: 'auto', description: 'X11')
-option('xv', type: 'feature', value: 'auto', description: 'Xv video output')
+option('xv', type: 'feature', value: 'disabled', description: 'Xv video output')
 
 # hwaccel features
 option('android-media-ndk', type: 'feature', value: 'auto', description: 'Android Media APIs')
