@@ -288,7 +288,8 @@ endif
 if cc.get_id() == 'clang'
     clang_flags = ['-Wno-logical-op-parentheses', '-Wno-switch',
                    '-Wno-tautological-compare', '-Wno-pointer-sign',
-                   '-Wno-tautological-constant-out-of-range-compare']
+                   '-Wno-tautological-constant-out-of-range-compare',
+                   '-Wno-unused-label']
     flags += clang_flags
 endif
 

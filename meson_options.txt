@@ -13,7 +13,7 @@ option('cdda', type: 'feature', value: 'disabled', description: 'cdda support (l
 option('cplugins', type: 'feature', value: 'auto', description: 'C plugins')
 option('dvbin', type: 'feature', value: 'disabled', description: 'DVB input module')
 option('dvdnav', type: 'feature', value: 'disabled', description: 'dvdnav support')
-option('iconv', type: 'feature', value: 'auto', description: 'iconv')
+option('iconv', type: 'feature', value: 'disabled', description: 'iconv')
 option('javascript', type: 'feature', value: 'auto', description: 'Javascript (MuJS backend)')
 option('lcms2', type: 'feature', value: 'auto', description: 'LCMS2 support')
 option('libarchive', type: 'feature', value: 'auto', description: 'libarchive wrapper for reading zip files and more')
@@ -40,7 +40,7 @@ option('zimg', type: 'feature', value: 'auto', description: 'libzimg support (hi
 option('zlib', type: 'feature', value: 'auto', description: 'zlib')
 
 # audio output features
-option('alsa', type: 'feature', value: 'auto', description: 'ALSA audio output')
+option('alsa', type: 'feature', value: 'disabled', description: 'ALSA audio output')
 option('audiounit', type: 'feature', value: 'auto', description: 'AudioUnit output for iOS')
 option('coreaudio', type: 'feature', value: 'auto', description: 'CoreAudio audio output')
 option('jack', type: 'feature', value: 'auto', description: 'JACK audio output')
