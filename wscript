@@ -528,7 +528,7 @@ audio_output_features = [
     }, {
         'name': '--dsound',
         'desc': 'DirectSound audio output',
-        'func': check_cc(header_name='XXXXXdsound.h'),
+        'func': check_cc(header_name='dsound.h'),
     }, {
         'name': '--wasapi',
         'desc': 'WASAPI audio output',
