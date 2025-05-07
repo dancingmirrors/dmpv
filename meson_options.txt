@@ -80,7 +80,7 @@ option('libplacebo-next', type: 'feature', value: 'disabled', description: 'gpu-
 option('rpi', type: 'feature', value: 'disabled', description: 'Raspberry Pi support')
 option('sdl2-video', type: 'feature', value: 'auto', description: 'SDL2 video output')
 option('shaderc', type: 'feature', value: 'auto', description: 'libshaderc SPIR-V compiler')
-option('sixel', type: 'feature', value:'auto', description: 'Sixel')
+option('sixel', type: 'feature', value:'disabled', description: 'Sixel')
 option('spirv-cross', type: 'feature', value: 'auto', description: 'SPIRV-Cross SPIR-V shader converter')
 option('plain-gl', type: 'feature', value: 'auto', description: 'OpenGL without platform-specific code (e.g. for libmpv)')
 option('vdpau', type: 'feature', value: 'auto', description: 'VDPAU acceleration')
