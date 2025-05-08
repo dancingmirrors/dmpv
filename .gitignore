@@ -34,7 +34,4 @@
 /.waf*
 /.lock-waf_*
 
-/old_build
-/Makefile
-
 /subprojects
