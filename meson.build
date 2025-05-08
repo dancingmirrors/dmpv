@@ -989,7 +989,6 @@ wayland = {
              dependency('wayland-cursor', version: '>= 1.20.0', required: get_option('wayland')),
              dependency('wayland-protocols', version: '>= 1.25', required: get_option('wayland')),
              dependency('xkbcommon', version: '>= 0.3.0', required: get_option('wayland'))],
-    'header': cc.has_header('linux/input-event-codes.h', required: get_option('wayland')),
     'scanner': find_program('wayland-scanner', required: get_option('wayland')),
 }
 wayland_deps = true
@@ -999,7 +998,7 @@ foreach dep: wayland['deps']
         break
     endif
 endforeach
-features += {'wayland': wayland_deps and wayland['header'] and wayland['scanner'].found()}
+features += {'wayland': wayland_deps and wayland['scanner'].found()}
 
 if features['wayland']
     subdir(join_paths('generated', 'wayland'))
