@@ -292,7 +292,7 @@ Available video output drivers are:
     and to perform scaling and color space conversion using fixed-function hardware,
     if available, rather than GPU shaders. This frees up GPU resources for other tasks.
     Currently this driver is experimental and only works with the ``--hwdec=vaapi``
-    or ``hwdec=drm`` drivers. Supported compositors : Weston and Sway.
+    or ``hwdec=drm`` drivers. Supported compositors: Weston, Sway, and River.
 
 ``vaapi``
     Intel VA API video output driver with support for hardware decoding. Note
