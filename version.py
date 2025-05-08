@@ -13,8 +13,8 @@ git_dir = os.path.join(srcdir, ".git")
 git = which('git')
 
 if git and os.path.exists(git_dir):
-    version = check_output([git, "-C", srcdir, "describe", "--always", "--tags",
-                            "--dirty"], encoding="UTF-8")
+    version = check_output([git, "-C", srcdir, "describe",
+    "--always", "--tags"], encoding="UTF-8")
     version = version[1:].strip()
 else:
     version_path = os.path.join(srcdir, "VERSION")
