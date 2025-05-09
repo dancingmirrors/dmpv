@@ -922,7 +922,7 @@ if features['jpeg']
     dependencies += jpeg
 endif
 
-libplacebo = dependency('libplacebo', version: '>=4.157.0', required: get_option('libplacebo'))
+libplacebo = dependency('libplacebo', version: '>=6.338.2', required: get_option('libplacebo'))
 features += {'libplacebo': libplacebo.found()}
 if features['libplacebo']
     dependencies += libplacebo
