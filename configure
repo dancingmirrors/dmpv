@@ -2,14 +2,10 @@
 
 #missing:
 #- actually support out of tree builds
-#- libmpv
-#- doc generation
-#- windows console wrapper thing (?)
+#- windows console wrapper thing
 #- osx testing
-#- swift stuff (impossible, crapple wants you to stick a dagger up your ass?)
-#- vaapi interops (?)
+#- swift stuff
 #- RPI stuff
-#- newer BSD changes
 #- it's weird how the wayland trash is compiled to BUILDDIR/BUILDDIR/
 
 import os
@@ -271,7 +267,7 @@ check("linux-fstatfs*",
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_namelen;"))
 
 check("-javascript*",
-      default   = False,
+      desc      = "mujs",
       fn        = lambda: check_pkg_config("mujs", ">= 1.0.0"),
       sources   = "player/javascript.c")
 
@@ -310,6 +306,7 @@ check("-cocoa*",
                    "video/out/cocoa/window.m"])
 
 check("-rubberband*",
+      default   = False,
       fn        = lambda: check_pkg_config("rubberband >= 1.8.0"),
       sources   = "audio/filter/af_rubberband.c")
 
@@ -334,7 +331,7 @@ check(desc      = "FFmpeg",
 FFmpeg libraries.")
 check("-ffmpeg-strict-abi*",
       desc      = "Disable all known FFmpeg ABI violations'",
-      default   = False)
+      default   = True)
 
 check("-zimg*",
       desc      = "libzimg support (high quality software scaler)",
@@ -366,6 +363,7 @@ check("-pulse*",
       sources   = "audio/out/ao_pulse.c")
 check("-jack*",
       deps      = "gpl",
+      default   = False,
       fn        = lambda: check_pkg_config("jack"),
       sources   = "audio/out/ao_jack.c")
 check("-openal*",
@@ -459,8 +457,8 @@ check("memfd_create*",
 
 # FIXME
 check("-x11*",
-      default   = False,
       deps      = "gpl",
+      default   = False,
       fn        = lambda: check_pkg_config("x11         >= 1.0.0",
                                            "xscrnsaver  >= 1.0.0",
                                            "xext        >= 1.0.0",
@@ -476,7 +474,6 @@ check("-xv*",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
-      default   = False,
       fn        = lambda: check_pkg_config("libplacebo >= 1.18.0"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c"])
@@ -561,8 +558,8 @@ check("-egl-angle-win32*",
                    "video/out/opengl/context_angle.c"])
 
 check("-vdpau*",
-      default   = False,
       deps      = "x11",
+      default   = False,
       fn        = lambda: check_pkg_config("vdpau >= 0.2"),
       sources   = ["video/filter/vf_vdpaupp.c",
                    "video/out/vo_vdpau.c",
@@ -766,8 +763,8 @@ check("-libbluray*",
       sources   = "stream/stream_bluray.c")
 check("-dvdnav*",
       desc      = "dvdnav support",
-      default   = False,
       deps      = "gpl",
+      default   = False,
       fn        = lambda: check_pkg_config("dvdnav >= 4.2.0") and
                           check_pkg_config("dvdread >= 4.1.0"),
       sources   = "stream/stream_dvdnav.c"),
@@ -810,8 +807,8 @@ check("-tests*",
                    "test/scale_test.c",
                    "test/tests.c"])
 check("tests-zimg",
-      default   = False,
       deps      = ["tests", "zimg"],
+      default   = False,
       sources   = ["test/repack.c",
                    "test/scale_zimg.c"])
 
