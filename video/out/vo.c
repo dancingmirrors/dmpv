@@ -66,11 +66,14 @@ extern const struct vo_driver video_out_rpi;
 
 static const struct vo_driver *const video_out_drivers[] =
 {
+#if HAVE_DMABUF_WAYLAND
+    &video_out_dmabuf_wayland,
+#endif
 #if HAVE_ANDROID
     &video_out_mediacodec_embed,
 #endif
-/* FIXME
     &video_out_gpu,
+/* XXX
 #if HAVE_LIBPLACEBO
     &video_out_gpu_next,
 #endif
@@ -81,24 +84,27 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_DIRECT3D
     &video_out_direct3d,
 #endif
+/* XXX
 #if HAVE_WAYLAND && HAVE_MEMFD_CREATE
     &video_out_wlshm,
 #endif
+*/
+/* XXX
 #if HAVE_XV
     &video_out_xv,
 #endif
+*/
 #if HAVE_SDL2_VIDEO
     &video_out_sdl,
 #endif
-#if HAVE_DMABUF_WAYLAND
-    &video_out_dmabuf_wayland,
-#endif
-#if HAVE_VAAPI_X11 && HAVE_GPL
+/* XXX #if HAVE_VAAPI_X11 && HAVE_GPL
     &video_out_vaapi,
-#endif
+#endif */
+/* XXX
 #if HAVE_X11
     &video_out_x11,
 #endif
+*/
 #if HAVE_DRM
     &video_out_drm,
 #endif

@@ -75,7 +75,8 @@ check(desc      = "warning cflags",
                         "-Wno-format-truncation",
                         "-Wno-pointer-sign",
                         "-Wno-switch",
-                        "-Wno-unused-label"]))
+                        "-Wno-unused-label",
+                        "-Wno-constant-logical-operand"]))
 check(desc      = "-fno-math-errno",
       fn        = lambda: check_cc(flags = "-fno-math-errno"))
 
@@ -418,7 +419,9 @@ check("-drmprime*",
       fn        = lambda: check_cc(include = "libavutil/pixfmt.h",
                                    expr = "int i = AV_PIX_FMT_DRM_PRIME;"))
 check(deps      = ["drm", "drmprime"],
-      sources   = ["video/out/drm_prime.c"])
+      sources   = ["video/out/drm_prime.c",
+                   "video/out/hwdec/hwdec_drmprime.c",
+                   "video/out/hwdec/hwdec_drmprime_overlay.c"])
 
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
@@ -445,15 +448,13 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/presentation-time.c",#"$(BUILD)/generated/wayland/xdg-activation-v1.c",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
-# FIXME
 check("-dmabuf_wayland*",
-     default    = False,
      sources    = ["video/out/vo_dmabuf_wayland.c",
                    "$(BUILD)/generated/wayland/viewporter.c",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "video/out/wldmabuf/context_wldmabuf.c",
-                   "video/out/wldmabuf/ra_wldmabuf.c"])
-
+                   "video/out/wldmabuf/ra_wldmabuf.c",
+                   "video/out/hwdec/dmabuf_interop_wl.c"])
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
       deps      = "wayland",
@@ -461,10 +462,8 @@ check("memfd_create*",
                                    expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"),
       sources   = "video/out/vo_wlshm.c")
 
-# FIXME
 check("-x11*",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_pkg_config("x11         >= 1.0.0",
                                            "xscrnsaver  >= 1.0.0",
                                            "xext        >= 1.0.0",
