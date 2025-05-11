@@ -60,7 +60,7 @@ check("-debug-build",
       fn        = lambda: chain(add_cflags("-g"),
                                 check_cc(flags = ["-g3", "-ggdb"]),
                                 True))
-check(desc      = "warning cflags",
+check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         "-Werror=implicit-function-declaration",
                         "-Wno-error=deprecated-declarations",
@@ -83,16 +83,17 @@ check(desc      = "-fno-math-errno",
 check("gnuc",
       desc      = "GNU C",
       fn        = lambda: check_cc(defined = "__GNUC__"))
-check("clang",
+check("Clang",
+      desc      = "Clang",
       fn        = lambda: check_cc(defined = "__clang__"))
 
-# Note that an important reason to try different set of warning flags is the
+# Note that an important reason to try a different set of warning flags is the
 # fact that both compilers may have different bogus behavior wrt. certain
 # warning options. What is needed on one compiler may be annoying or dangerous
 # on the other.
 check(desc      = "extra GCC warnings",
       deps      = "gnuc",
-      deps_neg  = "clang",
+      deps_neg  = "Clang",
       fn        = lambda: check_cc(flags = [
                         "-Wall", "-Wundef", "-Wmissing-prototypes", "-Wshadow",
                         "-Wno-switch", "-Wparentheses", "-Wpointer-arith",
@@ -100,7 +101,7 @@ check(desc      = "extra GCC warnings",
                         # GCC bug 66425
                         "-Wno-unused-result"]))
 check(desc      = "extra Clang warnings",
-      deps      = "clang",
+      deps      = "Clang",
       fn        = lambda: check_cc(flags = [
                         "-Wno-logical-op-parentheses", "-fcolor-diagnostics",
                         "-Wno-tautological-compare",
@@ -320,7 +321,7 @@ check(desc      = "FFmpeg",
       required  = "Unable to find development files for some of the required \
 FFmpeg libraries.")
 check("-ffmpeg-strict-abi*",
-      desc      = "Disable all known FFmpeg ABI violations'",
+      desc      = "whether to disable all known FFmpeg ABI violations",
       default   = True)
 
 check("-zimg*",
@@ -337,9 +338,11 @@ check("-sdl2",
       fn        = lambda: check_pkg_config('sdl2'))
 check("-sdl2-audio*",
       deps      = "sdl2",
+      default   = False,
       sources   = "audio/out/ao_sdl.c")
 check("-sdl2-video*",
       deps      = "sdl2",
+      default   = False,
       sources   = "video/out/vo_sdl.c")
 check("-sdl2-gamepad*",
       desc      = "SDL2 gamepad input",
