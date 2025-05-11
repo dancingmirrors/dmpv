@@ -2175,18 +2175,6 @@ bool mp_set_main_render_context(struct mp_client_api *client_api,
     return res;
 }
 
-// Used by vo_libmpv. Relies on guarantees by mp_render_context_acquire().
-struct mpv_render_context *
-mp_client_api_acquire_render_context(struct mp_client_api *ca)
-{
-    struct mpv_render_context *res = NULL;
-    pthread_mutex_lock(&ca->lock);
-    if (ca->render_context && mp_render_context_acquire(ca->render_context))
-        res = ca->render_context;
-    pthread_mutex_unlock(&ca->lock);
-    return res;
-}
-
 // stream_cb
 
 struct mp_custom_protocol {

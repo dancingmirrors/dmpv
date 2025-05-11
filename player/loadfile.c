@@ -63,6 +63,8 @@
 #include "command.h"
 #include "libmpv/client.h"
 
+#include "config.h"
+
 // Called from the demuxer thread if a new packet is available, or other changes.
 static void wakeup_demux(void *pctx)
 {
@@ -455,11 +457,14 @@ static int match_lang(char **langs, const char *lang)
 {
     if (!lang)
         return 0;
+    #if HAVE_ICONV
     for (int idx = 0; langs && langs[idx]; idx++) {
         int score = mp_match_lang_single(langs[idx], lang);
         if (score > 0)
             return INT_MAX - (idx + 1) * LANGUAGE_SCORE_MAX + score - 1;
     }
+   #endif
+    // FIXME
     return 0;
 }
 
@@ -550,6 +555,7 @@ static bool append_lang(size_t *nb, char ***out, char *in)
 
 static bool add_auto_langs(size_t *nb, char ***out)
 {
+#if HAVE_ICONV
     bool ret = false;
     char **autos = mp_get_user_langs();
     for (int i = 0; autos && autos[i]; i++) {
@@ -561,6 +567,8 @@ static bool add_auto_langs(size_t *nb, char ***out)
 cleanup:
     talloc_free(autos);
     return ret;
+#endif
+return 0;
 }
 
 static char **process_langs(char **in)
@@ -597,8 +605,10 @@ static const char *get_audio_lang(struct MPContext *mpctx)
         // If we have input in multiple audio languages, bail out;
         // we don't have a meaningful single language.
         // Partial matches (e.g. en-US vs en-GB) are acceptable here.
+        #if HAVE_ICONV
         if (ret && t->lang && !mp_match_lang_single(t->lang, ret))
             return NULL;
+        #endif
 
         // We'll return the first non-null tag we see
         if (!ret)
@@ -643,10 +653,12 @@ struct track *select_default_track(struct MPContext *mpctx, int order,
         if (!pick || compare_track(track, pick, langs, false, mpctx->opts, preferred_program))
             pick = track;
 
+        #if HAVE_ICONV
         // We only try to autoselect forced tracks if they match the audio language
         if ((prefer_forced || fallback_forced) && mp_match_lang_single(audio_lang, track->lang) &&
             (!forced_pick || compare_track(track, forced_pick, langs, true, mpctx->opts, preferred_program)))
             forced_pick = track;
+       #endif
     }
 
     // If we're trying for a forced track, and found something that matches the audio, go with that

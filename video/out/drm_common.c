@@ -40,10 +40,12 @@
 
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/ctype.h"
 #include "options/m_config.h"
 #include "osdep/io.h"
 #include "osdep/timer.h"
 #include "misc/ctype.h"
+#include "present_sync.h"
 #include "video/out/vo.h"
 
 #define EVT_RELEASE 1

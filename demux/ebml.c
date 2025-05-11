@@ -33,6 +33,8 @@
 #include "stream/stream.h"
 #include "common/msg.h"
 
+#include "config.h"
+
 // Whether the id is a known Matroska level 1 element (allowed as element on
 // global file level, after the level 0 MATROSKA_ID_SEGMENT).
 // This (intentionally) doesn't include "global" elements.
@@ -222,7 +224,7 @@ int ebml_resync_cluster(struct mp_log *log, stream_t *s)
 #define E_S(str, count) EVALARGS(E_SN, str, count, N)
 #define FN(id, name, multiple, N) { id, multiple, offsetof(struct ebml_ ## N, name), offsetof(struct ebml_ ## N, n_ ## name), &ebml_##name##_desc},
 #define F(id, name, multiple) EVALARGS(FN, id, name, multiple, N)
-#include "generated/ebml_defs.inc"
+#include "generated/ebml_defs.c"
 #undef EVALARGS
 #undef SN
 #undef S

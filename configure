@@ -77,7 +77,10 @@ check(desc      = "warning cflags",
                         "-Werror=format-security",
                         "-Wno-redundant-decls",
                         "-Wvla",
-                        "-Wno-format-truncation"]))
+                        "-Wno-format-truncation",
+                        "-Wno-pointer-sign",
+                        "-Wno-switch",
+                        "-Wno-unused-label"]))
 check(desc      = "-fno-math-errno",
       fn        = lambda: check_cc(flags = "-fno-math-errno"))
 
@@ -223,14 +226,13 @@ check("atomics",
       required  = "Required.")
 check("librt",
       fn        = lambda: check_cc(link = "-lrt"))
+# FIXME
 check("iconv*",
+      default   = False,
       fn        = lambda: check_cc(include = "iconv.h", link = [],
                                    expr = "iconv_open(0, 0);") or
                           check_cc(include = "iconv.h", link = "-liconv",
-                                   expr = "iconv_open(0, 0);"),
-      required  = "Unable to find iconv which should be part of a standard \
-compilation environment. Aborting. If you really mean to compile without \
-iconv support use --disable-iconv.")
+                                   expr = "iconv_open(0, 0);"))
 check("dos-paths*",
       deps      = "win32")
 check("glob-posix*",
@@ -268,21 +270,11 @@ check("linux-fstatfs*",
       fn        = lambda: check_cc(include = "sys/vfs.h",
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_namelen;"))
 
-check("-lua*",
-      fn        = lambda:
-            check_pkg_config("lua >= 5.1.0 lua < 5.2.0") or
-            check_pkg_config("lua51 >= 5.1.0") or               # OpenBSD
-            check_pkg_config("lua5.1 >= 5.1.0") or              # debian
-            check_pkg_config("lua-5.1 >= 5.1.0") or             # FreeBSD
-            check_pkg_config("lua >= 5.2.0 lua < 5.3.0" ) or
-            check_pkg_config("lua52 >= 5.2.0") or               # Arch
-            check_pkg_config("lua5.2 >= 5.2.0") or              # debian
-            check_pkg_config("lua-5.2 >= 5.2.0") or             # FreeBSD
-            check_pkg_config("luajit >= 2.0.0"),
-      sources  = "player/lua.c")
 check("-javascript*",
+      default   = False,
       fn        = lambda: check_pkg_config("mujs", ">= 1.0.0"),
       sources   = "player/javascript.c")
+
 check("-libass*",
       desc      = "libass subtitle/OSD renderer",
       fn        = lambda: check_pkg_config("libass >= 0.12.1"),
@@ -294,12 +286,16 @@ check("-libass*",
                    "sub/sd_ass.c"])
 check(deps_neg  = "libass",
       sources   = "sub/osd_dummy.c")
+
 check("-zlib*",
       fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
                                    expr = "inflate(0, Z_NO_FLUSH);"),
       required  = "Unable to find development files for zlib.")
+
 check("-uchardet*",
+      default   = False,
       fn        = lambda: check_pkg_config("uchardet"))
+
 check("-cocoa*",
       deps      = "osx",
       fn        = lambda: check_cc(decl = "#import <Cocoa/Cocoa.h>",
@@ -312,21 +308,14 @@ check("-cocoa*",
                    "video/out/cocoa/events_view.m",
                    "video/out/cocoa/video_view.m",
                    "video/out/cocoa/window.m"])
+
 check("-rubberband*",
       fn        = lambda: check_pkg_config("rubberband >= 1.8.0"),
       sources   = "audio/filter/af_rubberband.c")
+
 check("-lcms2*",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
-check("-vapoursynth*",
-      fn        = lambda: check_pkg_config("vapoursynth >= 24") and
-                          check_pkg_config("vapoursynth-script >= 23"))
-check("-vapoursynth-lazy*",
-      desc      = "VapourSynth filter bridge (Lazy Lua)",
-      deps      = "lua",
-      fn        = lambda: check_pkg_config("vapoursynth >= 24"))
-check("vapoursynth-core*",
-      deps      = ["vapoursynth", "vapoursynth-lazy"],
-      sources   = "video/filter/vf_vapoursynth.c")
+
 check("-libarchive*",
       desc      = "libarchive wrapper for reading zip files and more",
       fn        = lambda: check_pkg_config("libarchive >= 3.0.0"),
@@ -372,6 +361,7 @@ check("-sdl2-gamepad*",
       sources   = "input/sdl_gamepad.c")
 
 check("-pulse*",
+      default   = False,
       fn        = lambda: check_pkg_config("libpulse >= 1.0"),
       sources   = "audio/out/ao_pulse.c")
 check("-jack*",
@@ -387,6 +377,10 @@ check("-opensles*",
                                    link = "-lOpenSLES",
                                    expr = "slCreateEngine;"),
       sources   = "audio/out/ao_opensles.c")
+# FIXME
+check("-oss*",
+      default   = False,
+      sources   = "audio/out/ao_oss.c")
 check("-alsa*",
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
       sources   = "audio/out/ao_alsa.c")
@@ -428,8 +422,7 @@ check("-drmprime*",
       fn        = lambda: check_cc(include = "libavutil/pixfmt.h",
                                    expr = "int i = AV_PIX_FMT_DRM_PRIME;"))
 check(deps      = ["drm", "drmprime"],
-      sources   = ["video/out/drm_prime.c",
-                   "video/out/opengl/hwdec_drmprime_drm.c"])
+      sources   = ["video/out/drm_prime.c"])
 
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
@@ -440,7 +433,6 @@ def check_wayland_protos():
         return False
     add_config_mak_var("WL_PROTO_DIR", data)
     return True
-
 check("-wayland*",
       # TODO: where does this check whether the protocol files are available?
       fn        = lambda: check_wayland_protos() and
@@ -453,6 +445,11 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/presentation-time.c",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
+# FIXME
+check("-dmabuf_wayland*",
+     default    = False,
+     sources    = "video/out/vo_dmabuf_wayland.c")
+
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
       deps      = "wayland",
@@ -460,12 +457,15 @@ check("memfd_create*",
                                    expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"),
       sources   = "video/out/vo_wlshm.c")
 
+# FIXME
 check("-x11*",
+      default   = False,
       deps      = "gpl",
       fn        = lambda: check_pkg_config("x11         >= 1.0.0",
                                            "xscrnsaver  >= 1.0.0",
                                            "xext        >= 1.0.0",
                                            "xinerama    >= 1.0.0",
+                                           "xpresent    >= 1.0.0",
                                            "xrandr      >= 1.2.0"),
       sources   = ["video/out/vo_x11.c",
                    "video/out/x11_common.c"])
@@ -476,10 +476,10 @@ check("-xv*",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
+      default   = False,
       fn        = lambda: check_pkg_config("libplacebo >= 1.18.0"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c"])
-
 check("-vulkan*",
       desc      = "Vulkan context support",
       deps      = "libplacebo",
@@ -561,6 +561,7 @@ check("-egl-angle-win32*",
                    "video/out/opengl/context_angle.c"])
 
 check("-vdpau*",
+      default   = False,
       deps      = "x11",
       fn        = lambda: check_pkg_config("vdpau >= 0.2"),
       sources   = ["video/filter/vf_vdpaupp.c",
@@ -572,42 +573,40 @@ check("-vdpau-gl-x11*",
       deps      = ["vdpau", "gl-x11"],
       sources   = "video/out/opengl/hwdec_vdpau.c")
 check("-vaapi*",
-      desc      = "VAAPI acceleration",
+      desc      = "VA-API acceleration",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
 check("-vaapi-x11*",
-      desc      = "VAAPI (X11 support)",
+      desc      = "VA-API (X11 support)",
       deps      = ["vaapi", "x11"],
       fn        = lambda: check_pkg_config("libva-x11 >= 0.36.0"))
 check(deps      = ["vaapi-x11", "gpl"],
       sources   = "video/out/vo_vaapi.c")
 check("-vaapi-wayland*",
-      desc      = "VAAPI (Wayland support)",
+      desc      = "VA-API (Wayland support)",
       deps      = ["vaapi", "gl-wayland"],
       fn        = lambda: check_pkg_config("libva-wayland >= 0.36.0"))
 check("-vaapi-drm*",
-      desc      = "VAAPI (DRM/EGL support)",
+      desc      = "VA-API (DRM/EGL support)",
       deps      = ["vaapi", "egl-drm"],
       fn        = lambda: check_pkg_config("libva-drm >= 0.36.0"))
 check("-vaapi-glx*",
-      desc      = "VAAPI GLX",
+      desc      = "VA-API GLX",
       deps      = ["gpl", "vaapi-x11", "gl-x11"])
 check("-vaapi-x-egl*",
-      desc      = "VAAPI EGL on X11",
+      desc      = "VA-API EGL on X11",
       deps      = ["vaapi-x11", "egl-x11"])
 
 check("-vaapi-vulkan*",
-      desc      = "VAAPI Vulkan",
+      desc      = "VA-API Vulkan",
       deps      = ["vaapi", "vulkan"],
-      sources   = ["video/out/hwdec/hwdec_vaapi.c",
-                   "video/out/hwdec/hwdec_vaapi_vk.c"])
+      sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
 check("-vaapi-egl*",
-      desc      = "VAAPI EGL",
+      desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
-      sources   = ["video/out/hwdec/hwdec_vaapi.c",
-                   "video/out/hwdec/hwdec_vaapi_gl.c"])
+      sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
 check("-caca*",
       deps      = "gpl",
@@ -683,7 +682,6 @@ check("-gl*",
       sources   = ["video/out/opengl/common.c",
                    "video/out/opengl/context.c",
                    "video/out/opengl/formats.c",
-                   "video/out/opengl/libmpv_gl.c",
                    "video/out/opengl/ra_gl.c",
                    "video/out/opengl/utils.c"])
 
@@ -812,13 +810,13 @@ check("-tests*",
                    "test/scale_test.c",
                    "test/tests.c"])
 check("tests-zimg",
+      default   = False,
       deps      = ["tests", "zimg"],
       sources   = ["test/repack.c",
                    "test/scale_zimg.c"])
 
 add_sources(
     "audio/aframe.c",
-    "audio/audio_buffer.c",
     "audio/chmap.c",
     "audio/chmap_sel.c",
     "audio/decode/ad_lavc.c",
@@ -889,7 +887,6 @@ add_sources(
     "misc/natural_sort.c",
     "misc/node.c",
     "misc/rendezvous.c",
-    "misc/ring.c",
     "misc/thread_pool.c",
     "misc/thread_tools.c",
     "options/m_config_core.c",
@@ -962,7 +959,6 @@ add_sources(
     "video/out/gpu/error_diffusion.c",
     "video/out/gpu/hwdec.c",
     "video/out/gpu/lcms.c",
-    "video/out/gpu/libmpv_gpu.c",
     "video/out/gpu/osd.c",
     "video/out/gpu/ra.c",
     "video/out/gpu/shader_cache.c",
@@ -975,9 +971,7 @@ add_sources(
     "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
-    "video/out/vo_libmpv.c",
     "video/out/vo_null.c",
-    "video/out/vo_tct.c",
     "video/out/win_state.c",
     "video/repack.c",
     "video/sws_utils.c",

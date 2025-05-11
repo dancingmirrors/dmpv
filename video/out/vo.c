@@ -53,7 +53,6 @@ extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_xv;
 extern const struct vo_driver video_out_gpu;
 extern const struct vo_driver video_out_gpu_next;
-extern const struct vo_driver video_out_libmpv;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
 extern const struct vo_driver video_out_lavc;
@@ -65,17 +64,14 @@ extern const struct vo_driver video_out_vaapi;
 extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_rpi;
-extern const struct vo_driver video_out_tct;
-extern const struct vo_driver video_out_sixel;
-extern const struct vo_driver video_out_kitty;
 
 static const struct vo_driver *const video_out_drivers[] =
 {
-    &video_out_libmpv,
 #if HAVE_ANDROID
     &video_out_mediacodec_embed,
 #endif
-    &video_out_gpu,
+// FIXME
+//    &video_out_gpu,
 #if HAVE_LIBPLACEBO_NEXT
     &video_out_gpu_next,
 #endif
@@ -106,7 +102,6 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_null,
     // should not be auto-selected
     &video_out_image,
-    &video_out_tct,
 #if HAVE_CACA
     &video_out_caca,
 #endif
@@ -116,10 +111,6 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_RPI_MMAL
     &video_out_rpi,
 #endif
-#if HAVE_SIXEL
-    &video_out_sixel,
-#endif
-    &video_out_kitty,
     &video_out_lavc,
 };
 

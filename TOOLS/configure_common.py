@@ -718,7 +718,7 @@ def finish():
             print("Not overwriting existing Makefile.")
 
     _G.log_file.write("--- Finishing successfully.\n")
-    print("Done. You can run 'make' now.")
+    print("Done. You can run 'make' or 'gmake' now.")
 
 # Return whether to actually run configure tests, and whether results of those
 # tests are available.

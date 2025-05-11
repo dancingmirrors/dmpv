@@ -119,9 +119,6 @@ static const struct hwcontext_fns *const hwcontext_fns[] = {
 #if HAVE_D3D9_HWACCEL
     &hwcontext_fns_dxva2,
 #endif
-#if HAVE_DRM
-    &hwcontext_fns_drmprime,
-#endif
 #if HAVE_VAAPI
     &hwcontext_fns_vaapi,
 #endif

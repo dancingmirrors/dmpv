@@ -5,6 +5,7 @@
 *.pyc
 .depend
 
+/build
 /config.h
 /config.mak
 /config.log
@@ -18,7 +19,6 @@
 /demux/ebml_defs.c
 /demux/ebml_types.h
 /sub/osd_font.h
-/player/lua/*.inc
 /player/builtin_conf.inc
 /DOCS/man/mpv.1
 /DOCS/man/mpv.aux

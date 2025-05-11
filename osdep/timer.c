@@ -34,8 +34,6 @@ static pthread_once_t timer_init_once = PTHREAD_ONCE_INIT;
 static void do_timer_init(void)
 {
     mp_raw_time_init();
-    mp_rand_seed(mp_raw_time_us());
-    raw_time_offset = mp_raw_time_us();
     // Arbitrary additional offset to avoid confusing relative/absolute times.
     // Also,we rule that the timer never returns 0 (so default-initialized
     // time values will be always in the past).
