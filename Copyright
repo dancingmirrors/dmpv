@@ -53,7 +53,6 @@ The following files are still GPL only (--enable-lgpl disables them):
     stream/stream_cdda.c            unknown
     stream/stream_dvb.*             must stay GPL
     stream/stream_dvdnav.c          unknown
-    video/out/vo_caca.c             unknown
     video/out/vo_direct3d.c         unknown
     video/out/vo_vaapi.c            probably impossible (some company's code)
     video/out/vo_vdpau.c            probably impossible (nVidia's code)
@@ -64,7 +63,6 @@ The following files are still GPL only (--enable-lgpl disables them):
     video/vdpau.h                   unknown
     video/vdpau_mixer.*             actual code must be rewritten
     DOCS/man/                       GPLv2+
-    bootstrap.py                    unknown license, probably GPLv2+ or LGPLv2+
     etc/mplayer-input.conf          unknown license, probably GPLv2+
     mpv.desktop                     unknown license, probably GPLv2+
     etc/restore-old-bindings.conf   unknown license, probably GPLv2+

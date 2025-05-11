@@ -605,10 +605,6 @@ check("-vaapi-egl*",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
-check("-caca*",
-      deps      = "gpl",
-      fn        = lambda: check_pkg_config("caca >= 0.99.beta18"),
-      sources   = "video/out/vo_caca.c")
 check("-jpeg*",
       desc      = "JPEG support",
       fn        = lambda: check_cc(include = ["stdio.h", "jpeglib.h"],
