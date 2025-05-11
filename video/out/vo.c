@@ -51,7 +51,6 @@ extern const struct vo_driver video_out_mediacodec_embed;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_xv;
-extern const struct vo_driver video_out_gpu;
 extern const struct vo_driver video_out_gpu_next;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
@@ -72,12 +71,9 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_ANDROID
     &video_out_mediacodec_embed,
 #endif
-    &video_out_gpu,
-/* XXX
 #if HAVE_LIBPLACEBO
     &video_out_gpu_next,
 #endif
-*/
 #if HAVE_VDPAU
     &video_out_vdpau,
 #endif

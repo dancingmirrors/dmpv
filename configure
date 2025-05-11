@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-#missing:
-#- actually support out of tree builds
-#- windows console wrapper thing
-#- osx testing
-#- swift stuff
+# Missing:
+#- Actually support out of tree builds
+#- Windows console wrapper thing
+#- OS X testing
+#- Swift stuff
 #- RPI stuff
 
 import os
@@ -90,7 +90,7 @@ check("clang",
 # fact that both compilers may have different bogus behavior wrt. certain
 # warning options. What is needed on one compiler may be annoying or dangerous
 # on the other.
-check(desc      = "extra gcc warnings",
+check(desc      = "extra GCC warnings",
       deps      = "gnuc",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
@@ -99,7 +99,7 @@ check(desc      = "extra gcc warnings",
                         "-Wno-pointer-sign",
                         # GCC bug 66425
                         "-Wno-unused-result"]))
-check(desc      = "extra clang warnings",
+check(desc      = "extra Clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wno-logical-op-parentheses", "-fcolor-diagnostics",
@@ -477,7 +477,9 @@ check("-libplacebo*",
       desc      = "libplacebo support",
       fn        = lambda: check_pkg_config("libplacebo >= 1.18.0"),
       sources   = ["video/out/placebo/ra_pl.c",
-                   "video/out/placebo/utils.c"])
+                   "video/out/placebo/utils.c",
+                   "video/out/gpu_next/context.c",
+                   "video/out/vo_gpu_next.c"])
 check("-vulkan*",
       desc      = "Vulkan context support",
       deps      = "libplacebo",
@@ -962,7 +964,6 @@ add_sources(
     "video/out/gpu/video.c",
     "video/out/gpu/video_shaders.c",
     "video/out/vo.c",
-    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_null.c",
