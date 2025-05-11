@@ -99,15 +99,12 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_X11
     &video_out_x11,
 #endif
-    &video_out_null,
-    // should not be auto-selected
-    &video_out_image,
-#if HAVE_CACA
-    &video_out_caca,
-#endif
 #if HAVE_DRM
     &video_out_drm,
 #endif
+    &video_out_null,
+    // should not be auto-selected
+    &video_out_image,
 #if HAVE_RPI_MMAL
     &video_out_rpi,
 #endif
