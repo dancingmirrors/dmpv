@@ -16,12 +16,12 @@ source_root = meson.project_source_root()
 python = find_program('python3')
 
 # ffmpeg
-libavcodec = dependency('libavcodec', version: '>= 58.134.100')
-libavfilter = dependency('libavfilter', version: '>= 7.110.100')
-libavformat = dependency('libavformat', version: '>= 58.76.100')
-libavutil = dependency('libavutil', version: '>= 56.70.100')
-libswresample = dependency('libswresample', version: '>= 3.9.100')
-libswscale = dependency('libswscale', version: '>= 5.9.100')
+libavcodec = dependency('libavcodec', version: '>= 60.31.102')
+libavfilter = dependency('libavfilter', version: '>= 9.12.100')
+libavformat = dependency('libavformat', version: '>= 60.16.100')
+libavutil = dependency('libavutil', version: '>= 58.29.100')
+libswresample = dependency('libswresample', version: '>= 4.12.100')
+libswscale = dependency('libswscale', version: '>= 7.5.100')
 
 libass = dependency('libass', version: '>= 0.12.2')
 pthreads = dependency('threads')
