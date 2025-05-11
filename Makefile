@@ -90,4 +90,7 @@ endef
 $(eval $(call generate_trash,$(WL_PROTO_DIR)/unstable/idle-inhibit/,idle-inhibit-unstable-v1))
 $(eval $(call generate_trash,$(WL_PROTO_DIR)/stable/presentation-time/,presentation-time))
 $(eval $(call generate_trash,$(WL_PROTO_DIR)/stable/xdg-shell/,xdg-shell))
+#$(eval $(call generate_trash,$(WL_PROTO_DIR)/staging/xdg-activation/,xdg-activation-v1))
 $(eval $(call generate_trash,$(WL_PROTO_DIR)/unstable/xdg-decoration/,xdg-decoration-unstable-v1))
+$(eval $(call generate_trash,$(WL_PROTO_DIR)/stable/viewporter/,viewporter))
+$(eval $(call generate_trash,$(WL_PROTO_DIR)/unstable/linux-dmabuf/,linux-dmabuf-unstable-v1))

@@ -6,7 +6,6 @@
 #- osx testing
 #- swift stuff
 #- RPI stuff
-#- it's weird how the wayland trash is compiled to BUILDDIR/BUILDDIR/
 
 import os
 from TOOLS.configure_common import *
@@ -424,6 +423,10 @@ check(deps      = ["drm", "drmprime"],
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
 
+# FIXME
+check("present_sync*",
+     sources    = "video/out/present_sync.c")
+
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
     if data is None:
@@ -439,13 +442,17 @@ check("-wayland*",
                                            "xkbcommon       >= 0.3.0"),
       sources   = ["video/out/wayland_common.c",
                    "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
-                   "$(BUILD)/generated/wayland/presentation-time.c",
+                   "$(BUILD)/generated/wayland/presentation-time.c",#"$(BUILD)/generated/wayland/xdg-activation-v1.c",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 # FIXME
 check("-dmabuf_wayland*",
      default    = False,
-     sources    = "video/out/vo_dmabuf_wayland.c")
+     sources    = ["video/out/vo_dmabuf_wayland.c",
+                   "$(BUILD)/generated/wayland/viewporter.c",
+                   "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
+                   "video/out/wldmabuf/context_wldmabuf.c",
+                   "video/out/wldmabuf/ra_wldmabuf.c"])
 
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
