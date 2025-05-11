@@ -377,9 +377,13 @@ check("-opensles*",
       sources   = "audio/out/ao_opensles.c")
 # FIXME
 check("-oss*",
-      default   = False,
       sources   = "audio/out/ao_oss.c")
+check("-pipewire*",
+      default   = False,
+      fn        = lambda: check_pkg_config("pipewire >= 1.0.0"),
+      sources   = "audio/out/ao_pipewire.c")
 check("-alsa*",
+      default   = False,
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
       sources   = "audio/out/ao_alsa.c")
 check("-coreaudio*",
@@ -574,11 +578,11 @@ check("-vaapi*",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
-check("-vaapi-x11*",
+check("-vaapi_x11*",
       desc      = "VA-API (X11 support)",
       deps      = ["vaapi", "x11"],
       fn        = lambda: check_pkg_config("libva-x11 >= 0.36.0"))
-check(deps      = ["vaapi-x11", "gpl"],
+check(deps      = ["vaapi_x11", "gpl"],
       sources   = "video/out/vo_vaapi.c")
 check("-vaapi-wayland*",
       desc      = "VA-API (Wayland support)",
@@ -590,10 +594,10 @@ check("-vaapi-drm*",
       fn        = lambda: check_pkg_config("libva-drm >= 0.36.0"))
 check("-vaapi-glx*",
       desc      = "VA-API GLX",
-      deps      = ["gpl", "vaapi-x11", "gl-x11"])
+      deps      = ["gpl", "vaapi_x11", "gl-x11"])
 check("-vaapi-x-egl*",
       desc      = "VA-API EGL on X11",
-      deps      = ["vaapi-x11", "egl-x11"])
+      deps      = ["vaapi_x11", "egl-x11"])
 
 check("-vaapi-vulkan*",
       desc      = "VA-API Vulkan",

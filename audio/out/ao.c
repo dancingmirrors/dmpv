@@ -77,7 +77,7 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_WASAPI
     &audio_out_wasapi,
 #endif
-#if HAVE_OSS_AUDIO
+#if HAVE_OSS
     &audio_out_oss,
 #endif
     // wrappers:
