@@ -266,11 +266,6 @@ check("linux-fstatfs*",
       fn        = lambda: check_cc(include = "sys/vfs.h",
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_namelen;"))
 
-check("-javascript*",
-      desc      = "mujs",
-      fn        = lambda: check_pkg_config("mujs", ">= 1.0.0"),
-      sources   = "player/javascript.c")
-
 check("-libass*",
       desc      = "libass subtitle/OSD renderer",
       fn        = lambda: check_pkg_config("libass >= 0.12.1"),

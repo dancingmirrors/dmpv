@@ -444,24 +444,11 @@ static const m_option_t mp_opts[] = {
         .flags = CONF_NOCFG | CONF_PRE_PARSE | M_OPT_FILE},
     {"reset-on-next-file", OPT_STRINGLIST(reset_options)},
 
-#if HAVE_LUA || HAVE_JAVASCRIPT || HAVE_CPLUGINS
+#if HAVE_CPLUGINS
     {"scripts", OPT_PATHLIST(script_files), .flags = M_OPT_FILE},
     {"script", OPT_CLI_ALIAS("scripts-append")},
     {"script-opts", OPT_KEYVALUELIST(script_opts)},
     {"load-scripts", OPT_BOOL(auto_load_scripts)},
-#endif
-#if HAVE_LUA
-    {"osc", OPT_BOOL(lua_load_osc), .flags = UPDATE_BUILTIN_SCRIPTS},
-    {"ytdl", OPT_BOOL(lua_load_ytdl), .flags = UPDATE_BUILTIN_SCRIPTS},
-    {"ytdl-format", OPT_STRING(lua_ytdl_format)},
-    {"ytdl-raw-options", OPT_KEYVALUELIST(lua_ytdl_raw_options)},
-    {"load-stats-overlay", OPT_BOOL(lua_load_stats),
-        .flags = UPDATE_BUILTIN_SCRIPTS},
-    {"load-osd-console", OPT_BOOL(lua_load_console),
-        .flags = UPDATE_BUILTIN_SCRIPTS},
-    {"load-auto-profiles",
-        OPT_CHOICE(lua_load_auto_profiles, {"no", 0}, {"yes", 1}, {"auto", -1}),
-        .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
 
 // ------------------------- stream options --------------------
@@ -879,8 +866,6 @@ static const m_option_t mp_opts[] = {
     {"identify", OPT_REMOVED("use TOOLS/mpv_identify.sh")},
     {"lavdopts", OPT_REMOVED("use --vd-lavc-...")},
     {"lavfdopts", OPT_REMOVED("use --demuxer-lavf-...")},
-    {"lua", OPT_REPLACED("script")},
-    {"lua-opts", OPT_REPLACED("script-opts")},
     {"mixer-channel", OPT_REMOVED("use AO suboptions (alsa, oss)")},
     {"mixer", OPT_REMOVED("use AO suboptions (alsa, oss)")},
     {"mouse-movements", OPT_REPLACED("input-cursor")},
@@ -965,7 +950,6 @@ static const m_option_t mp_opts[] = {
     {"sub-ass-style-override", OPT_REPLACED("sub-ass-override")},
     {"fs-black-out-screens", OPT_REMOVED(NULL)},
     {"sub-paths", OPT_REPLACED("sub-file-paths")},
-    {"heartbeat-cmd", OPT_REMOVED("use Lua scripting instead")},
     {"no-ometadata", OPT_REMOVED("use --no-ocopy-metadata")},
     {"video-stereo-mode", OPT_REMOVED("removed, try --vf=stereo3d")},
     {"chapter", OPT_REMOVED("use '--start=#123' '--end=#124' (for chapter 123)")},
@@ -988,15 +972,6 @@ static const struct MPOpts mp_default_opts = {
     .osd_level = 1,
     .osd_on_seek = 1,
     .osd_duration = 1000,
-#if HAVE_LUA
-    .lua_load_osc = true,
-    .lua_load_ytdl = true,
-    .lua_ytdl_format = NULL,
-    .lua_ytdl_raw_options = NULL,
-    .lua_load_stats = true,
-    .lua_load_console = true,
-    .lua_load_auto_profiles = -1,
-#endif
     .auto_load_scripts = true,
     .loop_times = 1,
     .ordered_chapters = true,

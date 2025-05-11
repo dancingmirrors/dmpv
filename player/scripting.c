@@ -41,20 +41,12 @@
 #include "client.h"
 #include "libmpv/client.h"
 
-extern const struct mp_scripting mp_scripting_lua;
 extern const struct mp_scripting mp_scripting_cplugin;
-extern const struct mp_scripting mp_scripting_js;
 extern const struct mp_scripting mp_scripting_run;
 
 static const struct mp_scripting *const scripting_backends[] = {
-#if HAVE_LUA
-    &mp_scripting_lua,
-#endif
 #if HAVE_CPLUGINS
     &mp_scripting_cplugin,
-#endif
-#if HAVE_JAVASCRIPT
-    &mp_scripting_js,
 #endif
     &mp_scripting_run,
     NULL
