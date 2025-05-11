@@ -300,11 +300,6 @@ check("-cocoa*",
                    "video/out/cocoa/video_view.m",
                    "video/out/cocoa/window.m"])
 
-check("-rubberband*",
-      default   = False,
-      fn        = lambda: check_pkg_config("rubberband >= 1.8.0"),
-      sources   = "audio/filter/af_rubberband.c")
-
 check("-lcms2*",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
 
@@ -449,7 +444,8 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 check("-dmabuf_wayland*",
-     sources    = ["video/out/vo_dmabuf_wayland.c",
+      deps       = "wayland",
+      sources    = ["video/out/vo_dmabuf_wayland.c",
                    "$(BUILD)/generated/wayland/viewporter.c",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "video/out/wldmabuf/context_wldmabuf.c",
