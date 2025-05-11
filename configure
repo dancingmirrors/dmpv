@@ -75,8 +75,7 @@ check(desc      = "warning CFLAGS",
                         "-Wno-format-truncation",
                         "-Wno-pointer-sign",
                         "-Wno-switch",
-                        "-Wno-unused-label",
-                        "-Wno-constant-logical-operand"]))
+                        "-Wno-unused-label"]))
 check(desc      = "-fno-math-errno",
       fn        = lambda: check_cc(flags = "-fno-math-errno"))
 
@@ -105,7 +104,8 @@ check(desc      = "extra Clang warnings",
       fn        = lambda: check_cc(flags = [
                         "-Wno-logical-op-parentheses", "-fcolor-diagnostics",
                         "-Wno-tautological-compare",
-                        "-Wno-tautological-constant-out-of-range-compare"]))
+                        "-Wno-tautological-constant-out-of-range-compare",
+                        "-Wno-constant-logical-operand"]))
 
 check("-usan",
       desc      = "undefined sanitizer",
