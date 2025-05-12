@@ -456,15 +456,12 @@ static int match_lang(char **langs, const char *lang)
 {
     if (!lang)
         return 0;
-    #if HAVE_ICONV
     for (int idx = 0; langs && langs[idx]; idx++) {
         int score = mp_match_lang_single(langs[idx], lang);
         if (score > 0)
             return INT_MAX - (idx + 1) * LANGUAGE_SCORE_MAX + score - 1;
     }
-   #endif
-    // FIXME
-    return 0;
+return 0;
 }
 
 /* Get the track wanted by the user.
