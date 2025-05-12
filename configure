@@ -375,6 +375,9 @@ check("-opensles*",
 # FIXME
 check("-oss*",
       sources   = "audio/out/ao_oss.c")
+check("-sndio*",
+      default   = False,
+      sources   = "audio/out/ao_sndio.c")
 check("-pipewire*",
       default   = False,
       fn        = lambda: check_pkg_config("pipewire >= 1.0.0"),
