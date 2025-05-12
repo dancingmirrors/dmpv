@@ -551,8 +551,6 @@ static bool append_lang(size_t *nb, char ***out, char *in)
 
 static bool add_auto_langs(size_t *nb, char ***out)
 {
-// FIXME
-#if HAVE_ICONV
     bool ret = false;
     char **autos = mp_get_user_langs();
     for (int i = 0; autos && autos[i]; i++) {
@@ -564,8 +562,6 @@ static bool add_auto_langs(size_t *nb, char ***out)
 cleanup:
     talloc_free(autos);
     return ret;
-#endif
-return 0;
 }
 
 static char **process_langs(char **in)
