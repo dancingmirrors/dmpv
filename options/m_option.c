@@ -75,8 +75,8 @@ int m_option_parse(struct mp_log *log, const m_option_t *opt,
     if (r < 0)
         return r;
 
-// FIXME
-/*    if (opt->validate) {
+/* FIXME
+    if (opt->validate) {
         r = opt->validate(log, opt, name, dst);
         if (r < 0) {
             if (opt->type->free)

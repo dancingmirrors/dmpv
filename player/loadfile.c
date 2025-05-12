@@ -59,11 +59,10 @@
 #include "external_files.h"
 #include "video/out/vo.h"
 
+#include "config.h"
 #include "core.h"
 #include "command.h"
 #include "libmpv/client.h"
-
-#include "config.h"
 
 // Called from the demuxer thread if a new packet is available, or other changes.
 static void wakeup_demux(void *pctx)
@@ -568,6 +567,7 @@ cleanup:
     talloc_free(autos);
     return ret;
 #endif
+// FIXME
 return 0;
 }
 

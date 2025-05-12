@@ -3302,6 +3302,7 @@ static int mp_property_libass_version(void *ctx, struct m_property *prop,
 static int mp_property_platform(void *ctx, struct m_property *prop,
                                 int action, void *arg)
 {
+    // FIXME return m_property_strdup_ro(action, arg, PLATFORM);
     return m_property_strdup_ro(action, arg, 0);
 }
 
