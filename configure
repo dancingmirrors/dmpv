@@ -483,6 +483,7 @@ check("-xv*",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
+      default   = False,
       fn        = lambda: check_pkg_config("libplacebo >= 1.18.0"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c",
