@@ -600,8 +600,7 @@ check("-vaapi_x11*",
       desc      = "VA-API (X11 support)",
       deps      = ["vaapi", "x11"],
       fn        = lambda: check_pkg_config("libva-x11 >= 0.36.0"))
-check(deps      = ["vaapi_x11", "gpl"],
-      sources   = "video/out/vo_vaapi.c")
+check(deps      = ["vaapi_x11", "gpl"])
 check("-vaapi-wayland*",
       desc      = "VA-API (Wayland support)",
       deps      = ["vaapi", "gl-wayland"],

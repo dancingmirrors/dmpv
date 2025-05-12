@@ -58,7 +58,6 @@ extern const struct vo_driver video_out_lavc;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_direct3d;
 extern const struct vo_driver video_out_sdl;
-extern const struct vo_driver video_out_vaapi;
 extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_rpi;
@@ -93,9 +92,6 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_SDL2_VIDEO
     &video_out_sdl,
 #endif
-/* XXX #if HAVE_VAAPI_X11 && HAVE_GPL
-    &video_out_vaapi,
-#endif */
 /* XXX
 #if HAVE_X11
     &video_out_x11,
