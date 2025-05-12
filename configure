@@ -444,7 +444,7 @@ check("-wayland*",
                                            "xkbcommon       >= 0.3.0"),
       sources   = ["video/out/wayland_common.c",
                    "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
-                   "$(BUILD)/generated/wayland/presentation-time.c",#"$(BUILD)/generated/wayland/xdg-activation-v1.c",
+                   "$(BUILD)/generated/wayland/presentation-time.c",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 check("-dmabuf_wayland*",

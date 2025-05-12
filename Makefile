@@ -34,7 +34,7 @@ $(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/%
 # that are generated from these sources, instead of the source files. Make rules
 # specify recipes, not dependencies.
 # (Possible counter measures: always generate them with an order dependency, or
-#  introduce separate dependency scanner step for creating .d files.)
+#  introduce a separate dependency scanner step for creating .d files.)
 
 $(BUILD)/common/version.o: $(BUILD)/generated/version.h
 
@@ -67,13 +67,9 @@ $(BUILD)/player/javascript.o: $(BUILD)/generated/player/javascript/defaults.js.i
 $(BUILD)/osdep/macosx_application.m $(BUILD)/video/out/cocoa_common.m: \
     $(BUILD)/generated/TOOLS/osxbundle/mpv.app/Contents/Resources/icon.icns.inc
 
-# Why doesn't wayland just provide fucking libraries like anyone else, instead
-# of overly complex XML generation bullshit?
-# And fuck make too.
-
 # $(1): path prefix to the protocol, $(1)/$(2).xml is the full path.
 # $(2): the name of the protocol, without path or extension
-define generate_trash =
+define generate_wayland =
 $$(BUILD)/video/out/wayland_common.o \
 $$(BUILD)/video/out/opengl/context_wayland.o \
 : $$(BUILD)/generated/wayland/$(2).c $$(BUILD)/generated/wayland/$(2).h
@@ -87,10 +83,9 @@ $$(BUILD)/generated/wayland/$(2).h: $(1)/$(2).xml
 	$$(Q) $$(WAYSCAN) client-header $$< $$@
 endef
 
-$(eval $(call generate_trash,$(WL_PROTO_DIR)/unstable/idle-inhibit/,idle-inhibit-unstable-v1))
-$(eval $(call generate_trash,$(WL_PROTO_DIR)/stable/presentation-time/,presentation-time))
-$(eval $(call generate_trash,$(WL_PROTO_DIR)/stable/xdg-shell/,xdg-shell))
-#$(eval $(call generate_trash,$(WL_PROTO_DIR)/staging/xdg-activation/,xdg-activation-v1))
-$(eval $(call generate_trash,$(WL_PROTO_DIR)/unstable/xdg-decoration/,xdg-decoration-unstable-v1))
-$(eval $(call generate_trash,$(WL_PROTO_DIR)/stable/viewporter/,viewporter))
-$(eval $(call generate_trash,$(WL_PROTO_DIR)/unstable/linux-dmabuf/,linux-dmabuf-unstable-v1))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/idle-inhibit/,idle-inhibit-unstable-v1))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/presentation-time/,presentation-time))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/xdg-shell/,xdg-shell))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/xdg-decoration/,xdg-decoration-unstable-v1))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/viewporter/,viewporter))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/linux-dmabuf/,linux-dmabuf-unstable-v1))
