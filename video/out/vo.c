@@ -92,11 +92,9 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_SDL2_VIDEO
     &video_out_sdl,
 #endif
-/* XXX
 #if HAVE_X11
     &video_out_x11,
 #endif
-*/
 #if HAVE_DRM
     &video_out_drm,
 #endif
