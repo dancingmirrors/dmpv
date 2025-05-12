@@ -109,7 +109,8 @@ check(desc      = "extra Clang warnings",
 
 check("-usan",
       desc      = "undefined sanitizer",
-      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []))
+      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []),
+      required  = "Required.")
 
 # Reminder: normally always built, but enabled by MPV_LEAK_REPORT.
 # Building it can be disabled only by defining NDEBUG through CFLAGS.
