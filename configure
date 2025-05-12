@@ -286,7 +286,7 @@ check("-zlib*",
       required  = "Unable to find development files for zlib.")
 
 check("-uchardet*",
-      default   = False,
+      deps      = "iconv",
       fn        = lambda: check_pkg_config("uchardet"))
 
 check("-cocoa*",
