@@ -551,6 +551,7 @@ static bool append_lang(size_t *nb, char ***out, char *in)
 
 static bool add_auto_langs(size_t *nb, char ***out)
 {
+// FIXME
 #if HAVE_ICONV
     bool ret = false;
     char **autos = mp_get_user_langs();
@@ -564,7 +565,6 @@ cleanup:
     talloc_free(autos);
     return ret;
 #endif
-// FIXME
 return 0;
 }
 
@@ -602,10 +602,8 @@ static const char *get_audio_lang(struct MPContext *mpctx)
         // If we have input in multiple audio languages, bail out;
         // we don't have a meaningful single language.
         // Partial matches (e.g. en-US vs en-GB) are acceptable here.
-        #if HAVE_ICONV
         if (ret && t->lang && !mp_match_lang_single(t->lang, ret))
             return NULL;
-        #endif
 
         // We'll return the first non-null tag we see
         if (!ret)
@@ -650,12 +648,10 @@ struct track *select_default_track(struct MPContext *mpctx, int order,
         if (!pick || compare_track(track, pick, langs, false, mpctx->opts, preferred_program))
             pick = track;
 
-        #if HAVE_ICONV
         // We only try to autoselect forced tracks if they match the audio language
         if ((prefer_forced || fallback_forced) && mp_match_lang_single(audio_lang, track->lang) &&
             (!forced_pick || compare_track(track, forced_pick, langs, true, mpctx->opts, preferred_program)))
             forced_pick = track;
-       #endif
     }
 
     // If we're trying for a forced track, and found something that matches the audio, go with that
