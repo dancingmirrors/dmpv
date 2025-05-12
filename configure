@@ -463,6 +463,7 @@ check("-dmabuf_wayland*",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "video/out/wldmabuf/context_wldmabuf.c",
                    "video/out/wldmabuf/ra_wldmabuf.c",
+                   "video/out/hwdec/dmabuf_interop_gl.c",
                    "video/out/hwdec/dmabuf_interop_wl.c"])
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
