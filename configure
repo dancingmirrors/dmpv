@@ -53,7 +53,7 @@ check(desc      = "C11/C99",
                           check_cc(flags = "-std=c99"),
       required  = "No C11 or C99 support.")
 check("-optimize",
-      fn        = lambda: chain(add_cflags("-O2"), True),
+      fn        = lambda: chain(add_cflags("-O3", "-march=native"), True),
       desc      = "whether to optimize")
 check("-debug-build",
       desc      = "whether to compile-in debugging information",
