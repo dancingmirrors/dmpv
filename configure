@@ -434,10 +434,6 @@ check(deps      = ["drm", "drmprime"],
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
 
-# FIXME
-check("present_sync*",
-     sources    = "video/out/present_sync.c")
-
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
     if data is None:
@@ -452,6 +448,7 @@ check("-wayland*",
                                            "wayland-cursor  >= 1.6.0",
                                            "xkbcommon       >= 0.3.0"),
       sources   = ["video/out/wayland_common.c",
+                   "video/out/present_sync.c",
                    "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
                    "$(BUILD)/generated/wayland/presentation-time.c",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
