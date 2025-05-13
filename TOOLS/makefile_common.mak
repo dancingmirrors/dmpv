@@ -34,6 +34,10 @@ dist-clean:
 	$(LOG) "DIST-CLEAN"
 	$(Q) rm -rf $(BUILD)
 
+install:
+	$(LOG) "INSTALL"
+	$(Q) cp -v $(BUILD)/mpv /usr/local/bin
+
 # Generic pattern rules (used for most source files).
 
 $(BUILD)/%.o: %.c
