@@ -44,6 +44,8 @@
 #include "generated/wayland/linux-dmabuf-unstable-v1.h"
 #include "generated/wayland/viewporter.h"
 
+// FIXME
+#define HAVE_WAYLAND_PROTOCOLS_1_27 0
 #if HAVE_WAYLAND_PROTOCOLS_1_27
 #include "generated/wayland/single-pixel-buffer-v1.h"
 #endif
