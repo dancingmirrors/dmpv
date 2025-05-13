@@ -451,6 +451,8 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
                    "$(BUILD)/generated/wayland/presentation-time.c",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
+                   "$(BUILD)/generated/wayland/content-type-v1.c",
+                   "$(BUILD)/generated/wayland/single-pixel-buffer-v1.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 check("-dmabuf_wayland*",
       deps       = ["libplacebo", "wayland"],

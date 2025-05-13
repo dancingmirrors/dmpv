@@ -86,9 +86,8 @@ struct vo_wayland_state {
     int wakeup_pipe[2];
 
     /* content-type */
-    /* TODO: unvoid these if required wayland protocols is bumped to 1.27+ */
-    void *content_type_manager;
-    void *content_type;
+    struct wp_content_type_manager_v1 *content_type_manager;
+    struct wp_content_type_v1 *content_type;
     int current_content_type;
 
     /* cursor-shape */
@@ -120,8 +119,7 @@ struct vo_wayland_state {
     bool use_present;
 
     /* single-pixel-buffer */
-    /* TODO: unvoid this if required wayland-protocols is bumped to 1.27+ */
-    void *single_pixel_manager;
+    struct wp_single_pixel_buffer_manager_v1 *single_pixel_manager;
 
     /* xdg-decoration */
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
