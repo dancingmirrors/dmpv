@@ -322,9 +322,7 @@ check(desc      = "FFmpeg",
                     "libswresample  >= 3.0.100"),
       required  = "Unable to find development files for some of the required \
 FFmpeg libraries.")
-# FIXME
 check("-av_channel_layout*",
-      default   = True,
       sources   = "audio/chmap_avchannel.c")
 check("-ffmpeg-strict-abi*",
       desc      = "whether to disable all known FFmpeg ABI violations",
