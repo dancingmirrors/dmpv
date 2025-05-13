@@ -48,12 +48,16 @@
 
 // FIXME
 #define HAVE_WAYLAND_PROTOCOLS_1_27 1
-#define HAVE_WAYLAND_PROTOCOLS_1_31 0
+#define HAVE_WAYLAND_PROTOCOLS_1_31 1
 #define HAVE_WAYLAND_PROTOCOLS_1_32 0
 
 #if HAVE_WAYLAND_PROTOCOLS_1_27
 #include "generated/wayland/content-type-v1.h"
 #include "generated/wayland/single-pixel-buffer-v1.h"
+#endif
+
+#if HAVE_WAYLAND_PROTOCOLS_1_31
+#include "generated/wayland/fractional-scale-v1.h"
 #endif
 
 #ifndef CLOCK_MONOTONIC_RAW
