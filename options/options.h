@@ -361,7 +361,6 @@ typedef struct MPOpts {
     struct dvd_opts *dvd_opts;
     struct vaapi_opts *vaapi_opts;
     struct sws_opts *sws_opts;
-    struct zimg_opts *zimg_opts;
 
     int cuda_device;
 } MPOpts;

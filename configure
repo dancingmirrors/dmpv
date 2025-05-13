@@ -326,12 +326,6 @@ check("-ffmpeg-strict-abi*",
       desc      = "whether to disable all known FFmpeg ABI violations",
       default   = True)
 
-check("-zimg*",
-      desc      = "libzimg support (high quality software scaler)",
-      fn        = lambda: check_pkg_config("zimg >= 2.9"),
-      sources   = ["video/filter/vf_fingerprint.c",
-                   "video/zimg.c"]),
-
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 57.0.0"))
 
@@ -805,24 +799,6 @@ check("-macos-touchbar*",
 check("-macos-cocoa-cb*",
       desc      = "macOS opengl-cb backend",
       deps      = "cocoa")
-
-check("-tests*",
-      desc      = "unit tests (development only)",
-      default   = False,
-      sources   = ["test/chmap.c",
-                   "test/gl_video.c",
-                   "test/img_format.c",
-                   "test/json.c",
-                   "test/linked_list.c",
-                   "test/paths.c",
-                   "test/scale_sws.c",
-                   "test/scale_test.c",
-                   "test/tests.c"])
-check("tests-zimg",
-      deps      = ["tests", "zimg"],
-      default   = False,
-      sources   = ["test/repack.c",
-                   "test/scale_zimg.c"])
 
 add_sources(
     "audio/aframe.c",

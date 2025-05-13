@@ -141,8 +141,7 @@ extern "C" {
  * conversion, scaling, and OSD rendering, is done on the CPU, single-threaded.
  * In particular, large video or display sizes, as well as presence of OSD or
  * subtitles can make it too slow for realtime. As with other software rendering
- * VOs, setting "sw-fast" may help. Enabling or disabling zimg may help,
- * depending on the platform.
+ * VOs, setting "sw-fast" may help.
  *
  * In addition, certain multimedia job creation measures like HDR may not work
  * properly, and will have to be manually handled by for example inserting
@@ -394,9 +393,8 @@ typedef enum mpv_render_param_type {
      *
      * Both stride and pointer value should be a multiple of 64 to facilitate
      * fast SIMD operation. Lower alignment might trigger slower code paths,
-     * and in the worst case, will copy the entire target frame. If mpv is built
-     * with zimg (and zimg is not disabled), the performance impact might be
-     * less.
+     * and in the worst case, will copy the entire target frame.
+     *
      * In either cases, the pointer and stride must be aligned at least to the
      * pixel alignment size. Otherwise, crashes and undefined behavior is
      * possible on platforms which do not support unaligned accesses (either

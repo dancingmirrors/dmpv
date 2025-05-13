@@ -59,7 +59,6 @@ extern const struct m_sub_options stream_cdda_conf;
 extern const struct m_sub_options stream_dvb_conf;
 extern const struct m_sub_options stream_lavf_conf;
 extern const struct m_sub_options sws_conf;
-extern const struct m_sub_options zimg_conf;
 extern const struct m_sub_options drm_conf;
 extern const struct m_sub_options demux_rawaudio_conf;
 extern const struct m_sub_options demux_rawvideo_conf;
@@ -833,10 +832,6 @@ static const m_option_t mp_opts[] = {
 #endif
 
     {"sws", OPT_SUBSTRUCT(sws_opts, sws_conf)},
-
-#if HAVE_ZIMG
-    {"zimg", OPT_SUBSTRUCT(zimg_opts, zimg_conf)},
-#endif
 
     {"", OPT_SUBSTRUCT(encode_opts, encode_config)},
     {0}

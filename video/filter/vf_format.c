@@ -224,8 +224,7 @@ static const m_option_t vf_opts_fields[] = {
     {"film-grain", OPT_BOOL(film_grain)},
     {"force-scaler", OPT_CHOICE(force_scaler,
                                 {"auto", MP_SWS_AUTO},
-                                {"sws", MP_SWS_SWS},
-                                {"zimg", MP_SWS_ZIMG})},
+                                {"sws", MP_SWS_SWS})},
     {0}
 };
 

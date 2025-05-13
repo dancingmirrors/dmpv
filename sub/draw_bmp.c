@@ -683,7 +683,6 @@ static bool reinit_to_video(struct mp_draw_sub_cache *p)
             p->video_overlay->params.chroma_location = MP_CHROMA_CENTER;
 
         p->rgba_to_overlay = alloc_scaler(p);
-        p->rgba_to_overlay->allow_zimg = true;
         if (!mp_sws_supports_formats(p->rgba_to_overlay,
                             p->video_overlay->imgfmt, p->rgba_overlay->imgfmt))
             return false;
@@ -763,10 +762,6 @@ static bool reinit_to_video(struct mp_draw_sub_cache *p)
             return false;
         mp_image_set_params(p->premul_tmp, params);
         p->premul_tmp->params.alpha = MP_ALPHA_PREMUL;
-
-        // Only zimg supports this.
-        p->premul->force_scaler = MP_SWS_ZIMG;
-        p->unpremul->force_scaler = MP_SWS_ZIMG;
     }
 
     init_general(p);
