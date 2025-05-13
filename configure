@@ -82,8 +82,8 @@ check(desc      = "-fno-math-errno",
 check("gnuc",
       desc      = "GNU C",
       fn        = lambda: check_cc(defined = "__GNUC__"))
-check("Clang",
-      desc      = "Clang",
+check("clang",
+      desc      = "clang",
       fn        = lambda: check_cc(defined = "__clang__"))
 
 # Note that an important reason to try a different set of warning flags is the
@@ -92,15 +92,15 @@ check("Clang",
 # on the other.
 check(desc      = "extra GCC warnings",
       deps      = "gnuc",
-      deps_neg  = "Clang",
+      deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wall", "-Wundef", "-Wmissing-prototypes", "-Wshadow",
                         "-Wno-switch", "-Wparentheses", "-Wpointer-arith",
                         "-Wno-pointer-sign",
                         # GCC bug 66425
                         "-Wno-unused-result"]))
-check(desc      = "extra Clang warnings",
-      deps      = "Clang",
+check(desc      = "extra clang warnings",
+      deps      = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wno-logical-op-parentheses", "-fcolor-diagnostics",
                         "-Wno-tautological-compare",
