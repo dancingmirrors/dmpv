@@ -77,7 +77,7 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
     &ra_hwdec_drmprime,
     &ra_hwdec_drmprime_overlay,
 #endif
-#if HAVE_ANDROID_MEDIA_NDK
+#if HAVE_ANDROID
     &ra_hwdec_aimagereader,
 #endif
 #if HAVE_VULKAN_INTEROP

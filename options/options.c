@@ -786,7 +786,7 @@ static const m_option_t mp_opts[] = {
 
 #if HAVE_VULKAN
     {"", OPT_SUBSTRUCT(vulkan_opts, vulkan_conf)},
-#if HAVE_VK_KHR_DISPLAY
+#if HAVE_VULKAN_INTEROP
     {"", OPT_SUBSTRUCT(vulkan_display_opts, vulkan_display_conf)},
 #endif
 #endif

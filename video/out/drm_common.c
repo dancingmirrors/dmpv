@@ -808,7 +808,7 @@ static int open_card_path(const char *path)
 
 static bool card_supports_kms(const char *path)
 {
-#if HAVE_DRM_IS_KMS
+#if HAVE_DRM
     int fd = open_card_path(path);
     bool ret = fd != -1 && drmIsKMS(fd);
     if (fd != -1)

@@ -431,6 +431,14 @@ check(deps      = ["drm", "drmprime"],
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
 
+check("-libplacebo*",
+      desc      = "libplacebo support",
+      fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
+      sources   = ["video/out/placebo/ra_pl.c",
+                   "video/out/placebo/utils.c",
+                   "video/out/gpu_next/context.c",
+                   "video/out/vo_gpu_next.c"])
+
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
     if data is None:
@@ -451,13 +459,14 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 check("-dmabuf_wayland*",
-      deps       = "wayland",
+      deps       = ["libplacebo", "wayland"],
       sources    = ["video/out/vo_dmabuf_wayland.c",
                    "$(BUILD)/generated/wayland/viewporter.c",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "video/out/wldmabuf/context_wldmabuf.c",
                    "video/out/wldmabuf/ra_wldmabuf.c",
                    "video/out/hwdec/dmabuf_interop_gl.c",
+                   "video/out/hwdec/dmabuf_interop_pl.c",
                    "video/out/hwdec/dmabuf_interop_wl.c"])
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
@@ -481,13 +490,6 @@ check("-xv*",
       fn        = lambda: check_pkg_config("xv"),
       sources   = "video/out/vo_xv.c")
 
-check("-libplacebo*",
-      desc      = "libplacebo support",
-      fn        = lambda: check_pkg_config("libplacebo >= 1.18.0"),
-      sources   = ["video/out/placebo/ra_pl.c",
-                   "video/out/placebo/utils.c",
-                   "video/out/gpu_next/context.c",
-                   "video/out/vo_gpu_next.c"])
 check("-vulkan*",
       desc      = "Vulkan context support",
       deps      = "libplacebo",
@@ -504,7 +506,8 @@ check(deps      = ["vulkan", "win32-desktop"],
       sources   = "video/out/vulkan/context_win.c")
 check("-vulkan_interop*",
       deps      = "vulkan",
-      sources   = "video/out/hwdec/hwdec_vulkan.c")
+      sources   = ["video/out/hwdec/hwdec_vulkan.c",
+                   "video/out/vulkan/context_display.c"])
 
 # TODO: the waf check is much more complicated
 check("-egl*",

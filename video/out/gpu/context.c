@@ -110,7 +110,7 @@ static const struct ra_ctx_fns *contexts[] = {
 #if HAVE_X11
     &ra_ctx_vulkan_xlib,
 #endif
-#if HAVE_VK_KHR_DISPLAY
+#if HAVE_VULKAN_INTEROP
     &ra_ctx_vulkan_display,
 #endif
 #endif
