@@ -372,8 +372,9 @@ check("-opensles*",
                                    link = "-lOpenSLES",
                                    expr = "slCreateEngine;"),
       sources   = "audio/out/ao_opensles.c")
-# FIXME
 check("-oss*",
+      fn        = lambda: check_cc(include = "sys/soundcard.h",
+                  expr = "SNDCTL_DSP_HALT;"),
       sources   = "audio/out/ao_oss.c")
 check("-sndio*",
       default   = False,
