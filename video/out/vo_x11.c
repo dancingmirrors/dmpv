@@ -413,8 +413,6 @@ static int preinit(struct vo *vo)
         goto error;
 
     p->gc = XCreateGC(x11->display, x11->window, 0, NULL);
-    MP_WARN(vo, "Warning: this legacy VO has bad performance. Consider fixing "
-                "your graphics drivers, or not forcing the x11 VO.\n");
     return 0;
 
 error:
