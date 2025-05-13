@@ -503,10 +503,8 @@ check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
 check(deps      = ["vulkan", "win32-desktop"],
       sources   = "video/out/vulkan/context_win.c")
-# FIXME
 check("-vulkan_interop*",
-      deps      = "vulkan",
-      default   = False)
+      deps      = "vulkan")
 
 # TODO: the waf check is much more complicated
 check("-egl*",
