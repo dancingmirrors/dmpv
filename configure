@@ -483,7 +483,6 @@ check("-xv*",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
-      default   = False,
       fn        = lambda: check_pkg_config("libplacebo >= 1.18.0"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c",
@@ -504,7 +503,8 @@ check(deps      = ["vulkan", "wayland"],
 check(deps      = ["vulkan", "win32-desktop"],
       sources   = "video/out/vulkan/context_win.c")
 check("-vulkan_interop*",
-      deps      = "vulkan")
+      deps      = "vulkan",
+      sources   = "video/out/hwdec/hwdec_vulkan.c")
 
 # TODO: the waf check is much more complicated
 check("-egl*",
