@@ -49,7 +49,6 @@
 // FIXME
 #define HAVE_WAYLAND_PROTOCOLS_1_27 1
 #define HAVE_WAYLAND_PROTOCOLS_1_31 1
-#define HAVE_WAYLAND_PROTOCOLS_1_32 0
 
 #if HAVE_WAYLAND_PROTOCOLS_1_27
 #include "generated/wayland/content-type-v1.h"
@@ -1339,12 +1338,6 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     }
 #endif
 
-#if HAVE_WAYLAND_PROTOCOLS_1_32
-    if (!strcmp(interface, wp_cursor_shape_manager_v1_interface.name) && found++) {
-        wl->cursor_shape_manager = wl_registry_bind(reg, id, &wp_cursor_shape_manager_v1_interface, 1);
-    }
-#endif
-
     if (!strcmp(interface, wp_presentation_interface.name) && found++) {
         wl->presentation = wl_registry_bind(reg, id, &wp_presentation_interface, 1);
         wp_presentation_add_listener(wl->presentation, &pres_listener, wl);
@@ -1586,12 +1579,6 @@ static int get_mods(struct vo_wayland_state *wl)
 
 static void get_shape_device(struct vo_wayland_state *wl)
 {
-#if HAVE_WAYLAND_PROTOCOLS_1_32
-    if (!wl->cursor_shape_device && wl->cursor_shape_manager) {
-        wl->cursor_shape_device = wp_cursor_shape_manager_v1_get_pointer(wl->cursor_shape_manager,
-                                                                         wl->pointer);
-    }
-#endif
 }
 
 static int greatest_common_divisor(int a, int b)
@@ -1739,10 +1726,6 @@ static void set_content_type(struct vo_wayland_state *wl)
 
 static void set_cursor_shape(struct vo_wayland_state *wl)
 {
-#if HAVE_WAYLAND_PROTOCOLS_1_32
-    wp_cursor_shape_device_v1_set_shape(wl->cursor_shape_device, wl->pointer_id,
-                                        WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
-#endif
 }
 
 static int set_cursor_visibility(struct vo_wayland_state *wl, bool on)
@@ -2394,14 +2377,6 @@ void vo_wayland_uninit(struct vo *vo)
 
     if (wl->subcompositor)
         wl_subcompositor_destroy(wl->subcompositor);
-
-#if HAVE_WAYLAND_PROTOCOLS_1_32
-    if (wl->cursor_shape_device)
-        wp_cursor_shape_device_v1_destroy(wl->cursor_shape_device);
-
-    if (wl->cursor_shape_manager)
-        wp_cursor_shape_manager_v1_destroy(wl->cursor_shape_manager);
-#endif
 
     if (wl->cursor_surface)
         wl_surface_destroy(wl->cursor_surface);
