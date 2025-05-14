@@ -97,6 +97,8 @@ check(desc      = "extra GCC warnings",
                         "-Wall", "-Wundef", "-Wmissing-prototypes", "-Wshadow",
                         "-Wno-switch", "-Wparentheses", "-Wpointer-arith",
                         "-Wno-pointer-sign",
+                        "-Wno-array-bounds",
+                        "-Wno-stringop-overread",
                         # GCC bug 66425
                         "-Wno-unused-result"]))
 check(desc      = "extra clang warnings",
