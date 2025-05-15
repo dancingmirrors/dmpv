@@ -1059,7 +1059,6 @@ err:
     return -1;
 }
 
-// Potentially needed by some Lua scripts, which assume TICK always comes.
 static void handle_dummy_ticks(struct MPContext *mpctx)
 {
     if ((mpctx->video_status != STATUS_PLAYING &&

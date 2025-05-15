@@ -6284,8 +6284,7 @@ static void cmd_dump_cache_ab(void *p)
  * command has an arbitrary number of arguments, all using the type indicated by
  * the last argument (they are appended to mp_cmd.args[] starting at the last
  * argument's index).
- * Arguments have names, which can be used by named argument functions, e.g. in
- * Lua with mp.command_native().
+ * Arguments have names, which can be used by named argument functions.
  */
 
 // This does not specify the real destination of the command parameter values,
@@ -6922,9 +6921,6 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
             mp_force_video_refresh(mpctx);
         mp_wakeup_core(mpctx);
     }
-
-    if (flags & UPDATE_BUILTIN_SCRIPTS)
-        mp_load_builtin_scripts(mpctx);
 
     if (flags & UPDATE_IMGPAR) {
         struct track *track = mpctx->current_track[0][STREAM_VIDEO];

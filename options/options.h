@@ -119,7 +119,6 @@ struct mp_sub_filter_opts {
     bool rf_enable;
     bool rf_plain;
     char **rf_items;
-    char **jsre_items;
     bool rf_warn;
 };
 
@@ -151,13 +150,6 @@ typedef struct MPOpts {
     char **reset_options;
     char **script_files;
     char **script_opts;
-    bool lua_load_osc;
-    bool lua_load_ytdl;
-    char *lua_ytdl_format;
-    char **lua_ytdl_raw_options;
-    bool lua_load_stats;
-    bool lua_load_console;
-    int lua_load_auto_profiles;
 
     bool auto_load_scripts;
 

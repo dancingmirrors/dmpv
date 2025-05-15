@@ -238,7 +238,6 @@ const struct m_sub_options mp_sub_filter_opts = {
         {"sub-filter-regex-enable", OPT_BOOL(rf_enable)},
         {"sub-filter-regex-plain", OPT_BOOL(rf_plain)},
         {"sub-filter-regex", OPT_STRINGLIST(rf_items)},
-        {"sub-filter-jsre", OPT_STRINGLIST(jsre_items)},
         {"sub-filter-regex-warn", OPT_BOOL(rf_warn)},
         {0}
     },

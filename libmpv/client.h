@@ -51,11 +51,11 @@ extern "C" {
  *
  * The API can be used in two ways:
  * 1) Internally in mpv, to provide additional features to the command line
- *    player. Lua scripting uses this. (Currently there is no plugin API to
- *    get a client API handle in external user code. It has to be a fixed
- *    part of the player at compilation time.)
+ * player. Currently there is no plugin API to get a client API handle in
+ * external user code. It has to be a fixed part of the player at compilation
+ * time.
  * 2) Using mpv as a library with mpv_create(). This basically allows embedding
- *    mpv in other applications.
+ * mpv in other applications.
  *
  * Documentation
  * -------------
@@ -147,8 +147,7 @@ extern "C" {
  * - The FPU precision must be set at least to double precision.
  * - On Windows, mpv will call timeBeginPeriod(1).
  * - On memory exhaustion, mpv will kill the process.
- * - In certain cases, mpv may start sub processes (such as with the ytdl
- *   wrapper script).
+ * - In certain cases, mpv may start sub processes.
  * - Using UNIX IPC (off by default) will override the SIGPIPE signal handler,
  *   and set it to SIG_IGN. Some invocations of the "subprocess" command will
  *   also do that.

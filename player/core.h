@@ -622,8 +622,8 @@ struct mp_script_args {
     const char *path;
 };
 struct mp_scripting {
-    const char *name;       // e.g. "lua script"
-    const char *file_ext;   // e.g. "lua"
+    const char *name;
+    const char *file_ext;
     bool no_thread;         // don't run load() on dedicated thread
     int (*load)(struct mp_script_args *args);
 };
