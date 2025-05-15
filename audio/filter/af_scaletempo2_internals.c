@@ -119,8 +119,8 @@ static void multi_channel_dot_product(
     int channels,
     int num_frames, float *dot_product)
 {
-    mp_assert(frame_offset_a >= 0);
-    mp_assert(frame_offset_b >= 0);
+    assert(frame_offset_a >= 0);
+    assert(frame_offset_b >= 0);
 
     for (int k = 0; k < channels; ++k) {
         const float* ch_a = a[k] + frame_offset_a;
@@ -180,8 +180,8 @@ static void multi_channel_dot_product(
     int channels,
     int num_frames, float *dot_product)
 {
-    mp_assert(frame_offset_a >= 0);
-    mp_assert(frame_offset_b >= 0);
+    assert(frame_offset_a >= 0);
+    assert(frame_offset_b >= 0);
 
     for (int k = 0; k < channels; ++k) {
         const float* ch_a = a[k] + frame_offset_a;
@@ -409,7 +409,7 @@ static int compute_optimal_index(
 static void peek_buffer(struct mp_scaletempo2 *p,
     int frames, int read_offset, int write_offset, float **dest)
 {
-    mp_assert(p->input_buffer_frames >= frames);
+    assert(p->input_buffer_frames >= frames);
     for (int i = 0; i < p->channels; ++i) {
         memcpy(dest[i] + write_offset,
             p->input_buffer[i] + read_offset,
@@ -419,7 +419,7 @@ static void peek_buffer(struct mp_scaletempo2 *p,
 
 static void seek_buffer(struct mp_scaletempo2 *p, int frames)
 {
-    mp_assert(p->input_buffer_frames >= frames);
+    assert(p->input_buffer_frames >= frames);
     p->input_buffer_frames -= frames;
     for (int i = 0; i < p->channels; ++i) {
         memmove(p->input_buffer[i], p->input_buffer[i] + frames,
@@ -511,7 +511,7 @@ static bool target_is_within_search_region(struct mp_scaletempo2 *p)
 static void peek_audio_with_zero_prepend(struct mp_scaletempo2 *p,
     int read_offset_frames, float **dest, int dest_frames)
 {
-    mp_assert(read_offset_frames + dest_frames <= p->input_buffer_frames);
+    assert(read_offset_frames + dest_frames <= p->input_buffer_frames);
 
     int write_offset = 0;
     int num_frames_to_read = dest_frames;

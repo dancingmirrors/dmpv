@@ -74,14 +74,14 @@ void playlist_entry_unref(struct playlist_entry *e)
 {
     e->reserved--;
     if (e->reserved < 0) {
-        mp_assert(!e->pl);
+        assert(!e->pl);
         talloc_free(e);
     }
 }
 
 void playlist_remove(struct playlist *pl, struct playlist_entry *entry)
 {
-    mp_assert(pl && entry->pl == pl);
+    assert(pl && entry->pl == pl);
 
     if (pl->current == entry) {
         pl->current = playlist_entry_get_rel(entry, 1);
@@ -103,7 +103,7 @@ void playlist_clear(struct playlist *pl)
 {
     for (int n = pl->num_entries - 1; n >= 0; n--)
         playlist_remove(pl, pl->entries[n]);
-    mp_assert(!pl->current);
+    assert(!pl->current);
     pl->current_was_replaced = false;
 }
 
@@ -122,8 +122,8 @@ void playlist_move(struct playlist *pl, struct playlist_entry *entry,
     if (entry == at)
         return;
 
-    mp_assert(entry && entry->pl == pl);
-    mp_assert(!at || at->pl == pl);
+    assert(entry && entry->pl == pl);
+    assert(!at || at->pl == pl);
 
     int index = at ? at->pl_index : pl->num_entries;
     MP_TARRAY_INSERT_AT(pl, pl->entries, pl->num_entries, index, entry);
@@ -200,7 +200,7 @@ struct playlist_entry *playlist_get_next(struct playlist *pl, int direction)
 struct playlist_entry *playlist_entry_get_rel(struct playlist_entry *e,
                                               int direction)
 {
-    mp_assert(direction == -1 || direction == +1);
+    assert(direction == -1 || direction == +1);
     if (!e->pl)
         return NULL;
     return playlist_entry_from_index(e->pl, e->pl_index + direction);
@@ -242,7 +242,7 @@ void playlist_set_stream_flags(struct playlist *pl, int flags)
 static int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
                                             struct playlist *source_pl)
 {
-    mp_assert(pl != source_pl);
+    assert(pl != source_pl);
     struct playlist_entry *first = playlist_get_first(source_pl);
 
     int count = source_pl->num_entries;
@@ -277,8 +277,8 @@ int64_t playlist_transfer_entries(struct playlist *pl, struct playlist *source_p
         if (pl->current_was_replaced)
             add_at += 1;
     }
-    mp_assert(add_at >= 0);
-    mp_assert(add_at <= pl->num_entries);
+    assert(add_at >= 0);
+    assert(add_at <= pl->num_entries);
 
     return playlist_transfer_entries_to(pl, add_at, source_pl);
 }

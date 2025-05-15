@@ -571,7 +571,7 @@ static void init_session_display(struct wasapi_state *state, const char *name) {
                 mp_HRESULT_to_str(hr));
     }
 
-    mp_assert(name);
+    assert(name);
     if (!name)
         return;
 

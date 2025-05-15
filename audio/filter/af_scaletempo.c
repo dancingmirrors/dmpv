@@ -118,7 +118,7 @@ static bool fill_queue(struct priv *s)
     }
 
     int bytes_needed = s->bytes_queue - s->bytes_queued;
-    mp_assert(bytes_needed >= 0);
+    assert(bytes_needed >= 0);
 
     int bytes_copy = MPMIN(bytes_needed, bytes_in);
     if (bytes_copy > 0) {

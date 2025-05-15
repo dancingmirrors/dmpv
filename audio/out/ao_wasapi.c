@@ -417,7 +417,7 @@ static int thread_control(struct ao *ao, enum aocontrol cmd, void *arg)
         MP_WARN(ao, "Error setting audio session name: %s\n",
                 mp_HRESULT_to_str(hr));
 
-        mp_assert(ao->client_name);
+        assert(ao->client_name);
         if (!ao->client_name)
             return CONTROL_ERROR;
 

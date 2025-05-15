@@ -47,7 +47,7 @@ static void process(struct mp_filter *f)
                 return; // no new data yet
             }
         }
-        mp_assert(p->pending || eof);
+        assert(p->pending || eof);
 
         if (!p->initialized) {
             if (!p->pending) {
@@ -129,7 +129,7 @@ error:
 static bool init_scaletempo2(struct mp_filter *f)
 {
     struct priv *p = f->priv;
-    mp_assert(p->pending);
+    assert(p->pending);
 
     if (mp_aframe_get_format(p->pending) != AF_FORMAT_FLOATP)
         return false;

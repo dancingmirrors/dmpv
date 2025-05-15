@@ -201,7 +201,7 @@ static bool read_raw(struct demux_cache *cache, void *ptr, size_t len)
 // Returns a negative value on errors, i.e. writing the file failed.
 int64_t demux_cache_write(struct demux_cache *cache, struct demux_packet *dp)
 {
-    mp_assert(dp->avpacket);
+    assert(dp->avpacket);
 
     // AV_PKT_FLAG_TRUSTED usually means there are embedded pointers and such
     // in the packet data. The pointer will become invalid if the packet is
