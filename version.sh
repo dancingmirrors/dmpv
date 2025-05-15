@@ -37,11 +37,6 @@ test "$git_revision" || test ! -e .git || git_revision="$(git describe \
     --match "v[0-9]*" --always --tags | sed 's/^v//')"
 version="$git_revision"
 
-# other tarballs extract the version number from the VERSION file
-if test ! "$version"; then
-    version="$(cat VERSION 2> /dev/null)"
-fi
-
 VERSION="${version}${extra}"
 
 if test "$print" = yes ; then
