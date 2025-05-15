@@ -50,7 +50,6 @@
 extern const struct vo_driver video_out_mediacodec_embed;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_vdpau;
-extern const struct vo_driver video_out_xv;
 extern const struct vo_driver video_out_gpu_next;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
@@ -82,11 +81,6 @@ static const struct vo_driver *const video_out_drivers[] =
 /* XXX
 #if HAVE_WAYLAND && HAVE_MEMFD_CREATE
     &video_out_wlshm,
-#endif
-*/
-/* XXX
-#if HAVE_XV
-    &video_out_xv,
 #endif
 */
 #if HAVE_SDL2_VIDEO

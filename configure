@@ -485,10 +485,6 @@ check("-x11*",
                                            "xrandr      >= 1.2.0"),
       sources   = ["video/out/vo_x11.c",
                    "video/out/x11_common.c"])
-check("-xv*",
-      deps      = "x11",
-      fn        = lambda: check_pkg_config("xv"),
-      sources   = "video/out/vo_xv.c")
 
 check("-vulkan*",
       desc      = "Vulkan context support",
