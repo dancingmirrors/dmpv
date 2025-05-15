@@ -492,6 +492,7 @@ check("-xv*",
 
 check("-vulkan*",
       desc      = "Vulkan context support",
+      default   = False,
       deps      = "libplacebo",
       fn        = lambda: check_pkg_config("vulkan"),
       sources   = ["video/out/vulkan/context.c",
