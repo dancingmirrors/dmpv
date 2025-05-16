@@ -367,11 +367,11 @@ check("-opensles*",
                                    expr = "slCreateEngine;"),
       sources   = "audio/out/ao_opensles.c")
 check("-oss*",
+      default   = False,
       fn        = lambda: check_cc(include = "sys/soundcard.h",
                   expr = "SNDCTL_DSP_HALT;"),
       sources   = "audio/out/ao_oss.c")
 check("-sndio*",
-      default   = False,
       fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
       sources   = "audio/out/ao_sndio.c")
 check("-pipewire*",
