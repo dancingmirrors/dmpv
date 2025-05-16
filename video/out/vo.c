@@ -47,19 +47,19 @@
 #include "osdep/io.h"
 #include "osdep/threads.h"
 
+extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_mediacodec_embed;
-extern const struct vo_driver video_out_x11;
-extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_gpu_next;
+extern const struct vo_driver video_out_vdpau;
+extern const struct vo_driver video_out_direct3d;
+extern const struct vo_driver video_out_wlshm;
+extern const struct vo_driver video_out_sdl;
+extern const struct vo_driver video_out_x11;
+extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
-extern const struct vo_driver video_out_lavc;
-extern const struct vo_driver video_out_drm;
-extern const struct vo_driver video_out_direct3d;
-extern const struct vo_driver video_out_sdl;
-extern const struct vo_driver video_out_dmabuf_wayland;
-extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_rpi;
+extern const struct vo_driver video_out_lavc;
 
 static const struct vo_driver *const video_out_drivers[] =
 {
@@ -78,11 +78,9 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_DIRECT3D
     &video_out_direct3d,
 #endif
-/* XXX
 #if HAVE_WAYLAND && HAVE_MEMFD_CREATE
     &video_out_wlshm,
 #endif
-*/
 #if HAVE_SDL2_VIDEO
     &video_out_sdl,
 #endif
