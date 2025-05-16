@@ -227,8 +227,13 @@ check("atomics",
       required  = "Required.")
 check("librt",
       fn        = lambda: check_cc(link = "-lrt"))
+
+check("freebsd*",
+      desc      = "FreeBSD",
+      fn        = lambda: chain(check_cc(defined = "__FreeBSD__"),
+                  add_cflags("-DLIBICONV_PLUG"), True))
 check("iconv*",
-      fn        = lambda: check_cc(include = "/usr/local/include/iconv.h", link = [],
+      fn        = lambda: check_cc(include = "iconv.h", link = [],
                                    expr = "iconv_open(0, 0);") or
                           check_cc(include = "iconv.h", link = "-liconv",
                                    expr = "iconv_open(0, 0);"))
