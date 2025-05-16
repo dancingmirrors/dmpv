@@ -46,18 +46,9 @@
 #define HAVE_WAYLAND_1_22
 #endif
 
-// FIXME
-#define HAVE_WAYLAND_PROTOCOLS_1_27 1
-#define HAVE_WAYLAND_PROTOCOLS_1_31 1
-
-#if HAVE_WAYLAND_PROTOCOLS_1_27
 #include "generated/wayland/content-type-v1.h"
 #include "generated/wayland/single-pixel-buffer-v1.h"
-#endif
-
-#if HAVE_WAYLAND_PROTOCOLS_1_31
 #include "generated/wayland/fractional-scale-v1.h"
-#endif
 
 #ifndef CLOCK_MONOTONIC_RAW
 #define CLOCK_MONOTONIC_RAW 4
@@ -1041,7 +1032,6 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 #endif
 };
 
-#if HAVE_WAYLAND_PROTOCOLS_1_31
 static void preferred_scale(void *data,
                             struct wp_fractional_scale_v1 *fractional_scale,
                             uint32_t scale)
@@ -1064,7 +1054,6 @@ static void preferred_scale(void *data,
 static const struct wp_fractional_scale_v1_listener fractional_scale_listener = {
     preferred_scale,
 };
-#endif
 
 static const char *zxdg_decoration_mode_to_str(const uint32_t mode)
 {
@@ -1322,7 +1311,6 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
         wl->shm = wl_registry_bind(reg, id, &wl_shm_interface, 1);
     }
 
-#if HAVE_WAYLAND_PROTOCOLS_1_27
     if (!strcmp(interface, wp_content_type_manager_v1_interface.name) && found++) {
         wl->content_type_manager = wl_registry_bind(reg, id, &wp_content_type_manager_v1_interface, 1);
     }
@@ -1330,13 +1318,10 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     if (!strcmp(interface, wp_single_pixel_buffer_manager_v1_interface.name) && found++) {
         wl->single_pixel_manager = wl_registry_bind(reg, id, &wp_single_pixel_buffer_manager_v1_interface, 1);
     }
-#endif
 
-#if HAVE_WAYLAND_PROTOCOLS_1_31
     if (!strcmp(interface, wp_fractional_scale_manager_v1_interface.name) && found++) {
         wl->fractional_scale_manager = wl_registry_bind(reg, id, &wp_fractional_scale_manager_v1_interface, 1);
     }
-#endif
 
     if (!strcmp(interface, wp_presentation_interface.name) && found++) {
         wl->presentation = wl_registry_bind(reg, id, &wp_presentation_interface, 1);
@@ -1714,14 +1699,12 @@ static void set_content_type(struct vo_wayland_state *wl)
 {
     if (!wl->content_type_manager)
         return;
-#if HAVE_WAYLAND_PROTOCOLS_1_27
     // handle auto;
     if (wl->vo_opts->content_type == -1) {
         wp_content_type_v1_set_content_type(wl->content_type, wl->current_content_type);
     } else {
         wp_content_type_v1_set_content_type(wl->content_type, wl->vo_opts->content_type);
     }
-#endif
 }
 
 static void set_cursor_shape(struct vo_wayland_state *wl)
@@ -2061,10 +2044,8 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
         return VO_TRUE;
     }
     case VOCTRL_CONTENT_TYPE: {
-#if HAVE_WAYLAND_PROTOCOLS_1_27
         wl->current_content_type = *(enum mp_content_type *)arg;
         set_content_type(wl);
-#endif
         return VO_TRUE;
     }
     case VOCTRL_GET_FOCUSED: {
@@ -2214,7 +2195,6 @@ bool vo_wayland_init(struct vo *vo)
         wl_subsurface_set_desync(wl->video_subsurface);
     }
 
-#if HAVE_WAYLAND_PROTOCOLS_1_27
     if (wl->content_type_manager) {
         wl->content_type = wp_content_type_manager_v1_get_surface_content_type(wl->content_type_manager, wl->surface);
     } else {
@@ -2226,9 +2206,7 @@ bool vo_wayland_init(struct vo *vo)
         MP_VERBOSE(wl, "Compositor doesn't support the %s protocol!\n",
                    wp_single_pixel_buffer_manager_v1_interface.name);
     }
-#endif
 
-#if HAVE_WAYLAND_PROTOCOLS_1_31
     if (wl->fractional_scale_manager) {
         wl->fractional_scale = wp_fractional_scale_manager_v1_get_fractional_scale(wl->fractional_scale_manager, wl->surface);
         wp_fractional_scale_v1_add_listener(wl->fractional_scale, &fractional_scale_listener, wl);
@@ -2236,7 +2214,6 @@ bool vo_wayland_init(struct vo *vo)
         MP_VERBOSE(wl, "Compositor doesn't support the %s protocol!\n",
                    wp_fractional_scale_manager_v1_interface.name);
     }
-#endif
 
     if (wl->dnd_devman && wl->seat) {
         wl->dnd_ddev = wl_data_device_manager_get_data_device(wl->dnd_devman, wl->seat);
@@ -2384,13 +2361,11 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->cursor_theme)
         wl_cursor_theme_destroy(wl->cursor_theme);
 
-#if HAVE_WAYLAND_PROTOCOLS_1_27
     if (wl->content_type)
         wp_content_type_v1_destroy(wl->content_type);
 
     if (wl->content_type_manager)
         wp_content_type_manager_v1_destroy(wl->content_type_manager);
-#endif
 
     if (wl->dnd_ddev)
         wl_data_device_destroy(wl->dnd_ddev);
@@ -2404,13 +2379,11 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->fback_pool)
         clean_feedback_pool(wl->fback_pool);
 
-#if HAVE_WAYLAND_PROTOCOLS_1_31
     if (wl->fractional_scale)
         wp_fractional_scale_v1_destroy(wl->fractional_scale);
 
     if (wl->fractional_scale_manager)
         wp_fractional_scale_manager_v1_destroy(wl->fractional_scale_manager);
-#endif
 
     if (wl->frame_callback)
         wl_callback_destroy(wl->frame_callback);
@@ -2457,10 +2430,8 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->shm)
         wl_shm_destroy(wl->shm);
 
-#if HAVE_WAYLAND_PROTOCOLS_1_27
     if (wl->single_pixel_manager)
         wp_single_pixel_buffer_manager_v1_destroy(wl->single_pixel_manager);
-#endif
 
     if (wl->surface)
         wl_surface_destroy(wl->surface);
