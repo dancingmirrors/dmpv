@@ -39,7 +39,7 @@ install:
 	$(Q) mkdir -p -v /usr/local/bin
 	$(Q) cp -v $(BUILD)/mpv /usr/local/bin
 	$(Q) mkdir -p -v /usr/local/share/icons/hicolor/128x128/apps
-	$(Q) cp -v etc/mpv-icon-8bit-128x128.png /usr/local/share/icons/hicolor/128x128/apps
+	$(Q) cp -v etc/mpv-icon-8bit-128x128.png /usr/local/share/icons/hicolor/128x128/apps/mpv.png
 	$(Q) mkdir -p -v /usr/local/share/applications
 	$(Q) cp -v etc/mpv.desktop /usr/local/share/applications
 
