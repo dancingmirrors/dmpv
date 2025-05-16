@@ -880,12 +880,14 @@ static void apply_target_options(struct priv *p, struct pl_frame *target)
 
     if (opts->icc_opts->icc_use_luma) {
         // Use detected luminance
+AV_NOWARN_DEPRECATED(
         pars->icc_params.max_luma = 0;
     } else {
         // Use HDR levels if available, fall back to default luminance
         pars->icc_params.max_luma = target->color.hdr.max_luma;
         if (!pars->icc_params.max_luma)
             pars->icc_params.max_luma = pl_icc_default_params.max_luma;
+)
     }
 }
 
@@ -1566,9 +1568,11 @@ static void uninit(struct vo *vo)
     if (cache_file && p->rr) {
         FILE *cache = fopen(cache_file, "wb");
         if (cache) {
+AV_NOWARN_DEPRECATED(
             size_t size = pl_renderer_save(p->rr, NULL);
             uint8_t *buf = talloc_size(NULL, size);
             pl_renderer_save(p->rr, buf);
+)
             fwrite(buf, size, 1, cache);
             talloc_free(buf);
             fclose(cache);
@@ -1635,7 +1639,9 @@ static int preinit(struct vo *vo)
     if (cache_file) {
         if (stat(cache_file, &(struct stat){0}) == 0) {
             bstr c = stream_read_file(cache_file, p, vo->global, 1000000000);
+AV_NOWARN_DEPRECATED(
             pl_renderer_load(p->rr, c.start);
+)
             talloc_free(c.start);
         }
         talloc_free(cache_file);
@@ -1861,6 +1867,7 @@ static void update_icc_opts(struct priv *p, const struct mp_icc_opts *opts)
 
     int s_r = 0, s_g = 0, s_b = 0;
     gl_parse_3dlut_size(opts->size_str, &s_r, &s_g, &s_b);
+AV_NOWARN_DEPRECATED(
     pars->icc_params.intent = opts->intent;
     pars->icc_params.size_r = s_r;
     pars->icc_params.size_g = s_g;
@@ -1868,7 +1875,7 @@ static void update_icc_opts(struct priv *p, const struct mp_icc_opts *opts)
     pars->icc_params.cache_priv = p;
     pars->icc_params.cache_save = icc_save;
     pars->icc_params.cache_load = icc_load;
-
+)
     if (!opts->profile || !opts->profile[0]) {
         // No profile enabled, un-load any existing profiles
         if (p->icc_path) {
@@ -1992,9 +1999,13 @@ static void update_render_options(struct vo *vo)
     struct priv *p = vo->priv;
     pl_options pars = p->pars;
     const struct gl_video_opts *opts = p->opts_cache->opts;
+AV_NOWARN_DEPRECATED(
     pars->params.lut_entries = 1 << opts->scaler_lut_size;
+)
     pars->params.antiringing_strength = opts->scaler[0].antiring;
+AV_NOWARN_DEPRECATED(
     pars->params.polar_cutoff = opts->scaler[0].cutoff;
+)
     pars->params.background_color[0] = opts->background.r / 255.0;
     pars->params.background_color[1] = opts->background.g / 255.0;
     pars->params.background_color[2] = opts->background.b / 255.0;
@@ -2002,7 +2013,9 @@ static void update_render_options(struct vo *vo)
     pars->params.skip_anti_aliasing = !opts->correct_downscaling;
     pars->params.disable_linear_scaling = !opts->linear_downscaling && !opts->linear_upscaling;
     pars->params.disable_fbos = opts->dumb_mode == 1;
+AV_NOWARN_DEPRECATED(
     pars->params.blend_against_tiles = opts->alpha_mode == ALPHA_BLEND_TILES;
+)
     pars->params.corner_rounding = p->corner_rounding;
 
     // Map scaler options as best we can
