@@ -372,6 +372,7 @@ check("-oss*",
       sources   = "audio/out/ao_oss.c")
 check("-sndio*",
       default   = False,
+      fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
       sources   = "audio/out/ao_sndio.c")
 check("-pipewire*",
       default   = False,
