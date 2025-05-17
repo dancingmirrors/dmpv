@@ -340,9 +340,9 @@ static void aspeed_process(struct mp_filter *f)
 
         if (req_filter) {
             if (req_filter == 1) {
-                MP_VERBOSE(f, "adding scaletempo2\n");
+                MP_VERBOSE(f, "adding scaletempo\n");
                 p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_AUDIO,
-                                                      "scaletempo2", NULL);
+                                                      "scaletempo", NULL);
             } else if (req_filter == 2) {
                 MP_VERBOSE(f, "adding drop\n");
                 p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_AUDIO,
