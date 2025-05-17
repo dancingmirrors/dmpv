@@ -346,10 +346,6 @@ check("-jack*",
       default   = False,
       fn        = lambda: check_pkg_config("jack"),
       sources   = "audio/out/ao_jack.c")
-check("-openal*",
-      default   = False,
-      fn        = lambda: check_pkg_config("openal >= 1.13"),
-      sources   = "audio/out/ao_openal.c")
 check("-opensles*",
       fn        = lambda: check_cc(include = "SLES/OpenSLES.h",
                                    link = "-lOpenSLES",

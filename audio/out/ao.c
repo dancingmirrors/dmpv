@@ -45,7 +45,6 @@ extern const struct ao_driver audio_out_pipewire;
 extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_pulse;
 extern const struct ao_driver audio_out_jack;
-extern const struct ao_driver audio_out_openal;
 extern const struct ao_driver audio_out_opensles;
 extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_alsa;
@@ -82,9 +81,6 @@ static const struct ao_driver * const audio_out_drivers[] = {
     // wrappers:
 #if HAVE_JACK
     &audio_out_jack,
-#endif
-#if HAVE_OPENAL
-    &audio_out_openal,
 #endif
 #if HAVE_OPENSLES
     &audio_out_opensles,
