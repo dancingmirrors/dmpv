@@ -41,7 +41,6 @@
 #include "common/msg.h"
 #include "common/msg_control.h"
 #include "misc/json.h"
-#include "misc/mp_assert.h"
 #include "misc/node.h"
 #include "m_option.h"
 #include "m_config_frontend.h"
