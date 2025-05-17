@@ -107,7 +107,8 @@ check(desc      = "extra clang warnings",
                         "-Wno-logical-op-parentheses", "-fcolor-diagnostics",
                         "-Wno-tautological-compare",
                         "-Wno-tautological-constant-out-of-range-compare",
-                        "-Wno-constant-logical-operand"]))
+                        "-Wno-constant-logical-operand",
+                        "-Wunreachable-code-aggressive"]))
 
 check("-usan",
       desc      = "undefined sanitizer",
