@@ -337,23 +337,6 @@ check("-ffmpeg-strict-abi*",
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 57.0.0"))
 
-check("-sdl2",
-      default   = False,
-      fn        = lambda: check_pkg_config('sdl2'))
-check("-sdl2-audio*",
-      deps      = "sdl2",
-      default   = False,
-      sources   = "audio/out/ao_sdl.c")
-check("-sdl2-video*",
-      deps      = "sdl2",
-      default   = False,
-      sources   = "video/out/vo_sdl.c")
-check("-sdl2-gamepad*",
-      desc      = "SDL2 gamepad input",
-      deps      = "sdl2",
-      default   = False,
-      sources   = "input/sdl_gamepad.c")
-
 check("-pulse*",
       default   = False,
       fn        = lambda: check_pkg_config("libpulse >= 1.0"),

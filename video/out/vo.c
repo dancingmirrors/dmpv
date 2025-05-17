@@ -53,7 +53,6 @@ extern const struct vo_driver video_out_gpu_next;
 extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_direct3d;
 extern const struct vo_driver video_out_wlshm;
-extern const struct vo_driver video_out_sdl;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
@@ -80,9 +79,6 @@ static const struct vo_driver *const video_out_drivers[] =
 #endif
 #if HAVE_WAYLAND && HAVE_MEMFD_CREATE
     &video_out_wlshm,
-#endif
-#if HAVE_SDL2_VIDEO
-    &video_out_sdl,
 #endif
 #if HAVE_X11
     &video_out_x11,

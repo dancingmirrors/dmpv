@@ -199,9 +199,6 @@ const struct m_sub_options input_config = {
         {"input-cursor", OPT_BOOL(enable_mouse_movements)},
         {"input-vo-keyboard", OPT_BOOL(vo_key_input)},
         {"input-media-keys", OPT_BOOL(use_media_keys)},
-#if HAVE_SDL2_GAMEPAD
-        {"input-gamepad", OPT_BOOL(use_gamepad)},
-#endif
         {"window-dragging", OPT_BOOL(allow_win_drag)},
         {0}
     },
@@ -1385,12 +1382,6 @@ void mp_input_load_config(struct input_ctx *ictx)
             parse_config_file(ictx, files[n], false);
         talloc_free(tmp);
     }
-
-#if HAVE_SDL2_GAMEPAD
-    if (ictx->opts->use_gamepad) {
-        mp_input_sdl_gamepad_add(ictx);
-    }
-#endif
 
     input_unlock(ictx);
 }
