@@ -23,7 +23,6 @@
 
 #include "mpv_talloc.h"
 #include "misc/bstr.h"
-#include "misc/mp_assert.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "osd.h"
@@ -663,14 +662,8 @@ static void append_ass(struct ass_state *ass, struct mp_osd_res *res,
 struct sub_bitmaps *osd_object_get_bitmaps(struct osd_state *osd,
                                            struct osd_object *obj, int format)
 {
-    if (obj->type == OSDTYPE_OSD) {
-        if (obj->osd_changed) {
-            update_osd(osd, obj);
-        } else {
-            mp_require(obj->ass_packer);
-            goto done;
-        }
-    }
+    if (obj->type == OSDTYPE_OSD && obj->osd_changed)
+        update_osd(osd, obj);
 
     if (!obj->ass_packer)
         obj->ass_packer = mp_ass_packer_alloc(obj);
@@ -688,7 +681,6 @@ struct sub_bitmaps *osd_object_get_bitmaps(struct osd_state *osd,
         }
     }
 
-done:;
     struct sub_bitmaps out_imgs = {0};
     mp_ass_packer_pack(obj->ass_packer, obj->ass_imgs, obj->num_externals + 1,
                        obj->changed, format, &out_imgs);
