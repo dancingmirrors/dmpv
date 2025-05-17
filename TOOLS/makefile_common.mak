@@ -43,6 +43,12 @@ install:
 	$(Q) mkdir -p -v /usr/local/share/applications
 	$(Q) cp -v etc/mpv.desktop /usr/local/share/applications
 
+uninstall:
+	$(LOG) "UNINSTALL"
+	$(Q) rm -f -v /usr/local/bin/mpv
+	$(Q) rm -f -v /usr/local/share/icons/hicolor/128x128/apps/mpv.png
+	$(Q) rm -f -v /usr/local/share/applications/mpv.desktop
+
 # Generic pattern rules (used for most source files).
 
 $(BUILD)/%.o: %.c
