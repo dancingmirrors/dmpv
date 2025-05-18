@@ -37,7 +37,7 @@ test "$git_revision" || test ! -e .git || git_revision="$(git describe \
     --match "v[0-9]*" --always --tags | sed 's/^v//')"
 version="$git_revision"
 
-VERSION="${version}${extra}"
+VERSION="${version}${extra}-dancingmirrors"
 
 if test "$print" = yes ; then
     echo "$VERSION"
