@@ -177,7 +177,8 @@ check("-android*",
                                    link = ["-landroid", "-lEGL"]),
       sources   = ["osdep/android/strnlen.c",
                    "video/out/opengl/context_android.c",
-                   "video/out/vo_mediacodec_embed.c"])
+                   "video/out/vo_mediacodec_embed.c",
+                   "video/out/hwdec/hwdec_aimagereader.c"])
 
 check("-uwp*",
       desc      = "Universal Windows Platform",
