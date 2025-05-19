@@ -40,7 +40,6 @@ extern const struct ao_driver audio_out_audiotrack;
 extern const struct ao_driver audio_out_audiounit;
 extern const struct ao_driver audio_out_coreaudio;
 extern const struct ao_driver audio_out_coreaudio_exclusive;
-extern const struct ao_driver audio_out_rsound;
 extern const struct ao_driver audio_out_pipewire;
 extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_pulse;
