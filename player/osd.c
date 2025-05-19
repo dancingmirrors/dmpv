@@ -205,13 +205,6 @@ static char *get_term_status_msg(struct MPContext *mpctx)
     if (opts->playback_speed != 1)
         saddf(&line, " x%4.2f", opts->playback_speed);
 
-    // A-V sync
-    if (mpctx->ao_chain && mpctx->vo_chain && !mpctx->vo_chain->is_sparse) {
-        saddf(&line, " A-V:%7.3f", mpctx->last_av_difference);
-        if (fabs(mpctx->total_avsync_change) > 0.05)
-            saddf(&line, " ct:%7.3f", mpctx->total_avsync_change);
-    }
-
     double position = get_current_pos_ratio(mpctx, true);
     char lavcbuf[80];
     if (encode_lavc_getstatus(mpctx->encode_lavc_ctx, lavcbuf, sizeof(lavcbuf),
