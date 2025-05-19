@@ -35,24 +35,23 @@
 #include "common/common.h"
 #include "common/global.h"
 
-extern const struct ao_driver audio_out_oss;
 extern const struct ao_driver audio_out_audiotrack;
 extern const struct ao_driver audio_out_audiounit;
 extern const struct ao_driver audio_out_coreaudio;
 extern const struct ao_driver audio_out_coreaudio_exclusive;
 extern const struct ao_driver audio_out_pipewire;
-extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_pulse;
-extern const struct ao_driver audio_out_jack;
-extern const struct ao_driver audio_out_opensles;
-extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_alsa;
 extern const struct ao_driver audio_out_wasapi;
+extern const struct ao_driver audio_out_oss;
+extern const struct ao_driver audio_out_jack;
+extern const struct ao_driver audio_out_opensles;
+extern const struct ao_driver audio_out_sndio;
+extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_pcm;
 extern const struct ao_driver audio_out_lavc;
 
 static const struct ao_driver * const audio_out_drivers[] = {
-// native:
 #if HAVE_ANDROID
     &audio_out_audiotrack,
 #endif
@@ -61,6 +60,7 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #endif
 #if HAVE_COREAUDIO
     &audio_out_coreaudio,
+    &audio_out_coreaudio_exclusive,
 #endif
 #if HAVE_PIPEWIRE
     &audio_out_pipewire,
@@ -77,7 +77,6 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_OSS
     &audio_out_oss,
 #endif
-    // wrappers:
 #if HAVE_JACK
     &audio_out_jack,
 #endif
@@ -88,9 +87,6 @@ static const struct ao_driver * const audio_out_drivers[] = {
     &audio_out_sndio,
 #endif
     &audio_out_null,
-#if HAVE_COREAUDIO
-    &audio_out_coreaudio_exclusive,
-#endif
     &audio_out_pcm,
     &audio_out_lavc,
 };
