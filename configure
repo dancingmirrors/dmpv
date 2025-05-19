@@ -57,6 +57,7 @@ check("-optimize",
       desc      = "whether to optimize")
 check("-debug-build",
       desc      = "whether to compile-in debugging information",
+      default   = False,
       fn        = lambda: chain(add_cflags("-g"),
                                 check_cc(flags = ["-g3", "-ggdb"]),
                                 True))
