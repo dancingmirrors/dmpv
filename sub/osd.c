@@ -258,8 +258,8 @@ static void check_obj_resize(struct osd_state *osd, struct mp_osd_res res,
     }
 }
 
-// Optional. Can be called for faster reaction of OSD-generating scripts like
-// osc.lua. This can achieve that the resize happens first, so that the OSD is
+// Optional. Can be called for faster reaction of OSD-generating scripts.
+// This can achieve that the resize happens first, so that the OSD is
 // generated at the correct resolution the first time the resized frame is
 // rendered. Since the OSD doesn't (and can't) wait for the script, this
 // increases the time in which the script can react, and also gets rid of the

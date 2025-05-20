@@ -445,28 +445,6 @@
                     }],
                     @{ @"name": @"separator" },
                     [NSMutableDictionary dictionaryWithDictionary:@{
-                        @"name"       : @"Show Playlist",
-                        @"action"     : @"cmd:",
-                        @"key"        : @"",
-                        @"target"     : self,
-                        @"cmd"        : @"script-message osc-playlist"
-                    }],
-                    [NSMutableDictionary dictionaryWithDictionary:@{
-                        @"name"       : @"Show Chapters",
-                        @"action"     : @"cmd:",
-                        @"key"        : @"",
-                        @"target"     : self,
-                        @"cmd"        : @"script-message osc-chapterlist"
-                    }],
-                    [NSMutableDictionary dictionaryWithDictionary:@{
-                        @"name"       : @"Show Tracks",
-                        @"action"     : @"cmd:",
-                        @"key"        : @"",
-                        @"target"     : self,
-                        @"cmd"        : @"script-message osc-tracklist"
-                    }],
-                    @{ @"name": @"separator" },
-                    [NSMutableDictionary dictionaryWithDictionary:@{
                         @"name"       : @"Next File",
                         @"action"     : @"cmd:",
                         @"key"        : @"",
