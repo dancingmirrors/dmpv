@@ -34,15 +34,6 @@ check(desc      = "pkg-config",
 
 check("-cplayer",
       desc      = "mpv CLI player binary")
-check("-libmpv-shared",
-      desc      = "libmpv shared library",
-      fn        = lambda: check_cc(flags = "-fPIC"),
-        #'-Wl,-version-script', '-Wl,mpv.def
-      default   = False)
-check("-libmpv-static",
-      desc      = "libmpv static library",
-      default   = False,
-      deps_neg  = "libmpv-shared")
 
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
@@ -157,7 +148,7 @@ check("posix*",
                    "sub/filter_regex.c"])
 check("development environment",
       deps_any  = ["posix", "mingw"],
-      required  = "Unable to find either POSIX or MinGW-w64 environment.")
+      required  = "Unable to find either a POSIX or MinGW-w64 environment.")
 
 check("-cplugins*",
       desc      = "C plugins",
@@ -659,10 +650,6 @@ check("-egl-android*",
       deps      = "android",
       fn        = lambda: check_cc(link = ["-landroid", "-lEGL"]),
       sources   = "video/out/opengl/context_android.c")
-
-check("-plain-gl*",
-      desc      = "OpenGL without platform-specific code (e.g. for libmpv)",
-      deps      = ["libmpv-shared", "libmpv-static"])
 
 check("-gl*",
       desc      = "OpenGL context support",
