@@ -39,8 +39,6 @@ extern const struct ao_driver audio_out_audiotrack;
 extern const struct ao_driver audio_out_audiounit;
 extern const struct ao_driver audio_out_coreaudio;
 extern const struct ao_driver audio_out_coreaudio_exclusive;
-extern const struct ao_driver audio_out_pipewire;
-extern const struct ao_driver audio_out_pulse;
 extern const struct ao_driver audio_out_alsa;
 extern const struct ao_driver audio_out_wasapi;
 extern const struct ao_driver audio_out_oss;
@@ -61,12 +59,6 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_COREAUDIO
     &audio_out_coreaudio,
     &audio_out_coreaudio_exclusive,
-#endif
-#if HAVE_PIPEWIRE
-    &audio_out_pipewire,
-#endif
-#if HAVE_PULSE
-    &audio_out_pulse,
 #endif
 #if HAVE_ALSA
     &audio_out_alsa,

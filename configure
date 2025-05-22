@@ -326,10 +326,6 @@ check("-av_channel_layout*",
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 57.0.0"))
 
-check("-pulse*",
-      default   = False,
-      fn        = lambda: check_pkg_config("libpulse >= 1.0"),
-      sources   = "audio/out/ao_pulse.c")
 check("-jack*",
       deps      = "gpl",
       default   = False,
@@ -347,10 +343,6 @@ check("-oss*",
 check("-sndio*",
       fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
       sources   = "audio/out/ao_sndio.c")
-check("-pipewire*",
-      default   = False,
-      fn        = lambda: check_pkg_config("pipewire >= 1.0.0"),
-      sources   = "audio/out/ao_pipewire.c")
 check("-alsa*",
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
       sources   = "audio/out/ao_alsa.c")
