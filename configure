@@ -623,8 +623,7 @@ check("-d3d11*",
                    "video/out/gpu/d3d11_helpers.c"])
 
 check("-rpi*",
-      # TODO: or tell them to fuck off
-      fn        = lambda: False,
+      default   = False,
       sources   = ["video/out/opengl/context_rpi.c",
                    "video/out/opengl/hwdec_rpi.c",
                    "video/out/vo_rpi.c"])
