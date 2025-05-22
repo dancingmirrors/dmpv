@@ -323,10 +323,6 @@ check(desc      = "FFmpeg",
 FFmpeg libraries.")
 check("-av_channel_layout*",
       sources   = "audio/chmap_avchannel.c")
-check("-ffmpeg-strict-abi*",
-      desc      = "whether to disable all known FFmpeg ABI violations",
-      default   = True)
-
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 57.0.0"))
 
