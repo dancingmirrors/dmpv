@@ -650,7 +650,7 @@ check("-egl-android*",
 check("-gl*",
       desc      = "OpenGL context support",
       deps_any  = ["gl-cocoa", "gl-x11", "egl-x11", "egl-drm", "egl-android",
-                   "gl-win32", "gl-wayland", "rpi", "plain-gl"],
+                   "gl-win32", "gl-wayland", "rpi"],
       required  = "No OpenGL video output found or enabled. " +
                   "Aborting. If you really mean to compile without OpenGL " +
                   "video outputs use --disable-gl.",
