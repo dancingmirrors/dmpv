@@ -66,8 +66,7 @@ check(desc      = "warning CFLAGS",
                         "-Wvla",
                         "-Wno-format-truncation",
                         "-Wno-pointer-sign",
-                        "-Wno-switch",
-                        "-Wno-unused-label"]))
+                        "-Wno-switch"]))
 check(desc      = "-fno-math-errno",
       fn        = lambda: check_cc(flags = "-fno-math-errno"))
 
