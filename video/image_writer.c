@@ -48,7 +48,7 @@
 #include "options/m_option.h"
 
 const struct image_writer_opts image_writer_opts_defaults = {
-    .format = AV_CODEC_ID_MJPEG,
+    .format = AV_CODEC_ID_PNG,
     .high_bit_depth = true,
     .png_compression = 7,
     .png_filter = 5,
@@ -71,9 +71,9 @@ const struct image_writer_opts image_writer_opts_defaults = {
 };
 
 const struct m_opt_choice_alternatives mp_image_writer_formats[] = {
+    {"png",  AV_CODEC_ID_PNG},
     {"jpg",  AV_CODEC_ID_MJPEG},
     {"jpeg", AV_CODEC_ID_MJPEG},
-    {"png",  AV_CODEC_ID_PNG},
     {"webp", AV_CODEC_ID_WEBP},
     {"jxl",  AV_CODEC_ID_JPEGXL},
     {"avif",  AV_CODEC_ID_AV1},
