@@ -465,7 +465,7 @@ static mp_cmd_t *get_cmd_from_keys(struct input_ctx *ictx, char *force_section,
     if (!cmd) {
         if (code == MP_KEY_CLOSE_WIN)
             return mp_input_parse_cmd_strv(ictx->log, (const char*[]){"quit", 0});
-        int msgl = MSGL_WARN;
+        int msgl = MSGL_V;
         if (MP_KEY_IS_MOUSE_MOVE(code))
             msgl = MSGL_TRACE;
         char *key_buf = mp_input_get_key_combo_name(&code, 1);
