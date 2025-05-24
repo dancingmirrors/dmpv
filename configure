@@ -540,7 +540,6 @@ check("-vdpau*",
       default   = False,
       fn        = lambda: check_pkg_config("vdpau >= 0.2"),
       sources   = ["video/filter/vf_vdpaupp.c",
-                   "video/out/vo_vdpau.c",
                    "video/vdpau.c",
                    "video/vdpau_mixer.c"])
 check("-vdpau-gl-x11*",

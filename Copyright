@@ -54,7 +54,6 @@ The following files are still GPL only (--enable-lgpl disables them):
     stream/stream_dvb.*             must stay GPL
     stream/stream_dvdnav.c          unknown
     video/out/vo_direct3d.c         unknown
-    video/out/vo_vdpau.c            probably impossible (nVidia's code)
     video/out/vo_x11.c              probably impossible
     video/out/x11_common.*          probably impossible
     video/vdpau.c                   hard (GPL-only parts must be ifdefed)

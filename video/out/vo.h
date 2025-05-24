@@ -186,7 +186,7 @@ struct voctrl_screenshot {
 enum {
     // VO does handle mp_image_params.rotate in 90 degree steps
     VO_CAP_ROTATE90     = 1 << 0,
-    // VO does framedrop itself (vo_vdpau). Untimed/encoding VOs never drop.
+    // VO does framedrop itself. Untimed/encoding VOs never drop.
     VO_CAP_FRAMEDROP    = 1 << 1,
     // VO does not allow frames to be retained (vo_mediacodec_embed).
     VO_CAP_NORETAIN     = 1 << 2,

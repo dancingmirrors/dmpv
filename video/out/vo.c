@@ -50,7 +50,6 @@
 extern const struct vo_driver video_out_gpu_next;
 extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_mediacodec_embed;
-extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_direct3d;
 extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_x11;
@@ -70,9 +69,6 @@ static const struct vo_driver *const video_out_drivers[] =
 #endif
 #if HAVE_ANDROID
     &video_out_mediacodec_embed,
-#endif
-#if HAVE_VDPAU
-    &video_out_vdpau,
 #endif
 #if HAVE_DIRECT3D
     &video_out_direct3d,
@@ -1236,10 +1232,6 @@ void vo_get_src_dst_rects(struct vo *vo, struct mp_rect *out_src,
                          out_src, out_dst, out_osd);
 }
 
-// flip_page[_timed] will be called offset_us microseconds too early.
-// (For vo_vdpau, which does its own timing.)
-// num_req_frames set the requested number of requested vo_frame.frames.
-// (For vo_gpu interpolation.)
 void vo_set_queue_params(struct vo *vo, int64_t offset_us, int num_req_frames)
 {
     struct vo_internal *in = vo->in;
