@@ -45,12 +45,6 @@ check(desc      = "C11/C99",
 check("-optimize",
       fn        = lambda: chain(add_cflags("-O3", "-march=native"), True),
       desc      = "whether to optimize")
-check("-debug-build",
-      desc      = "whether to compile-in debugging information",
-      default   = False,
-      fn        = lambda: chain(add_cflags("-g"),
-                                check_cc(flags = ["-g3", "-ggdb"]),
-                                True))
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         "-Werror=implicit-function-declaration",
