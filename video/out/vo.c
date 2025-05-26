@@ -53,10 +53,10 @@ extern const struct vo_driver video_out_mediacodec_embed;
 extern const struct vo_driver video_out_direct3d;
 extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_x11;
+extern const struct vo_driver video_out_rpi;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
-extern const struct vo_driver video_out_rpi;
 extern const struct vo_driver video_out_lavc;
 
 static const struct vo_driver *const video_out_drivers[] =
@@ -79,15 +79,15 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_X11
     &video_out_x11,
 #endif
+#if HAVE_RPI_MMAL
+    &video_out_rpi,
+#endif
 #if HAVE_DRM
     &video_out_drm,
 #endif
     &video_out_null,
     // should not be auto-selected
     &video_out_image,
-#if HAVE_RPI_MMAL
-    &video_out_rpi,
-#endif
     &video_out_lavc,
 };
 
