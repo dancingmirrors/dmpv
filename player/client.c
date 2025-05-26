@@ -1697,7 +1697,8 @@ static void send_client_property_changes(struct mpv_handle *ctx)
 
             // Temporarily unlock and read the property. The very important
             // thing is that property getters can do whatever they want, _and_
-            // that they may wait on the client API user thread.
+            // that they may wait on the client API user thread (if vo_libmpv
+            // or similar things are involved).
             prop->refcount += 1; // keep prop alive (esp. prop->name)
             ctx->async_counter += 1; // keep ctx alive
             pthread_mutex_unlock(&ctx->lock);
@@ -2139,6 +2140,42 @@ int64_t mpv_get_time_us(mpv_handle *ctx)
 }
 
 #include "video/out/libmpv.h"
+
+static void do_kill(void *ptr)
+{
+    struct MPContext *mpctx = ptr;
+
+    struct track *track = mpctx->vo_chain ? mpctx->vo_chain->track : NULL;
+    uninit_video_out(mpctx);
+    if (track) {
+        mpctx->error_playing = MPV_ERROR_VO_INIT_FAILED;
+        error_on_track(mpctx, track);
+    }
+}
+
+// Used by vo_libmpv to (a)synchronously uninitialize video.
+void kill_video_async(struct mp_client_api *client_api)
+{
+    struct MPContext *mpctx = client_api->mpctx;
+    mp_dispatch_enqueue(mpctx->dispatch, do_kill, mpctx);
+}
+
+// Used by vo_libmpv to set the current render context.
+bool mp_set_main_render_context(struct mp_client_api *client_api,
+                                struct mpv_render_context *ctx, bool active)
+{
+    assert(ctx);
+
+    pthread_mutex_lock(&client_api->lock);
+    bool is_set = !!client_api->render_context;
+    bool is_same = client_api->render_context == ctx;
+    // Can set if it doesn't remove another existing ctx.
+    bool res = is_same || !is_set;
+    if (res)
+        client_api->render_context = active ? ctx : NULL;
+    pthread_mutex_unlock(&client_api->lock);
+    return res;
+}
 
 // stream_cb
 
