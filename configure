@@ -5,7 +5,6 @@
 #- Windows console wrapper thing
 #- OS X testing
 #- Swift stuff
-#- RPI stuff
 
 import os
 from TOOLS.configure_common import *
