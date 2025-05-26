@@ -293,14 +293,9 @@ struct mpv_handle *mp_new_client(struct mp_client_api *clients, const char *name
         .cur_event = talloc_zero(client, struct mpv_event),
         .events = talloc_array(client, mpv_event, num_events),
         .max_events = num_events,
-        .event_mask = 1ULL << MPV_EVENT_SHUTDOWN,  // shutdown is always sent, others should be requested
+        .event_mask = (1ULL << INTERNAL_EVENT_BASE) - 1, // exclude internal events
         .wakeup_pipe = {-1, -1},
     };
-
-    const char *me = getenv("MPV_EVENTS_ALL");  // "1" enables all except tick
-    if (me && !strcmp("1", me))
-        client->event_mask = ((1ULL << INTERNAL_EVENT_BASE) - 1) & ~(1ULL << MPV_EVENT_TICK);
-
     pthread_mutex_init(&client->lock, NULL);
     pthread_mutex_init(&client->wakeup_lock, NULL);
     pthread_cond_init(&client->wakeup, NULL);
@@ -314,6 +309,8 @@ struct mpv_handle *mp_new_client(struct mp_client_api *clients, const char *name
         client->fuzzy_initialized = true;
 
     pthread_mutex_unlock(&clients->lock);
+
+    mpv_request_event(client, MPV_EVENT_TICK, 0);
 
     return client;
 }
@@ -1405,7 +1402,7 @@ static void getproperty_fn(void *arg)
     struct getproperty_request *req = arg;
     const struct m_option *type = get_mp_type_get(req->format);
 
-    union m_option_value xdata = m_option_value_default;
+    union m_option_value xdata = {0};
     void *data = req->data ? req->data : &xdata;
 
     int err = -1;
@@ -1563,8 +1560,6 @@ int mpv_observe_property(mpv_handle *ctx, uint64_t userdata,
         .type = type,
         .change_ts = 1, // force initial event
         .refcount = 1,
-        .value = m_option_value_default,
-        .value_ret = m_option_value_default,
     };
     ctx->properties_change_ts += 1;
     MP_TARRAY_APPEND(ctx, ctx->properties, ctx->num_properties, prop);
@@ -1687,7 +1682,7 @@ static void send_client_property_changes(struct mpv_handle *ctx)
         bool changed = false;
         if (prop->format) {
             const struct m_option *type = prop->type;
-            union m_option_value val = m_option_value_default;
+            union m_option_value val = {0};
             struct getproperty_request req = {
                 .mpctx = ctx->mpctx,
                 .name = prop->name,
@@ -2174,6 +2169,18 @@ bool mp_set_main_render_context(struct mp_client_api *client_api,
     if (res)
         client_api->render_context = active ? ctx : NULL;
     pthread_mutex_unlock(&client_api->lock);
+    return res;
+}
+
+// Used by vo_libmpv. Relies on guarantees by mp_render_context_acquire().
+struct mpv_render_context *
+mp_client_api_acquire_render_context(struct mp_client_api *ca)
+{
+    struct mpv_render_context *res = NULL;
+    pthread_mutex_lock(&ca->lock);
+    if (ca->render_context && mp_render_context_acquire(ca->render_context))
+        res = ca->render_context;
+    pthread_mutex_unlock(&ca->lock);
     return res;
 }
 
