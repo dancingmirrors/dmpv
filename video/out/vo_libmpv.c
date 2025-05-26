@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <pthread.h>
-#include <assert.h>
 
 #include "mpv_talloc.h"
 #include "common/common.h"
@@ -292,8 +291,8 @@ void mpv_render_context_free(mpv_render_context *ctx)
     // and prevented that new VOs can be created.)
     pthread_mutex_unlock(&ctx->lock);
 
-    assert(!atomic_load(&ctx->in_use));
-    assert(!ctx->vo);
+    mp_assert(!atomic_load(&ctx->in_use));
+    mp_assert(!ctx->vo);
 
     // With the dispatch queue not being served anymore, allow frame free
     // requests from this thread to be served directly.
@@ -489,7 +488,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     struct mpv_render_context *ctx = p->ctx;
 
     pthread_mutex_lock(&ctx->lock);
-    assert(!ctx->next_frame);
+    mp_assert(!ctx->next_frame);
     ctx->next_frame = vo_frame_ref(frame);
     ctx->expected_flip_count = ctx->flip_count + 1;
     ctx->redrawing = frame->redraw || !frame->current;
@@ -702,7 +701,7 @@ static void uninit(struct vo *vo)
     // The following do not normally need ctx->lock, however, ctx itself may
     // become invalid once we release ctx->lock.
     bool prev_in_use = atomic_exchange(&ctx->in_use, false);
-    assert(prev_in_use); // obviously must have been set
+    mp_assert(prev_in_use); // obviously must have been set
     mp_dispatch_interrupt(ctx->dispatch);
 
     pthread_mutex_unlock(&ctx->lock);
