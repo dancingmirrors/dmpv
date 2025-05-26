@@ -21,9 +21,6 @@ check("-lgpl",
 check("gpl*",
       desc      = "GPL (version 2 or later) build",
       deps_neg  = "lgpl")
-check("-build-date*",
-      desc      = "whether to include binary compile time",
-      fn        = lambda: chain(add_cflags("-DNO_BUILD_TIMESTAMPS"), True))
 check(desc      = "whether compiler works",
       required  = "C compiler missing or broken",
       fn        = lambda: check_program("CC") and check_cc(link = []))

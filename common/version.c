@@ -17,11 +17,6 @@
 
 #include "common.h"
 #include "generated/version.h"
-#ifdef NO_BUILD_TIMESTAMPS
-#undef BUILDDATE
-#define BUILDDATE "UNKNOWN"
-#endif
 
 const char mpv_version[]  = "mpv " VERSION;
-const char mpv_builddate[] = BUILDDATE;
 const char mpv_copyright[] = MPVCOPYRIGHT;
