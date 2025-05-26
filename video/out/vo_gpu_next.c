@@ -53,41 +53,7 @@
 #include "osdep/windows_utils.h"
 #endif
 
-#if PL_API_VER >= 309
 #include <libplacebo/options.h>
-#else
-typedef struct pl_options_t {
-    // Backwards compatibility shim of this struct
-    struct pl_render_params params;
-    struct pl_deband_params deband_params;
-    struct pl_sigmoid_params sigmoid_params;
-    struct pl_color_adjustment color_adjustment;
-    struct pl_peak_detect_params peak_detect_params;
-    struct pl_color_map_params color_map_params;
-    struct pl_dither_params dither_params;
-    struct pl_icc_params icc_params;
-} *pl_options;
-
-static inline pl_options pl_options_alloc(pl_log log)
-{
-    struct pl_options_t *opts = talloc_ptrtype(NULL, opts);
-    opts->params                  = pl_render_default_params;
-    opts->deband_params           = pl_deband_default_params;
-    opts->sigmoid_params          = pl_sigmoid_default_params;
-    opts->color_adjustment        = pl_color_adjustment_neutral;
-    opts->peak_detect_params      = pl_peak_detect_default_params;
-    opts->color_map_params        = pl_color_map_default_params;
-    opts->dither_params           = pl_dither_default_params;
-    opts->icc_params              = pl_icc_default_params;
-    // Redirect always-enabled params structs to shim
-    opts->params.color_adjustment = &opts->color_adjustment;
-    opts->params.color_map_params = &opts->color_map_params;
-    opts->params.icc_params       = &opts->icc_params;
-    return opts;
-}
-
-#define pl_options_free TA_FREEP
-#endif
 
 struct osd_entry {
     pl_tex tex;
@@ -102,10 +68,6 @@ struct osd_state {
 
 struct scaler_params {
     struct pl_filter_config config;
-#if PL_API_VER < 303
-    struct pl_filter_function kernel;
-    struct pl_filter_function window;
-#endif
 };
 
 struct user_hook {
@@ -819,10 +781,8 @@ static void update_options(struct vo *vo)
     pars->color_adjustment.gamma = cparams.gamma;
     p->output_levels = cparams.levels_out;
 
-#if PL_API_VER >= 309
     for (char **kv = p->raw_opts; kv && kv[0]; kv += 2)
         pl_options_set_str(pars, kv[0], kv[1]);
-#endif
 }
 
 static void apply_target_contrast(struct priv *p, struct pl_color_space *color)
@@ -1118,10 +1078,8 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
 
     if (cur_frame) {
         p->last_hdr_metadata = cur_frame->color.hdr;
-#if PL_API_VER >= 314
         // Augment metadata with peak detection max_pq_y / avg_pq_y
         pl_renderer_get_hdr_metadata(p->rr, &p->last_hdr_metadata);
-#endif
     } else {
         p->last_hdr_metadata = (struct pl_hdr_metadata){0};
     }
@@ -1697,10 +1655,8 @@ static const struct pl_filter_config *map_scaler(struct priv *p,
     } else if ((fpreset = pl_find_filter_function_preset(cfg->kernel.name))) {
         par->config = (struct pl_filter_config) {
             .kernel = fpreset->function,
-#if PL_API_VER >= 303
             .params[0] = fpreset->function->params[0],
             .params[1] = fpreset->function->params[1],
-#endif
         };
     } else if (!strcmp(cfg->kernel.name, "ewa_lanczossharp")) {
         par->config = pl_filter_ewa_lanczos;
@@ -1717,33 +1673,15 @@ static const struct pl_filter_config *map_scaler(struct priv *p,
     const struct pl_filter_function_preset *wpreset;
     if ((wpreset = pl_find_filter_function_preset(cfg->window.name))) {
         par->config.window = wpreset->function;
-#if PL_API_VER >= 303
         par->config.wparams[0] = wpreset->function->params[0];
         par->config.wparams[1] = wpreset->function->params[1];
-#endif
     }
-
-#if PL_API_VER < 303
-    par->kernel = *par->config.kernel;
-    par->config.kernel = &par->kernel;
-    if (par->config.window) {
-        par->window = *par->config.window;
-        par->config.window = &par->window;
-    }
-#endif
 
     for (int i = 0; i < 2; i++) {
-#if PL_API_VER >= 303
         if (!isnan(cfg->kernel.params[i]))
             par->config.params[i] = cfg->kernel.params[i];
         if (!isnan(cfg->window.params[i]))
             par->config.wparams[i] = cfg->window.params[i];
-#else
-        if (!isnan(cfg->kernel.params[i]))
-            par->kernel.params[i] = cfg->kernel.params[i];
-        if (!isnan(cfg->window.params[i]))
-            par->window.params[i] = cfg->window.params[i];
-#endif
     }
 
     par->config.clamp = cfg->clamp;
@@ -1751,11 +1689,7 @@ static const struct pl_filter_config *map_scaler(struct priv *p,
     par->config.taper = cfg->kernel.taper;
     if (cfg->radius > 0.0) {
         if (par->config.kernel->resizable) {
-#if PL_API_VER >= 303
             par->config.radius = cfg->radius;
-#else
-            par->kernel.radius = cfg->radius;
-#endif
         } else {
             MP_WARN(p, "Filter radius specified but filter '%s' is not "
                     "resizable, ignoring\n", cfg->kernel.name);
@@ -1959,7 +1893,6 @@ static void update_hook_opts(struct priv *p, char **opts, const char *shaderpath
                 .name = hp->name,
             };
 
-#if PL_API_VER >= 308
             if (hp->names) {
                 for (int j = hp->minimum.i; j <= hp->maximum.i; j++) {
                     if (bstr_equals0(v, hp->names[j])) {
@@ -1968,7 +1901,6 @@ static void update_hook_opts(struct priv *p, char **opts, const char *shaderpath
                     }
                 }
             }
-#endif
 
             switch (hp->type) {
             case PL_VAR_FLOAT:
