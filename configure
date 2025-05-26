@@ -72,7 +72,7 @@ check(desc      = "extra GCC warnings",
       deps      = "gnuc",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
-                        "-Wall", "-Wundef", "-Wmissing-prototypes", "-Wshadow",
+                        "-Wundef", "-Wmissing-prototypes", "-Wshadow",
                         "-Wparentheses", "-Wpointer-arith",
                         "-Wno-pointer-sign",
                         "-Wno-array-bounds",
