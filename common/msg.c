@@ -338,7 +338,7 @@ static void print_terminal_line(struct mp_log *log, int lev,
 
 static struct mp_log_buffer_entry *log_buffer_read(struct mp_log_buffer *buffer)
 {
-    assert(buffer->num_entries);
+    mp_assert(buffer->num_entries);
     struct mp_log_buffer_entry *res = buffer->entries[buffer->entry0];
     buffer->entry0 = (buffer->entry0 + 1) % buffer->capacity;
     buffer->num_entries -= 1;
@@ -483,7 +483,7 @@ static void destroy_log(void *ptr)
 struct mp_log *mp_log_new(void *talloc_ctx, struct mp_log *parent,
                           const char *name)
 {
-    assert(parent);
+    mp_assert(parent);
     struct mp_log *log = talloc_zero(talloc_ctx, struct mp_log);
     if (!parent->root)
         return log; // same as null_log
@@ -518,7 +518,7 @@ struct mp_log *mp_log_new(void *talloc_ctx, struct mp_log *parent,
 
 void mp_msg_init(struct mpv_global *global)
 {
-    assert(!global->log);
+    mp_assert(!global->log);
 
     struct mp_log_root *root = talloc_zero(NULL, struct mp_log_root);
     *root = (struct mp_log_root){
@@ -736,7 +736,7 @@ void mp_msg_uninit(struct mpv_global *global)
     terminate_log_file_thread(root);
     mp_msg_log_buffer_destroy(root->early_buffer);
     mp_msg_log_buffer_destroy(root->early_filebuffer);
-    assert(root->num_buffers == 0);
+    mp_assert(root->num_buffers == 0);
     if (root->stats_file)
         fclose(root->stats_file);
     talloc_free(root->stats_path);
@@ -832,7 +832,7 @@ struct mp_log_buffer *mp_msg_log_buffer_new(struct mpv_global *global,
         }
     }
 
-    assert(size > 0);
+    mp_assert(size > 0);
 
     struct mp_log_buffer *buffer = talloc_ptrtype(NULL, buffer);
     *buffer = (struct mp_log_buffer) {
