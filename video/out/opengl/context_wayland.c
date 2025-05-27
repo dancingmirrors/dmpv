@@ -1,5 +1,5 @@
 /*
- * This file is part of mpv video player.
+ * This file is part of mpv.
  * Copyright © 2013 Alexander Preisinger <alexander.preisinger@gmail.com>
  *
  * mpv is free software; you can redistribute it and/or

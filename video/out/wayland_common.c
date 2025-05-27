@@ -1,5 +1,5 @@
 /*
- * This file is part of mpv video player.
+ * This file is part of mpv.
  *
  * mpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
