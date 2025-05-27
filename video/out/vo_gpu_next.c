@@ -109,9 +109,7 @@ struct priv {
     pl_tex *sub_tex;
     int num_sub_tex;
 
-#if PL_API_VER >= 320
     pl_cache cache;
-#endif
 
     struct mp_rect src, dst;
     struct mp_osd_res osd_res;
@@ -1600,14 +1598,12 @@ static int preinit(struct vo *vo)
     ra_hwdec_ctx_init(&p->hwdec_ctx, vo->hwdec_devs, gl_opts->hwdec_interop, false);
     pthread_mutex_init(&p->dr_lock, NULL);
 
-#if PL_API_VER >= 320
     p->cache = pl_cache_create(pl_cache_params(
         .log = p->pllog,
         .max_object_size =  1 << 20, //  1 MB
         .max_total_size  = 10 << 20, // 10 MB
     ));
     pl_gpu_set_cache(p->gpu, p->cache);
-#endif
 
     p->rr = pl_renderer_create(p->pllog, p->gpu);
     p->queue = pl_queue_create(p->gpu);
