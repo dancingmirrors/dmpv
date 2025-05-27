@@ -48,7 +48,6 @@
 #include "osdep/threads.h"
 
 extern const struct vo_driver video_out_gpu_next;
-extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_mediacodec_embed;
 extern const struct vo_driver video_out_direct3d;
 extern const struct vo_driver video_out_wlshm;
@@ -64,9 +63,6 @@ static const struct vo_driver *const video_out_drivers[] =
 {
 #if HAVE_LIBPLACEBO
     &video_out_gpu_next,
-#endif
-#if HAVE_DMABUF_WAYLAND
-    &video_out_dmabuf_wayland,
 #endif
 #if HAVE_ANDROID
     &video_out_mediacodec_embed,
