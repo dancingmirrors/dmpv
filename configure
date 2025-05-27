@@ -441,7 +441,9 @@ check("-vulkan*",
       deps      = "libplacebo",
       fn        = lambda: check_pkg_config("vulkan"),
       sources   = ["video/out/vulkan/context.c",
-                   "video/out/vulkan/utils.c"])
+                   "video/out/vulkan/utils.c",
+                   "video/out/hwdec/hwdec_vulkan.c",
+                   "video/out/vulkan/context_display.c"])
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 check(deps      = ["vulkan", "android"],
@@ -450,10 +452,6 @@ check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
 check(deps      = ["vulkan", "win32-desktop"],
       sources   = "video/out/vulkan/context_win.c")
-check("-vulkan_interop*",
-      deps      = "vulkan",
-      sources   = ["video/out/hwdec/hwdec_vulkan.c",
-                   "video/out/vulkan/context_display.c"])
 
 # TODO: the waf check is much more complicated
 check("-egl*",

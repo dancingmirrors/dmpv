@@ -80,7 +80,7 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #if HAVE_ANDROID
     &ra_hwdec_aimagereader,
 #endif
-#if HAVE_VULKAN_INTEROP
+#if HAVE_VULKAN
     &ra_hwdec_vulkan,
 #endif
 

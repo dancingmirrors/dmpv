@@ -319,7 +319,7 @@ enum mp_imgfmt {
     IMGFMT_VDPAU_OUTPUT,    // VdpOutputSurface
     IMGFMT_VAAPI,
     IMGFMT_VIDEOTOOLBOX,    // CVPixelBufferRef
-#if HAVE_VULKAN_INTEROP
+#if HAVE_VULKAN
     IMGFMT_VULKAN,          // VKImage
 #endif
     IMGFMT_DRMPRIME,        // AVDRMFrameDescriptor
