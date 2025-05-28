@@ -42,10 +42,6 @@
 #include "generated/wayland/xdg-shell.h"
 #include "generated/wayland/viewporter.h"
 
-#if WAYLAND_VERSION_MAJOR > 1 || WAYLAND_VERSION_MINOR >= 22
-#define HAVE_WAYLAND_1_22
-#endif
-
 #include "generated/wayland/content-type-v1.h"
 #include "generated/wayland/single-pixel-buffer-v1.h"
 #include "generated/wayland/fractional-scale-v1.h"
@@ -827,7 +823,6 @@ static void surface_handle_leave(void *data, struct wl_surface *wl_surface,
     }
 }
 
-#ifdef HAVE_WAYLAND_1_22
 static void surface_handle_preferred_buffer_scale(void *data,
                                                   struct wl_surface *wl_surface,
                                                   int32_t scale)
@@ -854,15 +849,12 @@ static void surface_handle_preferred_buffer_transform(void *data,
                                                       uint32_t transform)
 {
 }
-#endif
 
 static const struct wl_surface_listener surface_listener = {
     surface_handle_enter,
     surface_handle_leave,
-#ifdef HAVE_WAYLAND_1_22
     surface_handle_preferred_buffer_scale,
     surface_handle_preferred_buffer_transform,
-#endif
 };
 
 static void xdg_wm_base_ping(void *data, struct xdg_wm_base *wm_base, uint32_t serial)
@@ -1273,11 +1265,7 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     struct vo_wayland_state *wl = data;
 
     if (!strcmp(interface, wl_compositor_interface.name) && (ver >= 4) && found++) {
-#ifdef HAVE_WAYLAND_1_22
         ver = MPMIN(ver, 6); /* Cap at 6 in case new events are added later. */
-#else
-        ver = 4;
-#endif
         wl->compositor = wl_registry_bind(reg, id, &wl_compositor_interface, ver);
         wl->surface = wl_compositor_create_surface(wl->compositor);
         wl->video_surface = wl_compositor_create_surface(wl->compositor);
