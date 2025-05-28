@@ -381,8 +381,7 @@ check("-libplacebo*",
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c",
-                   "video/out/gpu_next/context.c",
-                   "video/out/vo_gpu_next.c"])
+                   "video/out/gpu_next/context.c"])
 
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
@@ -902,6 +901,7 @@ add_sources(
     "video/out/libmpv_sw.c",
     "video/out/opengl/libmpv_gl.c",
     "video/out/vo.c",
+    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_libmpv.c",
