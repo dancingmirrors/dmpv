@@ -683,9 +683,6 @@ check("-rpi-mmal*",
       sources   = ["video/out/opengl/hwdec_rpi.c",
                    "video/out/vo_rpi.c"])
 
-check(deps_any  = ["gl-x11", "egl-x11"],
-      sources   = ["video/out/opengl/oml_sync.c"])
-
 check(deps      = ["d3d-hwaccel", "egl-angle"],
       sources   = ["video/out/opengl/hwdec_d3d11egl.c"])
 
