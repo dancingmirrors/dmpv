@@ -565,8 +565,10 @@ check("-vaapi-egl*",
 
 check("-jpeg*",
       desc      = "JPEG support",
-      fn        = lambda: check_cc(include = ["stdio.h", "jpeglib.h"],
-                                   link = "-ljpeg"))
+      fn        = lambda: chain
+                          (check_pkg_config("libjxl.pc"),
+                           check_cc(include = ["stdio.h", "jpeglib.h"],
+                                    link = "-ljpeg")))
 check("-direct3d*",
       desc      = "Ancient D3D9 VO",
       deps      = ["win32-desktop", "gpl"],
