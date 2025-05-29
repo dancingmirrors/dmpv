@@ -315,11 +315,6 @@ check("-jack*",
       default   = False,
       fn        = lambda: check_pkg_config("jack"),
       sources   = "audio/out/ao_jack.c")
-check("-opensles*",
-      fn        = lambda: check_cc(include = "SLES/OpenSLES.h",
-                                   link = "-lOpenSLES",
-                                   expr = "slCreateEngine;"),
-      sources   = "audio/out/ao_opensles.c")
 check("-oss*",
       fn        = lambda: check_cc(include = "sys/soundcard.h",
                   expr = "SNDCTL_DSP_HALT;"),
