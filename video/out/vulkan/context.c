@@ -288,6 +288,9 @@ static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
     if (p->params.check_visible)
         visible = p->params.check_visible(sw->ctx);
 
+    if (out_fbo == NULL || !visible)
+        return visible;
+
     if (!pl_swapchain_start_frame(p->vk->swapchain, &frame))
         return false;
     if (!mppl_wrap_tex(sw->ctx->ra, frame.fbo, &p->proxy_tex))
