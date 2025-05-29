@@ -4,7 +4,6 @@
 #- Actually support out of tree builds
 #- Windows console wrapper thing
 #- OS X testing
-#- Swift stuff
 
 import os
 from TOOLS.configure_common import *
@@ -286,7 +285,19 @@ check("-cocoa*",
                    "video/out/cocoa_common.m",
                    "video/out/cocoa/events_view.m",
                    "video/out/cocoa/video_view.m",
-                   "video/out/cocoa/window.m"])
+                   "video/out/cocoa/window.m",
+                   "osdep/macos/libmpv_helper.swift",
+                   "osdep/macos/log_helper.swift",
+                   "osdep/macos/mpv_helper.swift",
+                   "osdep/macos/remote_command_center.swift",
+                   "osdep/macos/swift_compat.swift",
+                   "osdep/macos/swift_extensions.swift",
+                   "video/out/cocoa_cb_common.swift",
+                   "/video/out/mac/common.swift",
+                   "video/out/mac/gl_layer.swift",
+                   "video/out/mac/title_bar.swift",
+                   "video/out/mac/view.swift",
+                   "video/out/mac/window.swift"])
 
 check("-lcms2*",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
