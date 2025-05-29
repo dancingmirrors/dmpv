@@ -225,6 +225,9 @@ bool ra_gl_ctx_start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
     if (!visible)
         return false;
 
+    if (out_fbo == NULL || !visible)
+        return visible;
+
     if (!out_fbo)
         return true;
     *out_fbo = (struct ra_fbo) {
