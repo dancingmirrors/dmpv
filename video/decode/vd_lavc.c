@@ -1293,7 +1293,7 @@ static int receive_frame(struct mp_filter *vd, struct mp_frame *out_frame)
 
     if (!ctx->hwdec_notified) {
         if (ctx->use_hwdec) {
-            MP_INFO(vd, "Using hardware decoding (%s).\n",
+            MP_VERBOSE(vd, "Using hardware decoding (%s).\n",
                     ctx->hwdec.method_name);
         } else {
             MP_VERBOSE(vd, "Using software decoding.\n");
