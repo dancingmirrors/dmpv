@@ -388,6 +388,7 @@ check("gbm",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
+      default   = False,
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c"])
@@ -415,15 +416,17 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/fractional-scale-v1.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 check("-dmabuf*",
-      deps       = ["libplacebo", "wayland"],
+      deps       = "wayland",
       sources    = ["$(BUILD)/generated/wayland/viewporter.c",
                     "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                     "$(BUILD)/generated/wayland/single-pixel-buffer-v1.c",
                     "video/out/wldmabuf/context_wldmabuf.c",
                     "video/out/wldmabuf/ra_wldmabuf.c",
                     "video/out/hwdec/dmabuf_interop_gl.c",
-                    "video/out/hwdec/dmabuf_interop_pl.c",
                     "video/out/hwdec/dmabuf_interop_wl.c"])
+check("-dmabuf-libplacebo*",
+      deps        = ["dmabuf", "libplacebo"],
+      sources     = "video/out/hwdec/dmabuf_interop_pl.c")
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
       deps      = "wayland",
