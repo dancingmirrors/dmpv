@@ -496,10 +496,10 @@ def _run_process(args):
 #         A value of None disables the linking step.
 #         Also, if the test succeeds, all link strings are added to the LDFLAGS
 #         written to config.mak.
-#   language: "c" for C, "m" for Objective-C.
+#   language: "c" for C, "m" for Objective-C, "swiftc" for Swift.
 def check_cc(include = None, decl = None, expr = None, defined = None,
              flags = None, link = None, language = "c"):
-    assert language in ["c", "m"]
+    assert language in ["c", "m", "swiftc"]
 
     use_linking = link is not None
 
