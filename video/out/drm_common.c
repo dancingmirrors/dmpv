@@ -103,7 +103,7 @@ const struct m_sub_options drm_conf = {
     },
     .defaults = &(const struct drm_opts) {
         .mode_spec = "preferred",
-        .drm_atomic = 1,
+        .drm_atomic = 0,
         .draw_plane = DRM_OPTS_PRIMARY_PLANE,
         .drmprime_video_plane = DRM_OPTS_OVERLAY_PLANE,
         .drm_format = DRM_OPTS_FORMAT_XRGB8888,
