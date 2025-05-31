@@ -130,7 +130,8 @@ check("posix*",
                                    defined = "_POSIX_VERSION"),
       sources   = ["osdep/language-posix.c",
                    "osdep/polldev.c",
-                   "sub/filter_regex.c"])
+                   "sub/filter_regex.c",
+                   "osdep/path-unix.c"])
 check("development environment",
       deps_any  = ["posix", "mingw"],
       required  = "Unable to find either a POSIX or MinGW-w64 environment.")
@@ -841,7 +842,6 @@ add_sources(
     "options/parse_configfile.c",
     "options/path.c",
     "osdep/io.c",
-    "osdep/path-unix.c",
     "osdep/subprocess.c",
     "osdep/threads.c",
     "osdep/timer.c",
