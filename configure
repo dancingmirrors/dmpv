@@ -291,6 +291,7 @@ check("-cocoa*",
                    "video/out/cocoa/window.m"])
 check("-swift*",
       deps      = "cocoa",
+      default   = False,
       fn        = lambda: check_cc(decl = "import Cocoa",
                                    language = "swiftc"),
 sources         = ["osdep/macos/libmpv_helper.swift",
