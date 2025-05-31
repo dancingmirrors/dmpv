@@ -42,7 +42,6 @@
 #include "generated/wayland/xdg-shell.h"
 #include "generated/wayland/viewporter.h"
 
-#include "generated/wayland/content-type-v1.h"
 #include "generated/wayland/single-pixel-buffer-v1.h"
 #include "generated/wayland/fractional-scale-v1.h"
 
@@ -1322,10 +1321,6 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
         wl->shm = wl_registry_bind(reg, id, &wl_shm_interface, 1);
     }
 
-    if (!strcmp(interface, wp_content_type_manager_v1_interface.name) && found++) {
-        wl->content_type_manager = wl_registry_bind(reg, id, &wp_content_type_manager_v1_interface, 1);
-    }
-
     if (!strcmp(interface, wp_single_pixel_buffer_manager_v1_interface.name) && found++) {
         wl->single_pixel_manager = wl_registry_bind(reg, id, &wp_single_pixel_buffer_manager_v1_interface, 1);
     }
@@ -1713,18 +1708,6 @@ static void remove_output(struct vo_wayland_output *out)
     return;
 }
 
-static void set_content_type(struct vo_wayland_state *wl)
-{
-    if (!wl->content_type_manager)
-        return;
-    // handle auto;
-    if (wl->vo_opts->content_type == -1) {
-        wp_content_type_v1_set_content_type(wl->content_type, wl->current_content_type);
-    } else {
-        wp_content_type_v1_set_content_type(wl->content_type, wl->vo_opts->content_type);
-    }
-}
-
 static void set_cursor_shape(struct vo_wayland_state *wl)
 {
 }
@@ -2040,8 +2023,6 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
                                              &wl->vo_opts->border);
                 }
             }
-            if (opt == &opts->content_type)
-                set_content_type(wl);
             if (opt == &opts->cursor_passthrough)
                 set_input_region(wl, opts->cursor_passthrough);
             if (opt == &opts->fullscreen)
@@ -2058,11 +2039,6 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
                 set_geometry(wl, true);
             }
         }
-        return VO_TRUE;
-    }
-    case VOCTRL_CONTENT_TYPE: {
-        wl->current_content_type = *(enum mp_content_type *)arg;
-        set_content_type(wl);
         return VO_TRUE;
     }
     case VOCTRL_GET_FOCUSED: {
@@ -2209,13 +2185,6 @@ bool vo_wayland_init(struct vo *vo)
         wl->osd_subsurface = wl_subcompositor_get_subsurface(wl->subcompositor, wl->osd_surface, wl->video_surface);
         wl->video_subsurface = wl_subcompositor_get_subsurface(wl->subcompositor, wl->video_surface, wl->surface);
         wl_subsurface_set_desync(wl->video_subsurface);
-    }
-
-    if (wl->content_type_manager) {
-        wl->content_type = wp_content_type_manager_v1_get_surface_content_type(wl->content_type_manager, wl->surface);
-    } else {
-        MP_VERBOSE(wl, "Compositor doesn't support the %s protocol!\n",
-                   wp_content_type_manager_v1_interface.name);
     }
 
     if (!wl->single_pixel_manager) {
@@ -2376,12 +2345,6 @@ void vo_wayland_uninit(struct vo *vo)
 
     if (wl->cursor_theme)
         wl_cursor_theme_destroy(wl->cursor_theme);
-
-    if (wl->content_type)
-        wp_content_type_v1_destroy(wl->content_type);
-
-    if (wl->content_type_manager)
-        wp_content_type_manager_v1_destroy(wl->content_type_manager);
 
     if (wl->dnd_ddev)
         wl_data_device_destroy(wl->dnd_ddev);

@@ -30,7 +30,6 @@ typedef struct {
 
 struct wayland_opts {
     int configure_bounds;
-    int content_type;
     bool disable_vsync;
     int edge_pixels_pointer;
     int edge_pixels_touch;
@@ -85,11 +84,6 @@ struct vo_wayland_state {
     double scaling;
     int timeout_count;
     int wakeup_pipe[2];
-
-    /* content-type */
-    struct wp_content_type_manager_v1 *content_type_manager;
-    struct wp_content_type_v1 *content_type;
-    int current_content_type;
 
     /* cursor-shape */
     /* TODO: unvoid these if required wayland protocols is bumped to 1.32+ */
