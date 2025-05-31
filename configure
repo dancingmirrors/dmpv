@@ -242,7 +242,8 @@ check("glibc-thread-name*",
 check("osx-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = "pthread.h",
-                    expr = 'pthread_setname_np("ducks");'))
+                    expr = 'pthread_setname_np("ducks");'),
+      sources   = "osdep/semaphore_osx.c")
 check("bsd-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],
@@ -841,7 +842,6 @@ add_sources(
     "options/path.c",
     "osdep/io.c",
     "osdep/path-unix.c",
-    "osdep/semaphore_osx.c",
     "osdep/subprocess.c",
     "osdep/threads.c",
     "osdep/timer.c",
