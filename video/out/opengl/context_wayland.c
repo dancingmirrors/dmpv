@@ -42,7 +42,7 @@ static void resize(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
     struct vo_wayland_state *wl = ctx->vo->wl;
 
-    MP_VERBOSE(wl, "Handling resize on the egl side\n");
+    MP_VERBOSE(wl, "Handling resize on the EGL side\n");
 
     const int32_t width = mp_rect_w(wl->geometry);
     const int32_t height = mp_rect_h(wl->geometry);

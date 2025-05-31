@@ -117,10 +117,10 @@ struct mp_vaapi_ctx *va_initialize(VADisplay *display, struct mp_log *plog,
     int status = vaInitialize(display, &major, &minor);
     if (status != VA_STATUS_SUCCESS) {
         if (!probing)
-            MP_ERR(res, "Failed to initialize VAAPI: %s\n", vaErrorStr(status));
+            MP_ERR(res, "Failed to initialize VA-API: %s\n", vaErrorStr(status));
         goto error;
     }
-    MP_VERBOSE(res, "Initialized VAAPI: version %d.%d\n", major, minor);
+    MP_VERBOSE(res, "Initialized VA-API: version %d.%d\n", major, minor);
 
     vactx->display = res->display;
 
