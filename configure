@@ -408,6 +408,8 @@ def check_wayland_protos():
 check("-wayland*",
       # TODO: where does this check whether the protocol files are available?
       fn        = lambda: check_wayland_protos() and
+                          check_cc(include = "linux/input-event-codes.h",
+                                   link = []) and
                           check_program("WAYSCAN") and
                           check_pkg_config("wayland-client  >= 1.21.0",
                                            "wayland-cursor  >= 1.21.0",
