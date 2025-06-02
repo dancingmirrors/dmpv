@@ -201,10 +201,9 @@ extern "C" {
  * mpv development doesn't stand still, and changes to mpv internals as well as
  * to its interface can cause compatibility issues to client API users.
  *
- * The API is versioned (see MPV_CLIENT_API_VERSION), and changes to it are
- * documented in DOCS/client-api-changes.rst. The C API itself will probably
- * remain compatible for a long time, but the functionality exposed by it
- * could change more rapidly. For example, it's possible that options are
+ * The API is versioned (see MPV_CLIENT_API_VERSION). The C API itself will
+ * probably remain compatible for a long time, but the functionality exposed by
+ * it could change more rapidly. For example, it's possible that options are
  * renamed, or change the set of allowed values.
  *
  * Defensive programming should be used to potentially deal with the fact that
@@ -212,8 +211,6 @@ extern "C" {
  * or change the underlying datatypes. It might be a good idea to prefer
  * MPV_FORMAT_STRING over other types to decouple your code from potential
  * mpv changes.
- *
- * Also see: DOCS/compatibility.rst
  *
  * Future changes
  * --------------
@@ -232,8 +229,6 @@ extern "C" {
  * the API becomes incompatible to previous versions, the major version
  * number is incremented. This affects only C part, and not properties and
  * options.
- *
- * Every API bump is described in DOCS/client-api-changes.rst
  *
  * You can use MPV_MAKE_VERSION() and compare the result with integer
  * relational operators (<, >, <=, >=).
