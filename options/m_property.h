@@ -168,9 +168,8 @@ void m_properties_print_help_list(struct mp_log *log,
 //  available.
 //  ${?NAME:STR} expands to STR if the property is available.
 //  ${!NAME:STR} expands to STR if the property is not available.
-//  ${+...} same combinations as above, but also re-expand the result.
-// General syntax: "${" ["+"] ["?" | "!"] ["="] NAME ":" STR "}"
-// STR is recursively expanded using the same rules. Same for ${+...} .
+// General syntax: "${" ["?" | "!"] ["="] NAME ":" STR "}"
+// STR is recursively expanded using the same rules.
 // "$$" can be used to escape "$", and "$}" to escape "}".
 // "$>" disables parsing of "$" for the rest of the string.
 char* m_properties_expand_string(const struct m_property *prop_list,
