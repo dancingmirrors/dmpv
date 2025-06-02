@@ -407,14 +407,14 @@ def check_wayland_protos():
     add_config_mak_var("WL_PROTO_DIR", data)
     return True
 check("-wayland*",
-      # TODO: where does this check whether the protocol files are available?
       fn        = lambda: check_wayland_protos() and
                           check_cc(include = "linux/input-event-codes.h",
                                    link = []) and
                           check_program("WAYSCAN") and
-                          check_pkg_config("wayland-client  >= 1.21.0",
-                                           "wayland-cursor  >= 1.21.0",
-                                           "xkbcommon       >= 0.3.0"),
+                          check_pkg_config("wayland-client    >= 1.21.0",
+                                           "wayland-cursor    >= 1.21.0",
+                                           "wayland-protocols >= 1.32.0",
+                                           "xkbcommon         >= 0.3.0"),
       sources   = ["video/out/wayland_common.c",
                    "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
                    "$(BUILD)/generated/wayland/presentation-time.c",
