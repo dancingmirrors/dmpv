@@ -420,6 +420,8 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/xdg-shell.c",
                    "$(BUILD)/generated/wayland/single-pixel-buffer-v1.c",
                    "$(BUILD)/generated/wayland/fractional-scale-v1.c",
+                   "$(BUILD)/generated/wayland/cursor-shape-v1.c",
+                   "$(BUILD)/generated/wayland/tablet-v2.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
 check("-dmabuf*",
       deps       = "wayland",

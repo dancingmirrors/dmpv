@@ -41,9 +41,9 @@
 #include "generated/wayland/xdg-decoration-unstable-v1.h"
 #include "generated/wayland/xdg-shell.h"
 #include "generated/wayland/viewporter.h"
-
 #include "generated/wayland/single-pixel-buffer-v1.h"
 #include "generated/wayland/fractional-scale-v1.h"
+#include "generated/wayland/cursor-shape-v1.h"
 
 #ifndef CLOCK_MONOTONIC_RAW
 #define CLOCK_MONOTONIC_RAW 4
