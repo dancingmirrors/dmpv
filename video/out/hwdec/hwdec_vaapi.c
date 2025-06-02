@@ -467,7 +467,7 @@ static void determine_working_formats(struct ra_hwdec *hw)
     VAProfile *profiles = NULL;
     VAEntrypoint *entrypoints = NULL;
 
-    MP_VERBOSE(hw, "Going to probe surface formats (may log bogus errors)...\n");
+    MP_VERBOSE(hw, "Reticulating splines...\n");
     p->probing_formats = true;
 
     AVVAAPIHWConfig *hwconfig = av_hwdevice_hwconfig_alloc(p->ctx->av_device_ref);
