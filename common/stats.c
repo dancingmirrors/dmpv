@@ -154,8 +154,7 @@ void stats_global_query(struct mpv_global *global, struct mpv_node *out)
         node_map_add_double(ne, "value", t_ms);
         node_map_add_string(ne, "text", mp_tprintf(80, "%.2f ms", t_ms));
 
-        // Very dirty way to reset everything if the stats.lua page was probably
-        // closed. Not enough energy left for clean solution. Fuck it.
+        // Not enough energy left for a clean solution. Fuck it.
         if (t_ms > 2000) {
             for (int n = 0; n < stats->num_entries; n++) {
                 struct stat_entry *e = stats->entries[n];
