@@ -921,8 +921,6 @@ static char *parse_connector_spec(struct vo_drm_state *drm)
         return NULL;
     char *dot_ptr = strchr(drm->opts->connector_spec, '.');
     if (dot_ptr) {
-        MP_WARN(drm, "Warning: Selecting a connector by index with drm-connector "
-                     "is deprecated. Use the drm-device option instead.\n");
         drm->card_no = strtoul(drm->opts->connector_spec, NULL, 10);
         return talloc_strdup(drm, dot_ptr + 1);
     } else {
