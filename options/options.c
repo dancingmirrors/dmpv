@@ -437,11 +437,16 @@ static const m_option_t mp_opts[] = {
         .flags = CONF_NOCFG | CONF_PRE_PARSE | M_OPT_FILE},
     {"reset-on-next-file", OPT_STRINGLIST(reset_options)},
 
-#if HAVE_CPLUGINS
+#if HAVE_LUA || HAVE_CPLUGINS
     {"scripts", OPT_PATHLIST(script_files), .flags = M_OPT_FILE},
     {"script", OPT_CLI_ALIAS("scripts-append")},
     {"script-opts", OPT_KEYVALUELIST(script_opts)},
     {"load-scripts", OPT_BOOL(auto_load_scripts)},
+#endif
+
+#if HAVE_LUA
+    {"load-stats-overlay", OPT_BOOL(lua_load_stats),
+        .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
 
 // ------------------------- stream options --------------------
@@ -835,6 +840,9 @@ static const struct MPOpts mp_default_opts = {
     .osd_level = 1,
     .osd_on_seek = 1,
     .osd_duration = 1000,
+#if HAVE_LUA
+    .lua_load_stats = true,
+#endif
     .auto_load_scripts = true,
     .loop_times = 1,
     .ordered_chapters = true,

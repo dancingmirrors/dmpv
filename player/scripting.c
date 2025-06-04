@@ -41,10 +41,14 @@
 #include "client.h"
 #include "libmpv/client.h"
 
+extern const struct mp_scripting mp_scripting_lua;
 extern const struct mp_scripting mp_scripting_cplugin;
 extern const struct mp_scripting mp_scripting_run;
 
 static const struct mp_scripting *const scripting_backends[] = {
+#if HAVE_LUA
+    &mp_scripting_lua,
+#endif
 #if HAVE_CPLUGINS
     &mp_scripting_cplugin,
 #endif
@@ -148,7 +152,7 @@ static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
     }
 
     if (!backend) {
-        MP_VERBOSE(mpctx, "Can't load unknown script: %s\n", fname);
+        MP_ERR(mpctx, "Can't load unknown script: %s\n", fname);
         talloc_free(tmp);
         return -1;
     }
@@ -230,6 +234,28 @@ static char **list_script_files(void *talloc_ctx, char *path)
         qsort(files, count, sizeof(char *), compare_filename);
     MP_TARRAY_APPEND(talloc_ctx, files, count, NULL);
     return files;
+}
+
+static void load_builtin_script(struct MPContext *mpctx, int slot, bool enable,
+                                const char *fname)
+{
+    assert(slot < MP_ARRAY_SIZE(mpctx->builtin_script_ids));
+    int64_t *pid = &mpctx->builtin_script_ids[slot];
+    if (*pid > 0 && !mp_client_id_exists(mpctx, *pid))
+        *pid = 0; // died
+    if ((*pid > 0) != enable) {
+        if (enable) {
+            *pid = mp_load_script(mpctx, fname);
+        } else {
+            char *name = mp_tprintf(22, "@%"PRIi64, *pid);
+            mp_client_send_event(mpctx, name, 0, MPV_EVENT_SHUTDOWN, NULL);
+        }
+    }
+}
+
+void mp_load_builtin_scripts(struct MPContext *mpctx)
+{
+    load_builtin_script(mpctx, 0, mpctx->opts->lua_load_stats, "@stats.lua");
 }
 
 bool mp_load_scripts(struct MPContext *mpctx)

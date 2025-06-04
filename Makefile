@@ -54,6 +54,11 @@ $(BUILD)/player/main.o: $(BUILD)/generated/etc/builtin.conf.inc
 
 $(BUILD)/sub/osd_libass.o: $(BUILD)/generated/sub/osd_font.otf.inc
 
+$(BUILD)/player/lua.o: $(BUILD)/generated/player/lua/defaults.lua.inc \
+                       $(BUILD)/generated/player/lua/assdraw.lua.inc \
+                       $(BUILD)/generated/player/lua/options.lua.inc \
+                       $(BUILD)/generated/player/lua/stats.lua.inc \
+
 $(BUILD)/osdep/macosx_application.m $(BUILD)/video/out/cocoa_common.m: \
     $(BUILD)/generated/TOOLS/osxbundle/mpv.app/Contents/Resources/icon.icns.inc
 

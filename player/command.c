@@ -6919,6 +6919,9 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
         mp_wakeup_core(mpctx);
     }
 
+    if (flags & UPDATE_BUILTIN_SCRIPTS)
+        mp_load_builtin_scripts(mpctx);
+
     if (flags & UPDATE_IMGPAR) {
         struct track *track = mpctx->current_track[0][STREAM_VIDEO];
         if (track && track->dec) {

@@ -149,7 +149,7 @@ typedef struct MPOpts {
     char **reset_options;
     char **script_files;
     char **script_opts;
-
+    bool lua_load_stats;
     bool auto_load_scripts;
 
     bool audio_exclusive;
