@@ -6011,7 +6011,7 @@ static void cmd_script_binding(void *p)
     if (mp_client_send_event_dup(mpctx, target,
                                  MPV_EVENT_CLIENT_MESSAGE, &event) < 0)
     {
-        MP_VERBOSE(mpctx, "Can't find script '%s' when handling input.\n",
+        MP_WARN(mpctx, "Can't find script '%s' when handling input.\n",
                     target ? target : "-");
         cmd->success = false;
     }
@@ -6031,7 +6031,7 @@ static void cmd_script_message_to(void *p)
     if (mp_client_send_event(mpctx, cmd->args[0].v.s, 0,
                                 MPV_EVENT_CLIENT_MESSAGE, event) < 0)
     {
-        MP_VERBOSE(mpctx, "Can't find script '%s' to send message to.\n",
+        MP_WARN(mpctx, "Can't find script '%s' to send message to.\n",
                    cmd->args[0].v.s);
         cmd->success = false;
     }
