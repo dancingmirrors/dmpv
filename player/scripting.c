@@ -252,6 +252,7 @@ static void load_builtin_script(struct MPContext *mpctx, int slot, bool enable,
 void mp_load_builtin_scripts(struct MPContext *mpctx)
 {
     load_builtin_script(mpctx, 0, mpctx->opts->lua_load_stats, "@stats.lua");
+    load_builtin_script(mpctx, 1, mpctx->opts->lua_load_360, "@360.lua");
 }
 
 bool mp_load_scripts(struct MPContext *mpctx)

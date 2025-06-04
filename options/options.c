@@ -447,6 +447,8 @@ static const m_option_t mp_opts[] = {
 #if HAVE_LUA
     {"load-stats-overlay", OPT_BOOL(lua_load_stats),
         .flags = UPDATE_BUILTIN_SCRIPTS},
+    {"load-360", OPT_BOOL(lua_load_360),
+        .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
 
 // ------------------------- stream options --------------------
@@ -842,6 +844,7 @@ static const struct MPOpts mp_default_opts = {
     .osd_duration = 1000,
 #if HAVE_LUA
     .lua_load_stats = true,
+    .lua_load_360 = false,
 #endif
     .auto_load_scripts = true,
     .loop_times = 1,
