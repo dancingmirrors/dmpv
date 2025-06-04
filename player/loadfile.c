@@ -245,19 +245,18 @@ static void print_stream(struct MPContext *mpctx, struct track *t)
     char b[2048] = {0};
 
     const char *codec = s ? s->codec->codec : NULL;
-    APPEND(b, "INFO: (%s", codec ? codec : "<unknown>");
+    APPEND(b, "INFO: %s", codec ? codec : "<unknown>");
     if (t->type == STREAM_VIDEO) {
         if (s && s->codec->disp_w)
             APPEND(b, " %dx%d", s->codec->disp_w, s->codec->disp_h);
         if (s && s->codec->fps)
-            APPEND(b, " %.3ffps", s->codec->fps);
+            APPEND(b, " %.1ffps", s->codec->fps);
     } else if (t->type == STREAM_AUDIO) {
         if (s && s->codec->channels.num)
             APPEND(b, " %dch", s->codec->channels.num);
         if (s && s->codec->samplerate)
             APPEND(b, " %dHz", s->codec->samplerate);
     }
-    APPEND(b, ")");
     if (s->hls_bitrate > 0)
         APPEND(b, " (%d kbps)", (s->hls_bitrate + 500) / 1000);
     if (t->is_external)
