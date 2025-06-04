@@ -42,15 +42,11 @@
 #include "libmpv/client.h"
 
 extern const struct mp_scripting mp_scripting_lua;
-extern const struct mp_scripting mp_scripting_cplugin;
 extern const struct mp_scripting mp_scripting_run;
 
 static const struct mp_scripting *const scripting_backends[] = {
 #if HAVE_LUA
     &mp_scripting_lua,
-#endif
-#if HAVE_CPLUGINS
-    &mp_scripting_cplugin,
 #endif
     &mp_scripting_run,
     NULL
@@ -283,39 +279,6 @@ bool mp_load_scripts(struct MPContext *mpctx)
 
     return ok;
 }
-
-#if HAVE_CPLUGINS
-
-#include <dlfcn.h>
-
-#define MPV_DLOPEN_FN "mpv_open_cplugin"
-typedef int (*mpv_open_cplugin)(mpv_handle *handle);
-
-static int load_cplugin(struct mp_script_args *args)
-{
-    void *lib = dlopen(args->filename, RTLD_NOW | RTLD_LOCAL);
-    if (!lib)
-        goto error;
-    // Note: once loaded, we never unload, as unloading the libraries linked to
-    //       the plugin can cause random serious problems.
-    mpv_open_cplugin sym = (mpv_open_cplugin)dlsym(lib, MPV_DLOPEN_FN);
-    if (!sym)
-        goto error;
-    return sym(args->client) ? -1 : 0;
-error: ;
-    char *err = dlerror();
-    if (err)
-        MP_ERR(args, "C plugin error: '%s'\n", err);
-    return -1;
-}
-
-const struct mp_scripting mp_scripting_cplugin = {
-    .name = "SO plugin",
-    .file_ext = "so",
-    .load = load_cplugin,
-};
-
-#endif
 
 static int load_run(struct mp_script_args *args)
 {
