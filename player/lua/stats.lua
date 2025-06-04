@@ -43,9 +43,9 @@ local o = {
     plot_color = "FFFFFF",
 
     -- Text style
-    font = "Monospace",
+    font = "",
     font_mono = "monospace",   -- monospaced digits are sufficient
-    font_size = 10,
+    font_size = 11,
     font_color = "FFFFFF",
     border_size = 0.8,
     border_color = "262626",
@@ -332,7 +332,7 @@ local function append_perfdata(s, dedicated_page)
     -- also one single element.
     s[#s+1] = format("%s%s%s%s{\\fs%s}%s{\\fs%s}",
                      dedicated_page and "" or o.nl, dedicated_page and "" or o.indent,
-                     b("Frame Timings:"), o.prefix_sep, o.font_size * 0.66,
+                     b("Frame Timings:"), o.prefix_sep, o.font_size,
                      "(last/average/peak  μs)", o.font_size)
 
     for _,frame in ipairs(sorted_keys(vo_p)) do  -- ensure fixed display order
