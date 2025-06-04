@@ -56,9 +56,9 @@ enum {
 
 static const char av_desync_help_text[] =
 "\n"
-"Audio/Video desynchronisation detected! Possible reasons include too slow\n"
-"hardware, temporary CPU spikes, broken drivers, and broken files. Audio\n"
-"position will not match to the video (see A-V status field).\n"
+"Audio/Video desynchronization detected! Possible reasons include too slow\n"
+"hardware, temporary CPU spikes, broken drivers, broken files, heavy\n"
+"shaders, or heavy filters. Audio position will not match the video.\n"
 "\n";
 
 static bool recreate_video_filters(struct MPContext *mpctx)
