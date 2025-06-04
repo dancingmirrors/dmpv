@@ -242,43 +242,10 @@ static void uninit_demuxer(struct MPContext *mpctx)
 static void print_stream(struct MPContext *mpctx, struct track *t)
 {
     struct sh_stream *s = t->stream;
-    const char *tname = "?";
-    const char *selopt = "?";
-    const char *langopt = "?";
-    switch (t->type) {
-    case STREAM_VIDEO:
-        tname = "Video"; selopt = "vid"; langopt = NULL;
-        break;
-    case STREAM_AUDIO:
-        tname = "Audio"; selopt = "aid"; langopt = "alang";
-        break;
-    case STREAM_SUB:
-        tname = "Subs"; selopt = "sid"; langopt = "slang";
-        break;
-    }
     char b[2048] = {0};
-    bool forced_only = false;
-    if (t->type == STREAM_SUB) {
-        int forced_opt = mpctx->opts->subs_rend->forced_subs_only;
-        if (forced_opt == 1 || (forced_opt && t->forced_only_def))
-            forced_only = t->selected;
-    }
-    APPEND(b, " %3s %-5s", t->selected ? (forced_only ? "(*)" : "(+)") : "", tname);
-    APPEND(b, " --%s=%d", selopt, t->user_tid);
-    if (t->lang && langopt)
-        APPEND(b, " --%s=%s", langopt, t->lang);
-    if (t->default_track)
-        APPEND(b, " (*)");
-    if (t->forced_track)
-        APPEND(b, " (f)");
-    if (t->attached_picture)
-        APPEND(b, " [P]");
-    if (forced_only)
-        APPEND(b, " [F]");
-    if (t->title)
-        APPEND(b, " '%s'", t->title);
+
     const char *codec = s ? s->codec->codec : NULL;
-    APPEND(b, " (%s", codec ? codec : "<unknown>");
+    APPEND(b, "INFO: (%s", codec ? codec : "<unknown>");
     if (t->type == STREAM_VIDEO) {
         if (s && s->codec->disp_w)
             APPEND(b, " %dx%d", s->codec->disp_w, s->codec->disp_h);
