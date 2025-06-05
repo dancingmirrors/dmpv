@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include "osdep/strnlen.h"
 
 #define TA_NO_WRAPPERS
@@ -65,7 +65,7 @@ void *ta_steal_(void *ta_parent, void *ptr)
 void *ta_memdup(void *ta_parent, void *ptr, size_t size)
 {
     if (!ptr) {
-        assert(!size);
+        mp_assert(!size);
         return NULL;
     }
     void *res = ta_alloc_size(ta_parent, size);
@@ -80,7 +80,7 @@ void *ta_memdup(void *ta_parent, void *ptr, size_t size)
 static bool strndup_append_at(char **str, size_t at, const char *append,
                               size_t append_len)
 {
-    assert(ta_get_size(*str) >= at);
+    mp_assert(ta_get_size(*str) >= at);
 
     if (!*str && !append)
         return true; // stays NULL, but not an OOM condition
@@ -171,7 +171,7 @@ bool ta_strndup_append_buffer(char **str, const char *a, size_t n)
 static bool ta_vasprintf_append_at(char **str, size_t at, const char *fmt,
                                    va_list ap)
 {
-    assert(ta_get_size(*str) >= at);
+    mp_assert(ta_get_size(*str) >= at);
 
     int size;
     va_list copy;

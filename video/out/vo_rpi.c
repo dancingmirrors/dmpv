@@ -230,7 +230,7 @@ fail:
 static size_t layout_buffer(struct mp_image *mpi, MMAL_BUFFER_HEADER_T *buffer,
                             struct mp_image_params *params)
 {
-    assert(params->imgfmt == IMGFMT_420P);
+    mp_assert(params->imgfmt == IMGFMT_420P);
     mp_image_set_params(mpi, params);
     int w = MP_ALIGN_UP(params->w, ALIGN_W);
     int h = MP_ALIGN_UP(params->h, ALIGN_H);

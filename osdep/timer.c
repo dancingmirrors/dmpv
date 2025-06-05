@@ -67,7 +67,7 @@ double mp_time_sec(void)
 
 int64_t mp_time_us_add(int64_t time_us, double timeout_sec)
 {
-    assert(time_us > 0); // mp_time_us() returns strictly positive values
+    mp_assert(time_us > 0); // mp_time_us() returns strictly positive values
     double t = MPCLAMP(timeout_sec * 1e6, -0x1p63, 0x1p63);
     int64_t ti = t == 0x1p63 ? INT64_MAX : (int64_t)t;
     if (ti > INT64_MAX - time_us)
@@ -79,7 +79,7 @@ int64_t mp_time_us_add(int64_t time_us, double timeout_sec)
 
 int64_t mp_time_ns_add(int64_t time_ns, double timeout_sec)
 {
-    assert(time_ns > 0); // mp_time_ns() returns strictly positive values
+    mp_assert(time_ns > 0); // mp_time_ns() returns strictly positive values
     double t = MPCLAMP(timeout_sec * 1e9, -0x1p63, 0x1p63);
     int64_t ti = t == 0x1p63 ? INT64_MAX : (int64_t)t;
     if (ti > INT64_MAX - time_ns)

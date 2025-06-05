@@ -51,7 +51,7 @@ struct parse_state {
 // Returns true if more args, false if all parsed or an error occurred.
 static bool split_opt(struct parse_state *p)
 {
-    assert(!p->error);
+    mp_assert(!p->error);
 
     if (!p->argv || !p->argv[0])
         return false;
@@ -129,7 +129,7 @@ int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
     int local_params_count = 0;
     struct playlist_param *local_params = 0;
 
-    assert(config != NULL);
+    mp_assert(config != NULL);
 
     mode = GLOBAL;
 
@@ -157,7 +157,7 @@ int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
                     goto err_out;
                 }
                 mode = LOCAL;
-                assert(!local_start);
+                mp_assert(!local_start);
                 local_start = playlist_get_last(files);
                 continue;
             }

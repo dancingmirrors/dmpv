@@ -1717,7 +1717,7 @@ done:
 
 bool vo_w32_init(struct vo *vo)
 {
-    assert(!vo->w32);
+    mp_assert(!vo->w32);
 
     struct vo_w32_state *w32 = talloc_ptrtype(vo, w32);
     *w32 = (struct vo_w32_state){

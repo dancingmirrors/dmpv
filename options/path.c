@@ -78,7 +78,7 @@ static const char *mp_get_platform_path(void *talloc_ctx,
                                         struct mpv_global *global,
                                         const char *type)
 {
-    assert(talloc_ctx);
+    mp_assert(talloc_ctx);
 
     if (global->configdir) {
         // force all others to NULL, only first returns the path
@@ -105,7 +105,7 @@ static const char *mp_get_platform_path(void *talloc_ctx,
     }
 
     if (fallback_type) {
-        assert(strcmp(fallback_type, type) != 0);
+        mp_assert(strcmp(fallback_type, type) != 0);
         return mp_get_platform_path(talloc_ctx, global, fallback_type);
     }
     return NULL;
@@ -272,7 +272,7 @@ void mp_path_strip_trailing_separator(char *path)
 
 char *mp_splitext(const char *path, bstr *root)
 {
-    assert(path);
+    mp_assert(path);
     const char *split = strrchr(path, '.');
     if (!split || !split[1] || strchr(split, '/'))
         return NULL;

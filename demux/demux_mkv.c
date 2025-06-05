@@ -2956,7 +2956,7 @@ static int read_next_block(demuxer_t *demuxer, struct block_info *block)
         if (res < 1)
             return res;
 
-        assert(mkv_d->num_blocks);
+        mp_assert(mkv_d->num_blocks);
     }
 
     *block = mkv_d->blocks[0];
@@ -2991,7 +2991,7 @@ static bool demux_mkv_read_packet(struct demuxer *demuxer,
 static mkv_index_t *get_highest_index_entry(struct demuxer *demuxer)
 {
     struct mkv_demuxer *mkv_d = demuxer->priv;
-    assert(!mkv_d->index_complete); // would require separate code
+    mp_assert(!mkv_d->index_complete); // would require separate code
 
     mkv_index_t *index = NULL;
     for (int n = 0; n < mkv_d->num_tracks; n++) {

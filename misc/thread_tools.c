@@ -61,7 +61,7 @@ uintptr_t mp_waiter_wait(struct mp_waiter *waiter)
 void mp_waiter_wakeup(struct mp_waiter *waiter, uintptr_t value)
 {
     pthread_mutex_lock(&waiter->lock);
-    assert(!waiter->done);
+    mp_assert(!waiter->done);
     waiter->done = true;
     waiter->value = value;
     pthread_cond_signal(&waiter->wakeup);
@@ -103,7 +103,7 @@ static void cancel_destroy(void *p)
 {
     struct mp_cancel *c = p;
 
-    assert(!c->slaves.head); // API user error
+    mp_assert(!c->slaves.head); // API user error
 
     mp_cancel_set_parent(c, NULL);
 

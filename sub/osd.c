@@ -119,7 +119,7 @@ bool osd_res_equals(struct mp_osd_res a, struct mp_osd_res b)
 
 struct osd_state *osd_create(struct mpv_global *global)
 {
-    assert(MAX_OSD_PARTS >= OSDTYPE_COUNT);
+    mp_assert(MAX_OSD_PARTS >= OSDTYPE_COUNT);
 
     struct osd_state *osd = talloc_zero(NULL, struct osd_state);
     *osd = (struct osd_state) {
@@ -506,7 +506,7 @@ void osd_rescale_bitmaps(struct sub_bitmaps *imgs, int frame_w, int frame_h,
     double xscale = (double)vidw / frame_w;
     double yscale = (double)vidh / frame_h;
     if (compensate_par < 0) {
-        assert(res.display_par);
+        mp_assert(res.display_par);
         compensate_par = xscale / yscale / res.display_par;
     }
     if (compensate_par > 0)
@@ -552,7 +552,7 @@ struct sub_bitmaps *sub_bitmaps_copy(struct sub_bitmap_copy_cache **p_cache,
 
     // The bitmaps being refcounted is essential for performance, and for
     // not invalidating in->parts[*].bitmap pointers.
-    assert(in->packed && in->packed->bufs[0]);
+    mp_assert(in->packed && in->packed->bufs[0]);
 
     res->packed = mp_image_new_ref(res->packed);
     talloc_steal(res, res->packed);

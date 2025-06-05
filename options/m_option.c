@@ -681,7 +681,7 @@ static int parse_choice(struct mp_log *log, const struct m_option *opt,
 
 static void choice_get_min_max(const struct m_option *opt, int *min, int *max)
 {
-    assert(opt->type == &m_option_type_choice);
+    mp_assert(opt->type == &m_option_type_choice);
     *min = INT_MAX;
     *max = INT_MIN;
     for (const struct m_opt_choice_alternatives *alt = opt->priv; alt->name; alt++) {
@@ -706,7 +706,7 @@ static void check_choice(int dir, int val, bool *found, int *best, int choice)
 
 static void add_choice(const m_option_t *opt, void *val, double add, bool wrap)
 {
-    assert(opt->type == &m_option_type_choice);
+    mp_assert(opt->type == &m_option_type_choice);
     int dir = add > 0 ? +1 : -1;
     bool found = false;
     int ival = *(int *)val;
@@ -1703,7 +1703,7 @@ static void keyvalue_list_del_key(char **lst, int index)
     int count = 0;
     for (int n = 0; lst && lst[n]; n++)
         count++;
-    assert(index * 2 + 1 < count);
+    mp_assert(index * 2 + 1 < count);
     count += 1; // terminating item
     talloc_free(lst[index * 2 + 0]);
     talloc_free(lst[index * 2 + 1]);
@@ -2910,7 +2910,7 @@ static void obj_settings_list_del_at(m_obj_settings_t **p_obj_list, int idx)
     m_obj_settings_t *obj_list = *p_obj_list;
     int num = obj_settings_list_num_items(obj_list);
 
-    assert(idx >= 0 && idx < num);
+    mp_assert(idx >= 0 && idx < num);
 
     obj_setting_free(&obj_list[idx]);
 
@@ -2930,7 +2930,7 @@ static void obj_settings_list_insert_at(m_obj_settings_t **p_obj_list, int idx,
     int num = obj_settings_list_num_items(*p_obj_list);
     if (idx < 0)
         idx = num + idx + 1;
-    assert(idx >= 0 && idx <= num);
+    mp_assert(idx >= 0 && idx <= num);
     *p_obj_list = talloc_realloc(NULL, *p_obj_list, struct m_obj_settings,
                                  num + 2);
     memmove(*p_obj_list + idx + 1, *p_obj_list + idx,
@@ -3339,7 +3339,7 @@ static int parse_obj_settings_list(struct mp_log *log, const m_option_t *opt,
     int num_items = obj_settings_list_num_items(dst ? VAL(dst) : 0);
     const struct m_obj_list *ol = opt->priv;
 
-    assert(opt->priv);
+    mp_assert(opt->priv);
 
     if (bstr_endswith0(name, "-add")) {
         op = OP_ADD;
@@ -3532,7 +3532,7 @@ static int parse_obj_settings_list(struct mp_log *log, const m_option_t *opt,
             }
             free_obj_settings_list(&res);
         } else {
-            assert(op == OP_NONE);
+            mp_assert(op == OP_NONE);
             free_obj_settings_list(&list);
             list = res;
         }
@@ -3637,7 +3637,7 @@ error:
 static struct mpv_node *add_array_entry(struct mpv_node *dst)
 {
     struct mpv_node_list *list = dst->u.list;
-    assert(dst->format == MPV_FORMAT_NODE_ARRAY&& dst->u.list);
+    mp_assert(dst->format == MPV_FORMAT_NODE_ARRAY&& dst->u.list);
     MP_TARRAY_GROW(list, list->values, list->num);
     return &list->values[list->num++];
 }
@@ -3645,7 +3645,7 @@ static struct mpv_node *add_array_entry(struct mpv_node *dst)
 static struct mpv_node *add_map_entry(struct mpv_node *dst, const char *key)
 {
     struct mpv_node_list *list = dst->u.list;
-    assert(dst->format == MPV_FORMAT_NODE_MAP && dst->u.list);
+    mp_assert(dst->format == MPV_FORMAT_NODE_MAP && dst->u.list);
     MP_TARRAY_GROW(list, list->values, list->num);
     MP_TARRAY_GROW(list, list->keys, list->num);
     list->keys[list->num] = talloc_strdup(list, key);
@@ -3824,7 +3824,7 @@ static void dup_node(void *ta_parent, struct mpv_node *node)
 
 static void copy_node(const m_option_t *opt, void *dst, const void *src)
 {
-    assert(sizeof(struct mpv_node) <= sizeof(union m_option_value));
+    mp_assert(sizeof(struct mpv_node) <= sizeof(union m_option_value));
 
     if (!(dst && src))
         return;

@@ -1,6 +1,7 @@
 #include <libavcodec/avcodec.h>
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "mp_image.h"
 #include "player/screenshot.h"
 

@@ -688,7 +688,7 @@ static void mp_get_xyz2rgb_coeffs(struct mp_csp_params *params,
 // This is broken. Use mp_get_csp_uint_mul().
 double mp_get_csp_mul(enum mp_csp csp, int input_bits, int texture_bits)
 {
-    assert(texture_bits >= input_bits);
+    mp_assert(texture_bits >= input_bits);
 
     // Convenience for some irrelevant cases, e.g. rgb565 or disabling expansion.
     if (!input_bits)
@@ -767,7 +767,7 @@ void mp_get_csp_uint_mul(enum mp_csp csp, enum mp_csp_levels levels,
  */
 static void luma_coeffs(struct mp_cmat *mat, float lr, float lg, float lb)
 {
-    assert(fabs(lr+lg+lb - 1) < 1e-6);
+    mp_assert(fabs(lr+lg+lb - 1) < 1e-6);
     *mat = (struct mp_cmat) {
         { {1, 0,                    2 * (1-lr)          },
           {1, -2 * (1-lb) * lb/lg, -2 * (1-lr) * lr/lg  },

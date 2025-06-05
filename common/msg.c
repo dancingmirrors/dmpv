@@ -780,7 +780,7 @@ static void mp_msg_set_early_logging_raw(struct mpv_global *global, bool enable,
             struct mp_log_buffer *buf =
                 mp_msg_log_buffer_new(global, size, level, NULL, NULL);
             pthread_mutex_lock(&root->lock);
-            assert(!*root_logbuf); // no concurrent calls to this function
+            mp_assert(!*root_logbuf); // no concurrent calls to this function
             *root_logbuf = buf;
         } else {
             struct mp_log_buffer *buf = *root_logbuf;

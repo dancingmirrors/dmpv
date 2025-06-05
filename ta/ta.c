@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "misc/mp_assert.h"
 
 #define TA_NO_WRAPPERS
 #include "ta.h"
@@ -97,10 +98,10 @@ void ta_set_parent(void *ptr, void *ta_parent)
         ch->next->prev = ch->prev;
     // If ch was the first child, change child link of old parent
     if (ch->parent) {
-        assert(ch->parent->child == ch);
+        mp_assert(ch->parent->child == ch);
         ch->parent->child = ch->next;
         if (ch->parent->child) {
-            assert(!ch->parent->child->parent);
+            mp_assert(!ch->parent->child->parent);
             ch->parent->child->parent = ch->parent;
         }
     }
@@ -288,10 +289,10 @@ static void ta_dbg_add(struct ta_header *h)
 static void ta_dbg_check_header(struct ta_header *h)
 {
     if (h) {
-        assert(h->canary == CANARY);
+        mp_assert(h->canary == CANARY);
         if (h->parent) {
-            assert(!h->prev);
-            assert(h->parent->child == h);
+            mp_assert(!h->prev);
+            mp_assert(h->parent->child == h);
         }
     }
 }

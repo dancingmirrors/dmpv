@@ -142,8 +142,8 @@ static struct m_thread_info *find_thread_info(DWORD id)
 
 static void remove_thread_info(struct m_thread_info *info)
 {
-    assert(pthread_table_num);
-    assert(info >= &pthread_table[0] && info < &pthread_table[pthread_table_num]);
+    mp_assert(pthread_table_num);
+    mp_assert(info >= &pthread_table[0] && info < &pthread_table[pthread_table_num]);
 
     pthread_table[info - pthread_table] = pthread_table[pthread_table_num - 1];
     pthread_table_num -= 1;
@@ -159,7 +159,7 @@ void pthread_exit(void *retval)
 {
     pthread_mutex_lock(&pthread_table_lock);
     struct m_thread_info *info = find_thread_info(pthread_self());
-    assert(info); // not started with pthread_create, or pthread_join() race
+    mp_assert(info); // not started with pthread_create, or pthread_join() race
     info->res = retval;
     if (!info->handle)
         remove_thread_info(info); // detached case
@@ -172,17 +172,17 @@ int pthread_join(pthread_t thread, void **retval)
 {
     pthread_mutex_lock(&pthread_table_lock);
     struct m_thread_info *info = find_thread_info(thread);
-    assert(info); // not started with pthread_create, or pthread_join() race
+    mp_assert(info); // not started with pthread_create, or pthread_join() race
     HANDLE h = info->handle;
-    assert(h); // thread was detached
+    mp_assert(h); // thread was detached
     pthread_mutex_unlock(&pthread_table_lock);
 
     WaitForSingleObject(h, INFINITE);
 
     pthread_mutex_lock(&pthread_table_lock);
     info = find_thread_info(thread);
-    assert(info);
-    assert(info->handle == h);
+    mp_assert(info);
+    mp_assert(info->handle == h);
     CloseHandle(h);
     if (retval)
         *retval = info->res;
@@ -199,8 +199,8 @@ int pthread_detach(pthread_t thread)
 
     pthread_mutex_lock(&pthread_table_lock);
     struct m_thread_info *info = find_thread_info(thread);
-    assert(info); // not started with pthread_create
-    assert(info->handle); // already detached
+    mp_assert(info); // not started with pthread_create
+    mp_assert(info->handle); // already detached
     CloseHandle(info->handle);
     info->handle = NULL;
     pthread_mutex_unlock(&pthread_table_lock);
@@ -212,7 +212,7 @@ static DWORD WINAPI run_thread(LPVOID lpParameter)
 {
     pthread_mutex_lock(&pthread_table_lock);
     struct m_thread_info *pinfo = find_thread_info(pthread_self());
-    assert(pinfo);
+    mp_assert(pinfo);
     struct m_thread_info info = *pinfo;
     pthread_mutex_unlock(&pthread_table_lock);
 

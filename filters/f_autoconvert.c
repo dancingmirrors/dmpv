@@ -185,7 +185,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
 
     bool imgfmt_is_sw = !IMGFMT_IS_HWACCEL(img->imgfmt);
 
-    // This should not happen. But not enough guarantee to make it an assert().
+    // This should not happen. But not enough guarantee to make it an mp_assert().
     if (imgfmt_is_sw != !img->hwctx)
         mp_warn(log, "Unexpected AVFrame/imgfmt hardware context mismatch.\n");
 

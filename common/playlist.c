@@ -62,7 +62,7 @@ static void playlist_update_indexes(struct playlist *pl, int start, int end)
 
 void playlist_add(struct playlist *pl, struct playlist_entry *add)
 {
-    assert(add->filename);
+    mp_assert(add->filename);
     MP_TARRAY_APPEND(pl, pl->entries, pl->num_entries, add);
     add->pl = pl;
     add->pl_index = pl->num_entries - 1;
@@ -186,10 +186,10 @@ struct playlist_entry *playlist_get_last(struct playlist *pl)
 
 struct playlist_entry *playlist_get_next(struct playlist *pl, int direction)
 {
-    assert(direction == -1 || direction == +1);
+    mp_assert(direction == -1 || direction == +1);
     if (!pl->current)
         return NULL;
-    assert(pl->current->pl == pl);
+    mp_assert(pl->current->pl == pl);
     if (direction < 0)
         return playlist_entry_get_rel(pl->current, -1);
     return pl->current_was_replaced ? pl->current :

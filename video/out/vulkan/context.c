@@ -203,8 +203,8 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
     features.pNext = &atomic_float_feature;
 #endif
 
-    assert(vk->pllog);
-    assert(vk->vkinst);
+    mp_assert(vk->pllog);
+    mp_assert(vk->vkinst);
     vk->vulkan = pl_vulkan_create(vk->pllog, &(struct pl_vulkan_params) {
         .instance = vk->vkinst->instance,
         .get_proc_addr = vk->vkinst->get_proc_addr,

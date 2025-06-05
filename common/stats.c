@@ -86,14 +86,14 @@ static void stats_destroy(void *p)
     struct stats_base *stats = p;
 
     // All entries must have been destroyed before this.
-    assert(!stats->list.head);
+    mp_assert(!stats->list.head);
 
     pthread_mutex_destroy(&stats->lock);
 }
 
 void stats_global_init(struct mpv_global *global)
 {
-    assert(!global->stats);
+    mp_assert(!global->stats);
     struct stats_base *stats = talloc_zero(global, struct stats_base);
     ta_set_destructor(stats, stats_destroy);
     pthread_mutex_init(&stats->lock, NULL);

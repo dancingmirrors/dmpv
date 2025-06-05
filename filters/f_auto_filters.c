@@ -61,7 +61,7 @@ static void deint_process(struct mp_filter *f)
     if (!mp_subfilter_drain_destroy(&p->sub))
         return;
 
-    assert(!p->sub.filter);
+    mp_assert(!p->sub.filter);
 
     p->prev_imgfmt = img->imgfmt;
     p->prev_setting = opts->deinterlace;
@@ -215,7 +215,7 @@ static void rotate_process(struct mp_filter *f)
     if (!mp_subfilter_drain_destroy(&p->sub))
         return;
 
-    assert(!p->sub.filter);
+    mp_assert(!p->sub.filter);
 
     int rotate = p->prev_rotate = img->params.rotate;
     p->target_rotate = rotate;

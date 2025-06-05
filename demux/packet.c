@@ -38,7 +38,7 @@
 void demux_packet_unref_contents(struct demux_packet *dp)
 {
     if (dp->avpacket) {
-        assert(!dp->is_cached);
+        mp_assert(!dp->is_cached);
         av_packet_free(&dp->avpacket);
         dp->buffer = NULL;
         dp->len = 0;
@@ -141,7 +141,7 @@ struct demux_packet *new_demux_packet(size_t len)
 
 void demux_packet_shorten(struct demux_packet *dp, size_t len)
 {
-    assert(len <= dp->len);
+    mp_assert(len <= dp->len);
     if (dp->len) {
         dp->len = len;
         memset(dp->buffer + dp->len, 0, AV_INPUT_BUFFER_PADDING_SIZE);
@@ -200,7 +200,7 @@ size_t demux_packet_estimate_total_size(struct demux_packet *dp)
     size += 8 * sizeof(void *); // ta  overhead
     size += 10 * sizeof(void *); // additional estimate for ta_ext_header
     if (dp->avpacket) {
-        assert(!dp->is_cached);
+        mp_assert(!dp->is_cached);
         size += ROUND_ALLOC(dp->len);
         size += ROUND_ALLOC(sizeof(AVPacket));
         size += 8 * sizeof(void *); // ta  overhead

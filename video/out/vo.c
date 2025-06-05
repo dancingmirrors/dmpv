@@ -247,7 +247,7 @@ static void dealloc_vo(struct vo *vo)
 static struct vo *vo_create(bool probing, struct mpv_global *global,
                             struct vo_extra *ex, char *name)
 {
-    assert(ex->wakeup_cb);
+    mp_assert(ex->wakeup_cb);
 
     struct mp_log *log = mp_log_new(NULL, global->log, "vo");
     struct m_obj_desc desc;
@@ -804,7 +804,7 @@ void vo_queue_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct vo_internal *in = vo->in;
     pthread_mutex_lock(&in->lock);
-    assert(vo->config_ok && !in->frame_queued &&
+    mp_assert(vo->config_ok && !in->frame_queued &&
            (!in->current_frame || in->current_frame->num_vsyncs < 1));
     in->hasframe = true;
     frame->frame_id = ++(in->current_frame_id);
@@ -864,7 +864,7 @@ static bool render_frame(struct vo *vo)
     }
 
     frame = vo_frame_ref(in->current_frame);
-    assert(frame);
+    mp_assert(frame);
 
     if (frame->display_synced) {
         frame->pts = 0;
