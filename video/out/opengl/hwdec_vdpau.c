@@ -60,8 +60,6 @@ static int init(struct ra_hwdec *hw)
         return -1;
     if (mp_vdpau_handle_preemption(p->ctx, NULL) < 1)
         return -1;
-    // XXX if (hw->probing && mp_vdpau_guess_if_emulated(p->ctx))
-    //    return -1;
     p->ctx->hwctx.driver_name = hw->driver->name;
     p->ctx->hwctx.hw_imgfmt = IMGFMT_VDPAU;
     hwdec_devices_add(hw->devs, &p->ctx->hwctx);
