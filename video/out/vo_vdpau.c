@@ -765,9 +765,9 @@ static void flip_page(struct vo *vo)
     vc->vsync_interval = 1;
     if (vc->user_fps > 0) {
         vc->vsync_interval = 1e9 / vc->user_fps;
-    } else if (vc->user_fps == 0) {
+    } /* XXX else if (vc->user_fps == 0) {
         vc->vsync_interval = vo_get_vsync_interval(vo) * 1000;
-    }
+    } */
     vc->vsync_interval = MPMAX(vc->vsync_interval, 1);
 
     if (duration > INT_MAX / 1000)
