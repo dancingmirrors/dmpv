@@ -393,7 +393,6 @@ check("gbm",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
-      default   = False,
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c"])
@@ -454,7 +453,6 @@ check("-x11*",
 
 check("-vulkan*",
       desc      = "Vulkan context support",
-      default   = False,
       deps      = "libplacebo",
       fn        = lambda: check_pkg_config("vulkan"),
       sources   = ["video/out/vulkan/context.c",
@@ -537,7 +535,6 @@ check("-egl-angle-win32*",
 
 check("-vdpau*",
       deps      = "x11",
-      default   = False,
       fn        = lambda: check_pkg_config("vdpau >= 0.2"),
       sources   = ["video/filter/vf_vdpaupp.c",
                    "video/vdpau.c",
