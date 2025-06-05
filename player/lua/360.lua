@@ -3,10 +3,8 @@
 local yaw   = 0.0
 local pitch = -10.0
 local roll  = 0.0
-local doit = 0.0
-local res  = 4.0
-local dragging = false
-local dfov=110.0
+local res   = 4.0
+local dfov  = 110.0
 
 local draw_cropper = function ()
 	local ok, err = mp.command(string.format("async no-osd vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:roll=%s:w=%s*192.0:h=%s*108.0",dfov,yaw,pitch,roll,res,res))
@@ -77,6 +75,5 @@ mp.add_forced_key_binding("-", decrement_zoom, 'repeatable')
 
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "no")
-mp.set_property("profile", "low-latency")
 
 draw_cropper()
