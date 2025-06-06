@@ -1,11 +1,11 @@
 #include <stdlib.h>
-#include <assert.h>
 #include <pthread.h>
 
 #include <libavutil/buffer.h>
 
 #include "mpv_talloc.h"
 #include "misc/dispatch.h"
+#include "misc/mp_assert.h"
 #include "osdep/atomic.h"
 #include "video/mp_image.h"
 

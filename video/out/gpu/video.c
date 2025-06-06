@@ -15,7 +15,6 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
 #include <float.h>
 #include <math.h>
 #include <stdarg.h>
@@ -28,6 +27,7 @@
 #include "video.h"
 
 #include "misc/bstr.h"
+#include "misc/mp_assert.h"
 #include "options/m_config.h"
 #include "options/path.h"
 #include "common/global.h"
