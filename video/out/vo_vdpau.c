@@ -20,10 +20,6 @@
  * with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * Actual decoding is done in video/decode/vdpau.c
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
