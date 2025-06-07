@@ -41,6 +41,7 @@
 #include "common/recorder.h"
 #include "common/stats.h"
 #include "misc/charset_conv.h"
+#include "misc/mp_assert.h"
 #include "misc/thread_tools.h"
 #include "osdep/atomic.h"
 #include "osdep/timer.h"

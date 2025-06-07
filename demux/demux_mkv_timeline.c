@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
-#include <assert.h>
 #include <dirent.h>
 #include <string.h>
 #include <strings.h>

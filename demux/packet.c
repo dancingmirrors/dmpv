@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/hdr_dynamic_metadata.h>
