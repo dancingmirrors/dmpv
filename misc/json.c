@@ -46,7 +46,6 @@
 #include <math.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <assert.h>
 
 #include "common/common.h"
 #include "misc/bstr.h"

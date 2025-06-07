@@ -17,7 +17,7 @@
 
 #include <string.h>
 #include <strings.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>

@@ -16,6 +16,7 @@
 #include <pthread.h>
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 
