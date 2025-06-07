@@ -25,7 +25,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "filter_kernels.h"
 #include "common/common.h"

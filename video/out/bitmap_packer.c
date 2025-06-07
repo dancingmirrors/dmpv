@@ -20,7 +20,7 @@
  */
 
 #include <stdlib.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdio.h>
 #include <limits.h>
 

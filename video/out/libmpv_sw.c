@@ -1,5 +1,6 @@
 #include "libmpv/render_gl.h"
 #include "libmpv.h"
+#include "misc/mp_assert.h"
 #include "sub/osd.h"
 #include "video/sws_utils.h"
 
