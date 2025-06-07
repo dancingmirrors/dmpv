@@ -15,6 +15,7 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "misc/mp_assert.h"
 #include "options/m_config.h"
 #include "video/out/placebo/ra_pl.h"
 

@@ -1,3 +1,4 @@
+#include "misc/mp_assert.h"
 #include "video/out/placebo/utils.h"
 #include "utils.h"
 
