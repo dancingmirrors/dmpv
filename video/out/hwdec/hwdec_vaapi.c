@@ -17,7 +17,6 @@
 
 #include <stddef.h>
 #include <string.h>
-#include <assert.h>
 #include <unistd.h>
 
 #include <libavutil/hwcontext.h>
