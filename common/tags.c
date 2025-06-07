@@ -18,7 +18,6 @@
 #include <stddef.h>
 #include <limits.h>
 #include <strings.h>
-#include <assert.h>
 #include <libavutil/dict.h>
 #include "tags.h"
 #include "misc/bstr.h"

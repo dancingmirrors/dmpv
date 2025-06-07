@@ -5,6 +5,7 @@
 #include "common.h"
 #include "global.h"
 #include "misc/linked_list.h"
+#include "misc/mp_assert.h"
 #include "misc/node.h"
 #include "msg.h"
 #include "options/m_option.h"

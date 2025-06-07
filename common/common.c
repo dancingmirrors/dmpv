@@ -17,7 +17,7 @@
 
 #include <stdarg.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/common.h>
 #include <libavutil/error.h>

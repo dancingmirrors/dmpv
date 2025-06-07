@@ -20,7 +20,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <pthread.h>
 #include <stdint.h>
 
