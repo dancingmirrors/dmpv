@@ -17,7 +17,7 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

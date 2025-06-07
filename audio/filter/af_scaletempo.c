@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <math.h>
 
 #include "audio/aframe.h"

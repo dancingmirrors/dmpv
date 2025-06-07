@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <assert.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/intreadwrite.h>

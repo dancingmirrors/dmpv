@@ -19,7 +19,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <assert.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>

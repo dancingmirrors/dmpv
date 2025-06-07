@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <string.h>
 #include <strings.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdbool.h>
 #include <pthread.h>
 

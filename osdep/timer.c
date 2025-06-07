@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <limits.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "common/common.h"
 #include "common/msg.h"

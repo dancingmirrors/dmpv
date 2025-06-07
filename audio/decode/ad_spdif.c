@@ -18,7 +18,6 @@
  */
 
 #include <string.h>
-#include <assert.h>
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>

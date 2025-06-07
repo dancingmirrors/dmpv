@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/common.h>
 
