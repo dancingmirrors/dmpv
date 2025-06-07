@@ -21,7 +21,6 @@
 #include <math.h>
 #include <inttypes.h>
 #include <stdarg.h>
-#include <assert.h>
 
 #include <libswscale/swscale.h>
 

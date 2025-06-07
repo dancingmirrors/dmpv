@@ -4,6 +4,7 @@
 #include "audio/aframe.h"
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "osdep/atomic.h"
 
 #include "f_async_queue.h"

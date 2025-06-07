@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <pthread.h>
 
 #include <libavutil/buffer.h>

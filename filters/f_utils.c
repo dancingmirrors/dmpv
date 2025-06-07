@@ -1,4 +1,5 @@
 #include "audio/aframe.h"
+#include "misc/mp_assert.h"
 #include "video/mp_image.h"
 
 #include "f_utils.h"

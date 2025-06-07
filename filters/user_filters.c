@@ -4,6 +4,7 @@
 
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "options/m_config_frontend.h"
 
 #include "f_lavfi.h"

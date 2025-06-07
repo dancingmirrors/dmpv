@@ -1,6 +1,7 @@
 #include "audio/aframe.h"
 #include "audio/out/ao.h"
 #include "common/global.h"
+#include "misc/mp_assert.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
 #include "video/out/vo.h"

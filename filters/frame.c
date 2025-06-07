@@ -3,6 +3,7 @@
 #include "audio/aframe.h"
 #include "common/av_common.h"
 #include "demux/packet.h"
+#include "misc/mp_assert.h"
 #include "video/mp_image.h"
 
 #include "frame.h"

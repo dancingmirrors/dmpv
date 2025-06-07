@@ -6,6 +6,7 @@
 #include "common/common.h"
 #include "common/global.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "osdep/atomic.h"
 #include "osdep/timer.h"
 #include "video/hwdec.h"
