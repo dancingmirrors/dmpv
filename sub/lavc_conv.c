@@ -16,7 +16,6 @@
  */
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/intreadwrite.h>

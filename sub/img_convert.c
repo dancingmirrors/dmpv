@@ -16,7 +16,6 @@
  */
 
 #include <string.h>
-#include <assert.h>
 #include <limits.h>
 
 #include "mpv_talloc.h"

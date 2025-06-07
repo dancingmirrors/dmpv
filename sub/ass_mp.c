@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <math.h>
 
 #include <ass/ass.h>
