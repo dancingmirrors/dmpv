@@ -79,6 +79,7 @@ check(desc      = "extra GCC warnings",
                         "-Wno-pointer-sign",
                         "-Wno-array-bounds",
                         "-Wno-stringop-overread",
+                        "-Wno-format-zero-length",
                         # GCC bug 66425
                         "-Wno-unused-result"]))
 check(desc      = "extra clang warnings",
