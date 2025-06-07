@@ -23,7 +23,7 @@
 
 #include <stdint.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <libavutil/common.h>
 #include <libavcodec/avcodec.h>
 
