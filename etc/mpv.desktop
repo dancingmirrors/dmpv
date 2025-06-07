@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=mpv Media Player
-GenericName=mpv Media player
-Comment=mpv Media Player
+Name=mpv
+GenericName=mpv
+Comment=mpv
 TryExec=mpv
 Exec=mpv --player-operation-mode=pseudo-gui -- %U
 Icon=mpv
