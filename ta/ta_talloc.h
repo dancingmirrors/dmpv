@@ -18,6 +18,7 @@
 
 #include <string.h>
 
+#include "misc/mp_assert.h"
 #include "ta.h"
 
 // Note: all talloc wrappers are wired to the "x" functions, which abort on OOM.
@@ -114,7 +115,7 @@ char *ta_talloc_asprintf_append_buffer(char *s, const char *fmt, ...) TA_PRF(2, 
 #define MP_TARRAY_INSERT_AT(ctx, p, idxvar, at, ...)\
     do {                                            \
         size_t at_ = (at);                          \
-        assert(at_ <= (idxvar));                    \
+        mp_assert(at_ <= (idxvar));                 \
         MP_TARRAY_GROW(ctx, p, idxvar);             \
         memmove((p) + at_ + 1, (p) + at_,           \
                 ((idxvar) - at_) * sizeof((p)[0])); \
@@ -129,7 +130,7 @@ char *ta_talloc_asprintf_append_buffer(char *s, const char *fmt, ...) TA_PRF(2, 
 #define MP_TARRAY_INSERT_N_AT(ctx, p, idxvar, at, c)\
     do {                                            \
         size_t at_ = (at);                          \
-        assert(at_ <= (idxvar));                    \
+        mp_assert(at_ <= (idxvar));                 \
         size_t c_ = (c);                            \
         MP_TARRAY_GROW(ctx, p, (idxvar) + c_);      \
         memmove((p) + at_ + c_, (p) + at_,          \
@@ -142,7 +143,7 @@ char *ta_talloc_asprintf_append_buffer(char *s, const char *fmt, ...) TA_PRF(2, 
 #define MP_TARRAY_REMOVE_AT(p, idxvar, at)          \
     do {                                            \
         size_t at_ = (at);                          \
-        assert(at_ <= (idxvar));                    \
+        mp_assert(at_ <= (idxvar));                 \
         memmove((p) + at_, (p) + at_ + 1,           \
                 ((idxvar) - at_ - 1) * sizeof((p)[0])); \
         (idxvar)--;                                 \
