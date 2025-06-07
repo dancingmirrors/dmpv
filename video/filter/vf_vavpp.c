@@ -15,8 +15,6 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
-
 #include <va/va.h>
 #include <va/va_vpp.h>
 

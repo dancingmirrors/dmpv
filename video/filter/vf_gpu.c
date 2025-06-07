@@ -19,6 +19,7 @@
 #include "filters/filter.h"
 #include "filters/filter_internal.h"
 #include "filters/user_filters.h"
+#include "misc/mp_assert.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
 #include "options/options.h"
