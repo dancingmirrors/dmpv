@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdbool.h>
 #include <pthread.h>
 #include <math.h>
@@ -1280,7 +1280,7 @@ double vo_get_delay(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
     pthread_mutex_lock(&in->lock);
-    assert (!in->frame_queued);
+    mp_assert (!in->frame_queued);
     int64_t res = 0;
     if (in->base_vsync && in->vsync_interval > 1 && in->current_frame) {
         res = in->base_vsync;
