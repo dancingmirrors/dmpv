@@ -1,6 +1,7 @@
 #include <libavutil/intreadwrite.h>
 
 #include "formats.h"
+#include "misc/mp_assert.h"
 #include "utils.h"
 #include "ra_gl.h"
 

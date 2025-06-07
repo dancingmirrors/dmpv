@@ -15,8 +15,6 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
-
 #include <X11/Xlib.h>
 #include <X11/extensions/Xpresent.h>
 #include <EGL/egl.h>

@@ -28,7 +28,7 @@
 #include <strings.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "common.h"
 #include "common/common.h"

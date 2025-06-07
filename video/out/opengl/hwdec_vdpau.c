@@ -16,7 +16,7 @@
  */
 
 #include <stddef.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "video/out/gpu/hwdec.h"
 #include "ra_gl.h"

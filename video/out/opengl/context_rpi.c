@@ -16,7 +16,6 @@
  */
 
 #include <stddef.h>
-#include <assert.h>
 
 #include <bcm_host.h>
 

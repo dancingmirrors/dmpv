@@ -16,7 +16,6 @@
  */
 
 #include <d3d9.h>
-#include <assert.h>
 
 #include "common/common.h"
 #include "osdep/windows_utils.h"

@@ -18,7 +18,7 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <CoreVideo/CoreVideo.h>
 #include <OpenGLES/EAGL.h>
@@ -193,7 +193,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
 
     const bool planar = CVPixelBufferIsPlanar(p->pbuf);
     const int planes  = CVPixelBufferGetPlaneCount(p->pbuf);
-    assert((planar && planes == p->desc.num_planes) || p->desc.num_planes == 1);
+    mp_assert((planar && planes == p->desc.num_planes) || p->desc.num_planes == 1);
 
     for (int i = 0; i < p->desc.num_planes; i++) {
         const struct ra_format *fmt = p->desc.planes[i];
