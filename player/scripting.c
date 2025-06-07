@@ -21,7 +21,7 @@
 #include <dirent.h>
 #include <math.h>
 #include <pthread.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <unistd.h>
 
 #include "config.h"

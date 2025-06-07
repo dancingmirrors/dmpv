@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <time.h>
 #include <math.h>
 #include <sys/types.h>

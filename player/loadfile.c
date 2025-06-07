@@ -19,7 +19,7 @@
 #include <stdbool.h>
 #include <strings.h>
 #include <inttypes.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/avutil.h>
 

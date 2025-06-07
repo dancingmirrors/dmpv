@@ -18,7 +18,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <assert.h>
 
 #include "mpv_talloc.h"
 

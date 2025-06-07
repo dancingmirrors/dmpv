@@ -20,7 +20,7 @@
 #include <inttypes.h>
 #include <math.h>
 #include <limits.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "mpv_talloc.h"
 
