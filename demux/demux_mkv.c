@@ -26,7 +26,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/common.h>
 #include <libavutil/lzo.h>
@@ -2528,7 +2528,7 @@ static void mkv_parse_and_add_packet(demuxer_t *demuxer, mkv_track_t *track,
     if (track->parse && !track->av_parser) {
         int id = mp_codec_to_av_codec_id(track->stream->codec->codec);
         const AVCodec *codec = avcodec_find_decoder(id);
-        assert(!track->av_parser_codec);
+        mp_assert(!track->av_parser_codec);
         if (codec)
             track->av_parser_codec = avcodec_alloc_context3(codec);
         if (track->av_parser_codec)
