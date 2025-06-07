@@ -21,7 +21,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
 
 #include "config.h"
 #include "common/common.h"

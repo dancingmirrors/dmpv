@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "video/img_format.h"
 
 #include "ra.h"

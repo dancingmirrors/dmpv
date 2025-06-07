@@ -22,6 +22,7 @@
 
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "options/m_config.h"
 #include "hwdec.h"
 

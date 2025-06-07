@@ -20,6 +20,7 @@
 #include "error_diffusion.h"
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 
 #define GLSL(...) gl_sc_addf(sc, __VA_ARGS__)
 #define GLSLH(...) gl_sc_haddf(sc, __VA_ARGS__)

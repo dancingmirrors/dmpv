@@ -1,4 +1,5 @@
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "video/out/vo.h"
 #include "utils.h"
 
