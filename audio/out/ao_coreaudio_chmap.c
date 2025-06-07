@@ -18,6 +18,7 @@
 #include <Availability.h>
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 
 #include "ao_coreaudio_utils.h"
 

@@ -26,6 +26,7 @@
 #include <avrt.h>
 
 #include "audio/format.h"
+#include "misc/mp_assert.h"
 #include "osdep/timer.h"
 #include "osdep/io.h"
 #include "osdep/strnlen.h"

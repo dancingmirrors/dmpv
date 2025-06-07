@@ -25,6 +25,7 @@
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 #include "osdep/io.h"
+#include "misc/mp_assert.h"
 #include "misc/dispatch.h"
 #include "ao_wasapi.h"
 

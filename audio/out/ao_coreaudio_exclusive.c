@@ -42,6 +42,7 @@
 #include "ao.h"
 #include "internal.h"
 #include "audio/format.h"
+#include "misc/mp_assert.h"
 #include "osdep/timer.h"
 #include "osdep/atomic.h"
 #include "options/m_option.h"

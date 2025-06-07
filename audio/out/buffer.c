@@ -21,7 +21,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "ao.h"
 #include "internal.h"

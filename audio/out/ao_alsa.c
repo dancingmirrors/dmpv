@@ -34,6 +34,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "misc/mp_assert.h"
 #include "options/options.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
