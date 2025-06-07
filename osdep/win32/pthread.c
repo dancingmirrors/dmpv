@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <sys/time.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <windows.h>
 
 #include "osdep/timer.h"  // mp_{start,end}_hires_timers

@@ -25,7 +25,6 @@
 #include <windows.h>
 #include <io.h>
 #include <pthread.h>
-#include <assert.h>
 #include "common/common.h"
 #include "input/keycodes.h"
 #include "input/input.h"

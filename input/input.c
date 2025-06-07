@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <fcntl.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "osdep/io.h"
 #include "misc/rendezvous.h"
