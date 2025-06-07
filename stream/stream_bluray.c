@@ -28,7 +28,6 @@
 
 #include <string.h>
 #include <strings.h>
-#include <assert.h>
 
 #include <libbluray/bluray.h>
 #include <libbluray/meta_data.h>

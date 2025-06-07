@@ -16,6 +16,7 @@
  */
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "stream.h"
 
 struct priv {

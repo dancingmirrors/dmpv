@@ -21,6 +21,7 @@
 
 #include "misc/bstr.h"
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "misc/thread_tools.h"
 #include "stream.h"
 

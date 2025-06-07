@@ -27,7 +27,7 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #ifdef __linux__
 #include <linux/cdrom.h>
