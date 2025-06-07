@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 
 #include "ra_pl.h"
 #include "utils.h"
@@ -26,7 +27,7 @@ static pl_timer get_active_timer(const struct ra *ra);
 
 struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
 {
-    assert(gpu);
+    mp_assert(gpu);
 
     struct ra *ra = talloc_zero(NULL, struct ra);
     ra->log = log;

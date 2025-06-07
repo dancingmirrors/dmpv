@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "utils.h"
 
 #include <libplacebo/utils/dolbyvision.h>
