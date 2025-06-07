@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <d3d9.h>
 #include <inttypes.h>
 #include <limits.h>

@@ -20,6 +20,7 @@
 #include <libavutil/hwcontext_mediacodec.h>
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "vo.h"
 #include "video/mp_image.h"
 #include "video/hwdec.h"
