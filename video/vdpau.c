@@ -15,7 +15,7 @@
  * with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vdpau.h>

@@ -19,7 +19,7 @@
  * with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "vdpau_mixer.h"
 
