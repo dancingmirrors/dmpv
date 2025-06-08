@@ -32,7 +32,9 @@
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
+#if HAVE_LIBPLACEBO
 #include <libplacebo/utils/libav.h>
+#endif
 
 #include "config.h"
 
