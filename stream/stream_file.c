@@ -1,5 +1,5 @@
 /*
- * Original authors: Albeu, probably Arpi
+ * Original authors: Albeu, probably A'rpi
  *
  * This file is part of mpv.
  *

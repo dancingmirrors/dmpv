@@ -4,7 +4,7 @@
    (C) Dave Chapman <dave@dchapman.com> 2001, 2002.
    (C) Rozhuk Ivan <rozhuk.im@gmail.com> 2016 - 2017
 
-   Original authors: Nico, probably Arpi
+   Original authors: Nico, probably A'rpi
 
    Some code based on dvbstream, 0.4.3-pre3 (CVS checkout),
    http://sourceforge.net/projects/dvbtools/
