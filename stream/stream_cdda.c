@@ -51,6 +51,10 @@
 #error GPL only
 #endif
 
+#ifndef DEFAULT_CDROM_DEVICE
+#define DEFAULT_CDROM_DEVICE 0
+#endif
+
 typedef struct cdda_params {
     cdrom_drive_t *cd;
     cdrom_paranoia_t *cdp;

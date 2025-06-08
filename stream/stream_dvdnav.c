@@ -56,6 +56,10 @@
 #define TITLE_MENU -1
 #define TITLE_LONGEST -2
 
+#ifndef DEFAULT_DVD_DEVICE
+#define DEFAULT_DVD_DEVICE 0
+#endif
+
 struct priv {
     dvdnav_t *dvdnav;                   // handle to libdvdnav stuff
     char *filename;                     // path
@@ -336,7 +340,6 @@ static int fill_buffer(stream_t *s, void *buf, int max_len)
         }
         }
     }
-    return 0;
 }
 
 static int control(stream_t *stream, int cmd, void *arg)

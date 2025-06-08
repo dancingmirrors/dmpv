@@ -727,7 +727,6 @@ check("-libbluray*",
 check("-dvdnav*",
       desc      = "dvdnav support",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_pkg_config("dvdnav >= 4.2.0") and
                           check_pkg_config("dvdread >= 4.1.0"),
       sources   = "stream/stream_dvdnav.c"),
@@ -735,7 +734,6 @@ check("-dvdnav*",
 check("-cdda*",
       desc      = "cdda support (libcdio-paranoia)",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
 # Seems to require some Linux header.
