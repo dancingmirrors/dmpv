@@ -532,6 +532,7 @@ check("-egl-angle-win32*",
                    "video/out/opengl/context_angle.c"])
 
 check("-vdpau*",
+      desc      = "VDPAU",
       deps      = "x11",
       fn        = lambda: check_pkg_config("vdpau >= 0.2"),
       sources   = ["video/filter/vf_vdpaupp.c",
@@ -720,9 +721,9 @@ check(deps      = ["vulkan", "x11"],
 
 check("-libbluray*",
       desc      = "Bluray support",
-      default   = False,
       fn        = lambda: check_pkg_config("libbluray >= 0.3.0"),
       sources   = "stream/stream_bluray.c")
+# error: use of undeclared identifier 'DEFAULT_DVD_DEVICE'
 check("-dvdnav*",
       desc      = "dvdnav support",
       deps      = "gpl",
@@ -730,12 +731,14 @@ check("-dvdnav*",
       fn        = lambda: check_pkg_config("dvdnav >= 4.2.0") and
                           check_pkg_config("dvdread >= 4.1.0"),
       sources   = "stream/stream_dvdnav.c"),
+# error: use of undeclared identifier 'DEFAULT_CDROM_DEVICE'
 check("-cdda*",
-      desc      = "cdda support (libcdio)",
+      desc      = "cdda support (libcdio-paranoia)",
       deps      = "gpl",
       default   = False,
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
+# Seems to require some Linux header.
 check("-dvbin*",
       desc      = "DVB input module",
       deps      = "gpl",
