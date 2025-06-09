@@ -22,6 +22,7 @@
 
 #include "mpv_talloc.h"
 #include "misc/bstr.h"
+#include "misc/mp_assert.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "osd.h"
