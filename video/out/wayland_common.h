@@ -33,7 +33,6 @@ struct wayland_opts {
     bool disable_vsync;
     int edge_pixels_pointer;
     int edge_pixels_touch;
-    bool present;
 };
 
 struct vo_wayland_state {
@@ -69,12 +68,10 @@ struct vo_wayland_state {
 
     /* State */
     bool activated;
-    bool configured;
+    bool has_keyboard_input;
     bool focused;
     bool frame_wait;
-    bool has_keyboard_input;
     bool hidden;
-    bool initial_size_hint;
     bool locked_size;
     bool state_change;
     bool tiled;
@@ -88,12 +85,14 @@ struct vo_wayland_state {
     int wakeup_pipe[2];
 
     /* cursor-shape */
-    struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
-    struct cursor_shape_device_v1 *cursor_shape_device;
+    /* TODO: unvoid these if required wayland protocols is bumped to 1.32+ */
+    void *cursor_shape_manager;
+    void *cursor_shape_device;
 
     /* fractional-scale */
-    struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
-    struct wp_fractional_scale_v1 *fractional_scale;
+    /* TODO: unvoid these if required wayland protocols is bumped to 1.31+ */
+    void *fractional_scale_manager;
+    void *fractional_scale;
 
     /* idle-inhibit */
     struct zwp_idle_inhibit_manager_v1 *idle_inhibit_manager;
@@ -104,17 +103,14 @@ struct vo_wayland_state {
     struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback;
     wayland_format *format_map;
     uint32_t format_size;
+    bool using_dmabuf_wayland;
 
     /* presentation-time */
     struct wp_presentation  *presentation;
     struct vo_wayland_feedback_pool *fback_pool;
     struct mp_present *present;
     int64_t refresh_interval;
-    bool present_clock;
     bool use_present;
-
-    /* single-pixel-buffer */
-    struct wp_single_pixel_buffer_manager_v1 *single_pixel_manager;
 
     /* xdg-decoration */
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
