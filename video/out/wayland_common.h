@@ -88,9 +88,8 @@ struct vo_wayland_state {
     int wakeup_pipe[2];
 
     /* cursor-shape */
-    /* TODO: unvoid these if required wayland protocols is bumped to 1.32+ */
-    void *cursor_shape_manager;
-    void *cursor_shape_device;
+    struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
+    struct wp_cursor_shape_device_v1 *cursor_shape_device;
 
     /* fractional-scale */
     /* TODO: unvoid these if required wayland protocols is bumped to 1.31+ */
