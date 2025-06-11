@@ -92,9 +92,8 @@ struct vo_wayland_state {
     struct wp_cursor_shape_device_v1 *cursor_shape_device;
 
     /* fractional-scale */
-    /* TODO: unvoid these if required wayland protocols is bumped to 1.31+ */
-    void *fractional_scale_manager;
-    void *fractional_scale;
+    struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
+    struct wp_fractional_scale_v1 *fractional_scale;
 
     /* idle-inhibit */
     struct zwp_idle_inhibit_manager_v1 *idle_inhibit_manager;
