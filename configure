@@ -635,8 +635,7 @@ check("egl-helpers*",
       desc      = "EGL helper functions",
       deps_any  = ["egl-x11", "rpi", "gl-wayland", "egl-drm",
                    "egl-angle-win32", "egl-android"],
-      sources   = ["video/filter/vf_gpu.c", # doesn't really belong here
-                   "video/out/opengl/egl_helpers.c"]),
+      sources   = "video/out/opengl/egl_helpers.c"),
 
 check("videotoolbox-hwaccel*",
       desc      = "libavcodec videotoolbox hwaccel",
@@ -866,6 +865,7 @@ add_sources(
     "video/decode/vd_lavc.c",
     "video/filter/refqueue.c",
     "video/filter/vf_format.c",
+    "video/filter/vf_gpu.c",
     "video/filter/vf_sub.c",
     "video/fmt-conversion.c",
     "video/hwdec.c",
