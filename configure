@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # Missing:
-#- Actually support out of tree builds
 #- Windows console wrapper thing
 #- OS X testing
 
