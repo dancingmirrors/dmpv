@@ -255,7 +255,7 @@ check("-lua*",
 
 check("-libass*",
       desc      = "libass subtitle/OSD renderer",
-      fn        = lambda: check_pkg_config("libass >= 0.12.1"),
+      fn        = lambda: check_pkg_config("libass >= 0.17.0"),
       required  = "Unable to find development files for libass, or the version " +
                    "found is too old. Aborting. You can use --disable-libass " +
                    "to ignore this warning.",

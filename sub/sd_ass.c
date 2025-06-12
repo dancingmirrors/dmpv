@@ -230,9 +230,7 @@ static void assobjects_init(struct sd *sd)
 
     mp_ass_add_default_styles(ctx->ass_track, opts);
 
-#if LIBASS_VERSION >= 0x01302000
     ass_set_check_readorder(ctx->ass_track, sd->opts->sub_clear_on_seek ? 0 : 1);
-#endif
 
     enable_output(sd, true);
 }
@@ -441,10 +439,8 @@ static void configure_ass(struct sd *sd, struct mp_osd_res *dim,
     ass_set_font_scale(priv, set_font_scale);
     ass_set_hinting(priv, set_hinting);
     ass_set_line_spacing(priv, set_line_spacing);
-#if LIBASS_VERSION >= 0x01600010
     if (converted)
         ass_track_set_feature(track, ASS_FEATURE_WRAP_UNICODE, 1);
-#endif
     if (converted) {
         bool override_playres = true;
         char **ass_force_style_list = opts->ass_force_style_list;
