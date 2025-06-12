@@ -252,14 +252,10 @@ check("-lua*",
 check("-libass*",
       desc      = "libass subtitle/OSD renderer",
       fn        = lambda: check_pkg_config("libass >= 0.17.0"),
-      required  = "Unable to find development files for libass, or the version " +
-                   "found is too old. Aborting. You can use --disable-libass " +
-                   "to ignore this warning.",
+      required  = "Required.",
       sources   = ["sub/ass_mp.c",
                    "sub/osd_libass.c",
                    "sub/sd_ass.c"])
-check(deps_neg  = "libass",
-      sources   = "sub/osd_dummy.c")
 
 check("-zlib*",
       fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
