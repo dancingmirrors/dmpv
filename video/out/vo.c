@@ -85,7 +85,9 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_drm,
 #endif
     &video_out_null,
+#if HAVE_COCOA
     &video_out_libmpv,
+#endif
     // should not be auto-selected
     &video_out_image,
     &video_out_lavc,
