@@ -731,7 +731,7 @@ check("-cdda*",
 check("-dvbin*",
       desc      = "DVB input module",
       deps      = "gpl",
-      fn        = lambda: check_cc(include = "linux/dvb/version.h"),
+      fn        = lambda: check_cc(include = "linux/dvb/frontend.h"),
       sources   = ["stream/dvb_tune.c", "stream/stream_dvb.c"])
 
 check("-apple-remote*",
