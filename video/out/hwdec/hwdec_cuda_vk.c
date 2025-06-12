@@ -23,7 +23,7 @@
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_cuda.h>
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
 #include <libplacebo/vulkan.h>
 #endif
 #include <unistd.h>
@@ -42,7 +42,7 @@ struct ext_vk {
     CUmipmappedArray mma;
 
     pl_tex pltex;
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
     pl_vulkan_sem vk_sem;
     union pl_handle sem_handle;
     CUexternalSemaphore cuda_sem;
@@ -61,7 +61,7 @@ static bool cuda_ext_vk_init(struct ra_hwdec_mapper *mapper,
     struct cuda_mapper_priv *p = mapper->priv;
     CudaFunctions *cu = p_owner->cu;
     int mem_fd = -1;
-#if !HAVE_LIBPLACEBO_NEXT
+#if !HAVE_LIBPLACEBO
     int wait_fd = -1, signal_fd = -1;
 #endif
     int ret = 0;
@@ -151,7 +151,7 @@ static bool cuda_ext_vk_init(struct ra_hwdec_mapper *mapper,
     if (ret < 0)
         goto error;
 
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
     evk->vk_sem.sem = pl_vulkan_sem_create(gpu, pl_vulkan_sem_params(
         .type = VK_SEMAPHORE_TYPE_TIMELINE,
         .export_handle = HANDLE_TYPE,
@@ -225,7 +225,7 @@ error:
     MP_ERR(mapper, "cuda_ext_vk_init failed\n");
     if (mem_fd > -1)
         close(mem_fd);
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
 #if HAVE_WIN32_DESKTOP
     if (evk->sem_handle.handle != NULL)
         CloseHandle(evk->sem_handle.handle);
@@ -258,7 +258,7 @@ static void cuda_ext_vk_uninit(const struct ra_hwdec_mapper *mapper, int n)
             CHECK_CU(cu->cuDestroyExternalMemory(evk->mem));
             evk->mem = 0;
         }
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
         if (evk->cuda_sem) {
             CHECK_CU(cu->cuDestroyExternalSemaphore(evk->cuda_sem));
             evk->cuda_sem = 0;
@@ -290,7 +290,7 @@ static bool cuda_ext_vk_wait(const struct ra_hwdec_mapper *mapper, int n)
     int ret;
     struct ext_vk *evk = p->ext[n];
 
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
     evk->vk_sem.value += 1;
     ret = pl_vulkan_hold_ex(ra_pl_get(mapper->ra), pl_vulkan_hold_params(
         .tex = evk->pltex,
@@ -331,7 +331,7 @@ static bool cuda_ext_vk_signal(const struct ra_hwdec_mapper *mapper, int n)
     int ret;
     struct ext_vk *evk = p->ext[n];
 
-#if HAVE_LIBPLACEBO_NEXT
+#if HAVE_LIBPLACEBO
     evk->vk_sem.value += 1;
     CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS sp = {
         .params = {
