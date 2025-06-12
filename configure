@@ -314,7 +314,6 @@ check("-libavdevice*",
 
 check("-jack*",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_pkg_config("jack"),
       sources   = "audio/out/ao_jack.c")
 check("-oss*",
