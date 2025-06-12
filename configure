@@ -74,9 +74,7 @@ check(desc      = "extra GCC warnings",
                         "-Wundef", "-Wmissing-prototypes", "-Wshadow",
                         "-Wparentheses", "-Wpointer-arith",
                         "-Wno-pointer-sign",
-                        "-Wno-format-zero-length",
-                        # GCC bug 66425
-                        "-Wno-unused-result"]))
+                        "-Wno-format-zero-length"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
