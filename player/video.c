@@ -56,7 +56,7 @@ enum {
 
 static const char av_desync_help_text[] =
 "\n"
-"Audio/Video desynchronization detected! Possible reasons include too slow\n"
+"Audio/Video desynchronization detected! Possible reasons include slow\n"
 "hardware, temporary CPU spikes, broken drivers, broken files, heavy\n"
 "shaders, or heavy filters. Audio position will not match the video.\n"
 "\n";
