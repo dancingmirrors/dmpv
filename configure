@@ -74,7 +74,6 @@ check(desc      = "extra GCC warnings",
                         "-Wundef", "-Wmissing-prototypes", "-Wshadow",
                         "-Wparentheses", "-Wpointer-arith",
                         "-Wno-pointer-sign",
-                        "-Wno-array-bounds",
                         "-Wno-format-zero-length",
                         # GCC bug 66425
                         "-Wno-unused-result"]))
