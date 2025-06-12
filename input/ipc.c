@@ -156,7 +156,8 @@ static char *json_execute_command(struct mpv_handle *client, void *ta_parent,
             rc = MPV_ERROR_INVALID_PARAMETER;
             goto error;
         } else {
-            goto error;
+            mp_warn(log, "'request_id' must be an integer. Using other types is "
+                    "deprecated and will trigger an error in the future!\n");
         }
     }
 
