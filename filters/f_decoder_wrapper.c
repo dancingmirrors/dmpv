@@ -93,7 +93,7 @@ static const struct m_sub_options adec_queue_conf = {
 #define OPT_BASE_STRUCT struct dec_wrapper_opts
 
 struct dec_wrapper_opts {
-    double movie_aspect;
+    float movie_aspect;
     int aspect_method;
     double force_fps;
     bool correct_pts;
