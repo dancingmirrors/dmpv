@@ -700,12 +700,10 @@ check(deps      = ["vulkan", "win32-desktop"],
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
-# I don't know how to fix this junk.
 # Define the appropriate path to your device(s) in the respective
 # stream/stream_*.c file(s) if necessary.
 check("-libbluray*",
       desc      = "Blu-ray support",
-      default   = False,
       fn        = lambda: check_pkg_config("libbluray >= 0.3.0"),
       sources   = "stream/stream_bluray.c")
 check("-dvdnav*",
