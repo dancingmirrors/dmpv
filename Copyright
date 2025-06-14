@@ -49,7 +49,6 @@ The following files are still GPL only (--enable-lgpl disables them):
 
     audio/out/ao_jack.c             will stay GPL
     audio/out/ao_oss.c              will stay GPL
-    etc/mplayer-input.conf          unknown license, probably GPLv2+
     mpv.desktop                     unknown license, probably GPLv2+
     stream/dvb*                     must stay GPL
     stream/stream_cdda.c            unknown
