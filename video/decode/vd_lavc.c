@@ -120,6 +120,7 @@ const struct m_sub_options vd_lavc_conf = {
         {"vd-lavc-o", OPT_KEYVALUELIST(avopts)},
         {"vd-lavc-dr", OPT_CHOICE(dr,
             {"auto", -1}, {"no", 0}, {"yes", 1})},
+        {"dr", OPT_ALIAS("vd-lavc-dr")},
         {"hwdec", OPT_STRINGLIST(hwdec_api),
             .help = hwdec_opt_help,
             .flags = M_OPT_OPTIONAL_PARAM | UPDATE_HWDEC},
