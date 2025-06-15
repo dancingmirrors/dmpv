@@ -467,8 +467,15 @@ static void add_seek_osd_messages(struct MPContext *mpctx)
         // Never in term-osd mode
         bool video_osd = mpctx->video_out && mpctx->opts->video_osd;
         if (video_osd && mpctx->opts->term_osd != 1) {
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wformat-zero-length"
+#endif
             if (set_osd_msg(mpctx, 1, mpctx->opts->osd_duration, ""))
                 mpctx->osd_show_pos = true;
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic pop
+#endif
         }
     }
     if (mpctx->add_osd_seek_info & OSD_SEEK_INFO_CHAPTER_TEXT) {

@@ -71,8 +71,7 @@ check(desc      = "extra GCC warnings",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wundef", "-Wmissing-prototypes", "-Wshadow",
-                        "-Wparentheses", "-Wpointer-arith",
-                        "-Wno-format-zero-length"]))
+                        "-Wparentheses", "-Wpointer-arith"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
