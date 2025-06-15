@@ -316,6 +316,7 @@ check("-jack*",
       fn        = lambda: check_pkg_config("jack"),
       sources   = "audio/out/ao_jack.c")
 check("-oss*",
+      deps      = "gpl",
       fn        = lambda: check_cc(include = "sys/soundcard.h",
                   expr = "SNDCTL_DSP_HALT;"),
       sources   = "audio/out/ao_oss.c")
