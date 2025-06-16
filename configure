@@ -239,6 +239,7 @@ check("linux-fstatfs*",
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_namelen;"))
 
 check("-lua*",
+      desc      = "LuaJIT",
       fn        = lambda: check_pkg_config("luajit >= 2.0.0"),
       sources   = "player/lua.c")
 
