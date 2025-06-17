@@ -401,7 +401,8 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/fractional-scale-v1.c",
                    "$(BUILD)/generated/wayland/cursor-shape-v1.c",
                    "$(BUILD)/generated/wayland/tablet-v2.c",
-                   "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c"])
+                   "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c",
+                   "$(BUILD)/generated/wayland/xdg-activation-v1.c"])
 check("-dmabuf*",
       deps       = "wayland",
       sources    = ["$(BUILD)/generated/wayland/viewporter.c",

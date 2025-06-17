@@ -113,6 +113,9 @@ struct vo_wayland_state {
     bool present_clock;
     bool use_present;
 
+    /* xdg-activation */
+    struct xdg_activation_v1 *xdg_activation;
+
     /* xdg-decoration */
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;

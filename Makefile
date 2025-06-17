@@ -88,3 +88,4 @@ $(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/linux-dmabuf/,linux-dmab
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/fractional-scale/,fractional-scale-v1))
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/cursor-shape/,cursor-shape-v1))
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/tablet/,tablet-v2))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/xdg-activation/,xdg-activation-v1))
