@@ -386,6 +386,7 @@ def check_wayland_protos():
     add_config_mak_var("WL_PROTO_DIR", data)
     return True
 check("-wayland*",
+      default   = False,
       fn        = lambda: check_wayland_protos() and
                           check_cc(include = "linux/input-event-codes.h",
                                    link = []) and
@@ -402,16 +403,17 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/cursor-shape-v1.c",
                    "$(BUILD)/generated/wayland/tablet-v2.c",
                    "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c",
-                   "$(BUILD)/generated/wayland/xdg-activation-v1.c"])
+                   "$(BUILD)/generated/wayland/xdg-activation-v1.c",
+                   "$(BUILD)/generated/wayland/viewporter.c",
+                   "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
+                   "video/out/hwdec/dmabuf_interop_wl.c",
+                   "video/out/vo_dmabuf_wayland.c",
+                   "video/out/wldmabuf/context_wldmabuf.c"])
+
+# TODO: deps
 check("-dmabuf*",
-      deps       = "wayland",
-      sources    = ["$(BUILD)/generated/wayland/viewporter.c",
-                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
-                    "video/out/wldmabuf/context_wldmabuf.c",
-                    "video/out/wldmabuf/ra_wldmabuf.c",
-                    "video/out/hwdec/dmabuf_interop_gl.c",
-                    "video/out/hwdec/dmabuf_interop_wl.c",
-                    "video/out/vo_dmabuf_wayland.c"])
+      sources    = ["video/out/wldmabuf/ra_wldmabuf.c",
+                    "video/out/hwdec/dmabuf_interop_gl.c"])
 check("-dmabuf-libplacebo*",
       deps        = ["dmabuf", "libplacebo"],
       sources     = "video/out/hwdec/dmabuf_interop_pl.c")

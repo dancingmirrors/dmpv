@@ -55,7 +55,9 @@ extern const struct ra_ctx_fns ra_ctx_vulkan_display;
 extern const struct ra_ctx_fns ra_ctx_d3d11;
 
 /* No API */
+#if HAVE_WAYLAND
 extern const struct ra_ctx_fns ra_ctx_wldmabuf;
+#endif
 
 static const struct ra_ctx_fns *contexts[] = {
 #if HAVE_D3D11
@@ -113,7 +115,7 @@ static const struct ra_ctx_fns *contexts[] = {
 #endif
 
 /* No API contexts: */
-#if HAVE_DMABUF
+#if HAVE_WAYLAND
     &ra_ctx_wldmabuf,
 #endif
 };

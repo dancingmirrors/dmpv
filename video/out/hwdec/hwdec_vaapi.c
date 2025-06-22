@@ -129,7 +129,9 @@ const static dmabuf_interop_init interop_inits[] = {
 #if HAVE_DMABUF_LIBPLACEBO
     dmabuf_interop_pl_init,
 #endif
+#if HAVE_WAYLAND
     dmabuf_interop_wl_init,
+#endif
 #endif
     NULL
 };
