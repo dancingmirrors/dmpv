@@ -63,7 +63,7 @@ extern const struct vo_driver video_out_lavc;
 static const struct vo_driver *const video_out_drivers[] =
 {
     &video_out_gpu,
-#if HAVE_WAYLAND
+#if HAVE_VAAPI_WAYLAND
     &video_out_dmabuf_wayland,
 #endif
 #if HAVE_ANDROID
