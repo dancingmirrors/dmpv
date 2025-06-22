@@ -410,9 +410,9 @@ check("-wayland*",
                    "video/out/wldmabuf/context_wldmabuf.c",
                    "video/out/wldmabuf/ra_wldmabuf.c"])
 
-# TODO: This isn't really correct either. What about macOS?
 check("-dmabuf*",
       deps       = "drm",
+      deps_neg   = "osx",
       sources    = "video/out/hwdec/dmabuf_interop_gl.c")
 check("-dmabuf-libplacebo*",
       deps        = ["dmabuf", "libplacebo"],
