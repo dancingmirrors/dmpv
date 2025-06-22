@@ -407,15 +407,16 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/viewporter.c",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "video/out/hwdec/dmabuf_interop_wl.c",
-                   "video/out/wldmabuf/context_wldmabuf.c"])
+                   "video/out/wldmabuf/context_wldmabuf.c",
+                   "video/out/wldmabuf/ra_wldmabuf.c"])
 
 # TODO: deps
 check("-dmabuf*",
-      sources    = ["video/out/wldmabuf/ra_wldmabuf.c",
-                    "video/out/hwdec/dmabuf_interop_gl.c"])
+      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
 check("-dmabuf-libplacebo*",
       deps        = ["dmabuf", "libplacebo"],
       sources     = "video/out/hwdec/dmabuf_interop_pl.c")
+
 check("memfd_create*",
       desc      = "Linux's memfd_create()",
       deps      = "wayland",
