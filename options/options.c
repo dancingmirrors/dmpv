@@ -127,8 +127,12 @@ static const m_option_t mp_vo_opt_list[] = {
     {"focus-on-open", OPT_BOOL(focus_on_open)},
     {"force-render", OPT_BOOL(force_render)},
     {"force-window-position", OPT_BOOL(force_window_position)},
+#if HAVE_X11
     {"x11-name", OPT_STRING(winname)},
+#endif
+#if HAVE_WAYLAND
     {"wayland-app-id", OPT_STRING(appid)},
+#endif
     {"monitoraspect", OPT_FLOAT(force_monitor_aspect), M_RANGE(0.0, 9.0)},
     {"monitorpixelaspect", OPT_FLOAT(monitor_pixel_aspect),
         M_RANGE(1.0/32.0, 32.0)},
@@ -213,9 +217,13 @@ const struct m_sub_options vo_sub_opts = {
         .appid = "mpv",
         .WinID = -1,
         .window_scale = 1.0,
+#if HAVE_X11
         .x11_bypass_compositor = 2,
         .x11_present = 1,
+#endif
+#if HAVE_WIN32_DESKTOP
         .mmcss_profile = "Playback",
+#endif
         .ontop_level = -1,
         .timing_offset = 0.050,
         .swapchain_depth = 3,
