@@ -70,6 +70,7 @@ struct vo_x11_state {
 
     int xrandr_event;
     bool has_mesa;
+    bool has_nvidia;
 
     bool screensaver_enabled;
     bool dpms_touched;
