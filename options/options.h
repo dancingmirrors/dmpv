@@ -152,6 +152,7 @@ typedef struct MPOpts {
     bool lua_load_stats;
     bool lua_load_360;
     bool auto_load_scripts;
+    bool lua_load_positioning;
 
     bool audio_exclusive;
     bool ao_null_fallback;
