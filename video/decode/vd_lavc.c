@@ -557,7 +557,7 @@ static void select_and_set_hwdec(struct mp_filter *vd)
                             av_buffer_unref(&ctx->hwdec_dev);
                             continue;
                         }
-                        MP_WARN(vd, "Using emulated hardware decoding API.\n");
+                        MP_VERBOSE(vd, "Using emulated hardware decoding API.\n");
                     }
                 } else if (!hwdec->copying) {
                     // Most likely METHOD_INTERNAL, which often use delay-loaded
