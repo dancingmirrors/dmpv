@@ -318,7 +318,7 @@ const struct m_sub_options mp_subtitle_sub_opts = {
         .ass_vsfilter_color_compat = 1,
         .ass_vsfilter_blur_compat = true,
         .ass_style_override = 1,
-        .ass_shaper = 1,
+        .ass_shaper = 0,
         .use_embedded_fonts = true,
     },
     .change_flags = UPDATE_OSD,
