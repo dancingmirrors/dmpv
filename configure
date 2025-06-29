@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # Missing:
-#- Windows console wrapper thing
 #- OS X testing
 
 import os
@@ -105,7 +104,8 @@ check("win32",
                     chain(set_exe_format("pe"), True),
       sources   = ["osdep/mpv.rc",
                    "osdep/w32_keyboard.c",
-                   "osdep/windows_utils.c"])
+                   "osdep/windows_utils.c",
+                   "osdep/win32-console-wrapper.c"])
 
 check("osx",
       fn        = lambda: check_cc(defined = "__APPLE__") and
