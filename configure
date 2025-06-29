@@ -25,10 +25,6 @@ check(desc      = "pkg-config",
       required  = "pkg-config missing or broken",
       fn        = lambda: check_program("PKG_CONFIG"))
 
-check("-cplayer",
-      desc      = "mpv CLI player binary",
-      required  = "Required.")
-
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
            "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
@@ -918,12 +914,11 @@ add_sources(
 
 if is_running():
 
-    if dep_enabled("cplayer"):
-        pick_first_matching_dep(
+    pick_first_matching_dep(
             ("cocoa",           "osdep/main-fn-cocoa.c"),
             ("posix",           "osdep/main-fn-unix.c"),
             ("win32-desktop",   "osdep/main-fn-win.c"),
-        )
+    )
 
     pick_first_matching_dep(
         ("posix",               "osdep/terminal-unix.c"),
