@@ -882,6 +882,7 @@ static const struct MPOpts mp_default_opts = {
     .initial_audio_sync = true,
     .frame_dropping = 1,
     .term_osd = 2,
+    .term_osd_bar = 1,
     .term_osd_bar_chars = "[-+-]",
     .consolecontrols = true,
     .playlist_pos = -1,
