@@ -337,6 +337,7 @@ const struct m_sub_options mp_osd_render_sub_opts = {
         {"osd-scale", OPT_FLOAT(osd_scale), M_RANGE(0, 100)},
         {"osd-scale-by-window", OPT_BOOL(osd_scale_by_window)},
         {"force-rgba-osd-rendering", OPT_BOOL(force_rgba_osd)},
+        {"osd-shaper", OPT_CHOICE(osd_shaper, {"simple", 0}, {"complex", 1})},
         {0}
     },
     .size = sizeof(OPT_BASE_STRUCT),
@@ -346,6 +347,7 @@ const struct m_sub_options mp_osd_render_sub_opts = {
         .osd_bar_h = 3.125,
         .osd_scale = 1,
         .osd_scale_by_window = true,
+        .osd_shaper = 0,
     },
     .change_flags = UPDATE_OSD,
 };

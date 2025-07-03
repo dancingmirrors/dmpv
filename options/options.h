@@ -130,6 +130,7 @@ struct mp_osd_render_opts {
     bool osd_scale_by_window;
     struct osd_style_opts *osd_style;
     bool force_rgba_osd;
+    int osd_shaper;
 };
 
 typedef struct MPOpts {
