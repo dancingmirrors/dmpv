@@ -178,7 +178,7 @@ static const m_option_t mp_vo_opt_list[] = {
         {"display-desync", VS_DISP_NONE},
         {"desync", VS_NONE})},
 #if HAVE_X11
-    {"x11-netwm", OPT_CHOICE(x11_netwm, {"auto", 0}, {"no", -1}, {"yes", 1})},
+    {"x11-netwm", OPT_CHOICE(x11_netwm, {"yes", 0}, {"auto", -1}, {"no", 1})},
     {"x11-bypass-compositor", OPT_CHOICE(x11_bypass_compositor,
         {"no", 0}, {"yes", 1}, {"fs-only", 2}, {"never", 3})},
     {"x11-present", OPT_CHOICE(x11_present,
