@@ -31,7 +31,7 @@
 #include "options/options.h"
 #include "options/m_option.h"
 #include "sub/draw_bmp.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "vo.h"
 #include "video/csputils.h"
 #include "video/mp_image.h"

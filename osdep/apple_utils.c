@@ -19,7 +19,7 @@
 
 #include "apple_utils.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 CFStringRef cfstr_from_cstr(const char *str)
 {

@@ -39,7 +39,7 @@
 #include "common/av_common.h"
 #include "common/msg.h"
 #include "image_writer.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "video/fmt-conversion.h"
 #include "video/img_format.h"
 #include "video/mp_image.h"

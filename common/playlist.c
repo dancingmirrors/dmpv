@@ -21,7 +21,7 @@
 #include "common/global.h"
 #include "common/msg.h"
 #include "misc/random.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "options/path.h"
 
 #include "demux/demux.h"

@@ -24,7 +24,7 @@
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "config.h"
 

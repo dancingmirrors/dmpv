@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "osdep/atomic.h"

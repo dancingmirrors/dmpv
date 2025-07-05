@@ -33,7 +33,7 @@
 # include <libavutil/dovi_meta.h>
 #endif
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "common/av_common.h"
 #include "common/common.h"

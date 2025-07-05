@@ -3,7 +3,7 @@
 
 #include <libavutil/buffer.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "misc/dispatch.h"
 #include "misc/mp_assert.h"
 #include "osdep/atomic.h"

@@ -26,7 +26,7 @@
 
 #include <libavutil/common.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "common/common.h"
 #include "misc/bstr.h"
 #include "common/msg.h"

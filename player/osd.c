@@ -22,7 +22,7 @@
 #include <limits.h>
 #include "misc/mp_assert.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "common/msg.h"
 #include "common/msg_control.h"

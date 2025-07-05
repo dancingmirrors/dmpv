@@ -17,7 +17,7 @@
 
 #include <time.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "osdep/timer.h"
 #include "present_sync.h"
 

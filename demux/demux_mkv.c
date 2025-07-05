@@ -42,7 +42,7 @@
 #include <zlib.h>
 #endif
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "common/av_common.h"
 #include "options/m_config.h"
 #include "options/m_option.h"

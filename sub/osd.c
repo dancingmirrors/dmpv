@@ -27,7 +27,7 @@
 
 #include "osdep/timer.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "options/m_config.h"
 #include "options/options.h"
 #include "common/global.h"

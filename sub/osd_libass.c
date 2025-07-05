@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "misc/bstr.h"
 #include "misc/mp_assert.h"
 #include "common/common.h"

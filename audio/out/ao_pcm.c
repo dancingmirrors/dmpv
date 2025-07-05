@@ -25,7 +25,7 @@
 
 #include <libavutil/common.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "options/m_option.h"
 #include "audio/format.h"

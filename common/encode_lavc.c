@@ -34,7 +34,7 @@
 #include "options/options.h"
 #include "osdep/timer.h"
 #include "video/out/vo.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "stream/stream.h"
 
 struct encode_priv {

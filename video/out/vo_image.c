@@ -28,7 +28,7 @@
 #include "osdep/io.h"
 #include "options/m_config.h"
 #include "options/path.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "video/out/vo.h"

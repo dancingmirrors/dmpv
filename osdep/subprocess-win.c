@@ -23,7 +23,7 @@
 #include "osdep/io.h"
 #include "osdep/windows_utils.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "common/common.h"
 #include "stream/stream.h"
 #include "misc/bstr.h"

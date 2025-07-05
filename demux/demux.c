@@ -33,7 +33,7 @@
 #include "config.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "common/av_common.h"
 #include "common/msg.h"
 #include "common/global.h"

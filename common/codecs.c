@@ -15,7 +15,7 @@
  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "misc/bstr.h"
 #include "common/msg.h"
 #include "codecs.h"

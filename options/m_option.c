@@ -35,7 +35,7 @@
 #include "libmpv/client.h"
 #include "player/client.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "common/msg_control.h"

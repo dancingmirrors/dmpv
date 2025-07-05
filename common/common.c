@@ -23,7 +23,7 @@
 #include <libavutil/error.h>
 #include <libavutil/mathematics.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "misc/bstr.h"
 #include "misc/ctype.h"
 #include "common/common.h"

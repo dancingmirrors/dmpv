@@ -25,7 +25,7 @@
 #include "common/global.h"
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "screenshot.h"
 #include "core.h"
 #include "command.h"

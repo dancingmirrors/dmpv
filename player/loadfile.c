@@ -23,7 +23,7 @@
 
 #include <libavutil/avutil.h>
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "misc/thread_pool.h"
 #include "misc/thread_tools.h"

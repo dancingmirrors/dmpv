@@ -45,7 +45,7 @@
 #include "osdep/atomic.h"
 #include "misc/dispatch.h"
 #include "misc/rendezvous.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 #define HINST_THISCOMPONENT ((HINSTANCE)&__ImageBase)

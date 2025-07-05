@@ -51,7 +51,7 @@
 #include "video/mp_image.h"
 #include "present_sync.h"
 #include "x11_common.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "vo.h"
 #include "win_state.h"

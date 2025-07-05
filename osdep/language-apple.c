@@ -20,7 +20,7 @@
 #include "misc/language.h"
 
 #include "apple_utils.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 char **mp_get_user_langs(void)
 {

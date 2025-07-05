@@ -36,7 +36,7 @@
 #include "audio/fmt-conversion.h"
 #include "filters/filter_internal.h"
 #include "filters/f_utils.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 #include "ao.h"
 #include "internal.h"
 #include "common/msg.h"

@@ -30,7 +30,7 @@
 #include <libplacebo/config.h>
 #endif
 
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include "misc/dispatch.h"
 #include "misc/thread_pool.h"

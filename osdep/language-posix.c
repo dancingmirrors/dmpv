@@ -18,7 +18,7 @@
  */
 
 #include "misc/language.h"
-#include "mpv_talloc.h"
+#include "libmpv/mpv_talloc.h"
 
 #include <stddef.h>
 
