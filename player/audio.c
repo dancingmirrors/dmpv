@@ -916,7 +916,7 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
             ao_reset(ao_c->ao);
         } else {
             if (!ao_c->ao_underrun) {
-                MP_WARN(mpctx, "Audio device underrun detected.\n");
+                MP_VERBOSE(mpctx, "Audio device underrun detected.\n");
                 ao_c->ao_underrun = true;
                 mp_wakeup_core(mpctx);
                 ao_c->underrun = true;
