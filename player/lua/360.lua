@@ -21,8 +21,8 @@ local mouse_pan = function ()
     local tempMousePos = {}
     if dragging then
         tempMousePos.x, tempMousePos.y = mp.get_mouse_pos()
-        yaw   = yaw + ((tempMousePos.x-mousePos.x)/100)
-        pitch = pitch - ((tempMousePos.y-mousePos.y)/100)
+        yaw   = yaw + ((tempMousePos.x-mousePos.x)/180)
+        pitch = pitch - ((tempMousePos.y-mousePos.y)/180)
         ousePos = tempMousePos
         draw_cropper()
     end
