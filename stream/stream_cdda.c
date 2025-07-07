@@ -84,8 +84,6 @@ const struct m_sub_options stream_cdda_conf = {
         {"paranoia", OPT_INT(paranoia_mode), M_RANGE(0, 2)},
         {"sector-size", OPT_INT(sector_size), M_RANGE(1, 100)},
         {"overlap", OPT_INT(search_overlap), M_RANGE(0, 75)},
-        {"toc-bias", OPT_INT(toc_bias),
-            .deprecation_message = "toc-bias is no longer used"},
         {"toc-offset", OPT_INT(toc_offset)},
         {"skip", OPT_BOOL(skip)},
         {"span-a", OPT_INT(span[0])},
