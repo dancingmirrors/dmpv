@@ -243,7 +243,7 @@ check("-lua*",
       fn        = lambda: check_pkg_config("luajit >= 2.0.0") or
                           check_pkg_config("lua-5.1") or
                           check_pkg_config("lua-5.2") or
-                          check_pkg_config("lua"),
+                          check_pkg_config("lua >= 5.1.0"),
       sources   = "player/lua.c")
 
 check("-libass*",
