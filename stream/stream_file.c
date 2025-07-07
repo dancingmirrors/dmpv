@@ -110,7 +110,7 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
         // Try to detect and handle files being appended during playback.
         int64_t size = get_size(s);
         if (p->regular_file && size > p->orig_size && !p->appending) {
-            MP_WARN(s, "File is apparently being appended to, will keep "
+            MP_WARN(s, "File is apparently being appended to; will keep "
                     "retrying with timeouts.\n");
             p->appending = true;
         }
