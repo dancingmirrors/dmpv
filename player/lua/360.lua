@@ -1,15 +1,15 @@
 -- VR-Reversal by dfaker
 
 local yaw   = 0.0
-local pitch = -10.0
+local pitch = 0.0
 local roll  = 0.0
 local res   = 4.0
-local dfov  = 110.0
+local dfov  = 120.0
 local dragging = false
 local mousePos = {}
 
 local draw_cropper = function ()
-    local ok, err = mp.command(string.format("async no-osd vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:roll=%s:w=%s*192.0:h=%s*108.0",dfov,yaw,pitch,roll,res,res))
+    local ok, err = mp.command(string.format("async no-osd vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:roll=%s:w=%s*135.0:h=%s*135.0",dfov,yaw,pitch,roll,res,res))
 end
 
 local mouse_btn0_cb = function ()
