@@ -30,12 +30,7 @@ if test "$cwd" ; then
   cd "$cwd"
 fi
 
-# Extract revision number from file used by daily tarball snapshots
-# or from "git describe" output
-git_revision=$(cat snapshot_version 2> /dev/null)
-test "$git_revision" || test ! -e .git || git_revision="$(git describe \
-    --match "v[0-9]*" --always --tags | sed 's/^v//')"
-version="$git_revision"
+version="$(git describe --match "v[0-9]*" --always --tags | sed 's/^v//')"
 
 VERSION="${version}${extra}-dancingmirrors"
 
