@@ -35,7 +35,7 @@
 #endif
 
 #include "osdep/io.h"
-#include "misc/path_utils.h"
+#include "options/path.h"
 
 #include "common/av_common.h"
 #include "common/msg.h"
