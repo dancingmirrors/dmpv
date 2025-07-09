@@ -909,7 +909,7 @@ static const struct MPOpts mp_default_opts = {
     .audiofile_auto = -1,
     .coverart_whitelist = true,
     .osd_bar_visible = true,
-    .screenshot_template = "mpv-shot%n",
+    .screenshot_template = "mpv-%n",
     .play_dir = 1,
 
     .audio_output_channels = {
