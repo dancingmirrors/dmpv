@@ -1230,11 +1230,7 @@ static int decode_frame(struct mp_filter *vd)
     mpi->dts = mp_pts_from_av(ctx->pic->pkt_dts, &ctx->codec_timebase);
 
     mpi->pkt_duration =
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 30, 100)
         mp_pts_from_av(ctx->pic->duration, &ctx->codec_timebase);
-#else
-        mp_pts_from_av(ctx->pic->pkt_duration, &ctx->codec_timebase);
-#endif
 
     av_frame_unref(ctx->pic);
 
