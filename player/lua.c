@@ -67,8 +67,11 @@ static const char * const builtin_lua_scripts[][2] = {
     {"@stats.lua",
 #   include "generated/player/lua/stats.lua.inc"
     },
-    {"@360.lua",
-#   include "generated/player/lua/360.lua.inc"
+    {"@360-sbs.lua",
+#   include "generated/player/lua/360-sbs.lua.inc"
+    },
+    {"@360-sg.lua",
+#   include "generated/player/lua/360-sg.lua.inc"
     },
     {"@positioning.lua",
 #   include "generated/player/lua/positioning.lua.inc"

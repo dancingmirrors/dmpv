@@ -58,7 +58,8 @@ $(BUILD)/player/lua.o: $(BUILD)/generated/player/lua/defaults.lua.inc \
                        $(BUILD)/generated/player/lua/assdraw.lua.inc \
                        $(BUILD)/generated/player/lua/options.lua.inc \
                        $(BUILD)/generated/player/lua/stats.lua.inc \
-                       $(BUILD)/generated/player/lua/360.lua.inc \
+                       $(BUILD)/generated/player/lua/360-sbs.lua.inc \
+                       $(BUILD)/generated/player/lua/360-sg.lua.inc \
                        $(BUILD)/generated/player/lua/positioning.lua.inc \
 
 $(BUILD)/osdep/macosx_application.m $(BUILD)/video/out/cocoa_common.m: \
