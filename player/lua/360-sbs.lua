@@ -93,6 +93,7 @@ mp.add_forced_key_binding("-", decrement_zoom, 'repeatable')
 
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "no")
+mp.set_property("sws-fast", "yes")
 
 mp.add_forced_key_binding("mouse_btn0",mouse_btn0_cb)
 mp.add_forced_key_binding("mouse_move", mouse_pan)
