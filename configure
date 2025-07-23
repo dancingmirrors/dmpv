@@ -317,18 +317,22 @@ check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
 check("-jack*",
+      desc      = "JACK audio output",
       deps      = "gpl",
       fn        = lambda: check_pkg_config("jack"),
       sources   = "audio/out/ao_jack.c")
 check("-oss*",
+      desc      = "OSS audio output",
       deps      = "gpl",
       fn        = lambda: check_cc(include = "sys/soundcard.h",
                   expr = "SNDCTL_DSP_HALT;"),
       sources   = "audio/out/ao_oss.c")
 check("-sndio*",
+      desc      = "sndio audio output",
       fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
       sources   = "audio/out/ao_sndio.c")
 check("-alsa*",
+      desc      = "ALSA audio output",
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
       sources   = "audio/out/ao_alsa.c")
 check("-coreaudio*",
@@ -360,6 +364,7 @@ check("consio_h*",
       fn        = lambda: check_cc(include = ["sys/consio.h", "sys/ioctl.h"],
                                    expr = "int m; ioctl(0, VT_GETMODE, &m);"))
 check("-drm*",
+      desc      = "Direct Rendering Manager",
       deps_any  = ["vt_h", "consio_h"],
       fn        = lambda: check_pkg_config("libdrm"),
       sources   = ["video/out/drm_atomic.c",
@@ -422,6 +427,7 @@ check("memfd_create*",
       sources   = "video/out/vo_wlshm.c")
 
 check("-x11*",
+      desc      = "X11",
       deps      = "gpl",
       fn        = lambda: check_pkg_config("x11         >= 1.0.0",
                                            "xscrnsaver  >= 1.0.0",
