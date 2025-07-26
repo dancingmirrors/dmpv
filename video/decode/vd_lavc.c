@@ -88,6 +88,7 @@ struct vd_lavc_params {
     char *hwdec_codecs;
     int hwdec_image_format;
     int hwdec_extra_frames;
+    int hwdec_threads;
 };
 
 static const struct m_opt_choice_alternatives discard_names[] = {
@@ -115,6 +116,7 @@ const struct m_sub_options vd_lavc_conf = {
         {"vd-lavc-bitexact", OPT_BOOL(bitexact)},
         {"vd-lavc-assume-old-x264", OPT_BOOL(old_x264)},
         {"vd-lavc-check-hw-profile", OPT_BOOL(check_hw_profile)},
+        {"hwdec-threads", OPT_INT(hwdec_threads), M_RANGE(0, DBL_MAX)},
         {"vd-lavc-software-fallback", OPT_CHOICE(software_fallback,
             {"no", INT_MAX}, {"yes", 1}), M_RANGE(1, INT_MAX)},
         {"vd-lavc-o", OPT_KEYVALUELIST(avopts)},
@@ -146,6 +148,7 @@ const struct m_sub_options vd_lavc_conf = {
         // for example, if vo_gpu increases the number of reference surfaces for
         // interpolation, this value has to be increased too.
         .hwdec_extra_frames = 6,
+        .hwdec_threads = 4,
     },
 };
 
@@ -714,9 +717,9 @@ static void init_avctx(struct mp_filter *vd)
     if (!ctx->avpkt)
         goto error;
 
+    int threads = lavc_param->threads;
     if (ctx->use_hwdec) {
         avctx->opaque = vd;
-        avctx->thread_count = 1;
         avctx->hwaccel_flags |= AV_HWACCEL_FLAG_IGNORE_LEVEL;
         if (!lavc_param->check_hw_profile)
             avctx->hwaccel_flags |= AV_HWACCEL_FLAG_ALLOW_PROFILE_MISMATCH;
@@ -750,9 +753,17 @@ static void init_avctx(struct mp_filter *vd)
         if (ctx->hwdec.copying)
             ctx->max_delay_queue = HWDEC_DELAY_QUEUE_COUNT;
         ctx->hw_probing = true;
-    } else {
-        mp_set_avcodec_threads(vd->log, avctx, lavc_param->threads);
+
+        threads = ctx->opts->hwdec_threads;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(62, 11, 100)
+        // Vulkan threading was not safe before 62.11.100
+        bstr hwdec_name = bstr0(ctx->hwdec.name);
+        if (bstr_endswith0(hwdec_name, "vulkan") || bstr_endswith0(hwdec_name, "vulkan-copy"))
+            threads = 1;
+#endif
     }
+
+    mp_set_avcodec_threads(vd->log, avctx, threads);
 
     if (!ctx->use_hwdec && ctx->vo && lavc_param->dr) {
         avctx->opaque = vd;
