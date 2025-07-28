@@ -750,10 +750,6 @@ check("-dvbin*",
       fn        = lambda: check_cc(include = "linux/dvb/frontend.h"),
       sources   = ["stream/dvb_tune.c", "stream/stream_dvb.c"])
 
-check("-apple-remote*",
-      desc      = "Apple Remote support",
-      deps      = "cocoa",
-      sources   = "osdep/ar/HIDRemote.m")
 check("-macos-touchbar*",
       desc      = "macOS Touch Bar support",
       deps      = "cocoa",
