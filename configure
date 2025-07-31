@@ -35,8 +35,7 @@ check(desc      = "C11/C99",
 check("-optimize",
       fn        = lambda: chain(add_cflags("-O3", "-march=native",
                                 "-pipe", "-fno-signed-zeros",
-                                "-fno-trapping-math",
-                                "-flto"), True),
+                                "-fno-trapping-math"), True),
       desc      = "whether to optimize")
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
@@ -82,7 +81,7 @@ check(desc      = "extra clang warnings",
                         "-Wno-tautological-compare",
                         "-Wno-tautological-constant-out-of-range-compare",
                         "-Wno-constant-logical-operand",
-                        "-Wunreachable-code-aggressive"]))
+                        "-Wunreachable-code-aggressive", "-flto"]))
 
 check("-usan",
       desc      = "undefined sanitizer",
