@@ -51,8 +51,6 @@ check(desc      = "warning CFLAGS",
                         "-Wno-format-truncation",
                         "-Wno-pointer-sign",
                         "-Wno-switch"]))
-check(desc      = "-fno-math-errno",
-      fn        = lambda: check_cc(flags = "-fno-math-errno"))
 
 check("gnuc",
       desc      = "GNU C",
@@ -85,11 +83,6 @@ check("-usan",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []),
       required  = "Required.")
 
-check("libdl*",
-      fn        = lambda: check_cc(link = "-ldl", include = "dlfcn.h",
-                                   expr = 'dlopen("", 0);'))
-check("libm",
-      fn        = lambda: check_cc(link = "-lm"))
 check("win32",
       fn        = lambda: check_cc(defined = "_WIN32",
                         flags = ["-D_WIN32_WINNT=0x0602", "-DUNICODE", "-DCOBJMACROS",
@@ -124,9 +117,6 @@ check("development environment",
       deps_any  = ["posix", "mingw"],
       required  = "Unable to find either a POSIX or MinGW-w64 environment.")
 
-check("noexecstack",
-      fn        = lambda: check_cc(link = "-Wl,-z,noexecstack"))
-
 check("win-dep",
       deps      = "win32",
       fn        = lambda: check_cc(link = ["-Wl,--nxcompat", "-Wl,--no-seh", "-Wl,--dynamicbase"]))
@@ -158,6 +148,7 @@ check("win32-desktop*",
                    "video/out/w32_common.c",
                    "video/out/win32/displayconfig.c",
                    "video/out/win32/droptarget.c"])
+
 def check_vista_pthreads():
     path = os.path.abspath(os.path.join(get_root_dir(), "osdep/win32/include"))
     add_cflags("-I%s" % path)
@@ -179,6 +170,7 @@ check("pthreads",
 check(desc      = "any pthread support",
       deps_any  = ["pthreads", "win32-internal-pthreads"],
       required  = "Unable to find pthreads support.")
+
 check("stdatomic*",
       fn        = lambda: check_cc(include = "stdatomic.h",
                                    expr =
@@ -188,8 +180,6 @@ check("atomics",
       desc      = "stdatomic.h support or slow emulation",
       deps_any  = ["stdatomic", "gnuc"],
       required  = "Required.")
-check("librt",
-      fn        = lambda: check_cc(link = "-lrt"))
 
 check("freebsd*",
       desc      = "FreeBSD",
@@ -200,8 +190,10 @@ check("iconv*",
                                    expr = "iconv_open(0, 0);") or
                           check_cc(include = "iconv.h", link = "-liconv",
                                    expr = "iconv_open(0, 0);"))
+
 check("dos-paths*",
       deps      = "win32")
+
 check("glob-posix*",
       desc      = "glob() POSIX support",
       deps      = "posix",
@@ -218,6 +210,7 @@ check("glob*",
       deps_any  = ["glob-posix", "glob-win32"])
 check("fchmod*",
       fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"))
+
 check("glibc-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = "pthread.h",
@@ -231,6 +224,7 @@ check("bsd-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],
                     expr = 'pthread_set_name_np(pthread_self(), "ducks");'))
+
 check("bsd-fstatfs*",
       fn        = lambda: check_cc(include = ["sys/param.h", "sys/mount.h"],
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_fstypename;"))
@@ -532,6 +526,7 @@ check("-vdpau-gl-x11*",
       desc      = "VDPAU with OpenGL/X11",
       deps      = ["vdpau", "gl-x11"],
       sources   = "video/out/opengl/hwdec_vdpau.c")
+
 check("-vaapi*",
       desc      = "VA-API acceleration",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
