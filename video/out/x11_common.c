@@ -38,7 +38,9 @@
 #include <X11/extensions/dpms.h>
 #include <X11/extensions/shape.h>
 // XXX ?
+#ifndef PRESENT_FUTURE_VERSION
 #define PRESENT_FUTURE_VERSION 0
+#endif
 #include <X11/extensions/Xpresent.h>
 #include <X11/extensions/Xrandr.h>
 

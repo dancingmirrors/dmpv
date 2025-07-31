@@ -17,7 +17,9 @@
 
 #include <X11/Xlib.h>
 // XXX ?
+#ifndef PRESENT_FUTURE_VERSION
 #define PRESENT_FUTURE_VERSION 0
+#endif
 #include <X11/extensions/Xpresent.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
