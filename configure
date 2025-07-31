@@ -47,7 +47,7 @@ check(desc      = "warning CFLAGS",
                         "-Wdisabled-optimization",
                         "-Wstrict-prototypes",
                         "-Werror=format-security",
-                        "-Wvla",
+                        "-Wvla", "-Wundef",
                         "-Wno-format-truncation",
                         "-Wno-pointer-sign",
                         "-Wno-switch"]))
@@ -59,6 +59,12 @@ check("clang",
       desc      = "clang",
       fn        = lambda: check_cc(defined = "__clang__"))
 
+check("libdl*",
+      fn        = lambda: check_cc(link = "-ldl", include = "dlfcn.h",
+                                   expr = 'dlopen("", 0);'))
+check("libm",
+      fn        = lambda: check_cc(link = "-lm"))
+
 # Note that an important reason to try a different set of warning flags is the
 # fact that both compilers may have different bogus behavior wrt. certain
 # warning options. What is needed on one compiler may be annoying or dangerous
@@ -67,7 +73,7 @@ check(desc      = "extra GCC warnings",
       deps      = "gnuc",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
-                        "-Wundef", "-Wmissing-prototypes", "-Wshadow",
+                        "-Wmissing-prototypes", "-Wshadow",
                         "-Wparentheses", "-Wpointer-arith"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
