@@ -37,6 +37,8 @@
 #include <X11/extensions/scrnsaver.h>
 #include <X11/extensions/dpms.h>
 #include <X11/extensions/shape.h>
+// XXX ?
+#define PRESENT_FUTURE_VERSION 0
 #include <X11/extensions/Xpresent.h>
 #include <X11/extensions/Xrandr.h>
 
