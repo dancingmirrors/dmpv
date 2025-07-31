@@ -22,6 +22,7 @@
 #include <stdio.h>
 
 #include "common/common.h"
+#include "config.h"
 #include "timer.h"
 
 typedef pthread_cond_t  mp_cond;
