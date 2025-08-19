@@ -2022,6 +2022,7 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
 
     switch (request) {
     case VOCTRL_CHECK_EVENTS: {
+        wayland_dispatch_events(wl, 1, 0);
         check_dnd_fd(wl);
         *events |= wl->pending_vo_events;
         if (*events & VO_EVENT_RESIZE) {
