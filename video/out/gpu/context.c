@@ -44,13 +44,6 @@ extern const struct ra_ctx_fns ra_ctx_dxgl;
 extern const struct ra_ctx_fns ra_ctx_rpi;
 extern const struct ra_ctx_fns ra_ctx_android;
 
-/* Vulkan */
-extern const struct ra_ctx_fns ra_ctx_vulkan_wayland;
-extern const struct ra_ctx_fns ra_ctx_vulkan_win;
-extern const struct ra_ctx_fns ra_ctx_vulkan_xlib;
-extern const struct ra_ctx_fns ra_ctx_vulkan_android;
-extern const struct ra_ctx_fns ra_ctx_vulkan_display;
-
 /* Direct3D 11 */
 extern const struct ra_ctx_fns ra_ctx_d3d11;
 
@@ -94,24 +87,6 @@ static const struct ra_ctx_fns *contexts[] = {
 #endif
 #if HAVE_EGL_DRM
     &ra_ctx_drm_egl,
-#endif
-
-// Vulkan contexts:
-#if HAVE_VULKAN
-
-#if HAVE_ANDROID
-    &ra_ctx_vulkan_android,
-#endif
-#if HAVE_WIN32_DESKTOP
-    &ra_ctx_vulkan_win,
-#endif
-#if HAVE_WAYLAND
-    &ra_ctx_vulkan_wayland,
-#endif
-#if HAVE_X11
-    &ra_ctx_vulkan_xlib,
-#endif
-    &ra_ctx_vulkan_display,
 #endif
 
 /* No API contexts: */

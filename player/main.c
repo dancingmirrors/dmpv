@@ -26,10 +26,6 @@
 
 #include "config.h"
 
-#if HAVE_LIBPLACEBO
-#include <libplacebo/config.h>
-#endif
-
 #include "libmpv/mpv_talloc.h"
 
 #include "misc/dispatch.h"
@@ -152,9 +148,6 @@ void mp_print_version(struct mp_log *log, int always)
     int v = always ? MSGL_INFO : MSGL_V;
     mp_msg(log, v, "%s %s\n",
            mpv_version, mpv_copyright);
-#if HAVE_LIBPLACEBO
-    mp_msg(log, v, "libplacebo version: %s\n", PL_VERSION);
-#endif
     check_library_versions(log, v);
     // Only in verbose mode.
     if (!always) {

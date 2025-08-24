@@ -381,13 +381,6 @@ check(deps      = ["drm", "drmprime"],
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
 
-check("-libplacebo*",
-      desc      = "libplacebo support",
-      default   = False,
-      fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
-      sources   = ["video/out/placebo/ra_pl.c",
-                   "video/out/placebo/utils.c"])
-
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
     if data is None:
@@ -436,24 +429,6 @@ check("-x11*",
                                            "xrandr      >= 1.2.0"),
       sources   = ["video/out/vo_x11.c",
                    "video/out/x11_common.c"])
-
-check("-vulkan*",
-      desc      = "Vulkan context support",
-      deps      = "libplacebo",
-      default   = False,
-      fn        = lambda: check_pkg_config("vulkan"),
-      sources   = ["video/out/vulkan/context.c",
-                   "video/out/vulkan/utils.c",
-                   "video/out/hwdec/hwdec_vulkan.c",
-                   "video/out/vulkan/context_display.c"])
-check(deps      = ["vulkan", "x11"],
-      sources   = "video/out/vulkan/context_xlib.c")
-check(deps      = ["vulkan", "android"],
-      sources   = "video/out/vulkan/context_android.c")
-check(deps      = ["vulkan", "wayland"],
-      sources   = "video/out/vulkan/context_wayland.c")
-check(deps      = ["vulkan", "win32-desktop"],
-      sources   = "video/out/vulkan/context_win.c")
 
 # TODO: the waf check is much more complicated
 check("-egl*",
@@ -557,10 +532,6 @@ check("-vaapi-glx*",
 check("-vaapi-x-egl*",
       desc      = "VA-API EGL on X11",
       deps      = ["vaapi_x11", "egl-x11"])
-check("-vaapi-vulkan*",
-      desc      = "VA-API Vulkan",
-      deps      = ["vaapi", "vulkan"],
-      sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 check("-vaapi-egl*",
       desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
@@ -570,9 +541,6 @@ check("-dmabuf*",
       deps       = ["drm", "egl"],
       deps_neg   = "osx",
       sources    = "video/out/hwdec/dmabuf_interop_gl.c")
-check("-dmabuf-libplacebo*",
-      deps        = ["dmabuf", "libplacebo", "vaapi"],
-      sources     = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-jpeg*",
       desc      = "JPEG support",
@@ -694,10 +662,6 @@ check("-cuda-interop-gl",
       desc      = "CUDA GL interop",
       deps      = ["cuda-interop", "gl"],
       sources   = "video/out/hwdec/hwdec_cuda_gl.c")
-check("-cuda-interop-vulkan",
-      desc      = "CUDA Vulkan interop",
-      deps      = ["cuda-interop", "vulkan"],
-      sources   = "video/out/hwdec/hwdec_cuda_vk.c")
 
 check("-rpi-mmal*",
       desc      = "Raspberry Pi MMAL hwaccel",
@@ -715,13 +679,6 @@ check(deps      = ["d3d9-hwaccel", "d3d11"],
       sources   = "video/out/d3d11/hwdec_dxva2dxgi.c")
 check(deps      = ["d3d9-hwaccel", "egl-angle"],
       sources   = "video/out/opengl/hwdec_dxva2egl.c")
-
-check(deps      = ["vulkan", "wayland"],
-      sources   = "video/out/vulkan/context_wayland.c")
-check(deps      = ["vulkan", "win32-desktop"],
-      sources   = "video/out/vulkan/context_win.c")
-check(deps      = ["vulkan", "x11"],
-      sources   = "video/out/vulkan/context_xlib.c")
 
 # Define the appropriate path to your device(s) in the respective
 # stream/stream_*.c file(s) if necessary.

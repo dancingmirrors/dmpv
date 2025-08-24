@@ -34,9 +34,6 @@
 #include <libavfilter/buffersrc.h>
 
 #include "config.h"
-#if HAVE_LIBPLACEBO
-#include <libplacebo/utils/libav.h>
-#endif
 
 #include "common/common.h"
 #include "common/av_common.h"
@@ -491,10 +488,6 @@ static bool init_pads(struct lavfi *c)
             params->sample_aspect_ratio.den = fmt->params.p_h;
             params->hw_frames_ctx = fmt->hwctx;
             params->frame_rate = av_d2q(fmt->nominal_fps, 1000000);
-#if HAVE_LIBPLACEBO
-            params->color_space = pl_system_to_av(fmt->params.repr.sys);
-            params->color_range = pl_levels_to_av(fmt->params.repr.levels);
-#endif
             filter_name = "buffer";
         } else {
             MP_ASSERT_UNREACHABLE();

@@ -19,10 +19,9 @@
 
 /*
  * This hwdec implements an optimized output path using CUDA->OpenGL
- * or CUDA->Vulkan interop for frame data that is stored in CUDA
- * device memory. Although it is not explicit in the code here, the
- * only practical way to get data in this form is from the
- * nvdec/cuvid decoder.
+ * for frame data that is stored in CUDA device memory. Although it
+ * is not explicit in the code here, the only practical way to get
+ * data in this form is from the nvdec/cuvid decoder.
  */
 
 #include "config.h"
@@ -60,9 +59,6 @@ int check_cu(const struct ra_hwdec *hw, CUresult err, const char *func)
 static const struct cuda_interop_fn *interop_fns[] = {
 #if HAVE_GL
     &cuda_gl_fn,
-#endif
-#if HAVE_VULKAN
-    &cuda_vk_fn,
 #endif
     NULL
 };
@@ -107,7 +103,7 @@ static int cuda_init(struct ra_hwdec *hw)
 
     if (!p->ext_init || !p->ext_uninit) {
         MP_MSG(hw, level,
-               "CUDA hwdec only works with OpenGL or Vulkan backends.\n");
+               "CUDA hwdec only works with the OpenGL backend.\n");
         return -1;
     }
 
