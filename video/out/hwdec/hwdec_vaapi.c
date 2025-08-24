@@ -145,7 +145,7 @@ static int init(struct ra_hwdec *hw)
     }
 
     if (!p->dmabuf_interop.interop_map || !p->dmabuf_interop.interop_unmap) {
-        MP_VERBOSE(hw, "VAAPI hwdec only works with OpenGL or Vulkan backends.\n");
+        MP_VERBOSE(hw, "VA-API hwdec only works with the OpenGL backend.\n");
         return -1;
     }
 
