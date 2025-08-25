@@ -555,33 +555,27 @@ check("-direct3d*",
 
 check("-shaderc-shared",
       desc      = "libshaderc SPIR-V compiler (shared library)",
-      default   = False,
       fn        = lambda: check_cc(include = "shaderc/shaderc.h",
                                    link = "-lshaderc_shared"))
 check("-shaderc-static",
       desc      = "libshaderc SPIR-V compiler (static library)",
       deps_neg  = "shaderc-shared",
-      default   = False,
       fn        = lambda: check_cc(include = "shaderc/shaderc.h",
                                    link = ["-lshaderc_combined", "-lstdc++"]))
 check("shaderc*",
       desc      = "libshaderc SPIR-V compiler",
       deps_any  = ["shaderc-shared", "shaderc-static"],
-      default   = False,
       sources   = "video/out/gpu/spirv_shaderc.c")
 check("-spirv-cross-shared",
       desc      = "SPIRV-Cross SPIR-V shader converter (shared library)",
-      default   = False,
       fn        = lambda: check_pkg_config("spirv-cross-c-shared"))
 check("-spirv-cross-static",
       desc      = "SPIRV-Cross SPIR-V shader converter (static library)",
       deps_neg  = "spirv-cross-shared",
-      default   = False,
       fn        = lambda: check_pkg_config("spirv-cross"))
 check("spirv-cross*",
       desc      = "SPIRV-Cross SPIR-V shader converter",
-      deps_any  = ["spirv-cross-shared", "spirv-cross-static"],
-      default   = False)
+      deps_any  = ["spirv-cross-shared", "spirv-cross-static"])
 
 check("-d3d11*",
       desc      = "Direct3D 11 video output",
