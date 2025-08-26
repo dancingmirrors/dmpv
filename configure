@@ -678,26 +678,22 @@ check(deps      = ["d3d9-hwaccel", "egl-angle"],
 # stream/stream_*.c file(s) if necessary.
 check("-libbluray*",
       desc      = "Blu-ray support",
-      default   = False,
       fn        = lambda: check_pkg_config("libbluray >= 0.3.0"),
       sources   = "stream/stream_bluray.c")
 check("-dvdnav*",
       desc      = "dvdnav support",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_pkg_config("dvdnav >= 4.2.0") and
                           check_pkg_config("dvdread >= 4.1.0"),
       sources   = "stream/stream_dvdnav.c"),
 check("-cdda*",
       desc      = "cdda support (libcdio-paranoia)",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
 check("-dvbin*",
       desc      = "DVB input module",
       deps      = "gpl",
-      default   = False,
       fn        = lambda: check_cc(include = "linux/dvb/frontend.h"),
       sources   = ["stream/dvb_tune.c", "stream/stream_dvb.c"])
 
