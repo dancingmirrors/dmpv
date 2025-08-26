@@ -29,6 +29,9 @@
 #include <cdio/cdda.h>
 #include <cdio/paranoia.h>
 #else
+#ifndef TESTING_IS_FINISHED
+#define TESTING_IS_FINISHED 0
+#endif
 #include <cdio/paranoia/cdda.h>
 #include <cdio/paranoia/paranoia.h>
 #endif
