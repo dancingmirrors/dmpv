@@ -7102,11 +7102,6 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
     if (opt_ptr == &opts->cursor_autohide_delay)
         mpctx->mouse_timer = 0;
 
-    if (flags & UPDATE_DVB_PROG) {
-        if (!mpctx->stop_play)
-            mpctx->stop_play = PT_CURRENT_ENTRY;
-    }
-
     if (opt_ptr == &opts->ab_loop[0] || opt_ptr == &opts->ab_loop[1]) {
         update_ab_loop_clip(mpctx);
         // Update if visible

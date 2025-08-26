@@ -435,20 +435,19 @@ char *format_file_size(int64_t size);
 // The following are also part of the M_OPT_* flags, and are used to update
 // certain groups of options.
 #define UPDATE_OPT_FIRST        (1 << 8)
-#define UPDATE_TERM             (1 << 8)  // terminal options
-#define UPDATE_SUB_FILT         (1 << 9)  // subtitle filter options
-#define UPDATE_OSD              (1 << 10) // related to OSD rendering
-#define UPDATE_BUILTIN_SCRIPTS  (1 << 11) // stats
-#define UPDATE_IMGPAR           (1 << 12) // video image params overrides
-#define UPDATE_INPUT            (1 << 13) // mostly --input-* options
-#define UPDATE_AUDIO            (1 << 14) // --audio-channels etc.
-#define UPDATE_PRIORITY         (1 << 15) // --priority (Windows-only)
-#define UPDATE_SCREENSAVER      (1 << 16) // --stop-screensaver
-#define UPDATE_VOL              (1 << 17) // softvol related options
-#define UPDATE_LAVFI_COMPLEX    (1 << 18) // --lavfi-complex
+#define UPDATE_TERM             (1 << 9)  // terminal options
+#define UPDATE_SUB_FILT         (1 << 10)  // subtitle filter options
+#define UPDATE_OSD              (1 << 11) // related to OSD rendering
+#define UPDATE_BUILTIN_SCRIPTS  (1 << 12) // stats
+#define UPDATE_IMGPAR           (1 << 13) // video image params overrides
+#define UPDATE_INPUT            (1 << 14) // mostly --input-* options
+#define UPDATE_AUDIO            (1 << 15) // --audio-channels etc.
+#define UPDATE_PRIORITY         (1 << 16) // --priority (Windows-only)
+#define UPDATE_SCREENSAVER      (1 << 17) // --stop-screensaver
+#define UPDATE_VOL              (1 << 18) // softvol related options
+#define UPDATE_LAVFI_COMPLEX    (1 << 19) // --lavfi-complex
 #define UPDATE_HWDEC            (1 << 20) // --hwdec
-#define UPDATE_DVB_PROG         (1 << 21) // some --dvbin-...
-#define UPDATE_SUB_HARD         (1 << 22) // subtitle opts. that need full reinit
+#define UPDATE_SUB_HARD         (1 << 21) // subtitle opts. that need full reinit
 #define UPDATE_OPT_LAST         (1 << 22)
 
 // All bits between _FIRST and _LAST (inclusive)

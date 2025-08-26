@@ -56,7 +56,6 @@ static void print_version(struct mp_log *log)
 
 extern const struct m_sub_options tv_params_conf;
 extern const struct m_sub_options stream_cdda_conf;
-extern const struct m_sub_options stream_dvb_conf;
 extern const struct m_sub_options stream_lavf_conf;
 extern const struct m_sub_options sws_conf;
 extern const struct m_sub_options drm_conf;
@@ -548,9 +547,6 @@ static const m_option_t mp_opts[] = {
     {"cache-pause-initial", OPT_BOOL(cache_pause_initial)},
     {"cache-pause-wait", OPT_FLOAT(cache_pause_wait), M_RANGE(0, FLT_MAX)},
 
-#if HAVE_DVBIN
-    {"dvbin", OPT_SUBSTRUCT(stream_dvb_opts, stream_dvb_conf)},
-#endif
     {"", OPT_SUBSTRUCT(stream_lavf_opts, stream_lavf_conf)},
 
 // ------------------------- a-v sync options --------------------

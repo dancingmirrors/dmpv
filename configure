@@ -691,11 +691,6 @@ check("-cdda*",
       deps      = "gpl",
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
-check("-dvbin*",
-      desc      = "DVB input module",
-      deps      = "gpl",
-      fn        = lambda: check_cc(include = "linux/dvb/frontend.h"),
-      sources   = ["stream/dvb_tune.c", "stream/stream_dvb.c"])
 
 check("-macos-touchbar*",
       desc      = "macOS Touch Bar support",

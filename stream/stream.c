@@ -43,7 +43,6 @@
 #include "options/m_config.h"
 
 extern const stream_info_t stream_info_cdda;
-extern const stream_info_t stream_info_dvb;
 extern const stream_info_t stream_info_null;
 extern const stream_info_t stream_info_memory;
 extern const stream_info_t stream_info_mf;
@@ -69,9 +68,6 @@ static const stream_info_t *const stream_list[] = {
     &stream_info_ffmpeg,
     &stream_info_ffmpeg_unsafe,
     &stream_info_avdevice,
-#if HAVE_DVBIN
-    &stream_info_dvb,
-#endif
 #if HAVE_DVDNAV
     &stream_info_ifo_dvdnav,
     &stream_info_dvdnav,
