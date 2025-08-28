@@ -76,6 +76,9 @@ static const char * const builtin_lua_scripts[][2] = {
     {"@positioning.lua",
 #   include "generated/player/lua/positioning.lua.inc"
     },
+    {"@context_menu.lua",
+#   include "generated/player/lua/context_menu.lua.inc"
+    },
     {0}
 };
 

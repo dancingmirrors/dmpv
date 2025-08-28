@@ -450,9 +450,6 @@ static const m_option_t mp_opts[] = {
     {"script", OPT_CLI_ALIAS("scripts-append")},
     {"script-opts", OPT_KEYVALUELIST(script_opts)},
     {"load-scripts", OPT_BOOL(auto_load_scripts)},
-#endif
-
-#if HAVE_LUA
     {"load-stats-overlay", OPT_BOOL(lua_load_stats),
         .flags = UPDATE_BUILTIN_SCRIPTS},
     {"load-360-sbs", OPT_BOOL(lua_load_360_sbs),
@@ -460,6 +457,8 @@ static const m_option_t mp_opts[] = {
     {"load-360-sg", OPT_BOOL(lua_load_360_sg),
         .flags = UPDATE_BUILTIN_SCRIPTS},
     {"load-positioning", OPT_BOOL(lua_load_positioning),
+        .flags = UPDATE_BUILTIN_SCRIPTS},
+    {"load-context-menu", OPT_BOOL(lua_load_context_menu),
         .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
 
@@ -855,6 +854,9 @@ static const struct MPOpts mp_default_opts = {
     .lua_load_360_sbs = false,
     .lua_load_360_sg = false,
     .lua_load_positioning = true,
+#ifndef _WIN32
+    .lua_load_context_menu = true,
+#endif
 #endif
     .auto_load_scripts = true,
     .loop_times = 1,
