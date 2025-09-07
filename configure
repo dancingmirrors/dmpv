@@ -388,7 +388,6 @@ def check_wayland_protos():
     add_config_mak_var("WL_PROTO_DIR", data)
     return True
 check("-wayland*",
-      default   = False,
       fn        = lambda: check_wayland_protos() and
                           check_cc(include = "linux/input-event-codes.h",
                                    link = []) and
