@@ -1762,7 +1762,6 @@ static void play_current_file(struct MPContext *mpctx)
         goto terminate_playback;
     }
 
-    if (opts->demuxer_cache_wait) {
         demux_start_prefetch(mpctx->demuxer);
 
         while (!mpctx->stop_play) {
@@ -1773,7 +1772,6 @@ static void play_current_file(struct MPContext *mpctx)
 
             mp_idle(mpctx);
         }
-    }
 
     // (Not get_play_start_pts(), which would always trigger a seek.)
     double play_start_pts = rel_time_to_abs(mpctx, opts->play_start);

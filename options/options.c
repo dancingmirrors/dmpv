@@ -540,7 +540,6 @@ static const m_option_t mp_opts[] = {
     {"sub-demuxer", OPT_STRING(sub_demuxer_name), .help = demuxer_help},
     {"demuxer-thread", OPT_BOOL(demuxer_thread)},
     {"demuxer-termination-timeout", OPT_DOUBLE(demux_termination_timeout)},
-    {"demuxer-cache-wait", OPT_BOOL(demuxer_cache_wait)},
     {"prefetch-playlist", OPT_BOOL(prefetch_open)},
     {"cache-pause", OPT_BOOL(cache_pause)},
     {"cache-pause-initial", OPT_BOOL(cache_pause_initial)},

@@ -270,7 +270,6 @@ typedef struct MPOpts {
     char *demuxer_name;
     bool demuxer_thread;
     double demux_termination_timeout;
-    bool demuxer_cache_wait;
     bool prefetch_open;
     char *audio_demuxer_name;
     char *sub_demuxer_name;

@@ -86,7 +86,6 @@ static const demuxer_desc_t *const demuxer_list[] = {
 
 struct demux_opts {
     int enable_cache;
-    bool disk_cache;
     int64_t max_bytes;
     int64_t max_bytes_bw;
     bool donate_fw;
@@ -117,7 +116,6 @@ const struct m_sub_options demux_conf = {
     .opts = (const struct m_option[]){
         {"cache", OPT_CHOICE(enable_cache,
             {"no", 0}, {"auto", -1}, {"yes", 1})},
-        {"cache-on-disk", OPT_BOOL(disk_cache)},
         {"demuxer-readahead-secs", OPT_DOUBLE(min_secs), M_RANGE(0, DBL_MAX)},
         {"demuxer-hysteresis-secs", OPT_DOUBLE(hyst_secs), M_RANGE(0, DBL_MAX)},
         {"demuxer-max-bytes", OPT_BYTE_SIZE(max_bytes),
@@ -2078,15 +2076,6 @@ static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp)
 
     record_packet(in, dp);
 
-    if (in->cache && in->opts->disk_cache) {
-        int64_t pos = demux_cache_write(in->cache, dp);
-        if (pos >= 0) {
-            demux_packet_unref_contents(dp);
-            dp->is_cached = true;
-            dp->cached_data.pos = pos;
-        }
-    }
-
     queue->correct_pos &= dp->pos >= 0 && dp->pos > queue->last_pos;
     queue->correct_dts &= dp->dts != MP_NOPTS_VALUE && dp->dts > queue->last_dts;
     queue->last_pos = dp->pos;
@@ -2510,12 +2499,6 @@ static void update_opts(struct demux_internal *in)
         in->max_bytes = 1;
         in->max_bytes_bw = 0;
         in->using_network_cache_opts = false;
-    }
-
-    if (in->seekable_cache && opts->disk_cache && !in->cache) {
-        in->cache = demux_cache_create(in->global, in->log);
-        if (!in->cache)
-            MP_ERR(in, "Failed to create file cache.\n");
     }
 
     // The filename option really decides whether recording should be active.
