@@ -64,6 +64,9 @@ check("libdl*",
 check("libm",
       fn        = lambda: check_cc(link = "-lm"))
 
+check(desc      = "-fno-math-errno",
+      fn        = lambda: check_cc(flags = "-fno-math-errno"))
+
 # Note that an important reason to try a different set of warning flags is the
 # fact that both compilers may have different bogus behavior wrt. certain
 # warning options. What is needed on one compiler may be annoying or dangerous
@@ -537,6 +540,7 @@ check("-vaapi-egl*",
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
 check("-dmabuf*",
+      desc       = "DMA-BUF",
       deps       = ["drm", "egl"],
       deps_neg   = "osx",
       sources    = "video/out/hwdec/dmabuf_interop_gl.c")
