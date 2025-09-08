@@ -113,7 +113,11 @@ check(desc      = "-fstack-protector-strong",
 
 check("osx",
       fn        = lambda: check_cc(defined = "__APPLE__") and
-                          chain(set_exe_format("macho"), True))
+                          chain(set_exe_format("macho"), True),
+      sources   = ["osdep/apple_utils.c",
+                   "osdep/language-apple.c",
+                   "osdep/path-darwin.c",
+                   "osdep/semaphore_osx.c"])
 
 check("mingw",
       fn        = lambda: check_cc(include = "stdlib.h",
