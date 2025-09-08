@@ -107,6 +107,10 @@ check("win32",
                    "osdep/windows_utils.c",
                    "osdep/win32-console-wrapper.c"])
 
+check(desc      = "-fstack-protector-strong",
+      deps_neg  = "win32",
+      fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
+
 check("osx",
       fn        = lambda: check_cc(defined = "__APPLE__") and
                           chain(set_exe_format("macho"), True))
