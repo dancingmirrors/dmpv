@@ -26,9 +26,6 @@ install_paths_info = [
     ("INCDIR",      "$(PREFIX)/include"),
     ("DATADIR",     "$(PREFIX)/share"),
     ("MANDIR",      "$(DATADIR)/man"),
-    ("DOCDIR",      "$(DATADIR)/doc/$(PROJNAME)"),
-    ("HTMLDIR",     "$(DOCDIR)"),
-    ("ZSHDIR",      "$(DATADIR)/zsh"),
     ("CONFLOADDIR", "$(CONFDIR)"),
 ]
 
