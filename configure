@@ -522,11 +522,10 @@ check("-vaapi*",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
-check("-vaapi_x11*",
+check("-vaapi-x11*",
       desc      = "VA-API (X11 support)",
       deps      = ["vaapi", "x11"],
       fn        = lambda: check_pkg_config("libva-x11 >= 0.36.0"))
-check(deps      = ["vaapi_x11", "gpl"])
 check("-vaapi-wayland*",
       desc      = "VA-API (Wayland support)",
       deps      = ["vaapi", "gl-wayland"],
@@ -538,10 +537,10 @@ check("-vaapi-drm*",
       fn        = lambda: check_pkg_config("libva-drm >= 0.36.0"))
 check("-vaapi-glx*",
       desc      = "VA-API GLX",
-      deps      = ["gpl", "vaapi_x11", "gl-x11"])
+      deps      = ["gpl", "vaapi-x11", "gl-x11"])
 check("-vaapi-x-egl*",
       desc      = "VA-API EGL on X11",
-      deps      = ["vaapi_x11", "egl-x11"])
+      deps      = ["vaapi-x11", "egl-x11"])
 check("-vaapi-egl*",
       desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
