@@ -32,6 +32,7 @@
 #include "input/cmd.h"
 #include "misc/bstr.h"
 #include "misc/dispatch.h"
+#include "misc/mp_assert.h"
 #include "misc/node.h"
 #include "misc/thread_tools.h"
 #include "common/msg.h"
@@ -550,7 +551,7 @@ void cmd_screenshot_raw(void *p)
     const enum mp_imgfmt formats[] = {IMGFMT_BGR0, IMGFMT_BGRA, IMGFMT_RGBA, IMGFMT_RGBA64};
     const char *format_names[] = {"bgr0", "bgra", "rgba", "rgba64"};
     int idx = cmd->args[1].v.i;
-    assert(idx >= 0 && idx <= 3);
+    mp_assert(idx >= 0 && idx <= 3);
 
     bool high_depth = formats[idx] == IMGFMT_RGBA64;
     struct mp_image *img = screenshot_get_rgb(mpctx, cmd->args[0].v.i,

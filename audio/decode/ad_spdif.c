@@ -32,6 +32,7 @@
 #include "demux/stheader.h"
 #include "filters/f_decoder_wrapper.h"
 #include "filters/filter_internal.h"
+#include "misc/mp_assert.h"
 #include "options/options.h"
 
 #define OUTBUF_SIZE 65536
@@ -310,7 +311,7 @@ static void process(struct mp_filter *da)
     if (!spdif_ctx->lavf_ctx) {
         if (init_filter(da) < 0)
             goto done;
-        assert(spdif_ctx->avpkt);
+        mp_assert(spdif_ctx->avpkt);
     }
 
     spdif_ctx->out_buffer_len  = 0;

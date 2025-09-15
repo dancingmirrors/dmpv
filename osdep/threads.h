@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <inttypes.h>
 
+#include "misc/mp_assert.h"
+
 // Helper to reduce boiler plate.
 int mpthread_mutex_init_recursive(pthread_mutex_t *mutex);
 
@@ -74,7 +76,7 @@ enum mp_mutex_type {
     mp_mutex_init_type(mutex, MP_MUTEX_NORMAL)
 
 #define mp_mutex_init_type(mutex, mtype) \
-    assert(!mp_mutex_init_type_internal(mutex, mtype))
+    mp_assert(!mp_mutex_init_type_internal(mutex, mtype))
 
 #include "threads-posix.h"
 
