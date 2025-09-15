@@ -45,7 +45,7 @@
 typedef intptr_t EGLAttrib;
 #endif
 
-// Not every EGL provider (like RPI) has these.
+// Not every EGL provider has these.
 #ifndef EGL_CONTEXT_FLAGS_KHR
 #define EGL_CONTEXT_FLAGS_KHR EGL_NONE
 #endif

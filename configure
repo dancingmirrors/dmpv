@@ -596,13 +596,6 @@ check("-d3d11*",
                    "video/out/d3d11/ra_d3d11.c",
                    "video/out/gpu/d3d11_helpers.c"])
 
-check("-rpi*",
-      desc      = "Raspberry Pi (brcmegl)",
-      fn        = lambda: check_pkg_config("brcmegl >= 1.0.0"),
-      sources   = ["video/out/opengl/context_rpi.c",
-                   "video/out/opengl/hwdec_rpi.c",
-                   "video/out/vo_rpi.c"])
-
 check("-ios-gl*",
       desc      = "iOS OpenGL ES hardware decoding interop support",
       fn        = lambda: check_cc(include = "OpenGLES/ES3/glext.h",
@@ -618,7 +611,7 @@ check("-egl-android*",
 check("-gl*",
       desc      = "OpenGL context support",
       deps_any  = ["gl-cocoa", "gl-x11", "egl-x11", "egl-drm", "egl-android",
-                   "gl-win32", "gl-wayland", "rpi"],
+                   "gl-win32", "gl-wayland"],
       required  = "No OpenGL video output found or enabled. " +
                   "Aborting. If you really mean to compile without OpenGL " +
                   "video outputs use --disable-gl.",
@@ -630,7 +623,7 @@ check("-gl*",
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps_any  = ["egl-x11", "rpi", "gl-wayland", "egl-drm",
+      deps_any  = ["egl-x11", "gl-wayland", "egl-drm",
                    "egl-angle-win32", "egl-android"],
       sources   = "video/out/opengl/egl_helpers.c"),
 
@@ -667,14 +660,6 @@ check("-cuda-interop-gl",
       desc      = "CUDA GL interop",
       deps      = ["cuda-interop", "gl"],
       sources   = "video/out/hwdec/hwdec_cuda_gl.c")
-
-check("-rpi-mmal*",
-      desc      = "Raspberry Pi MMAL hwaccel",
-      deps      = "rpi",
-      fn        = lambda: check_pkg_config("mmal") or
-                          check_pkg_config("/opt/vc/lib/pkgconfig/mmal.pc"),
-      sources   = ["video/out/opengl/hwdec_rpi.c",
-                   "video/out/vo_rpi.c"])
 
 check(deps      = ["d3d-hwaccel", "egl-angle"],
       sources   = ["video/out/opengl/hwdec_d3d11egl.c"])

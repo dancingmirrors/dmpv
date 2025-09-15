@@ -275,7 +275,6 @@ enum mp_imgfmt {
     // plane 1: slice index casted to pointer
     IMGFMT_D3D11,
     IMGFMT_DXVA2,           // IDirect3DSurface9 (NV12/P010/P016)
-    IMGFMT_MMAL,            // MMAL_BUFFER_HEADER_T
     IMGFMT_MEDIACODEC,      // AVMediaCodecBuffer
     IMGFMT_CUDA,            // CUDA Buffer
 

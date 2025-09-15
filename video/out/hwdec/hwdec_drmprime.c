@@ -61,18 +61,6 @@ const static dmabuf_interop_init interop_inits[] = {
     NULL
 };
 
-/**
- * Due to the fact that Raspberry Pi support only exists in forked ffmpegs and
- * also requires custom pixel formats, we need some way to work with those formats
- * without introducing any build time dependencies. We do this by looking up the
- * pixel formats by name. As rpi is an important target platform for this hwdec
- * we don't really have the luxury of ignoring these forks.
- */
-const static char *forked_pix_fmt_names[] = {
-    "rpi4_8",
-    "rpi4_10",
-};
-
 static int init(struct ra_hwdec *hw)
 {
     struct priv_owner *p = hw->priv;
@@ -130,14 +118,6 @@ static int init(struct ra_hwdec *hw)
     MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_NV16));
     MP_TARRAY_APPEND(p, p->formats, num_formats, IMGFMT_P010);
     MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_P210));
-
-    for (int i = 0; i < MP_ARRAY_SIZE(forked_pix_fmt_names); i++) {
-        enum AVPixelFormat fmt = av_get_pix_fmt(forked_pix_fmt_names[i]);
-        if (fmt != AV_PIX_FMT_NONE) {
-            MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(fmt));
-        }
-    }
-
     MP_TARRAY_APPEND(p, p->formats, num_formats, 0); // terminate it
 
     p->hwctx.hw_imgfmt = IMGFMT_DRMPRIME;
@@ -188,17 +168,7 @@ static int mapper_init(struct ra_hwdec_mapper *mapper)
     struct dmabuf_interop_priv *p = mapper->priv;
 
     mapper->dst_params = mapper->src_params;
-
-    /*
-     * rpi4_8 and rpi4_10 function identically to NV12. These two pixel
-     * formats however are not defined in upstream ffmpeg so a string
-     * comparison is used to identify them instead of a mpv IMGFMT.
-     */
-    const char* fmt_name = mp_imgfmt_to_name(mapper->src_params.hw_subfmt);
-    if (strcmp(fmt_name, "rpi4_8") == 0 || strcmp(fmt_name, "rpi4_10") == 0)
-        mapper->dst_params.imgfmt = IMGFMT_NV12;
-    else
-        mapper->dst_params.imgfmt = mapper->src_params.hw_subfmt;
+    mapper->dst_params.imgfmt = mapper->src_params.hw_subfmt;
     mapper->dst_params.hw_subfmt = 0;
 
     struct ra_imgfmt_desc desc = {0};
