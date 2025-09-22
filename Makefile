@@ -61,7 +61,6 @@ $(BUILD)/player/lua.o: $(BUILD)/generated/player/lua/defaults.lua.inc \
                        $(BUILD)/generated/player/lua/360-sbs.lua.inc \
                        $(BUILD)/generated/player/lua/360-sg.lua.inc \
                        $(BUILD)/generated/player/lua/positioning.lua.inc \
-                       $(BUILD)/generated/player/lua/context_menu.lua.inc \
 
 $(BUILD)/osdep/macosx_application.m $(BUILD)/video/out/cocoa_common.m: \
     $(BUILD)/generated/TOOLS/osxbundle/mpv.app/Contents/Resources/icon.icns.inc

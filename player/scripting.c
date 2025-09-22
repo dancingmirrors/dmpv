@@ -255,7 +255,6 @@ void mp_load_builtin_scripts(struct MPContext *mpctx)
     load_builtin_script(mpctx, 1, mpctx->opts->lua_load_360_sbs, "@360-sbs.lua");
     load_builtin_script(mpctx, 2, mpctx->opts->lua_load_360_sg, "@360-sg.lua");
     load_builtin_script(mpctx, 3, mpctx->opts->lua_load_positioning, "@positioning.lua");
-    load_builtin_script(mpctx, 4, mpctx->opts->lua_load_context_menu, "@context_menu.lua");
 }
 
 bool mp_load_scripts(struct MPContext *mpctx)
