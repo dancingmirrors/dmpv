@@ -669,6 +669,10 @@ check(deps      = ["d3d9-hwaccel", "d3d11"],
 check(deps      = ["d3d9-hwaccel", "egl-angle"],
       sources   = "video/out/opengl/hwdec_dxva2egl.c")
 
+check("-present-sync*",
+     deps_any   = ["drm", "x11", "wayland"],
+     sources    = "video/out/present_sync.c")
+
 # Define the appropriate path to your device(s) in the respective
 # stream/stream_*.c file(s) if necessary.
 check("-libbluray*",
@@ -855,7 +859,6 @@ add_sources(
     "video/out/gpu/video_shaders.c",
     "video/out/libmpv_sw.c",
     "video/out/opengl/libmpv_gl.c",
-    "video/out/present_sync.c",
     "video/out/vo.c",
     "video/out/vo_gpu.c",
     "video/out/vo_image.c",
