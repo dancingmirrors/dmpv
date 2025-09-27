@@ -38,6 +38,7 @@
 #include "generated/wayland/idle-inhibit-unstable-v1.h"
 #include "generated/wayland/linux-dmabuf-unstable-v1.h"
 #include "generated/wayland/presentation-time.h"
+#include "generated/wayland/xdg-activation-v1.h"
 #include "generated/wayland/xdg-decoration-unstable-v1.h"
 #include "generated/wayland/xdg-shell.h"
 #include "generated/wayland/viewporter.h"
@@ -1347,6 +1348,11 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
         wl->xdg_activation = wl_registry_bind(reg, id, &xdg_activation_v1_interface, ver);
     }
 
+    if (!strcmp(interface, xdg_activation_v1_interface.name) && found++) {
+        ver = 1;
+        wl->xdg_activation = wl_registry_bind(reg, id, &xdg_activation_v1_interface, ver);
+    }
+
     if (!strcmp(interface, zxdg_decoration_manager_v1_interface.name) && found++) {
         wl->xdg_decoration_manager = wl_registry_bind(reg, id, &zxdg_decoration_manager_v1_interface, 1);
     }
@@ -2212,6 +2218,13 @@ bool vo_wayland_init(struct vo *vo)
             xdg_activation_v1_interface.name);
     }
 
+    if (wl->xdg_activation) {
+        xdg_activate(wl);
+    } else {
+        MP_VERBOSE(wl, "Compositor doesn't support the %s protocol!\n",
+            xdg_activation_v1_interface.name);
+    }
+
     if (wl->subcompositor) {
         wl->osd_subsurface = wl_subcompositor_get_subsurface(wl->subcompositor, wl->osd_surface, wl->video_surface);
         wl->video_subsurface = wl_subcompositor_get_subsurface(wl->subcompositor, wl->video_surface, wl->surface);
@@ -2450,6 +2463,9 @@ void vo_wayland_uninit(struct vo *vo)
 
     if (wl->wm_base)
         xdg_wm_base_destroy(wl->wm_base);
+
+    if (wl->xdg_activation)
+        xdg_activation_v1_destroy(wl->xdg_activation);
 
     if (wl->xdg_activation)
         xdg_activation_v1_destroy(wl->xdg_activation);
