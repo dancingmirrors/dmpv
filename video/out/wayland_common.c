@@ -2467,9 +2467,6 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->xdg_activation)
         xdg_activation_v1_destroy(wl->xdg_activation);
 
-    if (wl->xdg_activation)
-        xdg_activation_v1_destroy(wl->xdg_activation);
-
     if (wl->xdg_decoration_manager)
         zxdg_decoration_manager_v1_destroy(wl->xdg_decoration_manager);
 
