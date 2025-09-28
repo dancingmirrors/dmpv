@@ -1348,11 +1348,6 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
         wl->xdg_activation = wl_registry_bind(reg, id, &xdg_activation_v1_interface, ver);
     }
 
-    if (!strcmp(interface, xdg_activation_v1_interface.name) && found++) {
-        ver = 1;
-        wl->xdg_activation = wl_registry_bind(reg, id, &xdg_activation_v1_interface, ver);
-    }
-
     if (!strcmp(interface, zxdg_decoration_manager_v1_interface.name) && found++) {
         wl->xdg_decoration_manager = wl_registry_bind(reg, id, &zxdg_decoration_manager_v1_interface, 1);
     }
