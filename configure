@@ -444,6 +444,7 @@ check("-x11*",
                    "video/out/x11_common.c"])
 
 # TODO: the waf check is much more complicated
+# EGL/egl.h
 check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl"))
@@ -673,8 +674,8 @@ check(deps      = ["d3d9-hwaccel", "egl-angle"],
       sources   = "video/out/opengl/hwdec_dxva2egl.c")
 
 check("-present-sync*",
-     deps_any   = ["drm", "x11", "wayland"],
-     sources    = "video/out/present_sync.c")
+      deps_any   = ["drm", "x11", "wayland"],
+      sources    = "video/out/present_sync.c")
 
 # Define the appropriate path to your device(s) in the respective
 # stream/stream_*.c file(s) if necessary.
