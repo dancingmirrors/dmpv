@@ -78,6 +78,8 @@ enum mp_mutex_type {
 #define mp_mutex_init_type(mutex, mtype) \
     mp_assert(!mp_mutex_init_type_internal(mutex, mtype))
 
+#ifndef _WIN32
 #include "threads-posix.h"
+#endif
 
 #endif

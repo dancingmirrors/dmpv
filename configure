@@ -76,7 +76,9 @@ check(desc      = "extra GCC warnings",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wmissing-prototypes", "-Wshadow",
-                        "-Wparentheses", "-Wpointer-arith"]))
+                        "-Wparentheses", "-Wpointer-arith",
+                        "-Wno-stringop-overflow",
+                        "-Wno-stringop-truncation"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
@@ -88,8 +90,7 @@ check(desc      = "extra clang warnings",
 
 check("-usan",
       desc      = "undefined sanitizer",
-      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []),
-      required  = "Required.")
+      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []))
 
 check("win32",
       fn        = lambda: check_cc(defined = "_WIN32",
@@ -125,6 +126,7 @@ check("mingw",
 check("posix*",
       fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
+      deps_neg  = "mingw",
       sources   = ["osdep/language-posix.c",
                    "osdep/polldev.c",
                    "sub/filter_regex.c",
@@ -159,7 +161,7 @@ check("win32-desktop*",
       deps_neg  = "uwp",
       fn        = lambda: check_cc(link = ["-lwinmm", "-lgdi32", "-lole32",
                                            "-luuid", "-lavrt", "-ldwmapi",
-                                           "-lversion"]),
+                                           "-lversion", "-luxtheme"]),
       sources   = ["osdep/path-win.c",
                    "video/out/w32_common.c",
                    "video/out/win32/displayconfig.c",
@@ -200,7 +202,7 @@ check("atomics",
 check("freebsd*",
       desc      = "FreeBSD",
       fn        = lambda: chain(check_cc(defined = "__FreeBSD__"),
-                  add_cflags("-DLIBICONV_PLUG"), True))
+                  add_cflags("-DLIBICONV_PLUG")))
 check("iconv*",
       fn        = lambda: check_cc(include = "iconv.h", link = [],
                                    expr = "iconv_open(0, 0);") or
@@ -362,6 +364,7 @@ check("-audiounit*",
                    "audio/out/ao_coreaudio_utils.c"])
 check("-wasapi*",
       deps      = "win32",
+      fn        = lambda: check_cc(link = "-lksuser"),
       sources   = ["audio/out/ao_wasapi.c",
                    "audio/out/ao_wasapi_changenotify.c",
                    "audio/out/ao_wasapi_utils.c"])
@@ -559,7 +562,7 @@ check("-jpeg*",
                                           link = "-ljpeg")))
 
 check("-direct3d*",
-      desc      = "Ancient D3D9 VO",
+      desc      = "D3D9 VO",
       deps      = ["win32-desktop", "gpl"],
       sources   = "video/out/vo_direct3d.c")
 
@@ -701,6 +704,12 @@ check("-macos-cocoa-cb*",
       desc      = "macOS opengl-cb backend",
       deps      = "cocoa")
 
+check("-vo-gpu*",
+      # FIXME
+      desc      = "GPU VO",
+      deps_neg  = "win32",
+      sources   = ["video/out/vo_gpu.c", "video/filter/vf_gpu.c"])
+
 add_sources(
     "audio/aframe.c",
     "audio/chmap.c",
@@ -830,7 +839,6 @@ add_sources(
     "video/decode/vd_lavc.c",
     "video/filter/refqueue.c",
     "video/filter/vf_format.c",
-    "video/filter/vf_gpu.c",
     "video/filter/vf_sub.c",
     "video/fmt-conversion.c",
     "video/hwdec.c",
@@ -860,7 +868,6 @@ add_sources(
     "video/out/libmpv_sw.c",
     "video/out/opengl/libmpv_gl.c",
     "video/out/vo.c",
-    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_libmpv.c",
