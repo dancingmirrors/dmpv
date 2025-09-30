@@ -92,6 +92,10 @@ check("-usan",
       desc      = "undefined sanitizer",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []))
 
+check("-git*",
+      required  = "Required.",
+      fn        = lambda: check_program("GIT"))
+
 check("win32",
       fn        = lambda: check_cc(defined = "_WIN32",
                         flags = ["-D_WIN32_WINNT=0x0602", "-DUNICODE", "-DCOBJMACROS",

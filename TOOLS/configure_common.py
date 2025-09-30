@@ -15,6 +15,7 @@ programs_info = [
     ("PKG_CONFIG",  "pkg-config"),
     ("WINDRES",     "windres"),
     ("WAYSCAN",     "wayland-scanner"),
+    ("GIT",         "git"),
 ]
 
 install_paths_info = [
