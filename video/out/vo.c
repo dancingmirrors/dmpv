@@ -61,10 +61,7 @@ extern const struct vo_driver video_out_lavc;
 
 static const struct vo_driver *const video_out_drivers[] =
 {
-// FIXME
-#if HAVE_VO_GPU
     &video_out_gpu,
-#endif
 #if HAVE_VAAPI_WAYLAND
     &video_out_dmabuf_wayland,
 #endif

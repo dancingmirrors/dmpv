@@ -447,11 +447,10 @@ check("-x11*",
       sources   = ["video/out/vo_x11.c",
                    "video/out/x11_common.c"])
 
-# TODO: the waf check is much more complicated
-# EGL/egl.h
 check("-egl*",
       desc      = "EGL 1.4",
-      fn        = lambda: check_pkg_config("egl"))
+      fn        = lambda: check_pkg_config("egl"),
+      sources   = "video/filter/vf_gpu.c")
 
 check("-gl-cocoa*",
       # TODO
@@ -709,12 +708,6 @@ check("-macos-cocoa-cb*",
       desc      = "macOS opengl-cb backend",
       deps      = "cocoa")
 
-check("-vo-gpu*",
-      # FIXME
-      desc      = "GPU VO",
-      deps_neg  = "win32",
-      sources   = ["video/out/vo_gpu.c", "video/filter/vf_gpu.c"])
-
 add_sources(
     "audio/aframe.c",
     "audio/chmap.c",
@@ -873,6 +866,7 @@ add_sources(
     "video/out/libmpv_sw.c",
     "video/out/opengl/libmpv_gl.c",
     "video/out/vo.c",
+    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_libmpv.c",
