@@ -73,7 +73,7 @@ const struct m_sub_options d3d11_conf = {
         {0}
     },
     .defaults = &(const struct d3d11_opts) {
-        .feature_level = D3D_FEATURE_LEVEL_12_1,
+        .feature_level = D3D_FEATURE_LEVEL_11_1,
         .warp = -1,
         .flip = true,
         .sync_interval = 1,
