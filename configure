@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# Missing:
-#- OS X testing
-
 import os
 from TOOLS.configure_common import *
 
@@ -236,11 +233,6 @@ check("glibc-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = "pthread.h",
                     expr = 'pthread_setname_np(pthread_self(), "ducks");'))
-check("osx-thread-name*",
-      deps      = "pthreads",
-      fn        = lambda: check_cc(include = "pthread.h",
-                    expr = 'pthread_setname_np("ducks");'),
-      sources   = "osdep/semaphore_osx.c")
 check("bsd-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],

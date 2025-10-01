@@ -119,8 +119,6 @@ static inline void mp_thread_set_name(const char *name)
     }
 #elif HAVE_BSD_THREAD_NAME
     pthread_set_name_np(pthread_self(), name);
-#elif HAVE_OSX_THREAD_NAME
-    pthread_setname_np(name);
 #endif
 }
 
