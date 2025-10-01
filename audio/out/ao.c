@@ -36,8 +36,6 @@
 #include "common/global.h"
 
 extern const struct ao_driver audio_out_audiotrack;
-extern const struct ao_driver audio_out_coreaudio;
-extern const struct ao_driver audio_out_coreaudio_exclusive;
 extern const struct ao_driver audio_out_alsa;
 extern const struct ao_driver audio_out_wasapi;
 extern const struct ao_driver audio_out_oss;
@@ -50,10 +48,6 @@ extern const struct ao_driver audio_out_lavc;
 static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_ANDROID
     &audio_out_audiotrack,
-#endif
-#if HAVE_COREAUDIO
-    &audio_out_coreaudio,
-    &audio_out_coreaudio_exclusive,
 #endif
 #if HAVE_ALSA
     &audio_out_alsa,
@@ -187,7 +181,6 @@ static struct ao *ao_init(bool probing, struct mpv_global *global,
 
     int r = ao->driver->init(ao);
     if (r < 0) {
-        // Silly exception for coreaudio spdif redirection
         if (ao->redirect) {
             char redirect[80], rdevice[80];
             snprintf(redirect, sizeof(redirect), "%s", ao->redirect);

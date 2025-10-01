@@ -350,14 +350,6 @@ check("-alsa*",
       desc      = "ALSA audio output",
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
       sources   = "audio/out/ao_alsa.c")
-check("-coreaudio*",
-      # TODO: missing frameworks: "CoreFoundation", "CoreAudio", "AudioUnit", "AudioToolbox"
-      deps      = "osx",
-      sources   = ["audio/out/ao_coreaudio.c",
-                   "audio/out/ao_coreaudio_chmap.c",
-                   "audio/out/ao_coreaudio_exclusive.c",
-                   "audio/out/ao_coreaudio_properties.c",
-                   "audio/out/ao_coreaudio_utils.c"])
 check("-wasapi*",
       deps      = "win32",
       fn        = lambda: check_cc(link = "-lksuser"),
