@@ -36,16 +36,6 @@
 #include "osdep/io.h"
 #include "osdep/terminal.h"
 
-#if HAVE_UWP
-// Missing from MinGW headers.
-#include <windows.h>
-WINBASEAPI UINT WINAPI GetTempFileNameW(LPCWSTR lpPathName, LPCWSTR lpPrefixString,
-                                        UINT uUnique, LPWSTR lpTempFileName);
-WINBASEAPI DWORD WINAPI GetCurrentDirectoryW(DWORD nBufferLength, LPWSTR lpBuffer);
-WINBASEAPI DWORD WINAPI GetFullPathNameW(LPCWSTR lpFileName, DWORD nBufferLength,
-                                         LPWSTR lpBuffer, LPWSTR *lpFilePart);
-#endif
-
 // Set the CLOEXEC flag on the given fd.
 // On error, false is returned (and errno set).
 bool mp_set_cloexec(int fd)
@@ -198,16 +188,8 @@ static bool get_file_ids_win8(HANDLE h, dev_t *dev, ino_t *ino)
     return true;
 }
 
-#if HAVE_UWP
 static bool get_file_ids(HANDLE h, dev_t *dev, ino_t *ino)
 {
-    return false;
-}
-#else
-static bool get_file_ids(HANDLE h, dev_t *dev, ino_t *ino)
-{
-    // GetFileInformationByHandle works on FAT partitions and Windows 7, but
-    // doesn't work in UWP and can produce non-unique IDs on ReFS
     BY_HANDLE_FILE_INFORMATION bhfi;
     if (!GetFileInformationByHandle(h, &bhfi))
         return false;
@@ -215,7 +197,6 @@ static bool get_file_ids(HANDLE h, dev_t *dev, ino_t *ino)
     *ino = ((ino_t)bhfi.nFileIndexHigh << 32) | bhfi.nFileIndexLow;
     return true;
 }
-#endif
 
 // Like fstat(), but with a Windows HANDLE
 static int hstat(HANDLE h, struct mp_stat *buf)
@@ -302,12 +283,6 @@ int mp_fstat(int fd, struct mp_stat *buf)
     return hstat(h, buf);
 }
 
-#if HAVE_UWP
-static int mp_vfprintf(FILE *stream, const char *format, va_list args)
-{
-    return vfprintf(stream, format, args);
-}
-#else
 static int mp_check_console(HANDLE wstream)
 {
     if (wstream != INVALID_HANDLE_VALUE) {
@@ -359,7 +334,6 @@ static int mp_vfprintf(FILE *stream, const char *format, va_list args)
 
     return done;
 }
-#endif
 
 int mp_fprintf(FILE *stream, const char *format, ...)
 {
@@ -660,7 +634,6 @@ static void free_env(void)
 // at runtime, and converting/allocating them in advance is ok.
 static void init_getenv(void)
 {
-#if !HAVE_UWP
     wchar_t *wenv = GetEnvironmentStringsW();
     if (!wenv)
         return;
@@ -677,7 +650,6 @@ static void init_getenv(void)
     MP_TARRAY_APPEND(utf8_environ_ctx, utf8_environ, num_env, NULL);
     // Avoid showing up in leak detectors etc.
     atexit(free_env);
-#endif
 }
 
 char *mp_getenv(const char *name)
@@ -711,25 +683,6 @@ off_t mp_lseek(int fd, off_t offset, int whence)
     return _lseeki64(fd, offset, whence);
 }
 
-#if HAVE_UWP
-void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-{
-    errno = ENOSYS;
-    return MAP_FAILED;
-}
-
-int munmap(void *addr, size_t length)
-{
-    errno = ENOSYS;
-    return -1;
-}
-
-int msync(void *addr, size_t length, int flags)
-{
-    errno = ENOSYS;
-    return -1;
-}
-#else
 // Limited mmap() wrapper, inspired by:
 // http://code.google.com/p/mman-win32/source/browse/trunk/mman.c
 
@@ -787,7 +740,6 @@ int msync(void *addr, size_t length, int flags)
     FlushViewOfFile(addr, length);
     return 0;
 }
-#endif
 
 locale_t newlocale(int category, const char *locale, locale_t base)
 {

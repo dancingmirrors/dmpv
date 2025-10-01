@@ -21,13 +21,6 @@
 #include "osdep/io.h"
 #include "libmpv/mpv_talloc.h"
 
-#if HAVE_UWP
-// Missing from MinGW headers.
-WINBASEAPI HANDLE WINAPI FindFirstFileExW(LPCWSTR lpFileName,
-    FINDEX_INFO_LEVELS fInfoLevelId, LPVOID lpFindFileData,
-    FINDEX_SEARCH_OPS fSearchOp, LPVOID lpSearchFilter, DWORD dwAdditionalFlags);
-#endif
-
 static wchar_t *talloc_wcsdup(void *ctx, const wchar_t *wcs)
 {
     size_t len = (wcslen(wcs) + 1) * sizeof(wchar_t);

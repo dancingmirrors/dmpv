@@ -33,23 +33,19 @@ static int hires_res = 1;
 
 int mp_start_hires_timers(int wait_ms)
 {
-#if !HAVE_UWP
     // policy: request hires_res ms resolution if wait < hires_max ms
     if (wait_ms > 0 && wait_ms <= hires_max &&
         timeBeginPeriod(hires_res) == TIMERR_NOERROR)
     {
         return hires_res;
     }
-#endif
     return 0;
 }
 
 void mp_end_hires_timers(int res_ms)
 {
-#if !HAVE_UWP
     if (res_ms > 0)
         timeEndPeriod(res_ms);
-#endif
 }
 
 void mp_sleep_ns(int64_t ns)
@@ -82,7 +78,6 @@ void mp_raw_time_init(void)
 {
     QueryPerformanceFrequency(&perf_freq);
 
-#if !HAVE_UWP
     // allow (undocumented) control of all the High Res Timers parameters,
     // for easier experimentation and diagnostic of bug reports.
     const char *v;
@@ -113,5 +108,4 @@ void mp_raw_time_init(void)
         hires_max = 0;
         timeBeginPeriod(hires_res);
     }
-#endif
 }

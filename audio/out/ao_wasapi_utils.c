@@ -689,13 +689,11 @@ static HRESULT fix_format(struct ao *ao, bool align_hack)
     init_session_display(state, ao->client_name);
     init_volume_control(state);
 
-#if !HAVE_UWP
     state->hTask = AvSetMmThreadCharacteristics(L"Pro Audio", &(DWORD){0});
     if (!state->hTask) {
         MP_WARN(state, "Failed to set AV thread to Pro Audio: %s\n",
                 mp_LastError_to_str());
     }
-#endif
 
     return S_OK;
 exit_label:
@@ -966,38 +964,6 @@ retry:
                      mp_HRESULT_to_str(hr));
             return false;
         }
-    } else {
-        MP_VERBOSE(ao, "Trying UWP wrapper.\n");
-
-        HRESULT (*wuCreateDefaultAudioRenderer)(IUnknown **res) = NULL;
-        HANDLE lib = LoadLibraryW(L"wasapiuwp2.dll");
-        if (!lib) {
-            MP_ERR(ao, "Wrapper not found: %d\n", (int)GetLastError());
-            return false;
-        }
-
-        wuCreateDefaultAudioRenderer =
-            (void*)GetProcAddress(lib, "wuCreateDefaultAudioRenderer");
-        if (!wuCreateDefaultAudioRenderer) {
-            MP_ERR(ao, "Function not found.\n");
-            return false;
-        }
-        IUnknown *res = NULL;
-        hr = wuCreateDefaultAudioRenderer(&res);
-        MP_VERBOSE(ao, "Device: %s %p\n", mp_HRESULT_to_str(hr), res);
-        if (FAILED(hr)) {
-            MP_FATAL(ao, "Error activating device: %s\n",
-                     mp_HRESULT_to_str(hr));
-            return false;
-        }
-        hr = IUnknown_QueryInterface(res, &IID_IAudioClient,
-                                     (void **)&state->pAudioClient);
-        IUnknown_Release(res);
-        if (FAILED(hr)) {
-            MP_FATAL(ao, "Failed to get UWP audio client: %s\n",
-                     mp_HRESULT_to_str(hr));
-            return false;
-        }
     }
 
     // In the event of an align hack, we've already done this.
@@ -1057,8 +1023,7 @@ void wasapi_thread_uninit(struct ao *ao)
     SAFE_RELEASE(state->pSessionControl);
     SAFE_RELEASE(state->pAudioClient);
     SAFE_RELEASE(state->pDevice);
-#if !HAVE_UWP
     SAFE_DESTROY(state->hTask, AvRevertMmThreadCharacteristics(state->hTask));
-#endif
+
     MP_DBG(ao, "Thread uninit done\n");
 }

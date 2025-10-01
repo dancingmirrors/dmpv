@@ -291,13 +291,11 @@ static int init(struct ao *ao)
 
     state->opt_exclusive |= ao->init_flags & AO_INIT_EXCLUSIVE;
 
-#if !HAVE_UWP
     state->deviceID = wasapi_find_deviceID(ao);
     if (!state->deviceID) {
         uninit(ao);
         return -1;
     }
-#endif
 
     if (state->deviceID)
         wasapi_change_init(ao, false);

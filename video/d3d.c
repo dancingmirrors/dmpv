@@ -43,7 +43,6 @@ PFN_D3D11_CREATE_DEVICE d3d11_D3D11CreateDevice;
 
 static pthread_once_t d3d_load_once = PTHREAD_ONCE_INIT;
 
-#if !HAVE_UWP
 static void d3d_do_load(void)
 {
     d3d11_dll = LoadLibrary(L"d3d11.dll");
@@ -55,13 +54,6 @@ static void d3d_do_load(void)
             (void *)GetProcAddress(d3d11_dll, "D3D11CreateDevice");
     }
 }
-#else
-static void d3d_do_load(void)
-{
-
-    d3d11_D3D11CreateDevice = D3D11CreateDevice;
-}
-#endif
 
 void d3d_load_dlls(void)
 {
