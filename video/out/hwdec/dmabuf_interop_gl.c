@@ -17,7 +17,6 @@
 
 #include "dmabuf_interop.h"
 
-#include <assert.h>
 #include <drm_fourcc.h>
 #include <EGL/egl.h>
 #include "misc/mp_assert.h"
