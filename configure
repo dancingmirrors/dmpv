@@ -203,10 +203,9 @@ check("atomics",
       deps_any  = ["stdatomic", "gnuc"],
       required  = "Required.")
 
-check("freebsd*",
-      desc      = "FreeBSD",
-      fn        = lambda: chain(check_cc(defined = "__FreeBSD__"),
-                  add_cflags("-DLIBICONV_PLUG")))
+check("-libiconv-plug*",
+      desc      = "-DLIBICONV_PLUG",
+      fn        = lambda: check_cc(flags = "-DLIBICONV_PLUG"))
 check("iconv*",
       fn        = lambda: check_cc(include = "iconv.h", link = [],
                                    expr = "iconv_open(0, 0);") or
