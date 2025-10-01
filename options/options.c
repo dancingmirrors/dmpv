@@ -804,11 +804,6 @@ static const m_option_t mp_opts[] = {
         {"no", -1}, {"auto", 0}, {"windowed", 1}, {"yes", 2})},
 #endif
 
-#if HAVE_CUDA_HWACCEL
-    {"cuda-decode-device", OPT_CHOICE(cuda_device, {"auto", -1}),
-        M_RANGE(0, INT_MAX)},
-#endif
-
 #if HAVE_VAAPI
     {"vaapi", OPT_SUBSTRUCT(vaapi_opts, vaapi_conf)},
 #endif
@@ -903,8 +898,6 @@ static const struct MPOpts mp_default_opts = {
         "Uploader", "Channel_URL",
         NULL
     },
-
-    .cuda_device = -1,
 
     .watch_later_options = (char *[]){
         "start",

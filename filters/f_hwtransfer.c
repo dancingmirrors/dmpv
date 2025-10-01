@@ -187,14 +187,6 @@ static void process(struct mp_filter *f)
                 mp_imgfmt_to_name(p->last_hw_output_fmt));
     }
 
-    if (!mp_update_av_hw_frames_pool(&p->hw_pool, p->av_device_ctx, p->hw_imgfmt,
-                                     p->last_hw_output_fmt, src->w, src->h,
-                                     src->imgfmt == IMGFMT_CUDA))
-    {
-        MP_ERR(f, "failed to create frame pool\n");
-        goto error;
-    }
-
     struct mp_image *dst;
     bool map_images = false;
     for (int n = 0; n < p->num_map_fmts; n++) {

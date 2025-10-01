@@ -242,8 +242,6 @@ const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"dxva2",           HWDEC_FLAG_AUTO},
     {"d3d11va-copy",    HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"dxva2-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"nvdec",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"nvdec-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vdpau",           HWDEC_FLAG_AUTO},
@@ -342,11 +340,6 @@ static void add_all_hwdec_methods(struct hwdec_info **infos, int *num_infos)
 
                 const char *name = av_hwdevice_get_type_name(cfg->device_type);
                 mp_assert(name); // API violation by libavcodec
-
-                // nvdec hwaccels and the cuvid full decoder clash with their
-                // naming, so fix it here; we also prefer nvdec for the hwaccel.
-                if (strcmp(name, "cuda") == 0 && !wrapper)
-                    name = "nvdec";
 
                 snprintf(info.method_name, sizeof(info.method_name), "%s", name);
 
@@ -715,13 +708,6 @@ static void init_avctx(struct mp_filter *vd)
             avctx->hwaccel_flags |= AV_HWACCEL_FLAG_ALLOW_PROFILE_MISMATCH;
 
 #ifdef AV_HWACCEL_FLAG_UNSAFE_OUTPUT
-        /*
-         * This flag primarily exists for nvdec which has a very limited
-         * output frame pool, which can get exhausted if consumers don't
-         * release frames quickly. However, as an implementation
-         * requirement, we have to copy the frames anyway, so we don't
-         * need this extra implicit copy.
-         */
         avctx->hwaccel_flags |= AV_HWACCEL_FLAG_UNSAFE_OUTPUT;
 #endif
 
@@ -1209,13 +1195,6 @@ static int decode_frame(struct mp_filter *vd)
     if (!mpi) {
         av_frame_unref(ctx->pic);
         return ret;
-    }
-
-    if (mpi->imgfmt == IMGFMT_CUDA && !mpi->planes[0]) {
-        MP_ERR(vd, "CUDA frame without data. This is a FFmpeg bug.\n");
-        talloc_free(mpi);
-        handle_err(vd);
-        return AVERROR_BUG;
     }
 
     ctx->hwdec_fail_count = 0;

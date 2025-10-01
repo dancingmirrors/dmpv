@@ -33,7 +33,6 @@ extern const struct ra_hwdec_driver ra_hwdec_d3d11egl;
 extern const struct ra_hwdec_driver ra_hwdec_dxva2gldx;
 extern const struct ra_hwdec_driver ra_hwdec_d3d11va;
 extern const struct ra_hwdec_driver ra_hwdec_dxva2dxgi;
-extern const struct ra_hwdec_driver ra_hwdec_cuda;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime_overlay;
 
@@ -57,9 +56,6 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #endif
 #if HAVE_GL_DXINTEROP_D3D9
     &ra_hwdec_dxva2gldx,
-#endif
-#if HAVE_CUDA_INTEROP
-    &ra_hwdec_cuda,
 #endif
 #if HAVE_VDPAU_GL_X11
     &ra_hwdec_vdpau,

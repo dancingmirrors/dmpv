@@ -553,19 +553,6 @@ check("-gl-dxinterop-d3d9*",
       deps      = ["gl-dxinterop", "d3d9-hwaccel"],
       sources   = "video/out/opengl/hwdec_dxva2gldx.c")
 
-check("-cuda-hwaccel*",
-      desc      = "CUDA ffnvcodec",
-      fn        = lambda: check_pkg_config("ffnvcodec >= 8.2.15.7"),
-      sources   = "video/cuda.c")
-check("-cuda-interop*",
-      deps      = "cuda-hwaccel",
-      desc      = "CUDA interop",
-      sources   = "video/out/hwdec/hwdec_cuda.c")
-check("-cuda-interop-gl",
-      desc      = "CUDA GL interop",
-      deps      = ["cuda-interop", "gl"],
-      sources   = "video/out/hwdec/hwdec_cuda_gl.c")
-
 check(deps      = ["d3d-hwaccel", "egl-angle"],
       sources   = ["video/out/opengl/hwdec_d3d11egl.c"])
 check(deps      = ["d3d-hwaccel", "d3d11"],
