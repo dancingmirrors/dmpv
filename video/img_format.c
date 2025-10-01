@@ -119,9 +119,6 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
     FRINGE_GBRP(IMGFMT_GBRP5, "gbrp5", 5),
     FRINGE_GBRP(IMGFMT_GBRP6, "gbrp6", 6),
     // in FFmpeg, but FFmpeg names have an annoying "_vld" suffix
-    [IMGFMT_VIDEOTOOLBOX - IMGFMT_CUST_BASE] = {
-        .name = "videotoolbox",
-    },
     [IMGFMT_VAAPI - IMGFMT_CUST_BASE] = {
         .name = "vaapi",
     },

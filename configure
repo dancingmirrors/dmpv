@@ -582,14 +582,6 @@ check("egl-helpers*",
                    "egl-angle-win32", "egl-android"],
       sources   = "video/out/opengl/egl_helpers.c"),
 
-check("videotoolbox-hwaccel*",
-      desc      = "libavcodec videotoolbox hwaccel",
-      deps_any  = "gl-cocoa")
-check("-videotoolbox-gl*",
-      desc      = "Videotoolbox with OpenGL",
-      deps      = ["gl-cocoa", "videotoolbox-hwaccel"],
-      sources   = "video/out/opengl/hwdec_osx.c")
-
 check("-d3d-hwaccel*",
       desc      = "D3D11VA hwaccel",
       deps      = "win32",

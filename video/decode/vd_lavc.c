@@ -252,8 +252,6 @@ const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"drm-copy",        HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"mediacodec",      HWDEC_FLAG_AUTO},
     {"mediacodec-copy", HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"videotoolbox",    HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"videotoolbox-copy", HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {0}
 };
 

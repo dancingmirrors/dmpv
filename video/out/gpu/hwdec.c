@@ -27,7 +27,6 @@
 #include "hwdec.h"
 
 extern const struct ra_hwdec_driver ra_hwdec_vaapi;
-extern const struct ra_hwdec_driver ra_hwdec_videotoolbox;
 extern const struct ra_hwdec_driver ra_hwdec_vdpau;
 extern const struct ra_hwdec_driver ra_hwdec_dxva2egl;
 extern const struct ra_hwdec_driver ra_hwdec_d3d11egl;
@@ -42,9 +41,6 @@ extern const struct ra_hwdec_driver ra_hwdec_aimagereader;
 const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #if HAVE_VAAPI_EGL
     &ra_hwdec_vaapi,
-#endif
-#if HAVE_VIDEOTOOLBOX_GL
-    &ra_hwdec_videotoolbox,
 #endif
 #if HAVE_D3D_HWACCEL
  #if HAVE_EGL_ANGLE
