@@ -94,7 +94,6 @@ static int get_realtime(struct timespec *out_ts)
 #if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
     return clock_gettime(CLOCK_REALTIME, out_ts);
 #else
-    // OSX
     struct timeval tv;
     gettimeofday(&tv, NULL);
     out_ts->tv_sec = tv.tv_sec;

@@ -81,9 +81,7 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_drm,
 #endif
     &video_out_null,
-#if HAVE_COCOA
     &video_out_libmpv,
-#endif
     // should not be auto-selected
     &video_out_image,
     &video_out_lavc,
@@ -818,8 +816,6 @@ static void wait_until(struct vo *vo, int64_t target)
     struct timespec ts = mp_time_us_to_realtime(target);
     pthread_mutex_lock(&in->lock);
     while (target > mp_time_us()) {
-        if (in->queued_events & VO_EVENT_LIVE_RESIZING)
-            break;
         if (pthread_cond_timedwait(&in->wakeup, &in->lock, &ts))
             break;
     }

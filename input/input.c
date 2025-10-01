@@ -50,10 +50,6 @@
 #include "stream/stream.h"
 #include "common/common.h"
 
-#if HAVE_COCOA
-#include "osdep/macosx_events.h"
-#endif
-
 #define input_lock(ictx)    pthread_mutex_lock(&ictx->mutex)
 #define input_unlock(ictx)  pthread_mutex_unlock(&ictx->mutex)
 
@@ -102,7 +98,6 @@ struct input_ctx {
     struct input_opts *opts;
 
     bool using_ar;
-    bool using_cocoa_media_keys;
 
     // Autorepeat stuff
     short ar_state;
@@ -1328,19 +1323,6 @@ struct input_ctx *mp_input_init(struct mpv_global *global,
 static void reload_opts(struct input_ctx *ictx, bool shutdown)
 {
     m_config_cache_update(ictx->opts_cache);
-
-#if HAVE_COCOA
-    struct input_opts *opts = ictx->opts;
-
-    if (ictx->using_cocoa_media_keys != (opts->use_media_keys && !shutdown)) {
-        ictx->using_cocoa_media_keys = !ictx->using_cocoa_media_keys;
-        if (ictx->using_cocoa_media_keys) {
-            cocoa_init_media_keys();
-        } else {
-            cocoa_uninit_media_keys();
-        }
-    }
-#endif
 }
 
 void mp_input_update_opts(struct input_ctx *ictx)

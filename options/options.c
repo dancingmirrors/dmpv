@@ -87,8 +87,6 @@ extern const struct m_sub_options spirv_conf;
 extern const struct m_sub_options d3d11_conf;
 extern const struct m_sub_options d3d11va_conf;
 extern const struct m_sub_options angle_conf;
-extern const struct m_sub_options cocoa_conf;
-extern const struct m_sub_options macos_conf;
 extern const struct m_sub_options wayland_conf;
 extern const struct m_sub_options vaapi_conf;
 extern const struct m_sub_options egl_conf;
@@ -794,14 +792,6 @@ static const m_option_t mp_opts[] = {
 
 #if HAVE_EGL_ANGLE_WIN32
     {"", OPT_SUBSTRUCT(angle_opts, angle_conf)},
-#endif
-
-#if HAVE_GL_COCOA
-    {"", OPT_SUBSTRUCT(cocoa_opts, cocoa_conf)},
-#endif
-
-#if HAVE_COCOA
-    {"", OPT_SUBSTRUCT(macos_opts, macos_conf)},
 #endif
 
 #if HAVE_DRM

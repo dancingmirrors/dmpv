@@ -186,9 +186,9 @@ extern "C" {
  * input directly.
  *
  * There is an older way to embed the native mpv window into your own. You have
- * to get the raw window handle, and set it as "wid" option. This works on X11,
- * win32, and OSX only. It's much easier to use than the render API, but
- * also has various problems.
+ * to get the raw window handle, and set it as "wid" option. This works on X11
+ * and win32 only. It's much easier to use than the render API, but also has
+ * various problems.
  *
  * Also see client API examples and the mpv manpage. There is an extensive
  * discussion here:
@@ -480,7 +480,6 @@ MPV_EXPORT mpv_handle *mpv_create(void);
  *        - load-scripts
  *        - script
  *        - player-operation-mode
- *        - input-app-events (OSX)
  *      - all encoding mode options
  *
  * @return error code

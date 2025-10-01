@@ -9,10 +9,6 @@
 #define BYTE_ORDER      __BYTE_ORDER
 #define LITTLE_ENDIAN   __LITTLE_ENDIAN
 #define BIG_ENDIAN      __BIG_ENDIAN
-#elif defined(__DARWIN_BYTE_ORDER)
-#define BYTE_ORDER      __DARWIN_BYTE_ORDER
-#define LITTLE_ENDIAN   __DARWIN_LITTLE_ENDIAN
-#define BIG_ENDIAN      __DARWIN_BIG_ENDIAN
 #else
 #include <libavutil/bswap.h>
 #if AV_HAVE_BIGENDIAN

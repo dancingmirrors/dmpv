@@ -113,14 +113,6 @@ check(desc      = "-fstack-protector-strong",
       deps_neg  = "win32",
       fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
 
-check("osx",
-      fn        = lambda: check_cc(defined = "__APPLE__") and
-                          chain(set_exe_format("macho"), True),
-      sources   = ["osdep/apple_utils.c",
-                   "osdep/language-apple.c",
-                   "osdep/path-darwin.c",
-                   "osdep/semaphore_osx.c"])
-
 check("mingw",
       fn        = lambda: check_cc(include = "stdlib.h",
                                    defined = ["__MINGW32__", "__MINGW64_VERSION_MAJOR"]))
@@ -270,17 +262,6 @@ check("-uchardet*",
       deps      = "iconv",
       fn        = lambda: check_pkg_config("uchardet"))
 
-check("-cocoa*",
-      deps      = "osx",
-      fn        = lambda: check_cc(decl = "#import <Cocoa/Cocoa.h>",
-                                   language = "m"),
-      sources   = ["osdep/macosx_menubar.m",
-                   "osdep/path-macosx.m",
-                   "video/out/cocoa_common.m",
-                   "video/out/cocoa/events_view.m",
-                   "video/out/cocoa/video_view.m",
-                   "video/out/cocoa/window.m"])
-
 check("-lcms2*",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
 
@@ -407,10 +388,6 @@ check("-x11*",
 check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl"))
-check("-gl-cocoa*",
-      # TODO
-      fn        = lambda: False,
-      sources   = "video/out/opengl/context_cocoa.c")
 
 check("-gl-x11*",
       desc      = "OpenGL X11 Backend",
@@ -511,7 +488,6 @@ check("-vaapi-egl*",
 check("-dmabuf*",
       desc       = "DMA-BUF",
       deps       = ["drm", "egl"],
-      deps_neg   = "osx",
       sources    = "video/out/hwdec/dmabuf_interop_gl.c")
 
 check("-jpeg*",
@@ -565,7 +541,7 @@ check("-egl-android*",
 
 check("-gl*",
       desc      = "OpenGL context support",
-      deps_any  = ["gl-cocoa", "gl-x11", "egl-x11", "egl-drm", "egl-android",
+      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "egl-android",
                    "gl-win32", "gl-wayland"],
       required  = "No OpenGL video output found or enabled. " +
                   "Aborting. If you really mean to compile without OpenGL " +
@@ -638,10 +614,6 @@ check("-cdda*",
       deps      = "gpl",
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
-
-check("-macos-cocoa-cb*",
-      desc      = "macOS opengl-cb backend",
-      deps      = "cocoa")
 
 check("-vf-gpu*",
       deps      = ["gl", "egl", "egl-helpers"],
@@ -818,7 +790,6 @@ add_sources(
 if is_running():
 
     pick_first_matching_dep(
-            ("cocoa",           "osdep/main-fn-cocoa.c"),
             ("posix",           "osdep/main-fn-unix.c"),
             ("win32-desktop",   "osdep/main-fn-win.c"),
     )
@@ -831,7 +802,6 @@ if is_running():
 
     pick_first_matching_dep(
         ("win32",               "osdep/timer-win2.c"),
-        ("osx",                 "osdep/timer-darwin.c"),
         ("_",                   "osdep/timer-linux.c"),
     )
 

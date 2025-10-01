@@ -41,14 +41,12 @@ enum {
     VO_EVENT_WIN_STATE                  = 1 << 3,
     // The ambient light conditions changed and need to be reloaded
     VO_EVENT_AMBIENT_LIGHTING_CHANGED   = 1 << 4,
-    // Special mechanism for making resizing with Cocoa react faster
-    VO_EVENT_LIVE_RESIZING              = 1 << 5,
     // For VOCTRL_GET_HIDPI_SCALE changes.
-    VO_EVENT_DPI                        = 1 << 6,
+    VO_EVENT_DPI                        = 1 << 5,
     // Special thing for encode mode (vo_driver.initially_blocked).
     // Part of VO_EVENTS_USER to make vo_is_ready_for_frame() work properly.
-    VO_EVENT_INITIAL_UNBLOCK            = 1 << 7,
-    VO_EVENT_FOCUS                      = 1 << 8,
+    VO_EVENT_INITIAL_UNBLOCK            = 1 << 6,
+    VO_EVENT_FOCUS                      = 1 << 7,
 
     // Set of events the player core may be interested in.
     VO_EVENTS_USER = VO_EVENT_RESIZE | VO_EVENT_WIN_STATE | VO_EVENT_DPI |
@@ -449,7 +447,6 @@ struct vo {
     struct mpv_global *global;
     struct vo_x11_state *x11;
     struct vo_w32_state *w32;
-    struct vo_cocoa_state *cocoa;
     struct vo_wayland_state *wl;
     struct vo_android_state *android;
     struct vo_drm_state *drm;

@@ -1,6 +1,4 @@
 /*
- * poll shim that supports device files on macOS.
- *
  * This file is part of mpv.
  *
  * mpv is free software; you can redistribute it and/or
@@ -25,44 +23,5 @@
 #include "osdep/polldev.h"
 
 int polldev(struct pollfd fds[], nfds_t nfds, int timeout) {
-#ifdef __APPLE__
-    int maxfd = 0;
-    fd_set readfds, writefds;
-    FD_ZERO(&readfds);
-    FD_ZERO(&writefds);
-    for (size_t i = 0; i < nfds; ++i) {
-        struct pollfd *fd = &fds[i];
-        if (fd->fd > maxfd) {
-            maxfd = fd->fd;
-        }
-        if ((fd->events & POLLIN)) {
-            FD_SET(fd->fd, &readfds);
-        }
-        if ((fd->events & POLLOUT)) {
-            FD_SET(fd->fd, &writefds);
-        }
-    }
-    struct timeval _timeout = {
-        .tv_sec = timeout / 1000,
-        .tv_usec = (timeout % 1000) * 1000
-    };
-    int n = select(maxfd + 1, &readfds, &writefds, NULL,
-        timeout != -1 ? &_timeout : NULL);
-    if (n < 0) {
-        return n;
-    }
-    for (size_t i = 0; i < nfds; ++i) {
-        struct pollfd *fd = &fds[i];
-        fd->revents = 0;
-        if (FD_ISSET(fd->fd, &readfds)) {
-            fd->revents |= POLLIN;
-        }
-        if (FD_ISSET(fd->fd, &writefds)) {
-            fd->revents |= POLLOUT;
-        }
-    }
-    return n;
-#else
     return poll(fds, nfds, timeout);
-#endif
 }
