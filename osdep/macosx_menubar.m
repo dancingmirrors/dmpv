@@ -225,14 +225,6 @@
                         @"target"     : self,
                         @"cmd"        : @"cycle on-all-workspaces"
                     }],
-#if HAVE_MACOS_TOUCHBAR
-                    @{ @"name": @"separator" },
-                    [NSMutableDictionary dictionaryWithDictionary:@{
-                        @"name"       : @"Customize Touch Bar…",
-                        @"action"     : @"toggleTouchBarCustomizationPalette:",
-                        @"key"        : @"",
-                        @"target"     : NSApp
-                    }]
 #endif
                 ]
             },
@@ -616,12 +608,6 @@
             NSString *name = subMenu[@"name"];
             NSString *action = subMenu[@"action"];
 
-#if HAVE_MACOS_TOUCHBAR
-            if ([action isEqual:@"toggleTouchBarCustomizationPalette:"]) {
-                if (![NSApp respondsToSelector:@selector(touchBar)])
-                    continue;
-            }
-#endif
 
             if ([name isEqual:@"Show log File…"] && ![bundle isEqual:@"true"]) {
                 continue;

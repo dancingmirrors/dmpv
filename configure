@@ -639,12 +639,6 @@ check("-cdda*",
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
 
-check("-macos-touchbar*",
-      desc      = "macOS Touch Bar support",
-      deps      = "cocoa",
-      # TODO: all that framework stuff
-      fn        = lambda: False,
-      sources   = "osdep/macosx_touchbar.m")
 check("-macos-cocoa-cb*",
       desc      = "macOS opengl-cb backend",
       deps      = "cocoa")
