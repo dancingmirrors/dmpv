@@ -94,7 +94,6 @@ extern "C" {
  * - nVidia/Linux: Both GLX and EGL should work (GLX is required if vdpau is
  *                 used, e.g. due to old drivers.)
  * - OSX: CGL is required (CGLGetCurrentContext() returning non-NULL)
- * - iOS: EAGL is required (EAGLContext.currentContext returning non-nil)
  *
  * Once these things are setup, hardware decoding can be enabled/disabled at
  * any time by setting the "hwdec" property.

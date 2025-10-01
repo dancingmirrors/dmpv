@@ -34,9 +34,7 @@ const struct gl_format gl_formats[] = {
     {"rgb16",   GL_RGB16,    GL_RGB,             T_U16, F_TF | F_GL2},
     {"rgba16",  GL_RGBA16,   GL_RGBA,            T_U16, F_TF | F_GL2},
 
-    // ES3 legacy. This is literally to compensate for Apple bugs in their iOS
-    // interop (can they do anything right?). ES3 still allows these formats,
-    // but they are deprecated.
+    // ES3 legacy. ES3 still allows these formats, but they are deprecated.
     {"l" ,      GL_LUMINANCE,GL_LUMINANCE,       T_U8,  F_CF | F_ES3},
     {"la",GL_LUMINANCE_ALPHA,GL_LUMINANCE_ALPHA, T_U8,  F_CF | F_ES3},
 
