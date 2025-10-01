@@ -22,10 +22,4 @@
 
 #include "config.h"
 
-#if HAVE_ANDROID
-// strnlen is broken on current android ndk, see https://code.google.com/p/android/issues/detail?id=74741
-#include "osdep/android/strnlen.h"
-#define strnlen freebsd_strnlen
-#endif
-
 #endif

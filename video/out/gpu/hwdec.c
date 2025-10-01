@@ -36,7 +36,6 @@ extern const struct ra_hwdec_driver ra_hwdec_dxva2dxgi;
 extern const struct ra_hwdec_driver ra_hwdec_cuda;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime_overlay;
-extern const struct ra_hwdec_driver ra_hwdec_aimagereader;
 
 const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #if HAVE_VAAPI_EGL
@@ -68,9 +67,6 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #if HAVE_DRM
     &ra_hwdec_drmprime,
     &ra_hwdec_drmprime_overlay,
-#endif
-#if HAVE_ANDROID
-    &ra_hwdec_aimagereader,
 #endif
 
     NULL

@@ -131,17 +131,6 @@ check("development environment",
 check("win-dep",
       deps      = "win32",
       fn        = lambda: check_cc(link = ["-Wl,--nxcompat", "-Wl,--no-seh", "-Wl,--dynamicbase"]))
-
-check("-android*",
-      fn        = lambda: check_cc(include = "android/api-level.h",
-                                   expr = "(void)__ANDROID__;",
-                                   link = ["-landroid", "-lEGL"]),
-      sources   = ["misc/jni.c",
-                   "osdep/android/strnlen.c",
-                   "video/out/opengl/context_android.c",
-                   "video/out/vo_mediacodec_embed.c",
-                   "video/out/hwdec/hwdec_aimagereader.c"])
-
 check("-uwp*",
       desc      = "Universal Windows Platform",
       deps      = "mingw",
@@ -533,16 +522,10 @@ check("-d3d11*",
                    "video/out/d3d11/ra_d3d11.c",
                    "video/out/gpu/d3d11_helpers.c"])
 
-check("-egl-android*",
-      desc      = "Android EGL support",
-      deps      = "android",
-      fn        = lambda: check_cc(link = ["-landroid", "-lEGL"]),
-      sources   = "video/out/opengl/context_android.c")
-
 check("-gl*",
       desc      = "OpenGL context support",
-      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "egl-android",
-                   "gl-win32", "gl-wayland"],
+      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-win32",
+                   "gl-wayland"],
       required  = "No OpenGL video output found or enabled. " +
                   "Aborting. If you really mean to compile without OpenGL " +
                   "video outputs use --disable-gl.",
@@ -554,8 +537,7 @@ check("-gl*",
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps_any  = ["egl-x11", "gl-wayland", "egl-drm",
-                   "egl-angle-win32", "egl-android"],
+      deps_any  = ["egl-x11", "gl-wayland", "egl-drm", "egl-angle-win32"],
       sources   = "video/out/opengl/egl_helpers.c"),
 
 check("-d3d-hwaccel*",

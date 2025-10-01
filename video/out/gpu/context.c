@@ -40,7 +40,6 @@ extern const struct ra_ctx_fns ra_ctx_wayland_egl;
 extern const struct ra_ctx_fns ra_ctx_wgl;
 extern const struct ra_ctx_fns ra_ctx_angle;
 extern const struct ra_ctx_fns ra_ctx_dxgl;
-extern const struct ra_ctx_fns ra_ctx_android;
 
 /* Direct3D 11 */
 extern const struct ra_ctx_fns ra_ctx_d3d11;
@@ -56,9 +55,6 @@ static const struct ra_ctx_fns *contexts[] = {
 #endif
 
 // OpenGL contexts:
-#if HAVE_EGL_ANDROID
-    &ra_ctx_android,
-#endif
 #if HAVE_EGL_ANGLE_WIN32
     &ra_ctx_angle,
 #endif

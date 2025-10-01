@@ -68,8 +68,6 @@ typedef struct mp_vo_opts {
     double timing_offset;
     int video_sync;
 
-    struct m_geometry android_surface_size;
-
     int swapchain_depth;  // max number of images to render ahead
 } mp_vo_opts;
 

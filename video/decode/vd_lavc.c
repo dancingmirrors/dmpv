@@ -250,8 +250,6 @@ const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"vdpau-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"drm",             HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"drm-copy",        HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"mediacodec",      HWDEC_FLAG_AUTO},
-    {"mediacodec-copy", HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {0}
 };
 
@@ -398,7 +396,7 @@ static void add_all_hwdec_methods(struct hwdec_info **infos, int *num_infos)
 
         if (!found_any && wrapper) {
             // We _know_ there's something supported here, usually outputting
-            // sw surfaces. E.g. mediacodec (before hw_device_ctx support).
+            // sw surfaces.
 
             struct hwdec_info info = info_template;
             info.copying = true; // probably
