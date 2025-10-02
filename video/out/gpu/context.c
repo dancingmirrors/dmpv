@@ -211,8 +211,15 @@ struct ra_ctx *ra_ctx_create_by_name(struct vo *vo, const char *name)
                                             MP_ARRAY_SIZE(contexts));
     if (ctx)
         return ctx;
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wstringop-overflow="
+#endif
     return create_in_contexts(vo, name, no_api_contexts,
                               MP_ARRAY_SIZE(no_api_contexts));
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic pop
+#endif
 }
 
 void ra_ctx_destroy(struct ra_ctx **ctx_ptr)
