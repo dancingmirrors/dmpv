@@ -177,7 +177,7 @@ int mp_snprintf_cat(char *str, size_t size, const char *format, ...)
 // implicit \0-termination for convenience.
 void mp_append_utf8_bstr(void *talloc_ctx, struct bstr *buf, uint32_t codepoint)
 {
-    char data[8];
+    char data[32];
     uint8_t tmp;
     char *output = data;
     PUT_UTF8(codepoint, tmp, *output++ = tmp;);
