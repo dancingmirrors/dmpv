@@ -301,7 +301,7 @@ check("consio_h*",
 check("-drm*",
       desc      = "Direct Rendering Manager",
       deps_any  = ["vt_h", "consio_h"],
-      fn        = lambda: check_pkg_config("libdrm"),
+      fn        = lambda: check_pkg_config("libdrm >= 2.4.105"),
       sources   = ["video/out/drm_atomic.c",
                    "video/out/drm_common.c",
                    "video/out/vo_drm.c"])
