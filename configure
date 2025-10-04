@@ -263,7 +263,6 @@ check(desc      = "FFmpeg",
       required  = "Unable to find development files for some of the required \
 FFmpeg libraries.")
 check("-libavdevice*",
-      default   = False,
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
 check("-jack*",
