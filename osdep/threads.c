@@ -25,7 +25,9 @@
 #include "timer.h"
 
 #if HAVE_BSD_THREAD_NAME
+#ifndef __NetBSD__
 #include <pthread_np.h>
+#endif
 #endif
 
 int mpthread_mutex_init_recursive(pthread_mutex_t *mutex)
