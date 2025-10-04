@@ -426,6 +426,7 @@ check("-egl-angle-win32*",
 
 check("-vaapi*",
       desc      = "VA-API acceleration",
+      deps_neg  = "win32",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
