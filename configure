@@ -425,18 +425,6 @@ check("-egl-angle-win32*",
       sources   = ["video/out/gpu/d3d11_helpers.c",
                    "video/out/opengl/context_angle.c"])
 
-check("-vdpau*",
-      desc      = "VDPAU",
-      deps      = "x11",
-      fn        = lambda: check_pkg_config("vdpau >= 0.2"),
-      sources   = ["video/filter/vf_vdpaupp.c",
-                   "video/vdpau.c",
-                   "video/vdpau_mixer.c"])
-check("-vdpau-gl-x11*",
-      desc      = "VDPAU with OpenGL/X11",
-      deps      = ["vdpau", "gl-x11"],
-      sources   = "video/out/opengl/hwdec_vdpau.c")
-
 check("-vaapi*",
       desc      = "VA-API acceleration",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),

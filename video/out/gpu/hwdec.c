@@ -27,7 +27,6 @@
 #include "hwdec.h"
 
 extern const struct ra_hwdec_driver ra_hwdec_vaapi;
-extern const struct ra_hwdec_driver ra_hwdec_vdpau;
 extern const struct ra_hwdec_driver ra_hwdec_dxva2egl;
 extern const struct ra_hwdec_driver ra_hwdec_d3d11egl;
 extern const struct ra_hwdec_driver ra_hwdec_dxva2gldx;
@@ -56,9 +55,6 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #endif
 #if HAVE_GL_DXINTEROP_D3D9
     &ra_hwdec_dxva2gldx,
-#endif
-#if HAVE_VDPAU_GL_X11
-    &ra_hwdec_vdpau,
 #endif
 #if HAVE_DRM
     &ra_hwdec_drmprime,

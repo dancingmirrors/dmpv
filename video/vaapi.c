@@ -155,7 +155,7 @@ static bool is_emulated(struct AVBufferRef *hw_device_ctx)
     AVVAAPIDeviceContext *vactx = hwctx->hwctx;
 
     const char *s = vaQueryVendorString(vactx->display);
-    return s && strstr(s, "VDPAU backend");
+    return s && strstr(s, "Unknown backend");
 }
 
 

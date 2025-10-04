@@ -122,9 +122,6 @@ static const struct hwcontext_fns *const hwcontext_fns[] = {
 #if HAVE_VAAPI
     &hwcontext_fns_vaapi,
 #endif
-#if HAVE_VDPAU
-    &hwcontext_fns_vdpau,
-#endif
     NULL,
 };
 

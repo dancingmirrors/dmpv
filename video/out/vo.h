@@ -442,7 +442,7 @@ struct vo_driver {
 
 struct vo {
     const struct vo_driver *driver;
-    struct mp_log *log; // Using e.g. "[vo/vdpau]" as prefix
+    struct mp_log *log;
     void *priv;
     struct mpv_global *global;
     struct vo_x11_state *x11;

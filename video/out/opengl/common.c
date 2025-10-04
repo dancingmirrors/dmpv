@@ -429,24 +429,6 @@ static const struct gl_functions gl_functions[] = {
             {0},
         },
     },
-    // For gl_hwdec_vdpau.c
-    // http://www.opengl.org/registry/specs/NV/vdpau_interop.txt
-    {
-        .extension = "GL_NV_vdpau_interop",
-        .provides = MPGL_CAP_VDPAU,
-        .functions = (const struct gl_function[]) {
-            // (only functions needed by us)
-            DEF_FN(VDPAUInitNV),
-            DEF_FN(VDPAUFiniNV),
-            DEF_FN(VDPAURegisterOutputSurfaceNV),
-            DEF_FN(VDPAURegisterVideoSurfaceNV),
-            DEF_FN(VDPAUUnregisterSurfaceNV),
-            DEF_FN(VDPAUSurfaceAccessNV),
-            DEF_FN(VDPAUMapSurfacesNV),
-            DEF_FN(VDPAUUnmapSurfacesNV),
-            {0}
-        },
-    },
 #if HAVE_GL_DXINTEROP
     {
         .extension = "WGL_NV_DX_interop",

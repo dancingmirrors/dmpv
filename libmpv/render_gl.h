@@ -91,8 +91,6 @@ extern "C" {
  * - Intel/Linux: EGL is required, and also the native display resource needs
  *                to be provided (e.g. MPV_RENDER_PARAM_X11_DISPLAY for X11 and
  *                MPV_RENDER_PARAM_WL_DISPLAY for Wayland)
- * - nVidia/Linux: Both GLX and EGL should work (GLX is required if vdpau is
- *                 used, e.g. due to old drivers.)
  *
  * Once these things are setup, hardware decoding can be enabled/disabled at
  * any time by setting the "hwdec" property.

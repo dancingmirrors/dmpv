@@ -36,9 +36,8 @@ a LGPL mode to mpv, MPlayer code had to be relicensed from GPLv2+ to LGPLv2.1+
 by asking the MPlayer authors for permission. Since permission could not be
 obtained from everyone, LGPL mode disables the following features, some of
 them quite central:
-- Linux X11 video output
-- BSD audio output via OSS
-- NVIDIA/Linux hardware decoding (vdpau)
+- X11 video output
+- OSS audio output
 - Minor features: jack, DVD, CDDA, legacy Direct3D VO
 Some of these will be fixed in the future. The intended use for LGPL mode is
 with libmpv, and currently it's not recommended to build mpv CLI in LGPL mode
@@ -54,9 +53,6 @@ The following files are still GPL only (--enable-lgpl disables them):
     video/out/vo_direct3d.c         unknown
     video/out/vo_x11.c              probably impossible
     video/out/x11_common.*          probably impossible
-    video/vdpau.c                   hard (GPL-only parts must be ifdefed)
-    video/vdpau.h                   unknown
-    video/vdpau_mixer.*             actual code must be rewritten
 
 None of the cases listed above affect the final binary if it's built as
 LGPL. Linked libraries still can affect the final license (for example if

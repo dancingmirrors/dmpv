@@ -145,11 +145,6 @@ typedef uint64_t GLuint64;
 #define GL_SHADER_STORAGE_BUFFER          0x90D2
 #define GL_SHADER_STORAGE_BARRIER_BIT     0x00002000
 
-// --- GL_NV_vdpau_interop
-
-#define GLvdpauSurfaceNV GLintptr
-#define GL_WRITE_DISCARD_NV               0x88BE
-
 // --- GL_OES_EGL_image_external, GL_NV_EGL_stream_consumer_external
 
 #define GL_TEXTURE_EXTERNAL_OES           0x8D65

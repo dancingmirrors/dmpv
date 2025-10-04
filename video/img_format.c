@@ -58,13 +58,6 @@ struct mp_imgfmt_entry {
                               {3 * (a), 0, 32 * (a)} }, }}
 
 static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
-    // not in ffmpeg
-    [IMGFMT_VDPAU_OUTPUT - IMGFMT_CUST_BASE] = {
-        .name = "vdpau_output",
-        .desc = {
-            .flags = MP_IMGFLAG_NE | MP_IMGFLAG_RGB | MP_IMGFLAG_HWACCEL,
-        },
-    },
     [IMGFMT_RGB30 - IMGFMT_CUST_BASE] = {
         .name = "rgb30",
         .desc = {
