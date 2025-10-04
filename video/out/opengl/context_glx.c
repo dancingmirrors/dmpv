@@ -18,7 +18,6 @@
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 
-// FreeBSD 10.0-CURRENT lacks the GLX_ARB_create_context extension completely
 #ifndef GLX_CONTEXT_MAJOR_VERSION_ARB
 #define GLX_CONTEXT_MAJOR_VERSION_ARB           0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB           0x2092

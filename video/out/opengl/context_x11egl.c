@@ -16,7 +16,6 @@
  */
 
 #include <X11/Xlib.h>
-// XXX ?
 #ifndef PRESENT_FUTURE_VERSION
 #define PRESENT_FUTURE_VERSION 0
 #endif
