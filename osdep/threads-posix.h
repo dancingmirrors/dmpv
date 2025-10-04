@@ -118,7 +118,7 @@ static inline void mp_thread_set_name(const char *name)
         pthread_setname_np(pthread_self(), tname);
     }
 #elif HAVE_BSD_THREAD_NAME
-#ifdef __openbsd__
+#ifdef __OpenBSD__
 #include <pthread_np.h>
 #endif
     pthread_set_name_np(pthread_self(), name);

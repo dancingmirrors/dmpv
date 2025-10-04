@@ -41,10 +41,12 @@ check(desc      = "warning CFLAGS",
                         "-Wno-error=unused-function",
                         "-Wempty-body",
                         "-Wdisabled-optimization",
-                        "-Wstrict-prototypes",
+                        "-Wno-strict-prototypes",
                         "-Werror=format-security",
                         "-Wvla", "-Wundef",
                         "-Wno-format-truncation",
+                        "-Wno-unknown-warning-option",
+                        "-Wno-out-of-scope-function",
                         "-Wno-pointer-sign",
                         "-Wno-switch"]))
 
@@ -293,7 +295,8 @@ check("-wasapi*",
 
 # OpenBSD
 check("wsdisplay-usl-io-h*",
-      fn        = lambda: check_cc(include = "dev/wscons/wsdisplay_usl_io.h"))
+      fn        = lambda: check_cc(include = ["sys/types.h",
+                  "dev/wscons/wsdisplay_usl_io.h"]))
 check("vt_h*",
       fn        = lambda: check_cc(include = ["sys/vt.h", "sys/ioctl.h"],
                                    expr = "int m; ioctl(0, VT_GETMODE, &m);"))
