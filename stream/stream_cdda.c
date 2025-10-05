@@ -274,11 +274,7 @@ static int open_cdda(stream_t *st)
         p->device = DEFAULT_CDROM_DEVICE;
     }
 
-#if defined(__NetBSD__)
-    cdd = cdda_identify_scsi(p->device, p->device, 0, NULL);
-#else
     cdd = cdda_identify(p->device, 0, NULL);
-#endif
 
     if (!cdd) {
         MP_ERR(st, "Can't open CDDA device.\n");
