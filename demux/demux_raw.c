@@ -77,6 +77,7 @@ const struct m_sub_options demux_rawaudio_conf = {
     },
     .size = sizeof(struct demux_rawaudio_opts),
     .defaults = &(const struct demux_rawaudio_opts){
+        // Note that currently, stream_cdda expects exactly these parameters!
         .channels = {
             .set = 1,
             .chmaps = (struct mp_chmap[]){ MP_CHMAP_INIT_STEREO, },
