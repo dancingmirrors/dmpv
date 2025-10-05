@@ -55,7 +55,6 @@ static void print_version(struct mp_log *log)
 }
 
 extern const struct m_sub_options tv_params_conf;
-extern const struct m_sub_options stream_cdda_conf;
 extern const struct m_sub_options stream_lavf_conf;
 extern const struct m_sub_options sws_conf;
 extern const struct m_sub_options drm_conf;
@@ -520,11 +519,6 @@ static const m_option_t mp_opts[] = {
         {"no", -1}, {"min", 0}, {"max", INT_MAX}), M_RANGE(0, INT_MAX)},
 
     {"display-tags", OPT_STRINGLIST(display_tags)},
-
-#if HAVE_CDDA
-    {"cdda", OPT_SUBSTRUCT(stream_cdda_opts, stream_cdda_conf)},
-    {"cdrom-device", OPT_STRING(cdrom_device), .flags = M_OPT_FILE},
-#endif
 
     // demuxer.c - select audio/sub file/demuxer
     {"demuxer", OPT_STRING(demuxer_name), .help = demuxer_help},

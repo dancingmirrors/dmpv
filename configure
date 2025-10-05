@@ -564,11 +564,6 @@ check("-dvdnav*",
       fn        = lambda: check_pkg_config("dvdnav >= 4.2.0") and
                           check_pkg_config("dvdread >= 4.1.0"),
       sources   = "stream/stream_dvdnav.c"),
-check("-cdda*",
-      desc      = "cdda support (libcdio-paranoia)",
-      deps      = "gpl",
-      fn        = lambda: check_pkg_config("libcdio_paranoia"),
-      sources   = "stream/stream_cdda.c")
 
 check("-vf-gpu*",
       deps      = ["gl", "egl", "egl-helpers"],

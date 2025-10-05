@@ -303,7 +303,6 @@ typedef struct MPOpts {
 
     int w32_priority;
 
-    struct cdda_params *stream_cdda_opts;
     struct stream_lavf_params *stream_lavf_opts;
 
     char *cdrom_device;

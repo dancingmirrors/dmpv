@@ -38,7 +38,7 @@ obtained from everyone, LGPL mode disables the following features, some of
 them quite central:
 - X11 video output
 - OSS audio output
-- Minor features: jack, DVD, CDDA, legacy Direct3D VO
+- Minor features: jack, DVD, legacy Direct3D VO
 Some of these will be fixed in the future. The intended use for LGPL mode is
 with libmpv, and currently it's not recommended to build mpv CLI in LGPL mode
 at all.
@@ -48,7 +48,6 @@ The following files are still GPL only (--enable-lgpl disables them):
     audio/out/ao_jack.c             will stay GPL
     audio/out/ao_oss.c              will stay GPL
     mpv.desktop                     unknown license, probably GPLv2+
-    stream/stream_cdda.c            unknown
     stream/stream_dvdnav.c          unknown
     video/out/vo_direct3d.c         unknown
     video/out/vo_x11.c              probably impossible
