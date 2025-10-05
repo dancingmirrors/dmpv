@@ -121,7 +121,11 @@ static inline void mp_thread_set_name(const char *name)
 #ifdef __OpenBSD__
 #include <pthread_np.h>
 #endif
+#ifdef __NetBSD__
+    pthread_setname_np(pthread_self(), "%s", name);
+#else
     pthread_set_name_np(pthread_self(), name);
+#endif
 #endif
 }
 
