@@ -37,7 +37,7 @@ check("-optimize",
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         # OpenBSD
-                        "-Wno-unknown-warning-option"
+                        "-Wno-unknown-warning-option",
                         # OpenBSD
                         "-Wno-out-of-scope-function",
                         "-Werror=implicit-function-declaration",
