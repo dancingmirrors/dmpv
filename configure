@@ -36,24 +36,16 @@ check("-optimize",
       desc      = "whether to optimize")
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
-                        # OpenBSD
-                        "-Wno-unknown-warning-option",
-                        # OpenBSD
-                        "-Wno-out-of-scope-function",
                         "-Werror=implicit-function-declaration",
                         "-Wno-error=deprecated-declarations",
                         "-Wno-error=unused-function",
                         "-Wempty-body",
                         "-Wdisabled-optimization",
-                        # OpenBSD
-                        "-Wno-strict-prototypes",
+                        "-Wstrict-prototypes",
                         "-Werror=format-security",
                         "-Wvla", "-Wundef",
-                        "-Wno-format-truncation",
                         "-Wno-pointer-sign",
-                        "-Wno-switch",
-                        # NetBSD
-                        "-Wno-discarded-qualifiers"]))
+                        "-Wno-switch"]))
 
 check("gnuc",
       desc      = "GNU C",
@@ -80,9 +72,7 @@ check(desc      = "extra GCC warnings",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wmissing-prototypes", "-Wshadow",
-                        "-Wparentheses", "-Wpointer-arith",
-                        # GCC 7
-                        "-Wno-unused-result"]))
+                        "-Wparentheses", "-Wpointer-arith"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
