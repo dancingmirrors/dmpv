@@ -43,7 +43,6 @@ void mp_client_broadcast_event_external(struct mp_client_api *api, int event,
 // m_option.c
 void *node_get_alloc(struct mpv_node *node);
 
-// for vo_libmpv.c
 struct osd_state;
 struct mpv_render_context;
 bool mp_set_main_render_context(struct mp_client_api *client_api,

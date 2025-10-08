@@ -75,7 +75,6 @@ enum mp_voctrl {
     /* private to vo_gpu */
     VOCTRL_LOAD_HWDEC_API,
 
-    // Only used internally in vo_libmpv
     VOCTRL_PREINIT,
     VOCTRL_UNINIT,
     VOCTRL_RECONFIG,

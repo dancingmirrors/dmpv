@@ -20,7 +20,6 @@ typedef int (*mp_render_cb_control_fn)(struct vo *vo, void *cb_ctx, int *events,
 void mp_render_context_set_control_callback(mpv_render_context *ctx,
                                             mp_render_cb_control_fn callback,
                                             void *callback_ctx);
-bool mp_render_context_acquire(mpv_render_context *ctx);
 
 struct render_backend {
     struct mpv_global *global;

@@ -54,7 +54,6 @@ extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
-extern const struct vo_driver video_out_libmpv;
 extern const struct vo_driver video_out_image;
 extern const struct vo_driver video_out_lavc;
 
@@ -77,7 +76,6 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_drm,
 #endif
     &video_out_null,
-    &video_out_libmpv,
     // should not be auto-selected
     &video_out_image,
     &video_out_lavc,
