@@ -834,8 +834,8 @@ static const struct MPOpts mp_default_opts = {
     .lua_load_360_sbs = false,
     .lua_load_360_sg = false,
     .lua_load_positioning = true,
-#endif
     .auto_load_scripts = true,
+#endif
     .loop_times = 1,
     .ordered_chapters = true,
     .chapter_merge_threshold = 100,
