@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #ifndef MPV_COMPILER_H
 #define MPV_COMPILER_H
 
