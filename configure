@@ -208,7 +208,7 @@ check("bsd-thread-name*",
       deps      = "pthreads",
       fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],
                     expr = 'pthread_set_name_np(pthread_self(), "ducks");')
-                  or check_cc(defined = "__NetBSD__"))
+                  or check_cc(expr = 'pthread_setname_np(pthread_self(), "%s", name);'))
 
 check("bsd-fstatfs*",
       fn        = lambda: check_cc(include = ["sys/param.h", "sys/mount.h"],
@@ -290,7 +290,6 @@ check("-wasapi*",
                    "audio/out/ao_wasapi_changenotify.c",
                    "audio/out/ao_wasapi_utils.c"])
 
-# OpenBSD
 check("wsdisplay-usl-io-h*",
       fn        = lambda: check_cc(include = ["sys/types.h",
                   "dev/wscons/wsdisplay_usl_io.h"]))
