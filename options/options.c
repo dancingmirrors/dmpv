@@ -859,6 +859,7 @@ static const struct MPOpts mp_default_opts = {
     .default_max_pts_correction = -1,
     .initial_audio_sync = true,
     .frame_dropping = 1,
+    .video_latency_hacks = 1,
     .term_osd = 2,
     .term_osd_bar = 1,
     .term_osd_bar_chars = "[-+-]",
