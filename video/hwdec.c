@@ -40,7 +40,7 @@ struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt_and_type(struct mp_hwdec_device
                                                           enum AVHWDeviceType device_type)
 {
     struct mp_hwdec_ctx *res = NULL;
-    mp_mutex_lock(&devs->lock);
+    pthread_mutex_lock(&devs->lock);
     for (int n = 0; n < devs->num_hwctxs; n++) {
         struct mp_hwdec_ctx *dev = devs->hwctxs[n];
         AVHWDeviceContext *hw_device_ctx =
@@ -51,7 +51,7 @@ struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt_and_type(struct mp_hwdec_device
             break;
         }
     }
-    mp_mutex_unlock(&devs->lock);
+    pthread_mutex_unlock(&devs->lock);
     return res;
 }
 
