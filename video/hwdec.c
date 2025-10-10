@@ -39,7 +39,7 @@ struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt(struct mp_hwdec_devices *devs,
                                                  int hw_imgfmt)
 {
     struct mp_hwdec_ctx *res = NULL;
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     for (int n = 0; n < devs->num_hwctxs; n++) {
         struct mp_hwdec_ctx *dev = devs->hwctxs[n];
         if (dev->hw_imgfmt == hw_imgfmt) {
@@ -47,7 +47,7 @@ struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt(struct mp_hwdec_devices *devs,
             break;
         }
     }
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
     return res;
 }
 
