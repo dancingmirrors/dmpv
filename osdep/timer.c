@@ -36,7 +36,7 @@ static void do_timer_init(void)
     mp_raw_time_init();
     mp_rand_seed(mp_raw_time_ns());
     raw_time_offset = mp_raw_time_ns();
-    assert(raw_time_offset > 0);
+    mp_assert(raw_time_offset > 0);
 }
 
 void mp_time_init(void)
