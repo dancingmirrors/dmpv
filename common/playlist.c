@@ -208,7 +208,7 @@ struct playlist_entry *playlist_get_last(struct playlist *pl)
 
 struct playlist_entry *playlist_get_next(struct playlist *pl, int direction)
 {
-    assert(direction == -1 || direction == +1);
+    mp_assert(direction == -1 || direction == +1);
     if (!pl->current && pl->playlist_completed && direction < 0) {
         return playlist_entry_from_index(pl, pl->num_entries - 1);
     } else if (!pl->current && !pl->playlist_started && direction > 0) {
@@ -216,7 +216,7 @@ struct playlist_entry *playlist_get_next(struct playlist *pl, int direction)
     } else if (!pl->current) {
         return NULL;
     }
-    assert(pl->current->pl == pl);
+    mp_assert(pl->current->pl == pl);
     if (direction < 0)
         return playlist_entry_get_rel(pl->current, -1);
     return pl->current_was_replaced ? pl->current :
