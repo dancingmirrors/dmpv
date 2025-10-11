@@ -198,6 +198,7 @@ const struct m_sub_options vo_sub_opts = {
         .monitor_pixel_aspect = 1.0,
         .screen_id = -1,
         .fsscreen_id = -1,
+        .fullscreen = true,
         .panscan = 0.0f,
         .scale_x = 1.0f,
         .scale_y = 1.0f,
@@ -211,6 +212,7 @@ const struct m_sub_options vo_sub_opts = {
         .appid = "mpv",
         .WinID = -1,
         .window_scale = 1.0,
+        .unscaled = 2,
 #if HAVE_X11
         .x11_bypass_compositor = 2,
         .x11_present = 1,
