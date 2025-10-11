@@ -24,17 +24,9 @@ $(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/%
 	$(Q) $^ > $@
 
 # Dependencies for generated files unfortunately need to be declared manually.
-# This is because dependency scanning is a gross shitty hack by concept, and
-# requires that the compiler successfully compiles a file to get its
-# dependencies. This results in a chicken-and-egg problem, and in conclusion
-# it works for static header files only.
-# If any headers include generated headers, you need to manually set
-# dependencies on all source files that include these headers!
-# And because make is fucking shit, you actually need to set these on all files
-# that are generated from these sources, instead of the source files. Make rules
-# specify recipes, not dependencies.
-# (Possible counter measures: always generate them with an order dependency, or
-#  introduce a separate dependency scanner step for creating .d files.)
+# This is because dependency scanning requires that the compiler successfully
+# compiles a file to get its dependencies. This results in a
+# chicken-and-egg problem, and thus works for static header files only.
 
 $(BUILD)/common/version.o: $(BUILD)/generated/version.h
 
