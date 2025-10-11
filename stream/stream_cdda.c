@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#if defined(__clang__)
+#if defined(__clang__) && defined(__OpenBSD__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wstrict-prototypes"
 #endif
@@ -32,7 +32,7 @@
 #include <cdio/paranoia/cdda.h>
 #include <cdio/paranoia/paranoia.h>
 
-#if defined(__clang__)
+#if defined(__clang__) && defined(__OpenBSD__)
 #pragma clang diagnostic pop
 #endif
 
