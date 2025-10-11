@@ -780,7 +780,7 @@ static const m_option_t mp_opts[] = {
     {"", OPT_SUBSTRUCT(opengl_opts, opengl_conf)},
 #endif
 
-#if HAVE_EGL || HAVE_EGL_ANGLE_WIN32
+#if HAVE_EGL || HAVE_EGL_ANGLE_WIN32 && HAVE_GL
     {"egl", OPT_SUBSTRUCT(egl_opts, egl_conf)},
 #endif
 

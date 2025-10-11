@@ -373,7 +373,7 @@ check("-egl*",
 
 check("-gl-x11*",
       desc      = "OpenGL X11 Backend",
-      deps      = "x11",
+      deps      = ["egl", "x11"],
       fn        = lambda: check_cc(link = "-lGL",
                                    include = "GL/glx.h",
                                    expr = "glXGetCurrentDisplay();"),
