@@ -617,6 +617,9 @@ def dep_enabled(*deps):
 def add_cflags(*fl):
     _G.cflags += list(fl)
 
+def add_ldflags(*fl):
+    _G.ldflags += list(fl)
+
 # Add a preprocessor symbol of the given name to config.h.
 # If val is a string, it's quoted as string literal.
 # If val is None, it's defined without value.
