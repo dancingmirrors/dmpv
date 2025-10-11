@@ -380,7 +380,7 @@ check("-gl-x11*",
       sources   = "video/out/opengl/context_glx.c")
 check("-egl-x11*",
       desc      = "OpenGL X11 EGL Backend",
-      deps      = ["x11", "egl"],
+      deps      = ["x11", "egl", "gbm"],
       sources   = "video/out/opengl/context_x11egl.c")
 check("-egl-drm*",
       desc      = "OpenGL DRM EGL Backend",
@@ -514,7 +514,7 @@ check("-gl*",
 
 check("-dmabuf*",
       desc       = "DMA-BUF",
-      deps       = ["drm", "egl", "gl"],
+      deps       = ["drm", "egl", "gbm", "gl"],
       sources    = "video/out/hwdec/dmabuf_interop_gl.c")
 
 check("egl-helpers*",
