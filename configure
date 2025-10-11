@@ -505,7 +505,7 @@ check("-gl*",
                    "gl-wayland"],
       required  = "No OpenGL video output found or enabled. " +
                   "Aborting. If you really mean to compile without OpenGL " +
-                  "video outputs use --disable-gl.",
+                  "video outputs use --disable-gl --disable-egl.",
       sources   = ["video/out/opengl/common.c",
                    "video/out/opengl/context.c",
                    "video/out/opengl/formats.c",
