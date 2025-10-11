@@ -19,6 +19,11 @@
 
 #include "config.h"
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
+#endif
+
 #include <cdio/cdio.h>
 
 #ifndef TESTING_IS_FINISHED
@@ -26,6 +31,10 @@
 #endif
 #include <cdio/paranoia/cdda.h>
 #include <cdio/paranoia/paranoia.h>
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>

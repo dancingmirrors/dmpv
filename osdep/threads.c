@@ -52,6 +52,9 @@ void mpthread_set_name(const char *name)
 #elif HAVE_WIN32_INTERNAL_PTHREADS || HAVE_BSD_THREAD_NAME
 #ifdef __NetBSD__
     pthread_setname_np(pthread_self(), "%s", name);
+#elif defined(__OpenBSD__)
+    void pthread_set_name_np(pthread_t, const char *);
+    pthread_set_name_np(pthread_self(), tname);
 #else
     pthread_set_name_np(pthread_self(), tname);
 #endif
