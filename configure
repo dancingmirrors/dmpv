@@ -456,11 +456,6 @@ check("-vaapi-egl*",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
-check("-dmabuf*",
-      desc       = "DMA-BUF",
-      deps       = ["drm", "egl"],
-      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
-
 check("-jpeg*",
       desc      = "JPEG support",
       fn        = lambda: chain (check_pkg_config("libjxl.pc"),
@@ -516,6 +511,11 @@ check("-gl*",
                    "video/out/opengl/formats.c",
                    "video/out/opengl/ra_gl.c",
                    "video/out/opengl/utils.c"])
+
+check("-dmabuf*",
+      desc       = "DMA-BUF",
+      deps       = ["drm", "egl", "gl"],
+      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
 
 check("egl-helpers*",
       desc      = "EGL helper functions",

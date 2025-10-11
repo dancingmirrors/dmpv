@@ -207,14 +207,14 @@ static struct ra_ctx *create_in_contexts(struct vo *vo, const char *name,
 
 struct ra_ctx *ra_ctx_create_by_name(struct vo *vo, const char *name)
 {
-    struct ra_ctx *ctx = create_in_contexts(vo, name, contexts,
-                                            MP_ARRAY_SIZE(contexts));
-    if (ctx)
-        return ctx;
 #if defined(__GNUC__) && !defined(__clang__)
 # pragma GCC diagnostic push
 # pragma GCC diagnostic ignored "-Wstringop-overflow="
 #endif
+    struct ra_ctx *ctx = create_in_contexts(vo, name, contexts,
+                                            MP_ARRAY_SIZE(contexts));
+    if (ctx)
+        return ctx;
     return create_in_contexts(vo, name, no_api_contexts,
                               MP_ARRAY_SIZE(no_api_contexts));
 #if defined(__GNUC__) && !defined(__clang__)
