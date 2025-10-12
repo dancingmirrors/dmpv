@@ -171,12 +171,7 @@ void playlist_shuffle(struct playlist *pl)
     for (int n = 0; n < pl->num_entries; n++)
         pl->entries[n]->original_index = n;
     for (int n = 0; n < pl->num_entries - 1; n++) {
-        #ifdef __OpenBSD__
-        srand(time(NULL));
-        size_t j = (size_t)((pl->num_entries - n) * time(NULL));
-        #else
         size_t j = (size_t)((pl->num_entries - n) * rand());
-        #endif
         MPSWAP(struct playlist_entry *, pl->entries[n], pl->entries[n + j]);
     }
     playlist_update_indexes(pl, 0, -1);
