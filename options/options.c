@@ -413,6 +413,8 @@ static const m_option_t mp_opts[] = {
         {"cplayer", 0}, {"pseudo-gui", 1}),
         .flags = M_OPT_PRE_PARSE | M_OPT_NOPROP},
 
+    {"shuffle", OPT_BOOL(shuffle)},
+
 // ------------------------- common options --------------------
     {"quiet", OPT_BOOL(quiet)},
     {"really-quiet", OPT_BOOL(msg_really_quiet),
