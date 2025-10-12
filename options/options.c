@@ -345,7 +345,7 @@ const struct m_sub_options mp_osd_render_sub_opts = {
         .osd_bar_h = 3.125,
         .osd_scale = 1,
         .osd_scale_by_window = true,
-        .osd_shaper = 0,
+        .osd_shaper = 1,
     },
     .change_flags = UPDATE_OSD,
 };
