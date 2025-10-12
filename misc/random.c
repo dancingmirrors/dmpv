@@ -43,10 +43,6 @@ static inline uint64_t splitmix64(uint64_t *const x)
 
 void mp_rand_seed(uint64_t seed)
 {
-#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-    seed = 42;
-#endif
-
     if (seed == 0) {
         uint8_t buf[sizeof(seed)];
         if (av_random_bytes(buf, sizeof(buf)) < 0) {
