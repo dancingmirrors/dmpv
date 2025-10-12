@@ -22,7 +22,7 @@
 #include <libavutil/random_seed.h>
 #include "osdep/timer.h"
 #include <pthread.h>
-
+#include <string.h>
 #include "random.h"
 
 static uint64_t state[4];
