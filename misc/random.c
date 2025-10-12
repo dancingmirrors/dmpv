@@ -41,7 +41,7 @@ static inline uint64_t splitmix64(uint64_t *const x)
 
 void mp_rand_seed(uint64_t seed)
 {
-    pthread_mutex_lock(&state_mutex);
+    mp_mutex_lock(&state_mutex);
     state[0] = seed;
     for (int i = 1; i < 4; i++)
         state[i] = splitmix64(&seed);
