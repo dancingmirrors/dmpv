@@ -52,7 +52,7 @@ void mp_rand_seed(uint64_t seed)
         }
     }
 
-    mp_mutex_lock(&state_mutex);
+    pthread_mutex_lock(&state_mutex);
     state[0] = seed;
     for (int i = 1; i < 4; i++)
         state[i] = splitmix64(&seed);
