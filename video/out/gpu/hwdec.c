@@ -34,6 +34,7 @@ extern const struct ra_hwdec_driver ra_hwdec_d3d11va;
 extern const struct ra_hwdec_driver ra_hwdec_dxva2dxgi;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime_overlay;
+extern const struct ra_hwdec_driver ra_hwdec_vulkan;
 
 const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #if HAVE_VAAPI_EGL
@@ -60,7 +61,9 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
     &ra_hwdec_drmprime,
     &ra_hwdec_drmprime_overlay,
 #endif
-
+#if HAVE_VULKAN
+    &ra_hwdec_vulkan,
+#endif
     NULL
 };
 

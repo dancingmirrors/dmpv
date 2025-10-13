@@ -311,6 +311,9 @@ enum mp_imgfmt {
 
     // Hardware accelerated formats (again).
     IMGFMT_VAAPI,
+#if HAVE_VULKAN
+    IMGFMT_VULKAN,          // VKImage
+#endif
     IMGFMT_DRMPRIME,        // AVDRMFrameDescriptor
 
     // Generic pass-through of AV_PIX_FMT_*. Used for formats which don't have

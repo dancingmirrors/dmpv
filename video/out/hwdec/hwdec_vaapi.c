@@ -126,6 +126,9 @@ static void uninit(struct ra_hwdec *hw)
 const static dmabuf_interop_init interop_inits[] = {
 #if HAVE_DMABUF
     dmabuf_interop_gl_init,
+#if HAVE_DMABUF_LIBPLACEBO
+    dmabuf_interop_pl_init,
+#endif
 #if HAVE_WAYLAND
     dmabuf_interop_wl_init,
 #endif
@@ -145,7 +148,7 @@ static int init(struct ra_hwdec *hw)
     }
 
     if (!p->dmabuf_interop.interop_map || !p->dmabuf_interop.interop_unmap) {
-        MP_VERBOSE(hw, "VA-API hwdec only works with the OpenGL backend.\n");
+        MP_VERBOSE(hw, "VAAPI hwdec only works with OpenGL or Vulkan backends.\n");
         return -1;
     }
 

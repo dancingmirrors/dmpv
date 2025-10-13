@@ -75,6 +75,12 @@ static void deint_process(struct mp_filter *f)
     if (img->imgfmt == IMGFMT_D3D11) {
         p->sub.filter =
             mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "d3d11vpp", NULL);
+#if HAVE_VULKAN
+    } else if (img->imgfmt == IMGFMT_VULKAN) {
+        char *args[] = {"mode", "send_field", NULL};
+        p->sub.filter =
+            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "bwdif_vulkan", args);
+#endif
     } else if (img->imgfmt == IMGFMT_VAAPI) {
         char *args[] = {"deint", "motion-adaptive",
                         "interlaced-only", "yes", NULL};

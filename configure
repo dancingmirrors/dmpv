@@ -319,6 +319,12 @@ check(deps      = ["drm", "drmprime"],
 check("gbm",
       fn        = lambda: check_pkg_config("gbm"))
 
+check("-libplacebo*",
+      desc      = "libplacebo support",
+      fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
+      sources   = ["video/out/placebo/ra_pl.c",
+                   "video/out/placebo/utils.c"])
+
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
     if data is None:
@@ -366,6 +372,21 @@ check("-x11*",
                                            "xrandr      >= 1.2.0"),
       sources   = ["video/out/vo_x11.c",
                    "video/out/x11_common.c"])
+
+check("-vulkan*",
+      desc      = "Vulkan context support",
+      deps      = "libplacebo",
+      fn        = lambda: check_pkg_config("vulkan"),
+      sources   = ["video/out/vulkan/context.c",
+                   "video/out/vulkan/utils.c",
+                   "video/out/hwdec/hwdec_vulkan.c",
+                   "video/out/vulkan/context_display.c"])
+check(deps      = ["vulkan", "x11"],
+      sources   = "video/out/vulkan/context_xlib.c")
+check(deps      = ["vulkan", "wayland"],
+      sources   = "video/out/vulkan/context_wayland.c")
+check(deps      = ["vulkan", "win32-desktop"],
+      sources   = "video/out/vulkan/context_win.c")
 
 check("-egl*",
       desc      = "EGL 1.4",
@@ -451,10 +472,21 @@ check("-vaapi-glx*",
 check("-vaapi-x-egl*",
       desc      = "VA-API EGL on X11",
       deps      = ["vaapi-x11", "egl-x11"])
+check("-vaapi-vulkan*",
+      desc      = "VA-API Vulkan",
+      deps      = ["vaapi", "vulkan"],
+      sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 check("-vaapi-egl*",
       desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
+
+check("-dmabuf*",
+      deps       = ["drm", "egl"],
+      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
+check("-dmabuf-libplacebo*",
+      deps        = ["dmabuf", "libplacebo", "vaapi"],
+      sources     = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-jpeg*",
       desc      = "JPEG support",
@@ -547,6 +579,13 @@ check(deps      = ["d3d9-hwaccel", "egl-angle"],
 check("-present-sync*",
       deps_any   = ["drm", "x11", "wayland"],
       sources    = "video/out/present_sync.c")
+
+check(deps      = ["vulkan", "wayland"],
+      sources   = "video/out/vulkan/context_wayland.c")
+check(deps      = ["vulkan", "win32-desktop"],
+      sources   = "video/out/vulkan/context_win.c")
+check(deps      = ["vulkan", "x11"],
+      sources   = "video/out/vulkan/context_xlib.c")
 
 # Define the appropriate path to your device(s) in the respective
 # stream/stream_*.c file(s) if necessary.

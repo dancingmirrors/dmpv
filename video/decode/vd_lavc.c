@@ -244,6 +244,8 @@ const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"dxva2-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vulkan",          HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vulkan-copy",     HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"drm",             HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"drm-copy",        HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {0}
@@ -730,6 +732,12 @@ static void init_avctx(struct mp_filter *vd)
         ctx->hw_probing = true;
 
         threads = ctx->opts->hwdec_threads;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(62, 11, 100)
+        // Vulkan threading was not safe before 62.11.100
+        bstr hwdec_name = bstr0(ctx->hwdec.name);
+        if (bstr_endswith0(hwdec_name, "vulkan") || bstr_endswith0(hwdec_name, "vulkan-copy"))
+            threads = 1;
+#endif
     }
 
     mp_set_avcodec_threads(vd->log, avctx, threads);
