@@ -443,7 +443,7 @@ static bool display_init(struct ra_ctx *ctx)
         ra_add_native_resource(ctx->ra, "drm_params_v2", &p->drm_params);
     } else {
         MP_WARN(ctx,
-               "No DRM render fd available. VAAPI hwaccel will not be usable.\n");
+               "No DRM render fd available. VA-API hwaccel will not be usable.\n");
     }
 #endif
 

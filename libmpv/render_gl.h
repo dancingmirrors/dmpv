@@ -188,7 +188,7 @@ typedef struct mpv_opengl_drm_params_v2 {
     struct _drmModeAtomicReq **atomic_request_ptr;
 
     /**
-     * DRM render node. Used for VAAPI interop.
+     * DRM render node. Used for VA-API interop.
      * Set to -1 if invalid.
      */
     int render_fd;

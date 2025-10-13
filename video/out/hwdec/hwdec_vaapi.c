@@ -148,7 +148,7 @@ static int init(struct ra_hwdec *hw)
     }
 
     if (!p->dmabuf_interop.interop_map || !p->dmabuf_interop.interop_unmap) {
-        MP_VERBOSE(hw, "VAAPI hwdec only works with OpenGL or Vulkan backends.\n");
+        MP_VERBOSE(hw, "VA-API hwdec only works with OpenGL or Vulkan backends.\n");
         return -1;
     }
 
@@ -342,7 +342,7 @@ err:
     mapper_unmap(mapper);
 
     if (!p_owner->probing_formats)
-        MP_FATAL(mapper, "mapping VAAPI EGL image failed\n");
+        MP_FATAL(mapper, "mapping VA-API EGL image failed\n");
     return -1;
 }
 

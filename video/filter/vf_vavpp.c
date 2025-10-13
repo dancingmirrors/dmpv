@@ -157,7 +157,7 @@ static struct mp_image *alloc_out(struct mp_filter *vf)
         return NULL;
 
     AVHWFramesContext *hw_frames = (void *)fmt->hwctx->data;
-    // VAAPI requires the full surface size to match for input and output.
+    // VA-API requires the full surface size to match for input and output.
     int src_w = hw_frames->width;
     int src_h = hw_frames->height;
 
