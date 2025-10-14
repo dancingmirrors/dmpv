@@ -42,7 +42,6 @@
 #include "options/m_option.h"
 #include "options/m_config.h"
 
-extern const stream_info_t stream_info_cdda;
 extern const stream_info_t stream_info_null;
 extern const stream_info_t stream_info_memory;
 extern const stream_info_t stream_info_mf;
@@ -62,9 +61,6 @@ extern const stream_info_t stream_info_libarchive;
 extern const stream_info_t stream_info_cb;
 
 static const stream_info_t *const stream_list[] = {
-#if HAVE_CDDA
-    &stream_info_cdda,
-#endif
     &stream_info_ffmpeg,
     &stream_info_ffmpeg_unsafe,
     &stream_info_avdevice,

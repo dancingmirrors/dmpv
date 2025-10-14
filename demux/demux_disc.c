@@ -44,7 +44,7 @@ struct priv {
     double last_dts;    // DTS of previously demuxed packet
     bool seek_reinit;   // needs reinit after seek
 
-    bool is_dvd, is_cdda;
+    bool is_dvd;
 };
 
 // If the timestamp difference between subsequent packets is this big, assume
@@ -164,11 +164,6 @@ static void d_seek(demuxer_t *demuxer, double seek_pts, int flags)
 {
     struct priv *p = demuxer->priv;
 
-    if (p->is_cdda) {
-        demux_seek(p->slave, seek_pts, flags);
-        return;
-    }
-
     if (flags & SEEK_FACTOR) {
         double tmp = 0;
         stream_control(demuxer->stream, STREAM_CTRL_GET_TIME_LENGTH, &tmp);
@@ -231,11 +226,6 @@ static bool d_read_packet(struct demuxer *demuxer, struct demux_packet **out_pkt
     }
 
     pkt->stream = sh->index;
-
-    if (p->is_cdda) {
-        *out_pkt = pkt;
-        return true;
-    }
 
     MP_TRACE(demuxer, "ipts: %d %f %f\n", sh->type, pkt->pts, pkt->dts);
 
@@ -305,14 +295,10 @@ static int d_open(demuxer_t *demuxer, enum demux_check check)
     if (cur->info)
         sname = cur->info->name;
 
-    p->is_cdda = strcmp(sname, "cdda") == 0;
     p->is_dvd = strcmp(sname, "dvd") == 0 ||
                 strcmp(sname, "ifo") == 0 ||
                 strcmp(sname, "dvdnav") == 0 ||
                 strcmp(sname, "ifo_dvdnav") == 0;
-
-    if (p->is_cdda)
-        params.force_format = "+rawaudio";
 
     char *t = NULL;
     stream_control(demuxer->stream, STREAM_CTRL_GET_DISC_NAME, &t);
