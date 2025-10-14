@@ -598,6 +598,11 @@ check("-dvdnav*",
                           check_pkg_config("dvdread >= 4.1.0"),
       sources   = "stream/stream_dvdnav.c"),
 
+check("-ndebug*",
+      desc      = "-DNDEBUG",
+      default   = False,
+      fn        = add_cflags("-DNDEBUG"))
+
 add_sources(
     "audio/aframe.c",
     "audio/chmap.c",
