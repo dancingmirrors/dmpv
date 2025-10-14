@@ -2682,7 +2682,6 @@ static void pass_colormanage(struct gl_video *p, struct mp_colorspace src,
     case TONE_MAPPING_BT_2390:
         break;
     default:
-        MP_WARN(p, "Tone mapping curve unsupported by vo_gpu, falling back.\n");
         p->opts.tone_map.curve = TONE_MAPPING_AUTO;
         break;
     }
@@ -2694,7 +2693,6 @@ static void pass_colormanage(struct gl_video *p, struct mp_colorspace src,
     case TONE_MAP_MODE_HYBRID:
         break;
     default:
-        MP_WARN(p, "Tone mapping mode unsupported by vo_gpu, falling back.\n");
         p->opts.tone_map.mode = TONE_MAP_MODE_AUTO;
         break;
     }
@@ -2706,7 +2704,6 @@ static void pass_colormanage(struct gl_video *p, struct mp_colorspace src,
     case GAMUT_DESATURATE:
         break;
     default:
-        MP_WARN(p, "Gamut mapping mode unsupported by vo_gpu, falling back.\n");
         p->opts.tone_map.gamut_mode = GAMUT_AUTO;
         break;
     }
@@ -3746,8 +3743,6 @@ static bool test_fbo(struct gl_video *p, const struct ra_format *fmt)
     return success;
 }
 
-// Return whether dumb-mode can be used without disabling any features.
-// Essentially, vo_gpu with mostly default settings will return true.
 static bool check_dumb_mode(struct gl_video *p)
 {
     struct gl_video_opts *o = &p->opts;

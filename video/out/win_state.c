@@ -87,9 +87,6 @@ void vo_calc_window_geometry(struct vo *vo, const struct mp_rect *screen,
 
     *out_geo = (struct vo_win_geometry){0};
 
-    // The case of calling this function even though no video was configured
-    // yet (i.e. vo->params==NULL) happens when vo_gpu creates a hidden window
-    // in order to create a rendering context.
     struct mp_image_params params = { .w = 320, .h = 200 };
     if (vo->params)
         params = *vo->params;

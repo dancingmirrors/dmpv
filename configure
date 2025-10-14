@@ -484,9 +484,11 @@ check("-vaapi-egl*",
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
 check("-dmabuf*",
+      desc       = "DMA-BUF",
       deps       = ["drm", "egl"],
       sources    = "video/out/hwdec/dmabuf_interop_gl.c")
 check("-dmabuf-libplacebo*",
+      desc        = "DMA-BUF libplacebo",
       deps        = ["dmabuf", "libplacebo", "vaapi"],
       sources     = "video/out/hwdec/dmabuf_interop_pl.c")
 
@@ -606,10 +608,6 @@ check("-cdda*",
       deps      = "gpl",
       fn        = lambda: check_pkg_config("libcdio_paranoia"),
       sources   = "stream/stream_cdda.c")
-
-check("-vf-gpu*",
-      deps      = ["gl", "egl", "egl-helpers"],
-      sources   = "video/filter/vf_gpu.c")
 
 add_sources(
     "audio/aframe.c",
@@ -766,7 +764,6 @@ add_sources(
     "video/out/gpu/video.c",
     "video/out/gpu/video_shaders.c",
     "video/out/vo.c",
-    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_null.c",

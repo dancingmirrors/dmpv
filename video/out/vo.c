@@ -47,7 +47,6 @@
 #include "osdep/io.h"
 #include "osdep/threads.h"
 
-extern const struct vo_driver video_out_gpu;
 extern const struct vo_driver video_out_gpu_next;
 extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_direct3d;
@@ -60,7 +59,6 @@ extern const struct vo_driver video_out_lavc;
 
 static const struct vo_driver *const video_out_drivers[] =
 {
-    &video_out_gpu,
 #if HAVE_LIBPLACEBO
     &video_out_gpu_next,
 #endif
