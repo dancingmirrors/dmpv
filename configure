@@ -478,14 +478,10 @@ check("-vaapi-egl*",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
-check("-dmabuf*",
-      desc       = "DMA-BUF",
-      deps       = ["drm", "egl"],
-      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
-check("-dmabuf-libplacebo*",
-      desc        = "DMA-BUF libplacebo",
-      deps        = ["dmabuf", "libplacebo", "vaapi"],
-      sources     = "video/out/hwdec/dmabuf_interop_pl.c")
+check(deps      = ["drm", "egl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["egl", "libplacebo", "vaapi"],
+      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-jpeg*",
       desc      = "JPEG support",
@@ -543,10 +539,8 @@ check("-gl*",
                    "video/out/opengl/ra_gl.c",
                    "video/out/opengl/utils.c"])
 
-check("-dmabuf*",
-      desc       = "DMA-BUF",
-      deps       = ["drm", "egl", "gbm", "gl"],
-      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["drm", "egl", "gbm", "gl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 
 check("egl-helpers*",
       desc      = "EGL helper functions",

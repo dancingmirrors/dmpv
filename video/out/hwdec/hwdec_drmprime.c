@@ -52,9 +52,9 @@ static void uninit(struct ra_hwdec *hw)
 }
 
 const static dmabuf_interop_init interop_inits[] = {
-#if HAVE_DMABUF
+#if HAVE_GL && HAVE_EGL
     dmabuf_interop_gl_init,
-#if HAVE_DMABUF_LIBPLACEBO
+#if HAVE_LIBPLACEBO
     dmabuf_interop_pl_init,
 #endif
 #if HAVE_WAYLAND
