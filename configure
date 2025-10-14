@@ -319,8 +319,8 @@ check("-libplacebo*",
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c",
-                   "video/out/gpu_next/context.c",
-                   "video/out/vo_gpu_next.c"])
+                   "video/out/default/context.c",
+                   "video/out/vo_default.c"])
 
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
@@ -575,8 +575,7 @@ check(deps      = ["d3d9-hwaccel", "d3d11"],
 check(deps      = ["d3d9-hwaccel", "egl-angle"],
       sources   = "video/out/opengl/hwdec_dxva2egl.c")
 
-check("-present-sync*",
-      deps_any   = ["drm", "x11", "wayland"],
+check(deps_any   = ["drm", "x11", "wayland"],
       sources    = "video/out/present_sync.c")
 
 check(deps      = ["vulkan", "wayland"],

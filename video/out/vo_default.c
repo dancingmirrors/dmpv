@@ -42,7 +42,7 @@
 #include "gpu/video.h"
 #include "gpu/video_shaders.h"
 #include "sub/osd.h"
-#include "gpu_next/context.h"
+#include "default/context.h"
 
 #if HAVE_GL && defined(PL_HAVE_OPENGL)
 #include <libplacebo/opengl.h>
@@ -1884,9 +1884,9 @@ const struct m_opt_choice_alternatives lut_types[] = {
     {0}
 };
 
-const struct vo_driver video_out_gpu_next = {
-    .description = "Video output based on libplacebo",
-    .name = "gpu-next",
+const struct vo_driver video_out_default = {
+    .description = "Primitive libplacebo video output",
+    .name = "default",
     .caps = VO_CAP_ROTATE90 |
 #ifdef PL_HAVE_LAV_FILM_GRAIN
             VO_CAP_FILM_GRAIN |
