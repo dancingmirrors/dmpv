@@ -264,11 +264,6 @@ FFmpeg libraries.")
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
-check("-jack*",
-      desc      = "JACK audio output",
-      deps      = "gpl",
-      fn        = lambda: check_pkg_config("jack"),
-      sources   = "audio/out/ao_jack.c")
 check("-oss*",
       desc      = "OSS audio output",
       deps      = "gpl",

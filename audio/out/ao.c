@@ -38,7 +38,6 @@
 extern const struct ao_driver audio_out_alsa;
 extern const struct ao_driver audio_out_wasapi;
 extern const struct ao_driver audio_out_oss;
-extern const struct ao_driver audio_out_jack;
 extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_pcm;
@@ -53,9 +52,6 @@ static const struct ao_driver * const audio_out_drivers[] = {
 #endif
 #if HAVE_OSS
     &audio_out_oss,
-#endif
-#if HAVE_JACK
-    &audio_out_jack,
 #endif
 #if HAVE_SNDIO
     &audio_out_sndio,
