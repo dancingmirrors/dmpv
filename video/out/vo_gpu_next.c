@@ -1576,37 +1576,8 @@ static const struct pl_filter_config *map_scaler(struct priv *p,
     if (unit == SCALER_DSCALE && (!cfg->kernel.name || !strcmp(cfg->kernel.name, "")))
         cfg = &opts->scaler[SCALER_SCALE];
 
-    struct scaler_params *par = &p->scalers[unit];
     // XXX
     return &pl_filter_bilinear;
-
-    const struct pl_filter_function_preset *wpreset;
-    if ((wpreset = pl_find_filter_function_preset(cfg->window.name))) {
-        par->config.window = wpreset->function;
-        par->config.wparams[0] = wpreset->function->params[0];
-        par->config.wparams[1] = wpreset->function->params[1];
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (!isnan(cfg->kernel.params[i]))
-            par->config.params[i] = cfg->kernel.params[i];
-        if (!isnan(cfg->window.params[i]))
-            par->config.wparams[i] = cfg->window.params[i];
-    }
-
-    par->config.clamp = cfg->clamp;
-    par->config.blur = cfg->kernel.blur;
-    par->config.taper = cfg->kernel.taper;
-    if (cfg->radius > 0.0) {
-        if (par->config.kernel->resizable) {
-            par->config.radius = cfg->radius;
-        } else {
-            MP_WARN(p, "Filter radius specified but filter '%s' is not "
-                    "resizable, ignoring\n", cfg->kernel.name);
-        }
-    }
-
-    return &par->config;
 }
 
 static const struct pl_hook *load_hook(struct priv *p, const char *path)
