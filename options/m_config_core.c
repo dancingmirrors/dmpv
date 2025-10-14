@@ -302,12 +302,19 @@ uint64_t m_config_cache_get_option_change_mask(struct m_config_cache *cache,
 // actually casted from struct some_type* ). The dummy struct type is in
 // theory needed, because void* and struct pointers could have different
 // representations, while pointers to different struct types don't.
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
+#endif
 static void *substruct_read_ptr(const void *ptr)
 {
     struct mp_dummy_ *res;
     memcpy(&res, ptr, sizeof(res));
     return res;
 }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 static void substruct_write_ptr(void *ptr, void *val)
 {
     struct mp_dummy_ *src = val;
