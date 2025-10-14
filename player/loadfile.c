@@ -23,7 +23,7 @@
 
 #include <libavutil/avutil.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "misc/thread_pool.h"
 #include "misc/thread_tools.h"
@@ -61,7 +61,7 @@
 #include "config.h"
 #include "core.h"
 #include "command.h"
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 // Called from the demuxer thread if a new packet is available, or other changes.
 static void wakeup_demux(void *pctx)

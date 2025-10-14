@@ -34,7 +34,7 @@
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/path.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "osdep/io.h"
 #include "osdep/path.h"
 #include "misc/ctype.h"

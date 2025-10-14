@@ -25,7 +25,7 @@
 
 #include "misc/mp_assert.h"
 #include "osdep/compiler.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 // double should be able to represent this exactly
 #define MP_NOPTS_VALUE (-0x1p+63)

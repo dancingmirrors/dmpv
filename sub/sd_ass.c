@@ -23,7 +23,7 @@
 #include <libavutil/common.h>
 #include <ass/ass.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "config.h"
 #include "options/m_config.h"

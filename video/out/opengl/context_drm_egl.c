@@ -27,7 +27,7 @@
 #include <EGL/eglext.h>
 #include <drm_fourcc.h>
 
-#include "libmpv/render_gl.h"
+#include "misc/render_gl.h"
 #include "video/out/drm_atomic.h"
 #include "video/out/drm_common.h"
 #include "common/common.h"

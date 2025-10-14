@@ -22,7 +22,7 @@
 #include <libavutil/common.h>
 #include <libavutil/opt.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "common/msg.h"
 #include "common/av_common.h"
 #include "demux/stheader.h"

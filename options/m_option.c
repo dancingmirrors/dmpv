@@ -32,10 +32,10 @@
 
 #include <libavutil/common.h>
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 #include "player/client.h"
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "common/msg_control.h"

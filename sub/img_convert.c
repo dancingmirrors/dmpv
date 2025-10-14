@@ -18,7 +18,7 @@
 #include <string.h>
 #include <limits.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "common/common.h"
 #include "img_convert.h"

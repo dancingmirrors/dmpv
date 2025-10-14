@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "audio/aframe.h"
 #include "audio/chmap_avchannel.h"
 #include "audio/fmt-conversion.h"

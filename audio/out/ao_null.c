@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "osdep/timer.h"
 #include "options/m_option.h"

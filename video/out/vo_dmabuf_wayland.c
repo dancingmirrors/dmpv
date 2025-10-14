@@ -28,7 +28,7 @@
 #include "gpu/hwdec.h"
 #include "gpu/video.h"
 #include "misc/mp_assert.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "present_sync.h"
 #include "sub/draw_bmp.h"
 #include "video/fmt-conversion.h"

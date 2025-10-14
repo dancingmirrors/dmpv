@@ -39,7 +39,7 @@
 #include "misc/bstr.h"
 #include "core.h"
 #include "client.h"
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 extern const struct mp_scripting mp_scripting_lua;
 extern const struct mp_scripting mp_scripting_run;

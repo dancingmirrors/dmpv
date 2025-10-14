@@ -30,7 +30,7 @@
 
 #include "osdep/io.h"
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "common/common.h"
 #include "options/m_property.h"
@@ -50,7 +50,7 @@
 #include "core.h"
 #include "command.h"
 #include "client.h"
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 // List of builtin modules and their contents as strings.
 // All these are generated from player/lua/*.lua

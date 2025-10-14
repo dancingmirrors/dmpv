@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "osdep/atomic.h"
@@ -38,7 +38,7 @@
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 #include "msg.h"
 #include "msg_control.h"

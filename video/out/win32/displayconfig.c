@@ -22,7 +22,7 @@
 
 #include "displayconfig.h"
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 static bool is_valid_refresh_rate(DISPLAYCONFIG_RATIONAL rr)
 {

@@ -38,7 +38,7 @@
 #include <libavutil/common.h>
 
 #include "config.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "options/m_config.h"

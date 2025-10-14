@@ -23,7 +23,7 @@
 
 #include "osdep/atomic.h"
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 #include "common/common.h"
 #include "filters/filter.h"

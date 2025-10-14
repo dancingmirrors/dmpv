@@ -29,7 +29,7 @@
 #include <limits.h>
 #include <unistd.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "config.h"
 #include "misc/random.h"

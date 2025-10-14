@@ -26,9 +26,9 @@
 
 #include <libavutil/common.h>
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "m_option.h"
 #include "m_property.h"
 #include "common/msg.h"

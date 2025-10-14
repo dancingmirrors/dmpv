@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 #include "m_config.h"
 #include "m_config_frontend.h"

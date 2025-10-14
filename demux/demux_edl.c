@@ -24,7 +24,7 @@
 #include <limits.h>
 #include <math.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "demux.h"
 #include "timeline.h"

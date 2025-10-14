@@ -28,7 +28,7 @@
 #include "misc/lavc_compat.h"
 #include "video/fmt-conversion.h"
 #include "video/mp_image.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "vo.h"
 
 #include "common/encode_lavc.h"

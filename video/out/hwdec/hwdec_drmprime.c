@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#include "libmpv/render_gl.h"
+#include "misc/render_gl.h"
 #include "options/m_config.h"
 #include "video/fmt-conversion.h"
 #include "video/out/drm_common.h"

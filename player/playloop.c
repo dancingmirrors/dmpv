@@ -24,7 +24,7 @@
 #include "client.h"
 #include "command.h"
 #include "core.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "screenshot.h"
 
 #include "audio/out/ao.h"

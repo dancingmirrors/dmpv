@@ -23,7 +23,7 @@
 #include <pthread.h>
 #include <math.h>
 
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 
 #include "config.h"
 #include "osdep/atomic.h"

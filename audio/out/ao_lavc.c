@@ -37,7 +37,7 @@
 #include "filters/filter_internal.h"
 #include "filters/f_utils.h"
 #include "misc/lavc_compat.h"
-#include "libmpv/mpv_talloc.h"
+#include "misc/mpv_talloc.h"
 #include "ao.h"
 #include "internal.h"
 #include "common/msg.h"
