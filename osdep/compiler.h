@@ -9,6 +9,7 @@
 #define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format(printf, a1, a2)))
 #define MP_NORETURN __attribute__((noreturn))
 #define MP_FALLTHROUGH __attribute__((fallthrough))
+#define MP_UNUSED __attribute__((unused))
 #else
 #define PRINTF_ATTRIBUTE(a1, a2)
 #define MP_NORETURN
