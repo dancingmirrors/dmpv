@@ -54,7 +54,7 @@ $(BUILD)/player/lua.o: $(BUILD)/generated/player/lua/defaults.lua.inc \
                        $(BUILD)/generated/player/lua/360-sg.lua.inc \
                        $(BUILD)/generated/player/lua/positioning.lua.inc \
 
-# $(1): path prefix to the protocol, $(1)/$(2).xml is the full path.
+# $(1): path prefix to the protocol, $(1)/$(2).xml is the full path
 # $(2): the name of the protocol, without path or extension
 define generate_wayland =
 $$(BUILD)/video/out/wayland_common.o \
