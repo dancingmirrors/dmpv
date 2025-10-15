@@ -257,7 +257,7 @@ check(desc      = "FFmpeg",
                     "libavcodec     >= 60.31.102",
                     "libavformat    >= 60.16.100",
                     "libswscale     >= 7.5.100",
-                    "libavfilter    >= 9.16.100",
+                    "libavfilter    >= 9.12.100",
                     "libswresample  >= 4.12.100"),
       required  = "Unable to find development files for some of the required \
 FFmpeg libraries.")
