@@ -39,7 +39,13 @@ install:
 	$(Q) mkdir -p /usr/local/bin
 	$(Q) strip $(BUILD)/mpv
 	$(Q) cp -v $(BUILD)/mpv /usr/local/bin
+	$(Q) mkdir -p /usr/local/share/icons/hicolor/16x16/apps
+	$(Q) mkdir -p /usr/local/share/icons/hicolor/32x32/apps
+	$(Q) mkdir -p /usr/local/share/icons/hicolor/64x64/apps
 	$(Q) mkdir -p /usr/local/share/icons/hicolor/128x128/apps
+	$(Q) cp -v etc/mpv-icon-8bit-16x16.png /usr/local/share/icons/hicolor/16x16/apps/mpv.png
+	$(Q) cp -v etc/mpv-icon-8bit-32x32.png /usr/local/share/icons/hicolor/32x32/apps/mpv.png
+	$(Q) cp -v etc/mpv-icon-8bit-64x64.png /usr/local/share/icons/hicolor/64x64/apps/mpv.png
 	$(Q) cp -v etc/mpv-icon-8bit-128x128.png /usr/local/share/icons/hicolor/128x128/apps/mpv.png
 	$(Q) mkdir -p /usr/local/share/applications
 	$(Q) cp -v etc/mpv.desktop /usr/local/share/applications
@@ -52,6 +58,9 @@ install-msys2:
 uninstall:
 	$(LOG) "UNINSTALL"
 	$(Q) rm -f -v /usr/local/bin/mpv
+	$(Q) rm -f -v /usr/local/share/icons/hicolor/16x16/apps/mpv.png
+	$(Q) rm -f -v /usr/local/share/icons/hicolor/32x32/apps/mpv.png
+	$(Q) rm -f -v /usr/local/share/icons/hicolor/64x64/apps/mpv.png
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/128x128/apps/mpv.png
 	$(Q) rm -f -v /usr/local/share/applications/mpv.desktop
 
