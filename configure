@@ -63,10 +63,6 @@ check("libm",
 check(desc      = "-fno-math-errno",
       fn        = lambda: check_cc(flags = "-fno-math-errno"))
 
-# Note that an important reason to try a different set of warning flags is the
-# fact that both compilers may have different bogus behavior wrt. certain
-# warning options. What is needed on one compiler may be annoying or dangerous
-# on the other.
 check(desc      = "extra GCC warnings",
       deps      = "gnuc",
       deps_neg  = "clang",
@@ -143,7 +139,7 @@ def check_vista_pthreads():
     path = os.path.abspath(os.path.join(get_root_dir(), "osdep/win32/include"))
     add_cflags("-I%s" % path)
     add_cflags("-isystem%s" % path)
-    # define IN_WINPTHREAD to workaround mingw stupidity (we never want it
+    # define IN_WINPTHREAD to work around MinGW stupidity (we never want it
     # to define features specific to its own pthread stuff)
     add_cflags("-DIN_WINPTHREAD")
     return True
@@ -179,6 +175,9 @@ check("iconv*",
                                    expr = "iconv_open(0, 0);") or
                           check_cc(include = "iconv.h", link = "-liconv",
                                    expr = "iconv_open(0, 0);"))
+check("-uchardet*",
+      deps      = "iconv",
+      fn        = lambda: check_pkg_config("uchardet"))
 
 check("dos-paths*",
       deps      = "win32")
@@ -237,10 +236,6 @@ check("-zlib*",
       fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
                                    expr = "inflate(0, Z_NO_FLUSH);"),
       required  = "Unable to find development files for zlib.")
-
-check("-uchardet*",
-      deps      = "iconv",
-      fn        = lambda: check_pkg_config("uchardet"))
 
 check("-lcms2*",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
@@ -352,7 +347,7 @@ check("-wayland*",
                    "video/out/wldmabuf/context_wldmabuf.c",
                    "video/out/wldmabuf/ra_wldmabuf.c"])
 check("memfd_create*",
-      desc      = "Linux's memfd_create()",
+      desc      = "memfd_create()",
       deps      = "wayland",
       fn        = lambda: check_cc(include = "sys/mman.h", link = [],
                                    expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"),
@@ -388,7 +383,6 @@ check(deps      = ["vulkan", "win32-desktop"],
 check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl"))
-
 check("-gl-x11*",
       desc      = "OpenGL X11 Backend",
       deps      = ["egl", "x11"],
@@ -559,7 +553,6 @@ check("-gl-dxinterop-d3d9*",
       desc      = "OpenGL/DirectX Interop Backend DXVA2 interop",
       deps      = ["gl-dxinterop", "d3d9-hwaccel"],
       sources   = "video/out/opengl/hwdec_dxva2gldx.c")
-
 check(deps      = ["d3d-hwaccel", "egl-angle"],
       sources   = ["video/out/opengl/hwdec_d3d11egl.c"])
 check(deps      = ["d3d-hwaccel", "d3d11"],
