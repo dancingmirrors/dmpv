@@ -34,14 +34,11 @@ them quite central:
 - X11 video output
 - OSS audio output
 - Minor features: DVD, legacy Direct3D VO
-Some of these will be fixed in the future. The intended use for LGPL mode is
-with libmpv, and currently it's not recommended to build mpv CLI in LGPL mode
-at all.
+Some of these will be fixed in the future.
 
 The following files are still GPL only (--enable-lgpl disables them):
 
     audio/out/ao_oss.c              will stay GPL
-    mpv.desktop                     unknown license, probably GPLv2+
     stream/stream_dvdnav.c          unknown
     video/out/vo_direct3d.c         unknown
     video/out/vo_x11.c              probably impossible
