@@ -14,22 +14,17 @@ licensed as LGPLv2.1+. Also see the list of files with specific licenses below
 (not all files can have a standard license header).
 
 All new contributions must be LGPLv2.1+ licensed. Using a more liberal license
-compatible to LGPLv2.1+ is also ok.
+compatible to LGPLv2.1+ is also okay.
 
 Changes done to GPL code must come with the implicit/explicit agreement that the
 project can relicense the changes to LGPLv2.1+ at a later point without asking
 the contributor. This is a safeguard for making potential relicensing of
 remaining GPL code to LGPLv2.1+ easier.
 
-See DOCS/contribute.md for binding rules wrt. licensing for contributions.
-
 For information about authors and contributors, consult the git log, which
 contains the complete SVN and CVS history as well.
 
 "v2.1+" in this context means "version 2.1 or later".
-
-Some libraries are GPLv2+ or GPLv3+ only. Building mpv with Samba support makes
-it GPLv3+.
 
 mpv can be built as LGPLv2.1+ with the --enable-lgpl configure option. To add
 a LGPL mode to mpv, MPlayer code had to be relicensed from GPLv2+ to LGPLv2.1+
@@ -52,6 +47,7 @@ The following files are still GPL only (--enable-lgpl disables them):
     video/out/vo_x11.c              probably impossible
     video/out/x11_common.*          probably impossible
 
-None of the cases listed above affect the final binary if it's built as
-LGPL. Linked libraries still can affect the final license (for example if
-FFmpeg was built as GPL).
+The following files are based on work with the Unlicense -- see
+LICENSE.UNLICENSE for details:
+    player/lua/360-sbs.lua          unknown
+    player/lua/360-sg.lua           unknown
