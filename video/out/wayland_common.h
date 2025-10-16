@@ -113,6 +113,9 @@ struct vo_wayland_state {
     bool present_clock;
     bool use_present;
 
+    /* single-pixel-buffer */
+    void *single_pixel_manager;
+
     /* xdg-activation */
     struct xdg_activation_v1 *xdg_activation;
 

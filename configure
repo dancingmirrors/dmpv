@@ -450,7 +450,8 @@ check("-vaapi-x11*",
 check("-vaapi-wayland*",
       desc      = "VA-API (Wayland support)",
       deps      = ["vaapi", "gl-wayland"],
-      fn        = lambda: check_pkg_config("libva-wayland >= 0.36.0"))
+      fn        = lambda: check_pkg_config("libva-wayland >= 0.36.0"),
+      sources   = "video/out/vo_dmabuf_wayland.c")
 check("-vaapi-drm*",
       desc      = "VA-API (DRM/EGL support)",
       deps      = ["vaapi", "egl-drm"],
