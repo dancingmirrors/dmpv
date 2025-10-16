@@ -2167,6 +2167,7 @@ bool vo_wayland_init(struct vo *vo)
         .vo_opts_cache = m_config_cache_alloc(wl, vo->global, &vo_sub_opts),
     };
     wl->vo_opts = wl->vo_opts_cache->opts;
+    bool using_dmabuf_wayland = !strcmp(wl->vo->driver->name, "dmabuf-wayland");
 
     wl_list_init(&wl->output_list);
 
@@ -2287,7 +2288,7 @@ bool vo_wayland_init(struct vo *vo)
     update_app_id(wl);
     mp_make_wakeup_pipe(wl->wakeup_pipe);
 
-    wl->callback_surface = wl->surface;
+    wl->callback_surface = using_dmabuf_wayland ? wl->video_surface : wl->surface;
     wl->frame_callback = wl_surface_frame(wl->callback_surface);
     wl_callback_add_listener(wl->frame_callback, &frame_listener, wl);
     wl_surface_commit(wl->surface);
