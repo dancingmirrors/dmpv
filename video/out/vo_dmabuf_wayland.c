@@ -27,6 +27,7 @@
 #include "common/global.h"
 #include "gpu/hwdec.h"
 #include "gpu/video.h"
+#include "misc/mp_assert.h"
 #include "misc/mpv_talloc.h"
 #include "present_sync.h"
 #include "sub/draw_bmp.h"
@@ -737,7 +738,7 @@ static int preinit(struct vo *vo)
     if (!p->ctx)
        goto err;
 
-    assert(p->ctx->ra);
+    mp_assert(p->ctx->ra);
 
     if (!vo->wl->dmabuf || !vo->wl->dmabuf_feedback) {
         MP_FATAL(vo->wl, "Compositor doesn't support the %s (ver. 4) protocol!\n",
