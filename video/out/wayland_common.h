@@ -114,7 +114,7 @@ struct vo_wayland_state {
     bool use_present;
 
     /* single-pixel-buffer */
-    void *single_pixel_manager;
+    struct wp_single_pixel_buffer_manager_v1 *single_pixel_manager;
 
     /* xdg-activation */
     struct xdg_activation_v1 *xdg_activation;
