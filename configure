@@ -314,9 +314,7 @@ check("-libplacebo*",
       desc      = "libplacebo support",
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
-                   "video/out/placebo/utils.c",
-                   "video/out/default/context.c",
-                   "video/out/vo_default.c"])
+                   "video/out/placebo/utils.c"])
 
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
@@ -476,6 +474,12 @@ check(deps      = ["drm", "egl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 check(deps      = ["egl", "libplacebo", "vaapi"],
       sources   = "video/out/hwdec/dmabuf_interop_pl.c")
+check("-dmabuf*",
+      deps       = ["drm", "egl"],
+      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
+check("-dmabuf-libplacebo*",
+      deps        = ["dmabuf", "libplacebo", "vaapi"],
+      sources     = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-jpeg*",
       desc      = "JPEG support",
@@ -589,6 +593,9 @@ check("-ndebug*",
       desc      = "-DNDEBUG",
       default   = False,
       fn        = add_cflags("-DNDEBUG"))
+
+check(deps      = ["gl", "egl", "egl-helpers"],
+      sources   = "video/filter/vf_gpu.c")
 
 add_sources(
     "audio/aframe.c",
@@ -745,6 +752,7 @@ add_sources(
     "video/out/gpu/video.c",
     "video/out/gpu/video_shaders.c",
     "video/out/vo.c",
+    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_null.c",

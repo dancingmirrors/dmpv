@@ -82,6 +82,9 @@ const struct mp_user_filter_entry *vf_list[] = {
 #if HAVE_D3D_HWACCEL
     &vf_d3d11vpp,
 #endif
+#if HAVE_EGL_HELPERS && HAVE_GL && HAVE_EGL
+    &vf_gpu,
+#endif
 };
 
 static bool get_vf_desc(struct m_obj_desc *dst, int index)
