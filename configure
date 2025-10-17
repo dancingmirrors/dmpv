@@ -470,17 +470,14 @@ check("-vaapi-egl*",
       desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
-
 check(deps      = ["drm", "egl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 check(deps      = ["egl", "libplacebo", "vaapi"],
       sources   = "video/out/hwdec/dmabuf_interop_pl.c")
-check("-dmabuf*",
-      deps       = ["drm", "egl"],
-      sources    = "video/out/hwdec/dmabuf_interop_gl.c")
-check("-dmabuf-libplacebo*",
-      deps        = ["dmabuf", "libplacebo", "vaapi"],
-      sources     = "video/out/hwdec/dmabuf_interop_pl.c")
+check(deps      = ["drm", "egl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["drm", "egl", "libplacebo", "vaapi"],
+      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-jpeg*",
       desc      = "JPEG support",
