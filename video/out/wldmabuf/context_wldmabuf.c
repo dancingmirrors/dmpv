@@ -39,4 +39,5 @@ const struct ra_ctx_fns ra_ctx_wldmabuf = {
     .name               = "wldmabuf",
     .init               = init,
     .uninit             = uninit,
+    .hidden             = true,
 };
