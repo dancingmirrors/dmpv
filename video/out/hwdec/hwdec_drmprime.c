@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <string.h>
+#include <assert.h>
 #include <unistd.h>
 
 #include <libavutil/hwcontext.h>
@@ -51,15 +52,15 @@ static void uninit(struct ra_hwdec *hw)
     av_buffer_unref(&p->hwctx.av_device_ref);
 }
 
-const static dmabuf_interop_init interop_inits[] = {
-#if HAVE_GL && HAVE_EGL
+static const dmabuf_interop_init interop_inits[] = {
+#if HAVE_DRM && HAVE_GL
     dmabuf_interop_gl_init,
-#if HAVE_LIBPLACEBO
+#endif
+#if HAVE_LIBPLACEBO && HAVE_VAAPI
     dmabuf_interop_pl_init,
 #endif
 #if HAVE_WAYLAND
     dmabuf_interop_wl_init,
-#endif
 #endif
     NULL
 };
@@ -75,7 +76,7 @@ static int init(struct ra_hwdec *hw)
     }
 
     if (!p->dmabuf_interop.interop_map || !p->dmabuf_interop.interop_unmap) {
-        MP_VERBOSE(hw, "drmprime hwdec requires at least one dmabuf interop backend.\n");
+        MP_WARN(hw, "drmprime hwdec requires at least one DMA-BUF interop backend.\n");
         return -1;
     }
 
@@ -120,7 +121,9 @@ static int init(struct ra_hwdec *hw)
     MP_TARRAY_APPEND(p, p->formats, num_formats, IMGFMT_420P);
     MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_NV16));
     MP_TARRAY_APPEND(p, p->formats, num_formats, IMGFMT_P010);
+#ifdef AV_PIX_FMT_P210
     MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_P210));
+#endif
     MP_TARRAY_APPEND(p, p->formats, num_formats, 0); // terminate it
 
     p->hwctx.hw_imgfmt = IMGFMT_DRMPRIME;
