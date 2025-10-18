@@ -123,7 +123,7 @@ static void uninit(struct ra_hwdec *hw)
     va_destroy(p->ctx);
 }
 
-const static dmabuf_interop_init interop_inits[] = {
+static const dmabuf_interop_init interop_inits[] = {
     dmabuf_interop_gl_init,
 #if HAVE_LIBPLACEBO
     dmabuf_interop_pl_init,
