@@ -275,7 +275,6 @@ static bool flag_equal(const m_option_t *opt, void *a, void *b)
     return VAL(a) == VAL(b);
 }
 
-// Only exists for libmpv interopability and should not be used anywhere.
 const m_option_type_t m_option_type_flag = {
     // need yes or no in config files
     .name  = "Flag",

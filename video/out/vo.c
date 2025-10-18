@@ -167,7 +167,7 @@ const struct m_obj_list vo_obj_list = {
         {"gl", "gpu"},
         {"direct3d_shaders", "direct3d"},
         {"opengl", "gpu"},
-        {"opengl-cb", "libmpv"},
+        {"opengl-cb"},
         {0}
     },
     .allow_trailer = true,

@@ -6431,7 +6431,7 @@ static void cmd_dump_cache_ab(void *p)
 }
 
 /* This array defines all known commands.
- * The first field the command name used in libmpv and input.conf.
+ * The first field the command name used in input.conf.
  * The second field is the handler function (see mp_cmd_def.handler and
  * run_command()).
  * Then comes the definition of each argument. They are defined like options,

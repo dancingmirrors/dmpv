@@ -350,10 +350,6 @@ struct vo_driver {
      * the VO thread. The returned mp_image's destructor callback is also called
      * on the VO thread, even if it's actually unref'ed from another thread.
      *
-     * It is guaranteed that the last reference to an image is destroyed before
-     * ->uninit is called (except it's not - libmpv screenshots can hold the
-     * reference longer, fuck).
-     *
      * The allocated image - or a part of it, can be passed to draw_frame(). The
      * point of this mechanism is that the decoder directly renders to GPU
      * staging memory, to avoid a memcpy on frame upload. But this is not a
