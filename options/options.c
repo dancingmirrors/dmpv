@@ -453,10 +453,6 @@ static const m_option_t mp_opts[] = {
     {"load-scripts", OPT_BOOL(auto_load_scripts)},
     {"load-stats-overlay", OPT_BOOL(lua_load_stats),
         .flags = UPDATE_BUILTIN_SCRIPTS},
-    {"load-360-sbs", OPT_BOOL(lua_load_360_sbs),
-        .flags = UPDATE_BUILTIN_SCRIPTS},
-    {"load-360-sg", OPT_BOOL(lua_load_360_sg),
-        .flags = UPDATE_BUILTIN_SCRIPTS},
     {"load-positioning", OPT_BOOL(lua_load_positioning),
         .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
@@ -836,8 +832,6 @@ static const struct MPOpts mp_default_opts = {
     .osd_duration = 1000,
 #if HAVE_LUA
     .lua_load_stats = true,
-    .lua_load_360_sbs = false,
-    .lua_load_360_sg = false,
     .lua_load_positioning = true,
     .auto_load_scripts = true,
 #endif

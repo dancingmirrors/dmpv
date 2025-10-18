@@ -43,8 +43,3 @@ The following files are still GPL only (--enable-lgpl disables them):
     video/out/vo_direct3d.c         unknown
     video/out/vo_x11.c              probably impossible
     video/out/x11_common.*          probably impossible
-
-The following files are based on work with the Unlicense -- see
-LICENSE.UNLICENSE for details:
-    player/lua/360-sbs.lua          unknown
-    player/lua/360-sg.lua           unknown
