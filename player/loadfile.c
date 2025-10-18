@@ -1609,7 +1609,7 @@ static void play_current_file(struct MPContext *mpctx)
 
     if (mpctx->playlist->num_entries > 1 ||
         mpctx->playing->playlist_path)
-        MP_INFO(mpctx, "Playing: %s\n", mpctx->filename);
+        MP_INFO(mpctx, "INFO: %s\n", mpctx->filename);
 
     mp_assert(mpctx->demuxer == NULL);
 

@@ -455,7 +455,7 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
     }
 
     char tmp[192];
-    MP_INFO(mpctx, "AO: [%s] %s\n", ao_get_name(mpctx->ao),
+    MP_INFO(mpctx, "INFO: [%s] %s\n", ao_get_name(mpctx->ao),
             audio_config_to_str_buf(tmp, sizeof(tmp), ao_rate, ao_format,
                                     ao_channels));
     MP_VERBOSE(mpctx, "AO: Description: %s\n", ao_get_description(mpctx->ao));
