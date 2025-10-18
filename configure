@@ -767,7 +767,6 @@ if is_running():
     pick_first_matching_dep(
         ("posix",               "osdep/terminal-unix.c"),
         ("win32-desktop",       "osdep/terminal-win.c"),
-        ("_",                   "osdep/terminal-dummy.c"),
     )
 
     pick_first_matching_dep(
@@ -778,13 +777,11 @@ if is_running():
     pick_first_matching_dep(
         ("posix",               "input/ipc-unix.c"),
         ("win32-desktop",       "input/ipc-win.c"),
-        ("_",                   "input/ipc-dummy.c"),
     )
 
     pick_first_matching_dep(
         ("posix",               "osdep/subprocess-posix.c"),
         ("win32-desktop",       "osdep/subprocess-win.c"),
-        ("_",                   "osdep/subprocess-dummy.c"),
     )
 
 finish()
