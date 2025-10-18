@@ -142,7 +142,8 @@ const struct m_sub_options vd_lavc_conf = {
         .framedrop = AVDISCARD_NONREF,
         .dr = -1,
         .hwdec_api = (char *[]){"auto", NULL,},
-        .hwdec_codecs = "h264,vc1,hevc,vp8,vp9,av1,prores,ffv1",
+        //.hwdec_codecs = "h264,vc1,hevc,vp8,vp9,av1,prores,ffv1",
+        .hwdec_codecs = "h264",
         // Maximum number of surfaces the player wants to buffer. This number
         // might require adjustment depending on whatever the player does;
         // for example, if vo_gpu increases the number of reference surfaces for
@@ -236,16 +237,14 @@ struct autoprobe_info {
     unsigned int flags;         // HWDEC_FLAG_*
 };
 
-// Things not included in this list will be tried last, in random order.
 const struct autoprobe_info hwdec_autoprobe_info[] = {
-    {"d3d11va",         HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"dxva2",           HWDEC_FLAG_AUTO},
     {"d3d11va-copy",    HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"dxva2-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"d3d11va",         HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"dxva2",           HWDEC_FLAG_AUTO},
     {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"drm",             HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"drm-copy",        HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"no",              HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {0}
 };
 
