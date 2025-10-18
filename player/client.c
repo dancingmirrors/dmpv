@@ -2136,8 +2136,6 @@ int64_t mpv_get_time_us(mpv_handle *ctx)
     return mp_time_us();
 }
 
-#include "video/out/libmpv.h"
-
 static void do_kill(void *ptr)
 {
     struct MPContext *mpctx = ptr;
