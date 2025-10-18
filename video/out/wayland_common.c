@@ -2490,6 +2490,9 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->xkb_state)
         xkb_state_unref(wl->xkb_state);
 
+    if (wl->touch)
+        wl_touch_destroy(wl->touch);
+
     struct vo_wayland_output *output, *tmp;
     wl_list_for_each_safe(output, tmp, &wl->output_list, link)
         remove_output(output);
