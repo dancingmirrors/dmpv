@@ -72,7 +72,7 @@ struct mp_client_api {
     int num_clients;
     bool shutting_down; // do not allow new clients
     bool have_terminator; // a client took over the role of destroying the core
-    bool terminate_core_thread; // make libmpv core thread exit
+    bool terminate_core_thread; // make the core thread exit
     // This is incremented whenever the clients[] array above changes. This is
     // used to safely unlock mp_client_api.lock while iterating the list of
     // clients.
@@ -627,7 +627,7 @@ mpv_handle *mpv_create(void)
     if (!mpctx)
         return NULL;
 
-    m_config_set_profile(mpctx->mconfig, "libmpv", 0);
+    m_config_set_profile(mpctx->mconfig, "mpv", 0);
 
     mpv_handle *ctx = mp_new_client(mpctx->clients, "main");
     if (!ctx) {
