@@ -88,75 +88,26 @@ check("-git*",
       required  = "Required.",
       fn        = lambda: check_program("GIT"))
 
-check("win32",
-      fn        = lambda: check_cc(defined = "_WIN32",
-                        flags = ["-D_WIN32_WINNT=0x0602", "-DUNICODE", "-DCOBJMACROS",
-                                 "-DINITGUID", "-U__STRICT_ANSI__",
-                                 "-D__USE_MINGW_ANSI_STDIO=1"],
-                        include = "windows.h",
-                        link = ["-Wl,--major-os-version=6,--minor-os-version=0",
-                                "-Wl,--major-subsystem-version=6,--minor-subsystem-version=0",
-                                "-mwindows"]) and
-                    check_program("WINDRES") and
-                    chain(set_exe_format("pe"), True),
-      sources   = ["osdep/mpv.rc",
-                   "osdep/w32_keyboard.c",
-                   "osdep/windows_utils.c",
-                   "osdep/win32-console-wrapper.c"])
-
 check(desc      = "-fstack-protector-strong",
-      deps_neg  = "win32",
       fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
 
-check("mingw",
-      fn        = lambda: check_cc(include = "stdlib.h",
-                                   defined = ["__MINGW32__", "__MINGW64_VERSION_MAJOR"]))
 check("posix*",
       fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
-      deps_neg  = "mingw",
       sources   = ["osdep/language-posix.c",
                    "osdep/polldev.c",
                    "sub/filter_regex.c",
                    "osdep/path-unix.c"])
 check("development environment",
-      deps_any  = ["posix", "mingw"],
-      required  = "Unable to find either a POSIX or MinGW-w64 environment.")
+      deps      = "posix",
+      required  = "Unable to find a POSIX environment.")
 
-check("win-dep",
-      deps      = "win32",
-      fn        = lambda: check_cc(link = ["-Wl,--nxcompat", "-Wl,--no-seh", "-Wl,--dynamicbase"]))
-check("win32-desktop*",
-      desc      = "win32 desktop APIs",
-      deps      = "win32",
-      fn        = lambda: check_cc(link = ["-lwinmm", "-lgdi32", "-lole32",
-                                           "-luuid", "-lavrt", "-ldwmapi",
-                                           "-lversion", "-luxtheme"]),
-      sources   = ["osdep/path-win.c",
-                   "video/out/w32_common.c",
-                   "video/out/win32/displayconfig.c",
-                   "video/out/win32/droptarget.c"])
-
-def check_vista_pthreads():
-    path = os.path.abspath(os.path.join(get_root_dir(), "osdep/win32/include"))
-    add_cflags("-I%s" % path)
-    add_cflags("-isystem%s" % path)
-    # define IN_WINPTHREAD to work around MinGW stupidity (we never want it
-    # to define features specific to its own pthread stuff)
-    add_cflags("-DIN_WINPTHREAD")
-    return True
-check("-win32-internal-pthreads*",
-      deps      = "win32",
-      deps_neg  = "posix",
-      fn        = lambda: check_vista_pthreads(),
-      sources   = "osdep/win32/pthread.c")
 check("pthreads",
-      deps_neg  = "win32-internal-pthreads",
       fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
                                    include = "pthread.h",
                                    expr = "pthread_self();"))
 check(desc      = "any pthread support",
-      deps_any  = ["pthreads", "win32-internal-pthreads"],
+      deps      = "pthreads",
       required  = "Unable to find pthreads support.")
 
 check("stdatomic*",
@@ -181,23 +132,14 @@ check("-uchardet*",
       deps      = "iconv",
       fn        = lambda: check_pkg_config("uchardet"))
 
-check("dos-paths*",
-      deps      = "win32")
-
 check("glob-posix*",
       desc      = "glob() POSIX support",
       deps      = "posix",
-      deps_neg  = "win32",
       fn        = lambda: check_cc(include = "glob.h",
                                    expr = 'glob("filename", 0, 0, 0);'))
-check("glob-win32",
-      desc      = "glob() win32 replacement",
-      deps_neg  = "glob-posix",
-      deps      = "win32",
-      sources   = "osdep/glob-win.c"),
 check("glob*",
-      desc      = "any glob() support",
-      deps_any  = ["glob-posix", "glob-win32"])
+      desc      = "glob() support",
+      deps      = "glob-posix")
 check("fchmod*",
       fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"))
 
@@ -275,12 +217,6 @@ check("-alsa*",
       desc      = "ALSA audio output",
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
       sources   = "audio/out/ao_alsa.c")
-check("-wasapi*",
-      deps      = "win32",
-      fn        = lambda: check_cc(link = "-lksuser"),
-      sources   = ["audio/out/ao_wasapi.c",
-                   "audio/out/ao_wasapi_changenotify.c",
-                   "audio/out/ao_wasapi_utils.c"])
 
 check("wsdisplay-usl-io-h*",
       fn        = lambda: check_cc(include = ["sys/types.h",
@@ -373,8 +309,6 @@ check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
-check(deps      = ["vulkan", "win32-desktop"],
-      sources   = "video/out/vulkan/context_win.c")
 
 check("-egl*",
       desc      = "EGL 1.4",
@@ -399,44 +333,9 @@ check("-gl-wayland*",
       deps      =  ["wayland", "egl"],
       fn        = lambda: check_pkg_config("wayland-egl >= 9.0.0"),
       sources   = "video/out/opengl/context_wayland.c")
-check("-gl-win32*",
-      desc      = "OpenGL Win32 Backend",
-      deps      = "win32-desktop",
-      fn        = lambda: check_cc(link = "-lopengl32",
-                                   include = "windows.h",
-                                   expr = "wglCreateContext(0);"),
-      sources   = "video/out/opengl/context_win.c")
-check("-gl-dxinterop*",
-      desc      = "OpenGL/DirectX Interop Backend",
-      deps      = "gl-win32",
-      fn        = lambda: check_cc(include = ["GL/gl.h", "GL/wglext.h", "d3d9.h"],
-                                   expr = "int i = WGL_ACCESS_WRITE_DISCARD_NV;"
-                                          "IDirect3D9Ex *d;"),
-      sources   = "video/out/opengl/context_dxinterop.c")
-check("-egl-angle*",
-      desc      = "OpenGL ANGLE headers",
-      deps      = "win32",
-      fn        = lambda: check_cc(include = ["EGL/egl.h", "EGL/eglext.h"],
-                        expr = "int x = EGL_D3D_TEXTURE_2D_SHARE_HANDLE_ANGLE;"),
-      sources   = "video/out/opengl/angle_dynamic.c")
-check("-egl-angle-lib*",
-      desc      = "OpenGL Win32 ANGLE Library",
-      deps      = "egl-angle",
-      fn        = lambda: check_cc(include = ["EGL/egl.h"],
-                            expr = "eglCreateWindowSurface(0, 0, 0, 0);",
-                            flags = ["-DGL_APICALL=", "-DEGLAPI=",
-                                     "-DANGLE_NO_ALIASES", "-DANGLE_EXPORT="],
-                            link = ["-lEGL", "-lGLESv2", "-ldxguid", "-ld3d9",
-                                    "-lgdi32", "-lstdc++"]))
-check("-egl-angle-win32*",
-      desc      = "OpenGL Win32 ANGLE Backend",
-      deps      = ["egl-angle", "win32-desktop"],
-      sources   = ["video/out/gpu/d3d11_helpers.c",
-                   "video/out/opengl/context_angle.c"])
 
 check("-vaapi*",
       desc      = "VA-API acceleration",
-      deps_neg  = "win32",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
@@ -497,18 +396,9 @@ check("spirv-cross*",
       desc      = "SPIRV-Cross SPIR-V shader converter",
       deps_any  = ["spirv-cross-shared", "spirv-cross-static"])
 
-check("-d3d11*",
-      desc      = "Direct3D 11 video output",
-      deps      = ["win32-desktop", "shaderc", "spirv-cross",],
-      fn        = lambda: check_cc(include = ["d3d11_1.h", "dxgi1_2.h"]),
-      sources   = ["video/out/d3d11/context.c",
-                   "video/out/d3d11/ra_d3d11.c",
-                   "video/out/gpu/d3d11_helpers.c"])
-
 check("-gl*",
       desc      = "OpenGL context support",
-      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-win32",
-                   "gl-wayland"],
+      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-wayland"],
       required  = "No OpenGL video output found or enabled. " +
                   "Aborting. If you really mean to compile without OpenGL " +
                   "video outputs use --disable-gl --disable-egl.",
@@ -523,37 +413,14 @@ check(deps      = ["drm", "egl", "gbm", "gl"],
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps_any  = ["egl-x11", "gl-wayland", "egl-drm", "egl-angle-win32"],
+      deps_any  = ["egl-x11", "gl-wayland"],
       sources   = "video/out/opengl/egl_helpers.c"),
-
-check("-d3d-hwaccel*",
-      desc      = "D3D11VA hwaccel",
-      deps      = "win32",
-      sources   = ["video/d3d.c",
-                   "video/filter/vf_d3d11vpp.c"])
-check("-d3d9-hwaccel*",
-      desc      = "DXVA2 hwaccel",
-      deps      = "d3d-hwaccel")
-check("-gl-dxinterop-d3d9*",
-      desc      = "OpenGL/DirectX Interop Backend DXVA2 interop",
-      deps      = ["gl-dxinterop", "d3d9-hwaccel"],
-      sources   = "video/out/opengl/hwdec_dxva2gldx.c")
-check(deps      = ["d3d-hwaccel", "egl-angle"],
-      sources   = ["video/out/opengl/hwdec_d3d11egl.c"])
-check(deps      = ["d3d-hwaccel", "d3d11"],
-      sources   = "video/out/d3d11/hwdec_d3d11va.c")
-check(deps      = ["d3d9-hwaccel", "d3d11"],
-      sources   = "video/out/d3d11/hwdec_dxva2dxgi.c")
-check(deps      = ["d3d9-hwaccel", "egl-angle"],
-      sources   = "video/out/opengl/hwdec_dxva2egl.c")
 
 check(deps_any   = ["drm", "x11", "wayland"],
       sources    = "video/out/present_sync.c")
 
 check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
-check(deps      = ["vulkan", "win32-desktop"],
-      sources   = "video/out/vulkan/context_win.c")
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
@@ -737,27 +604,22 @@ if is_running():
 
     pick_first_matching_dep(
             ("posix",           "osdep/main-fn-unix.c"),
-            ("win32-desktop",   "osdep/main-fn-win.c"),
     )
 
     pick_first_matching_dep(
         ("posix",               "osdep/terminal-unix.c"),
-        ("win32-desktop",       "osdep/terminal-win.c"),
     )
 
     pick_first_matching_dep(
-        ("win32",               "osdep/timer-win2.c"),
         ("_",                   "osdep/timer-unix.c"),
     )
 
     pick_first_matching_dep(
         ("posix",               "input/ipc-unix.c"),
-        ("win32-desktop",       "input/ipc-win.c"),
     )
 
     pick_first_matching_dep(
         ("posix",               "osdep/subprocess-posix.c"),
-        ("win32-desktop",       "osdep/subprocess-win.c"),
     )
 
 finish()
