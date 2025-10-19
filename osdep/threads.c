@@ -49,7 +49,7 @@ void mpthread_set_name(const char *name)
         tname[15] = '\0'; // glibc-checked kernel limit
         pthread_setname_np(pthread_self(), tname);
     }
-#elif HAVE_WIN32_INTERNAL_PTHREADS || HAVE_BSD_THREAD_NAME
+#elif HAVE_BSD_THREAD_NAME
 #ifdef __NetBSD__
     pthread_setname_np(pthread_self(), "%s", name);
 #elif defined(__OpenBSD__)
