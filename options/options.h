@@ -304,9 +304,6 @@ typedef struct MPOpts {
 
     struct stream_lavf_params *stream_lavf_opts;
 
-    char *cdrom_device;
-    char *bluray_device;
-
     struct demux_rawaudio_opts *demux_rawaudio;
     struct demux_rawvideo_opts *demux_rawvideo;
     struct demux_playlist_opts *demux_playlist;
@@ -344,24 +341,16 @@ typedef struct MPOpts {
     struct d3d11va_opts *d3d11va_opts;
     struct drm_opts *drm_opts;
     struct wayland_opts *wayland_opts;
-    struct dvd_opts *dvd_opts;
     struct vaapi_opts *vaapi_opts;
     struct sws_opts *sws_opts;
     struct egl_opts *egl_opts;
 } MPOpts;
-
-struct dvd_opts {
-    int angle;
-    int speed;
-    char *device;
-};
 
 struct filter_opts {
     int deinterlace;
 };
 
 extern const struct m_sub_options vo_sub_opts;
-extern const struct m_sub_options dvd_conf;
 extern const struct m_sub_options mp_subtitle_sub_opts;
 extern const struct m_sub_options mp_sub_filter_opts;
 extern const struct m_sub_options mp_osd_render_sub_opts;

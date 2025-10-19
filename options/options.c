@@ -351,22 +351,6 @@ const struct m_sub_options mp_osd_render_sub_opts = {
 };
 
 #undef OPT_BASE_STRUCT
-#define OPT_BASE_STRUCT struct dvd_opts
-
-const struct m_sub_options dvd_conf = {
-    .opts = (const struct m_option[]){
-        {"dvd-device", OPT_STRING(device), .flags = M_OPT_FILE},
-        {"dvd-speed", OPT_INT(speed)},
-        {"dvd-angle", OPT_INT(angle), M_RANGE(1, 99)},
-        {0}
-    },
-    .size = sizeof(struct dvd_opts),
-    .defaults = &(const struct dvd_opts){
-        .angle = 1,
-    },
-};
-
-#undef OPT_BASE_STRUCT
 #define OPT_BASE_STRUCT struct filter_opts
 
 const struct m_sub_options filter_conf = {
@@ -456,16 +440,6 @@ static const m_option_t mp_opts[] = {
     {"load-positioning", OPT_BOOL(lua_load_positioning),
         .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
-
-// ------------------------- stream options --------------------
-
-#if HAVE_DVDNAV
-    {"", OPT_SUBSTRUCT(dvd_opts, dvd_conf)},
-#endif
-    {"edition", OPT_CHOICE(edition_id, {"auto", -1}), M_RANGE(0, 8190)},
-#if HAVE_LIBBLURAY
-    {"bluray-device", OPT_STRING(bluray_device), .flags = M_OPT_FILE},
-#endif /* HAVE_LIBBLURAY */
 
 // ------------------------- demuxer options --------------------
 
