@@ -48,7 +48,6 @@
 #include "osdep/threads.h"
 
 extern const struct vo_driver video_out_gpu;
-extern const struct vo_driver video_out_direct3d;
 extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_drm;
@@ -59,9 +58,6 @@ extern const struct vo_driver video_out_lavc;
 static const struct vo_driver *const video_out_drivers[] =
 {
     &video_out_gpu,
-#if HAVE_DIRECT3D
-    &video_out_direct3d,
-#endif
 #if HAVE_WAYLAND && HAVE_MEMFD_CREATE
     &video_out_wlshm,
 #endif
@@ -165,7 +161,6 @@ const struct m_obj_list vo_obj_list = {
     .description = "video outputs",
     .aliases = {
         {"gl", "gpu"},
-        {"direct3d_shaders", "direct3d"},
         {"opengl", "gpu"},
         {"opengl-cb"},
         {0}

@@ -32,11 +32,9 @@ by asking the MPlayer authors for permission. Since permission could not be
 obtained from everyone, LGPL mode disables the following features:
 - X11 video output
 - OSS audio output
-- Legacy Direct3D video output
 
 The following files are still GPL only (--enable-lgpl disables them):
 
     audio/out/ao_oss.c              will stay GPL
-    video/out/vo_direct3d.c         unknown
     video/out/vo_x11.c              probably impossible
     video/out/x11_common.*          probably impossible
