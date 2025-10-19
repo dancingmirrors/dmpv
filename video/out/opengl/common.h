@@ -33,7 +33,6 @@
 
 #include "gl_headers.h"
 
-// Collision with <winnt.h>
 #undef MemoryBarrier
 
 struct GL;

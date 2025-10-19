@@ -419,7 +419,6 @@ static const struct gl_functions gl_functions[] = {
         },
     },
     // Apple Packed YUV Formats
-    // For gl_hwdec_vda.c
     // http://www.opengl.org/registry/specs/APPLE/rgb_422.txt
     {
         .extension = "GL_APPLE_rgb_422",
