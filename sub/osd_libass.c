@@ -165,7 +165,7 @@ static ASS_Style *get_style(struct ass_state *ass, char *name)
 }
 
 static ASS_Event *add_osd_ass_event(ASS_Track *track, const char *style,
-                                    const char *text)
+                                    bstr text)
 {
     int n = ass_alloc_event(track);
     ASS_Event *event = track->events + n;
@@ -174,8 +174,12 @@ static ASS_Event *add_osd_ass_event(ASS_Track *track, const char *style,
     event->Style = find_style(track, style, 0);
     event->ReadOrder = n;
     mp_assert(event->Text == NULL);
-    if (text)
-        event->Text = strdup(text);
+    if (text.start) {
+        event->Text = malloc(text.len + 1);
+        MP_HANDLE_OOM(event->Text);
+        memcpy(event->Text, text.start, text.len);
+        event->Text[text.len] = '\0';
+    }
     return event;
 }
 
@@ -239,7 +243,7 @@ static ASS_Event *add_osd_ass_event_escaped(ASS_Track *track, const char *style,
 {
     bstr buf = {0};
     osd_mangle_ass(&buf, text, false);
-    ASS_Event *e = add_osd_ass_event(track, style, buf.start);
+    ASS_Event *e = add_osd_ass_event(track, style, buf);
     talloc_free(buf.start);
     return e;
 }
@@ -427,7 +431,7 @@ static void update_progbar(struct osd_state *osd, struct osd_object *obj)
         bstr_xappend(NULL, &buf, bstr0("{\\r}"));
     }
 
-    add_osd_ass_event(track, "progbar", buf.start);
+    add_osd_ass_event(track, "progbar", buf);
     talloc_free(buf.start);
 
     struct ass_draw *d = &(struct ass_draw) { .scale = 4 };
@@ -443,7 +447,7 @@ static void update_progbar(struct osd_state *osd, struct osd_object *obj)
         ass_draw_start(d);
         ass_draw_rect_cw(d, -border, -border, width + border, height + border);
         ass_draw_stop(d);
-        add_osd_ass_event(track, "progbar", d->text);
+        add_osd_ass_event(track, "progbar", bstr0(d->text));
         ass_draw_reset(d);
     }
 
@@ -453,7 +457,7 @@ static void update_progbar(struct osd_state *osd, struct osd_object *obj)
     float pos = obj->progbar_state.value * width - border / 2;
     ass_draw_rect_cw(d, 0, 0, pos, height);
     ass_draw_stop(d);
-    add_osd_ass_event(track, "progbar", d->text);
+    add_osd_ass_event(track, "progbar", bstr0(d->text));
     ass_draw_reset(d);
 
     // position marker
@@ -463,7 +467,7 @@ static void update_progbar(struct osd_state *osd, struct osd_object *obj)
     ass_draw_move_to(d, pos + border / 2, 0);
     ass_draw_line_to(d, pos + border / 2, height);
     ass_draw_stop(d);
-    add_osd_ass_event(track, "progbar", d->text);
+    add_osd_ass_event(track, "progbar", bstr0(d->text));
     ass_draw_reset(d);
 
     d->text = talloc_asprintf_append(d->text, "{\\pos(%f,%f)}", px, py);
@@ -492,7 +496,7 @@ static void update_progbar(struct osd_state *osd, struct osd_object *obj)
     }
 
     ass_draw_stop(d);
-    add_osd_ass_event(track, "progbar", d->text);
+    add_osd_ass_event(track, "progbar", bstr0(d->text));
     ass_draw_reset(d);
 }
 
@@ -524,11 +528,8 @@ static void update_external(struct osd_state *osd, struct osd_object *obj,
     while (t.len) {
         bstr line;
         bstr_split_tok(t, "\n", &line, &t);
-        if (line.len) {
-            char *tmp = bstrdup0(NULL, line);
-            add_osd_ass_event(ext->ass.track, "OSD", tmp);
-            talloc_free(tmp);
-        }
+        if (line.len)
+            add_osd_ass_event(ext->ass.track, "OSD", line);
     }
 }
 
