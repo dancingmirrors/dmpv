@@ -747,7 +747,7 @@ if is_running():
 
     pick_first_matching_dep(
         ("win32",               "osdep/timer-win2.c"),
-        ("_",                   "osdep/timer-linux.c"),
+        ("_",                   "osdep/timer-unix.c"),
     )
 
     pick_first_matching_dep(
