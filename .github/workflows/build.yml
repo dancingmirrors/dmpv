@@ -1,0 +1,25 @@
+name: mpv
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get build-dep -y mpv
+
+      - name: Configure project
+        run: ./configure
+
+      - name: Build project
+        run: make
