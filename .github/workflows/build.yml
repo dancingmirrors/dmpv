@@ -26,8 +26,11 @@ jobs:
           git clone --depth 1 --recursive https://github.com/haasn/libplacebo.git ; cd libplacebo
           meson setup --prefix=/usr/local build ; meson compile -C build ; cd build && sudo ninja install
 
-      - name: ./configure
+      - name: configure
         run: ./configure
 
-      - name: make
-        run: make
+      - name: make and make install
+        run: |
+          make
+          sudo make install
+          ldd /usr/local/bin/mpv
