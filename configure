@@ -94,13 +94,11 @@ check(desc      = "-fstack-protector-strong",
 check("posix*",
       fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
+      required  = "Unable to find a POSIX environment.",
       sources   = ["osdep/language-posix.c",
                    "osdep/polldev.c",
                    "sub/filter_regex.c",
                    "osdep/path-unix.c"])
-check("development environment",
-      deps      = "posix",
-      required  = "Unable to find a POSIX environment.")
 
 check("pthreads",
       fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
@@ -139,7 +137,8 @@ check("glob-posix*",
                                    expr = 'glob("filename", 0, 0, 0);'))
 check("glob*",
       desc      = "glob() support",
-      deps      = "glob-posix")
+      deps      = "glob-posix",
+      required  = "Required.")
 check("fchmod*",
       fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"))
 

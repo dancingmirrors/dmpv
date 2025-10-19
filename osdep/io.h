@@ -30,9 +30,7 @@
 #include <fcntl.h>
 #include <locale.h>
 
-#if HAVE_GLOB_POSIX
 #include <glob.h>
-#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0

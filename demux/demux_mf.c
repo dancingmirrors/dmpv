@@ -123,7 +123,6 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
     size_t fname_avail = strlen(filename) + 32;
     char *fname = talloc_size(mf, fname_avail);
 
-#if HAVE_GLOB
     if (!strchr(filename, '%')) {
         // append * if none present
         snprintf(fname, fname_avail, "%s%c", filename,
@@ -144,7 +143,6 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
         globfree(&gg);
         goto exit_mf;
     }
-#endif
 
     // We're using arbitrary user input as printf format with 1 int argument.
     // Any format which uses exactly 1 int argument would be valid, but for
