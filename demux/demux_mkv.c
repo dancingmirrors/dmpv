@@ -39,9 +39,7 @@
 
 #include "config.h"
 
-#if HAVE_ZLIB
 #include <zlib.h>
-#endif
 
 #include "misc/mpv_talloc.h"
 #include "common/av_common.h"
@@ -308,7 +306,6 @@ static bstr demux_mkv_decode(struct mp_log *log, mkv_track_t *track,
         src = dest;  // output from last iteration is new source
 
         if (enc->comp_algo == 0) {
-#if HAVE_ZLIB
             /* zlib encoded track */
 
             if (size == 0)
@@ -353,7 +350,6 @@ static bstr demux_mkv_decode(struct mp_log *log, mkv_track_t *track,
 
             size = zstream.total_out;
             inflateEnd(&zstream);
-#endif
         } else if (enc->comp_algo == 2) {
             /* lzo encoded track */
             int out_avail;
@@ -522,15 +518,6 @@ static void parse_trackencodings(struct demuxer *demuxer,
                     "algorithm (%"PRIu64"). Skipping track.\n",
                     track->tnum, e.comp_algo);
         }
-#if !HAVE_ZLIB
-        else if (e.comp_algo == 0) {
-            MP_WARN(demuxer, "Track %d was compressed with zlib "
-                    "but mpv has not been compiled\n"
-                    "with support for zlib compression. "
-                    "Skipping track.\n",
-                    track->tnum);
-        }
-#endif
         int i;
         for (i = 0; i < n_enc; i++) {
             if (e.order >= ce[i].order)
