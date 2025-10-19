@@ -15,11 +15,11 @@ check("-lgpl",
 check("gpl*",
       desc      = "GPL (version 2 or later) build",
       deps_neg  = "lgpl")
-check(desc      = "whether compiler works",
-      required  = "C compiler missing or broken",
+check(desc      = "whether the compiler works",
+      required  = "C compiler missing or broken.",
       fn        = lambda: check_program("CC") and check_cc(link = []))
 check(desc      = "pkg-config",
-      required  = "pkg-config missing or broken",
+      required  = "pkg-config missing or broken.",
       fn        = lambda: check_program("PKG_CONFIG"))
 
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
@@ -179,9 +179,10 @@ check("-libass*",
 check("-zlib*",
       fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
                                    expr = "inflate(0, Z_NO_FLUSH);"),
-      required  = "Unable to find development files for zlib.")
+      required  = "Required.")
 
 check("-lcms2*",
+      desc      = "Little Color Management System 2",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
 
 check("-libarchive*",
@@ -198,8 +199,7 @@ check(desc      = "FFmpeg",
                     "libswscale     >= 7.5.100",
                     "libavfilter    >= 9.12.100",
                     "libswresample  >= 4.12.100"),
-      required  = "Unable to find development files for some of the required \
-FFmpeg libraries.")
+      required  = "Required FFmpeg libraries not found or too old.")
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
