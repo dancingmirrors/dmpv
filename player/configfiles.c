@@ -86,8 +86,6 @@ void mp_parse_cfgfiles(struct MPContext *mpctx)
     if (encoding)
         section = "playback-default";
 
-    load_all_cfgfiles(mpctx, NULL, "encoding-profiles.conf");
-
     load_all_cfgfiles(mpctx, section, "mpv.conf|config");
 
     if (encoding) {
