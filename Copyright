@@ -30,11 +30,10 @@ mpv can be built as LGPLv2.1+ with the --enable-lgpl configure option. To add
 a LGPL mode to mpv, MPlayer code had to be relicensed from GPLv2+ to LGPLv2.1+
 by asking the MPlayer authors for permission. Since permission could not be
 obtained from everyone, LGPL mode disables the following features:
-- X11 video output
+- X11 support
 - OSS audio output
 
 The following files are still GPL only (--enable-lgpl disables them):
 
     audio/out/ao_oss.c              will stay GPL
-    video/out/vo_x11.c              probably impossible
     video/out/x11_common.*          probably impossible
