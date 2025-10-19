@@ -232,6 +232,7 @@ check("-drm*",
       desc      = "Direct Rendering Manager",
       deps_any  = ["wsdisplay-usl-io-h", "vt_h", "consio_h"],
       fn        = lambda: check_pkg_config("libdrm >= 2.4.105"),
+      required  = "Required.",
       sources   = ["video/out/drm_atomic.c",
                    "video/out/drm_common.c",
                    "video/out/vo_drm.c"])
@@ -310,7 +311,8 @@ check(deps      = ["vulkan", "wayland"],
 
 check("-egl*",
       desc      = "EGL 1.4",
-      fn        = lambda: check_pkg_config("egl"))
+      fn        = lambda: check_pkg_config("egl"),
+      required  = "Required.")
 check("-gl-x11*",
       desc      = "OpenGL X11 Backend",
       deps      = ["egl", "x11"],
@@ -397,9 +399,7 @@ check("spirv-cross*",
 check("-gl*",
       desc      = "OpenGL context support",
       deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-wayland"],
-      required  = "No OpenGL video output found or enabled. " +
-                  "Aborting. If you really mean to compile without OpenGL " +
-                  "video outputs use --disable-gl --disable-egl.",
+      required  = "Required.",
       sources   = ["video/out/opengl/common.c",
                    "video/out/opengl/context.c",
                    "video/out/opengl/formats.c",
