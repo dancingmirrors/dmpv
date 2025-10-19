@@ -57,7 +57,7 @@ static bool is_fast_dr(GL *gl)
 
     return strcasecmp(vendor, "AMD") == 0 ||
            strcasecmp(vendor, "NVIDIA Corporation") == 0 ||
-           strcasecmp(vendor, "ATI Technologies Inc.") == 0;    // AMD on Windows
+           strcasecmp(vendor, "ATI Technologies Inc.") == 0;
 }
 
 static void GLAPIENTRY dummy_glBindFramebuffer(GLenum target, GLuint framebuffer)

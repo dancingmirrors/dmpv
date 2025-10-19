@@ -442,30 +442,29 @@ char *format_file_size(int64_t size);
 #define UPDATE_IMGPAR           (1 << 13) // video image params overrides
 #define UPDATE_INPUT            (1 << 14) // mostly --input-* options
 #define UPDATE_AUDIO            (1 << 15) // --audio-channels etc.
-#define UPDATE_PRIORITY         (1 << 16) // --priority (Windows-only)
-#define UPDATE_SCREENSAVER      (1 << 17) // --stop-screensaver
-#define UPDATE_VOL              (1 << 18) // softvol related options
-#define UPDATE_LAVFI_COMPLEX    (1 << 19) // --lavfi-complex
-#define UPDATE_HWDEC            (1 << 20) // --hwdec
-#define UPDATE_SUB_HARD         (1 << 21) // subtitle opts. that need full reinit
-#define UPDATE_VIDEO            (1 << 22) // force redraw if needed
-#define UPDATE_OPT_LAST         (1 << 23)
+#define UPDATE_SCREENSAVER      (1 << 16) // --stop-screensaver
+#define UPDATE_VOL              (1 << 17) // softvol related options
+#define UPDATE_LAVFI_COMPLEX    (1 << 18) // --lavfi-complex
+#define UPDATE_HWDEC            (1 << 19) // --hwdec
+#define UPDATE_SUB_HARD         (1 << 20) // subtitle opts. that need full reinit
+#define UPDATE_VIDEO            (1 << 21) // force redraw if needed
+#define UPDATE_OPT_LAST         (1 << 22)
 
 // All bits between _FIRST and _LAST (inclusive)
 #define UPDATE_OPTS_MASK \
     (((UPDATE_OPT_LAST << 1) - 1) & ~(unsigned)(UPDATE_OPT_FIRST - 1))
 
 // type_float/type_double: string "default" is parsed as NaN (and reverse)
-#define M_OPT_DEFAULT_NAN       (1 << 24)
+#define M_OPT_DEFAULT_NAN       (1 << 23)
 
 // type time: string "no" maps to MP_NOPTS_VALUE (if unset, NOPTS is rejected)
-#define M_OPT_ALLOW_NO          (1 << 25)
+#define M_OPT_ALLOW_NO          (1 << 24)
 
 // type channels: disallow "auto" (still accept ""), limit list to at most 1 item.
-#define M_OPT_CHANNELS_LIMITED  (1 << 26)
+#define M_OPT_CHANNELS_LIMITED  (1 << 25)
 
 // Like M_OPT_TYPE_OPTIONAL_PARAM.
-#define M_OPT_OPTIONAL_PARAM    (1 << 27)
+#define M_OPT_OPTIONAL_PARAM    (1 << 26)
 
 // These are kept for compatibility with older code.
 #define CONF_NOCFG              M_OPT_NOCFG

@@ -1,5 +1,5 @@
 /*
- * unicode/utf-8 I/O helpers and wrappers for Windows
+ * unicode/utf-8 I/O helpers and wrappers
  *
  * This file is part of mpv.
  *

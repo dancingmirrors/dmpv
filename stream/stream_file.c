@@ -26,9 +26,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifndef __MINGW32__
 #include <poll.h>
-#endif
 
 #include "osdep/io.h"
 
@@ -79,7 +77,6 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
 {
     struct priv *p = s->priv;
 
-#ifndef __MINGW32__
     if (p->use_poll) {
         int c = mp_cancel_get_fd(p->cancel);
         struct pollfd fds[2] = {
@@ -90,7 +87,6 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
         if (fds[1].revents & POLLIN)
             return -1;
     }
-#endif
 
     for (int retries = 0; retries < MAX_RETRIES; retries++) {
         int r = read(p->fd, buffer, max_len);
@@ -252,11 +248,9 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
             p->appending = true;
 
         mode_t openmode = S_IRUSR | S_IWUSR;
-#ifndef __MINGW32__
         openmode |= S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
         if (!write)
             m |= O_NONBLOCK;
-#endif
         p->fd = open(filename, m | O_BINARY, openmode);
         if (p->fd < 0) {
             MP_ERR(stream, "Cannot open file '%s': %s\n",
@@ -273,22 +267,14 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
             stream->is_directory = true;
         } else if (S_ISREG(st.st_mode)) {
             p->regular_file = true;
-#ifndef __MINGW32__
             // O_NONBLOCK has weird semantics on file locks; remove it.
             int val = fcntl(p->fd, F_GETFL) & ~(unsigned)O_NONBLOCK;
             fcntl(p->fd, F_SETFL, val);
-#endif
         } else {
-#ifndef __MINGW32__
             is_sock_or_fifo = S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode);
-#endif
             p->use_poll = true;
         }
     }
-
-#ifdef __MINGW32__
-    setmode(p->fd, O_BINARY);
-#endif
 
     off_t len = lseek(p->fd, 0, SEEK_END);
     lseek(p->fd, 0, SEEK_SET);

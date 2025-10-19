@@ -268,11 +268,6 @@ enum mp_imgfmt {
     // AV_PIX_FMT_PAL8
     IMGFMT_PAL8,
 
-    // Hardware accelerated formats. Plane data points to special data
-    // structures, instead of pixel data.
-    IMGFMT_D3D11,
-    IMGFMT_DXVA2,           // IDirect3DSurface9 (NV12/P010/P016)
-
     // Not an actual format; base for mpv-specific descriptor table.
     // Some may still map to AV_PIX_FMT_*.
     IMGFMT_CUST_BASE,

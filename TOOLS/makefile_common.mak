@@ -50,11 +50,6 @@ install:
 	$(Q) mkdir -p /usr/local/share/applications
 	$(Q) cp -v etc/mpv.desktop /usr/local/share/applications
 
-install-msys2:
-	$(LOG) "INSTALL-MSYS2"
-	$(Q) strip.exe $(BUILD)/mpv.exe
-	$(Q) cp -v $(BUILD)/mpv.exe /mingw64/bin
-
 uninstall:
 	$(LOG) "UNINSTALL"
 	$(Q) rm -f -v /usr/local/bin/mpv
@@ -63,10 +58,6 @@ uninstall:
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/64x64/apps/mpv.png
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/128x128/apps/mpv.png
 	$(Q) rm -f -v /usr/local/share/applications/mpv.desktop
-
-uninstall-msys2:
-	$(LOG) "UNINSTALL-MSYS2"
-	$(Q) rm -f -v /mingw64/bin/mpv.exe
 
 # Generic pattern rules (used for most source files).
 

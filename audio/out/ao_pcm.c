@@ -34,12 +34,6 @@
 #include "common/msg.h"
 #include "osdep/endian.h"
 
-#ifdef __MINGW32__
-// for GetFileType to detect pipes
-#include <windows.h>
-#include <io.h>
-#endif
-
 struct priv {
     char *outputfilename;
     bool waveheader;
@@ -172,12 +166,6 @@ static void uninit(struct ao *ao)
 
     if (priv->waveheader) {    // Rewrite wave header
         bool broken_seek = false;
-#ifdef __MINGW32__
-        // Windows, in its usual idiocy "emulates" seeks on pipes so it always
-        // looks like they work. So we have to detect them brute-force.
-        broken_seek = FILE_TYPE_DISK !=
-            GetFileType((HANDLE)_get_osfhandle(_fileno(priv->fp)));
-#endif
         if (broken_seek || fseek(priv->fp, 0, SEEK_SET) != 0)
             MP_ERR(ao, "Could not seek to start, WAV size headers not updated!\n");
         else {

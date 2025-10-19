@@ -1,5 +1,5 @@
 /*
- * unicode/utf-8 I/O helpers and wrappers for Windows
+ * unicode/utf-8 I/O helpers and wrappers
  *
  * Contains parts based on libav code (http://libav.org).
  *
@@ -52,13 +52,6 @@ bool mp_set_cloexec(int fd)
     return true;
 }
 
-#ifdef __MINGW32__
-int mp_make_cloexec_pipe(int pipes[2])
-{
-    pipes[0] = pipes[1] = -1;
-    return -1;
-}
-#else
 int mp_make_cloexec_pipe(int pipes[2])
 {
     if (pipe(pipes) != 0) {
@@ -70,14 +63,7 @@ int mp_make_cloexec_pipe(int pipes[2])
         mp_set_cloexec(pipes[i]);
     return 0;
 }
-#endif
 
-#ifdef __MINGW32__
-int mp_make_wakeup_pipe(int pipes[2])
-{
-    return mp_make_cloexec_pipe(pipes);
-}
-#else
 // create a pipe, and set it to non-blocking (and also set FD_CLOEXEC)
 int mp_make_wakeup_pipe(int pipes[2])
 {
@@ -90,7 +76,6 @@ int mp_make_wakeup_pipe(int pipes[2])
     }
     return 0;
 }
-#endif
 
 void mp_flush_wakeup_pipe(int pipe_end)
 {
