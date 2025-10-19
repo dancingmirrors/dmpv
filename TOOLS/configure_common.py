@@ -88,7 +88,6 @@ def _c_quote_string(s):
 def _c_quote_makefile_var(s):
     s = s.replace("\\", "\\\\")
     s = s.replace("\"", "\\\"")
-    s = s.replace(" ", "\ ") # probably
     return s
 
 def die(msg):
