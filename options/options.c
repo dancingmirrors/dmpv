@@ -30,10 +30,6 @@
 
 #include "config.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 #include "options.h"
 #include "m_config.h"
 #include "m_option.h"
@@ -84,9 +80,6 @@ extern const struct m_sub_options opengl_conf;
 extern const struct m_sub_options vulkan_conf;
 extern const struct m_sub_options vulkan_display_conf;
 extern const struct m_sub_options spirv_conf;
-extern const struct m_sub_options d3d11_conf;
-extern const struct m_sub_options d3d11va_conf;
-extern const struct m_sub_options angle_conf;
 extern const struct m_sub_options wayland_conf;
 extern const struct m_sub_options vaapi_conf;
 extern const struct m_sub_options egl_conf;
@@ -182,9 +175,6 @@ static const m_option_t mp_vo_opt_list[] = {
     {"x11-present", OPT_CHOICE(x11_present,
         {"no", 0}, {"auto", 1}, {"yes", 2})},
 #endif
-#if HAVE_WIN32_DESKTOP
-    {"vo-mmcss-profile", OPT_STRING(mmcss_profile)},
-#endif
     {"swapchain-depth", OPT_INT(swapchain_depth), M_RANGE(1, 8)},
     {0}
 };
@@ -216,9 +206,6 @@ const struct m_sub_options vo_sub_opts = {
 #if HAVE_X11
         .x11_bypass_compositor = 2,
         .x11_present = 1,
-#endif
-#if HAVE_WIN32_DESKTOP
-        .mmcss_profile = "Playback",
 #endif
         .ontop_level = -1,
         .timing_offset = 0.050,
@@ -414,17 +401,6 @@ static const m_option_t mp_opts[] = {
         .flags = CONF_PRE_PARSE | M_OPT_FILE | UPDATE_TERM},
     {"msg-module", OPT_BOOL(msg_module), .flags = UPDATE_TERM},
     {"msg-time", OPT_BOOL(msg_time), .flags = UPDATE_TERM},
-#if HAVE_WIN32_DESKTOP
-    {"priority", OPT_CHOICE(w32_priority,
-        {"no",          0},
-        {"realtime",    REALTIME_PRIORITY_CLASS},
-        {"high",        HIGH_PRIORITY_CLASS},
-        {"abovenormal", ABOVE_NORMAL_PRIORITY_CLASS},
-        {"normal",      NORMAL_PRIORITY_CLASS},
-        {"belownormal", BELOW_NORMAL_PRIORITY_CLASS},
-        {"idle",        IDLE_PRIORITY_CLASS}),
-        .flags = UPDATE_PRIORITY},
-#endif
     {"config", OPT_BOOL(load_config), .flags = CONF_PRE_PARSE},
     {"config-dir", OPT_STRING(force_configdir),
         .flags = CONF_NOCFG | CONF_PRE_PARSE | M_OPT_FILE},
@@ -748,7 +724,7 @@ static const m_option_t mp_opts[] = {
     {"", OPT_SUBSTRUCT(opengl_opts, opengl_conf)},
 #endif
 
-#if HAVE_EGL || HAVE_EGL_ANGLE_WIN32 && HAVE_GL
+#if HAVE_EGL && HAVE_GL
     {"egl", OPT_SUBSTRUCT(egl_opts, egl_conf)},
 #endif
 
@@ -757,28 +733,12 @@ static const m_option_t mp_opts[] = {
     {"", OPT_SUBSTRUCT(vulkan_display_opts, vulkan_display_conf)},
 #endif
 
-#if HAVE_D3D11
-    {"", OPT_SUBSTRUCT(d3d11_opts, d3d11_conf)},
-#if HAVE_D3D_HWACCEL
-    {"", OPT_SUBSTRUCT(d3d11va_opts, d3d11va_conf)},
-#endif
-#endif
-
-#if HAVE_EGL_ANGLE_WIN32
-    {"", OPT_SUBSTRUCT(angle_opts, angle_conf)},
-#endif
-
 #if HAVE_DRM
     {"", OPT_SUBSTRUCT(drm_opts, drm_conf)},
 #endif
 
 #if HAVE_WAYLAND
     {"", OPT_SUBSTRUCT(wayland_opts, wayland_conf)},
-#endif
-
-#if HAVE_GL_WIN32
-    {"opengl-dwmflush", OPT_CHOICE(wingl_dwm_flush,
-        {"no", -1}, {"auto", 0}, {"windowed", 1}, {"yes", 2})},
 #endif
 
 #if HAVE_VAAPI

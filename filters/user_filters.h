@@ -31,5 +31,4 @@ extern const struct mp_user_filter_entry vf_lavfi_bridge;
 extern const struct mp_user_filter_entry vf_sub;
 extern const struct mp_user_filter_entry vf_format;
 extern const struct mp_user_filter_entry vf_vavpp;
-extern const struct mp_user_filter_entry vf_d3d11vpp;
 extern const struct mp_user_filter_entry vf_gpu;

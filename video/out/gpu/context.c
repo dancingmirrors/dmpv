@@ -52,9 +52,6 @@ extern const struct ra_ctx_fns ra_ctx_d3d11;
 
 static const struct ra_ctx_fns *contexts[] = {
 #if HAVE_VULKAN
-#if HAVE_WIN32_DESKTOP
-    &ra_ctx_vulkan_win,
-#endif
 #if HAVE_WAYLAND
     &ra_ctx_vulkan_wayland,
 #endif
@@ -62,19 +59,6 @@ static const struct ra_ctx_fns *contexts[] = {
     &ra_ctx_vulkan_xlib,
 #endif
 #endif // HAVE_VULKAN
-
-#if HAVE_D3D11
-    &ra_ctx_d3d11,
-#endif
-#if HAVE_EGL_ANGLE_WIN32
-    &ra_ctx_angle,
-#endif
-#if HAVE_GL_WIN32
-    &ra_ctx_wgl,
-#endif
-#if HAVE_GL_DXINTEROP
-    &ra_ctx_dxgl,
-#endif
 
 #if HAVE_GL_WAYLAND
     &ra_ctx_wayland_egl,

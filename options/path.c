@@ -41,19 +41,13 @@
 
 // In order of decreasing priority: the first has highest priority.
 static const mp_get_platform_path_cb path_resolvers[] = {
-#if !defined(_WIN32) || defined(__CYGWIN__)
     mp_get_platform_path_unix,
-#endif
-#if defined(_WIN32)
-    mp_get_platform_path_win,
-#endif
 };
 
 // from highest (most preferred) to lowest priority
 static const char *const config_dirs[] = {
     "home",
     "old_home",
-    "exe_dir",
     "global",
 };
 // types that configdir replaces (if set)
@@ -223,16 +217,6 @@ char *mp_basename(const char *path)
 {
     char *s;
 
-#if HAVE_DOS_PATHS
-    if (!mp_is_url(bstr0(path))) {
-        s = strrchr(path, '\\');
-        if (s)
-            path = s + 1;
-        s = strrchr(path, ':');
-        if (s)
-            path = s + 1;
-    }
-#endif
     s = strrchr(path, '/');
     return s ? s + 1 : (char *)path;
 }
@@ -248,13 +232,9 @@ struct bstr mp_dirname(const char *path)
 }
 
 
-#if HAVE_DOS_PATHS
-static const char mp_path_separators[] = "\\/";
-#else
 static const char mp_path_separators[] = "/";
-#endif
 
-// Mutates path and removes a trailing '/' (or '\' on Windows)
+// Mutates path and removes a trailing '/'
 void mp_path_strip_trailing_separator(char *path)
 {
     size_t len = strlen(path);
@@ -278,14 +258,12 @@ bool mp_path_is_absolute(struct bstr path)
     if (path.len && strchr(mp_path_separators, path.start[0]))
         return true;
 
-#if HAVE_DOS_PATHS
     // Note: "X:filename" is a path relative to the current working directory
     //       of drive X, and thus is not an absolute path. It needs to be
     //       followed by \ or /.
     if (path.len >= 3 && path.start[1] == ':' &&
         strchr(mp_path_separators, path.start[2]))
         return true;
-#endif
 
     return false;
 }
@@ -301,11 +279,9 @@ char *mp_path_join_bstr(void *talloc_ctx, struct bstr p1, struct bstr p2)
         return bstrdup0(talloc_ctx, p2);
 
     bool have_separator = strchr(mp_path_separators, p1.start[p1.len - 1]);
-#if HAVE_DOS_PATHS
     // "X:" only => path relative to "X:" current working directory.
     if (p1.len == 2 && p1.start[1] == ':')
         have_separator = true;
-#endif
 
     return talloc_asprintf(talloc_ctx, "%.*s%s%.*s", BSTR_P(p1),
                            have_separator ? "" : "/", BSTR_P(p2));

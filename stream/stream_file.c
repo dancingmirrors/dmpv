@@ -48,16 +48,6 @@
 #include <sys/vfs.h>
 #endif
 
-#ifdef _WIN32
-#include <windows.h>
-#include <winternl.h>
-#include <io.h>
-
-#ifndef FILE_REMOTE_DEVICE
-#define FILE_REMOTE_DEVICE (0x10)
-#endif
-#endif
-
 struct priv {
     int fd;
     bool close;
@@ -152,11 +142,7 @@ char *mp_file_url_to_filename(void *talloc_ctx, bstr url)
         return NULL;
     char *filename = bstrto0(talloc_ctx, url);
     mp_url_unescape_inplace(filename);
-#if HAVE_DOS_PATHS
-    // extract '/' from '/x:/path'
-    if (filename[0] == '/' && filename[1] && filename[2] == ':')
-        memmove(filename, filename + 1, strlen(filename)); // including \0
-#endif
+
     return filename;
 }
 
@@ -207,37 +193,6 @@ static bool check_stream_network(int fd)
     }
     return false;
 
-}
-#elif defined(_WIN32)
-static bool check_stream_network(int fd)
-{
-    NTSTATUS (NTAPI *pNtQueryVolumeInformationFile)(HANDLE,
-        PIO_STATUS_BLOCK, PVOID, ULONG, FS_INFORMATION_CLASS) = NULL;
-
-    // NtQueryVolumeInformationFile is an internal Windows function. It has
-    // been present since Windows XP, however this code should fail gracefully
-    // if it's removed from a future version of Windows.
-    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
-    pNtQueryVolumeInformationFile = (NTSTATUS (NTAPI*)(HANDLE,
-        PIO_STATUS_BLOCK, PVOID, ULONG, FS_INFORMATION_CLASS))
-        GetProcAddress(ntdll, "NtQueryVolumeInformationFile");
-
-    if (!pNtQueryVolumeInformationFile)
-        return false;
-
-    HANDLE h = (HANDLE)_get_osfhandle(fd);
-    if (h == INVALID_HANDLE_VALUE)
-        return false;
-
-    FILE_FS_DEVICE_INFORMATION info = { 0 };
-    IO_STATUS_BLOCK io;
-    NTSTATUS status = pNtQueryVolumeInformationFile(h, &io, &info,
-        sizeof(info), FileFsDeviceInformation);
-    if (!NT_SUCCESS(status))
-        return false;
-
-    return info.DeviceType == FILE_DEVICE_NETWORK_FILE_SYSTEM ||
-           (info.Characteristics & FILE_REMOTE_DEVICE);
 }
 #else
 static bool check_stream_network(int fd)

@@ -33,10 +33,6 @@
 
 #include "gl_headers.h"
 
-#if HAVE_GL_WIN32
-#include <windows.h>
-#endif
-
 // Collision with <winnt.h>
 #undef MemoryBarrier
 
@@ -221,20 +217,6 @@ struct GL {
     void (GLAPIENTRY *GetQueryObjectuiv)(GLuint, GLenum, GLuint *);
     void (GLAPIENTRY *GetQueryObjectui64v)(GLuint, GLenum, GLuint64 *);
 
-#if HAVE_GL_WIN32
-    // The HANDLE type might not be present on non-Win32
-    BOOL (GLAPIENTRY *DXSetResourceShareHandleNV)(void *dxObject,
-        HANDLE shareHandle);
-    HANDLE (GLAPIENTRY *DXOpenDeviceNV)(void *dxDevice);
-    BOOL (GLAPIENTRY *DXCloseDeviceNV)(HANDLE hDevice);
-    HANDLE (GLAPIENTRY *DXRegisterObjectNV)(HANDLE hDevice, void *dxObject,
-        GLuint name, GLenum type, GLenum access);
-    BOOL (GLAPIENTRY *DXUnregisterObjectNV)(HANDLE hDevice, HANDLE hObject);
-    BOOL (GLAPIENTRY *DXLockObjectsNV)(HANDLE hDevice, GLint count,
-        HANDLE *hObjects);
-    BOOL (GLAPIENTRY *DXUnlockObjectsNV)(HANDLE hDevice, GLint count,
-        HANDLE *hObjects);
-#endif
 
     GLint (GLAPIENTRY *GetVideoSync)(GLuint *);
     GLint (GLAPIENTRY *WaitVideoSync)(GLint, GLint, unsigned int *);

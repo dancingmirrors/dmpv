@@ -26,9 +26,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifdef _WIN32
-#define MPV_EXPORT __declspec(dllexport)
-#elif defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) || defined(__clang__)
 #define MPV_EXPORT __attribute__((visibility("default")))
 #else
 #define MPV_EXPORT

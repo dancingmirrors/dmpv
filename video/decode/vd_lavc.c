@@ -238,10 +238,6 @@ struct autoprobe_info {
 };
 
 const struct autoprobe_info hwdec_autoprobe_info[] = {
-    {"d3d11va-copy",    HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"dxva2-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"d3d11va",         HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"dxva2",           HWDEC_FLAG_AUTO},
     {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"no",              HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},

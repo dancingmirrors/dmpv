@@ -27,34 +27,12 @@
 #include "hwdec.h"
 
 extern const struct ra_hwdec_driver ra_hwdec_vaapi;
-extern const struct ra_hwdec_driver ra_hwdec_dxva2egl;
-extern const struct ra_hwdec_driver ra_hwdec_d3d11egl;
-extern const struct ra_hwdec_driver ra_hwdec_dxva2gldx;
-extern const struct ra_hwdec_driver ra_hwdec_d3d11va;
-extern const struct ra_hwdec_driver ra_hwdec_dxva2dxgi;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime_overlay;
 
 const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
 #if HAVE_VAAPI_EGL
     &ra_hwdec_vaapi,
-#endif
-#if HAVE_D3D_HWACCEL
- #if HAVE_EGL_ANGLE
-    &ra_hwdec_d3d11egl,
-  #if HAVE_D3D9_HWACCEL
-    &ra_hwdec_dxva2egl,
-  #endif
- #endif
- #if HAVE_D3D11
-    &ra_hwdec_d3d11va,
-  #if HAVE_D3D9_HWACCEL
-    &ra_hwdec_dxva2dxgi,
-  #endif
- #endif
-#endif
-#if HAVE_GL_DXINTEROP_D3D9
-    &ra_hwdec_dxva2gldx,
 #endif
 #if HAVE_DRM
     &ra_hwdec_drmprime,

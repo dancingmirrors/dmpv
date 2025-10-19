@@ -74,10 +74,6 @@
 
 #include "core.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 struct command_ctx {
     // All properties, terminated with a {0} item.
     struct m_property *properties;
@@ -7048,11 +7044,6 @@ void mp_notify(struct MPContext *mpctx, int event, void *arg)
 
 static void update_priority(struct MPContext *mpctx)
 {
-#if HAVE_WIN32_DESKTOP
-    struct MPOpts *opts = mpctx->opts;
-    if (opts->w32_priority > 0)
-        SetPriorityClass(GetCurrentProcess(), opts->w32_priority);
-#endif
 }
 
 static void update_track_switch(struct MPContext *mpctx, int order, int type)

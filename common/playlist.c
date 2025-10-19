@@ -283,11 +283,6 @@ struct playlist_entry *playlist_get_first_in_same_playlist(
     mp_path_strip_trailing_separator(playlist_path);
     if (bstr_startswith(bstr0(current_playlist_path),
                         bstr0(talloc_strdup_append(playlist_path, "/")))
-#if HAVE_DOS_PATHS
-        ||
-        bstr_startswith(bstr0(current_playlist_path),
-                        bstr0(talloc_strdup_append(playlist_path, "\\")))
-#endif
        )
         goto exit;
 
