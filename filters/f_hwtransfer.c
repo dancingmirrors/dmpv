@@ -106,7 +106,7 @@ static bool select_format(struct priv *p, int input_fmt,
     // "supported" formats, which then are not supported or crash (???), so
     // the this is a good way to avoid problems.
     // (Actually we should just have hardcoded everything instead of relying on
-    // this fragile bullshit FFmpeg API and the fragile bullshit hwdec drivers.)
+    // this fragile FFmpeg API and the fragile hwdec drivers.)
     int hw_input_fmt = mp_imgfmt_select_best_list(p->fmts, p->num_fmts, input_fmt);
     if (!hw_input_fmt)
         return false;

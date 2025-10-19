@@ -661,7 +661,7 @@ int mp_aframe_pool_allocate(struct mp_aframe_pool *pool, struct mp_aframe *frame
         talloc_set_destructor(pool, mp_aframe_pool_destructor);
     }
 
-    // Yes, you have to do all this shit manually.
+    // Yes, you have to do all of this manually.
     // At least it's less stupid than av_frame_get_buffer(), which just wipes
     // the entire frame struct on error for no reason.
     AVFrame *av_frame = frame->av_frame;

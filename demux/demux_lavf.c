@@ -742,7 +742,7 @@ static void handle_new_stream(demuxer_t *demuxer, int i)
             // A real video stream probably means it's a packet based format.
             priv->pcm_seek_hack_disabled = true;
             priv->pcm_seek_hack = NULL;
-            // Also, we don't want to do this shit for ogv videos.
+            // Also, we don't want to do this for ogv videos.
             if (priv->linearize_ts < 0)
                 priv->linearize_ts = 0;
         }
@@ -1200,8 +1200,8 @@ static int demux_open_lavf(demuxer_t *demuxer, enum demux_check check)
     if (demuxer->duration < 0 && priv->format_hack.no_seek_on_no_duration)
         demuxer->seekable = false;
 
-    // In some cases, libavformat will export bogus bullshit timestamps anyway,
-    // such as with mjpeg.
+    // In some cases, libavformat will export bogus timestamps anyway, such as
+    // with mjpeg.
     if (priv->avif_flags & AVFMT_NOTIMESTAMPS) {
         MP_WARN(demuxer,
                 "This format is marked by FFmpeg as having no timestamps!\n"
@@ -1394,7 +1394,7 @@ static void demux_seek_lavf(demuxer_t *demuxer, double seek_pts, int flags)
         int samples = priv->pcm_seek_hack_packet_size /
                       priv->pcm_seek_hack->codecpar->block_align;
         if (samples > 0) {
-            MP_VERBOSE(demuxer, "using bullshit libavformat PCM seek hack\n");
+            MP_VERBOSE(demuxer, "using libavformat PCM seek hack\n");
             double pts = seek_pts_av / (double)AV_TIME_BASE;
             seek_pts_av = pts / av_q2d(priv->pcm_seek_hack->time_base);
             int64_t align = seek_pts_av % samples;

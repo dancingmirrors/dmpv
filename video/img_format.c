@@ -266,12 +266,12 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
         // pixdesc wants you to perform 3 * 2 byte accesses, and swap each of
         // the read 16 bit words. What you really want is to swap the entire 4
         // byte thing, and then extract the components with bit shifts).
-        // This is complete bullshit, so we transform it into word swaps before
-        // further processing. Care needs to be taken to not change formats like
-        // P010 or YA16 (prefer component accesses for them; P010 isn't even
-        // representable, because endian_shift is for all planes).
-        // As a heuristic, assume that if any components share a byte, the whole
-        // pixel is read as a single memory access and endian swapped at once.
+        // So we transform it into word swaps before further processing. Care
+        // needs to be taken to not change formats like P010 or YA16 (prefer
+        // component accesses for them; P010 isn't even representable, because
+        // endian_shift is for all planes). As a heuristic, assume that if any
+        // components share a byte, the whole pixel is read as a single memory
+        // access and endian swapped at once.
         int access_size = 8;
         if (plane_bits > 8) {
             if (any_shared_bytes) {
@@ -476,7 +476,7 @@ bool mp_imgfmt_get_packed_yuv_locations(int imgfmt, uint8_t *luma_offsets)
     // starting with the first byte, and then put a luma sample at places
     // not covered by other luma/chroma.
     // Pixdesc does not and can not provide this information. This heuristic
-    // may fail in certain cases. What a load of bullshit, right?
+    // may fail in certain cases. What a load of crap, right?
     int lsize = desc.comps[0].size;
     int cur_offset = 0;
     for (int lsample = 1; lsample < (1 << desc.chroma_xs); lsample++) {

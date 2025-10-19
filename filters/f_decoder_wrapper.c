@@ -639,9 +639,9 @@ void mp_decoder_wrapper_get_video_dec_params(struct mp_decoder_wrapper *d,
     *m = p->dec_format;
 }
 
-// This code exists only because multimedia is so god damn crazy. In a sane
-// world, the video decoder would always output a video frame with a valid PTS;
-// this deals with cases where it doesn't.
+// This code exists only because multimedia is so crazy. In a sane world, the
+// video decoder would always output a video frame with a valid PTS; this deals
+// with cases where it doesn't.
 static void crazy_video_pts_stuff(struct priv *p, struct mp_image *mpi)
 {
     // Note: the PTS is reordered, but the DTS is not. Both must be monotonic.

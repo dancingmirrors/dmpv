@@ -474,12 +474,12 @@ static struct sub_bitmaps *get_bitmaps(struct sd *sd, struct mp_osd_res d,
         for (int n = 0; n < res->num_parts; n++) {
             struct sub_bitmap *sub = &res->parts[n];
 
-            float shit = (opts->sub_scale - 1.0f) / 2;
+            float crap = (opts->sub_scale - 1.0f) / 2;
 
-            sub->x -= sub->dw * shit;
-            sub->y -= sub->dh * shit;
-            sub->dw += sub->dw * shit * 2;
-            sub->dh += sub->dh * shit * 2;
+            sub->x -= sub->dw * crap;
+            sub->y -= sub->dh * crap;
+            sub->dw += sub->dw * crap * 2;
+            sub->dh += sub->dh * crap * 2;
         }
     }
 

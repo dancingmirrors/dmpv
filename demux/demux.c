@@ -3466,7 +3466,7 @@ done:
     return demuxer;
 }
 
-static struct stream *create_webshit_concat_stream(struct mpv_global *global,
+static struct stream *create_web_concat_stream(struct mpv_global *global,
                                                    struct mp_cancel *c,
                                                    bstr init, struct stream *real)
 {
@@ -3503,7 +3503,7 @@ struct demuxer *demux_open_url(const char *url,
         s = stream_create(url, STREAM_READ | params->stream_flags,
                           priv_cancel, global);
         if (s && params->init_fragment.len) {
-            s = create_webshit_concat_stream(global, priv_cancel,
+            s = create_web_concat_stream(global, priv_cancel,
                                              params->init_fragment, s);
         }
     }
@@ -4348,12 +4348,12 @@ bool demux_cache_dump_set(struct demuxer *demuxer, double start, double end,
 
         in->dumper = recorder_create(in, file);
 
-        // This is not asynchronous and will freeze the shit for a while if the
-        // user is unlucky. It could be moved to a thread with some effort.
-        // General idea: iterate over all cache ranges, dump what intersects.
-        // After that, and if the user requested it, make it dump all newly
-        // received packets, even if it's awkward (consider the case if the
-        // current range is not the last range).
+        // This is not asynchronous and will freeze for a while if the user is
+        // unlucky. It could be moved to a thread with some effort. General
+        // idea: iterate over all cache ranges, dump what intersects. After
+        // that, and if the user requested it, make it dump all newly received
+        // packets, even if it's awkward (consider the case if the current range
+        // is not the last range).
         dump_cache(in, start, end);
     }
 

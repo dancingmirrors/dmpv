@@ -567,7 +567,7 @@ def get_pkg_config_variable(arg, varname):
 # Check for a specific build tool. You pass in a symbolic name (e.g. "CC"),
 # which is then resolved to a full name and added as variable to config.mak.
 # The function returns a bool for success. You're not supposed to use the
-# program from configure; instead you're supposed to have rules in the makefile
+# program from configure; instead you're supposed to have rules in the Makefile
 # using the generated variables.
 # (Some configure checks use the program directly anyway with get_program().)
 def check_program(env_name):
@@ -578,7 +578,7 @@ def check_program(env_name):
                 prefix = os.environ.get("TARGET", None)
                 if prefix is None:
                     prefix = os.environ.get("CROSS_COMPILE", "")
-                # Shitty hack: default to gcc if a prefix is given, as binutils
+                # Dumb hack: default to gcc if a prefix is given, as binutils
                 # toolchains generally provide only a -gcc wrapper.
                 if prefix and default == "cc":
                     default = "gcc"

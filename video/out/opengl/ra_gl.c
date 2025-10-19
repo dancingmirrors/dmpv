@@ -1144,11 +1144,11 @@ static void gl_timer_start(struct ra *ra, ra_timer *ratimer)
     struct gl_timer *timer = ratimer;
 
     // GL_TIME_ELAPSED queries are not re-entrant, so just do nothing instead
-    // of crashing. Work-around for shitty GL limitations
+    // of crashing as a workaround for certain GL limitations.
     if (p->timer_active)
         return;
 
-    // If this query object already contains a result, we need to retrieve it
+    // If this query object already contains a result, we need to retrieve it.
     timer->result = 0;
     if (gl->IsQuery(timer->query[timer->idx])) {
         gl->GetQueryObjectui64v(timer->query[timer->idx], GL_QUERY_RESULT,
