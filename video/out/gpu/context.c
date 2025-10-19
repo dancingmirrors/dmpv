@@ -50,13 +50,8 @@ extern const struct ra_ctx_fns ra_ctx_vulkan_display;
 /* Direct3D 11 */
 extern const struct ra_ctx_fns ra_ctx_d3d11;
 
-#if HAVE_WAYLAND
-extern const struct ra_ctx_fns ra_ctx_wldmabuf;
-#endif
-
 static const struct ra_ctx_fns *contexts[] = {
 #if HAVE_VULKAN
-
 #if HAVE_WIN32_DESKTOP
     &ra_ctx_vulkan_win,
 #endif
@@ -66,12 +61,11 @@ static const struct ra_ctx_fns *contexts[] = {
 #if HAVE_X11
     &ra_ctx_vulkan_xlib,
 #endif
-#endif
+#endif // HAVE_VULKAN
 
 #if HAVE_D3D11
     &ra_ctx_d3d11,
 #endif
-
 #if HAVE_EGL_ANGLE_WIN32
     &ra_ctx_angle,
 #endif
@@ -81,6 +75,7 @@ static const struct ra_ctx_fns *contexts[] = {
 #if HAVE_GL_DXINTEROP
     &ra_ctx_dxgl,
 #endif
+
 #if HAVE_GL_WAYLAND
     &ra_ctx_wayland_egl,
 #endif
@@ -94,9 +89,6 @@ static const struct ra_ctx_fns *contexts[] = {
     &ra_ctx_drm_egl,
 #endif
 
-#if HAVE_WAYLAND
-    &ra_ctx_wldmabuf,
-#endif
 #if HAVE_VULKAN
     &ra_ctx_vulkan_display,
 #endif
