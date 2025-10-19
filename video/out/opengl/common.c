@@ -411,6 +411,13 @@ static const struct gl_functions gl_functions[] = {
         },
     },
     {
+        .extension = "WGL_EXT_swap_control",
+        .functions = (const struct gl_function[]) {
+            DEF_FN_NAME(SwapInterval, "wglSwapIntervalEXT"),
+            {0},
+        },
+    },
+    {
         .extension = "GLX_SGI_video_sync",
         .functions = (const struct gl_function[]) {
             DEF_FN_NAME(GetVideoSync, "glXGetVideoSyncSGI"),
@@ -443,6 +450,13 @@ static const struct gl_functions gl_functions[] = {
         .functions = (const struct gl_function[]) {
             // (only functions needed by us)
             DEF_FN(DebugMessageCallback),
+            {0}
+        },
+    },
+    {
+        .extension = "GL_ANGLE_translated_shader_source",
+        .functions = (const struct gl_function[]) {
+            DEF_FN(GetTranslatedShaderSourceANGLE),
             {0}
         },
     },

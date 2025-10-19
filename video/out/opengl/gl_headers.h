@@ -151,6 +151,10 @@ typedef uint64_t GLuint64;
 #define GL_UNSIGNED_SHORT_8_8_APPLE       0x85BA
 #define GL_UNSIGNED_SHORT_8_8_REV_APPLE   0x85BB
 
+// --- GL_ANGLE_translated_shader_source
+
+#define GL_TRANSLATED_SHADER_SOURCE_LENGTH_ANGLE 0x93A0
+
 // ---- GLES 2
 
 #define GL_DEPTH_BUFFER_BIT               0x00000100

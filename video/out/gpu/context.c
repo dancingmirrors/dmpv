@@ -42,15 +42,14 @@ extern const struct ra_ctx_fns ra_ctx_vulkan_wayland;
 extern const struct ra_ctx_fns ra_ctx_vulkan_display;
 
 static const struct ra_ctx_fns *contexts[] = {
-#if HAVE_VULKAN
-#if HAVE_WAYLAND
+#if HAVE_VULKAN && HAVE_WAYLAND
     &ra_ctx_vulkan_wayland,
-#endif
 #endif
 
 #if HAVE_GL_WAYLAND
     &ra_ctx_wayland_egl,
 #endif
+
 #if HAVE_EGL_DRM
     &ra_ctx_drm_egl,
 #endif
