@@ -7042,10 +7042,6 @@ void mp_notify(struct MPContext *mpctx, int event, void *arg)
     mp_client_broadcast_event(mpctx, event, arg);
 }
 
-static void update_priority(struct MPContext *mpctx)
-{
-}
-
 static void update_track_switch(struct MPContext *mpctx, int order, int type)
 {
     if (!mpctx->playback_initialized)
@@ -7130,9 +7126,6 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
 
     if (flags & UPDATE_AUDIO)
         reload_audio_output(mpctx);
-
-    if (flags & UPDATE_PRIORITY)
-        update_priority(mpctx);
 
     if (flags & UPDATE_SCREENSAVER)
         update_screensaver_state(mpctx);
