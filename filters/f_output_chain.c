@@ -155,7 +155,7 @@ static void process_user(struct mp_filter *f)
 
     if (!u->failed && mp_filter_has_failed(u->f)) {
         if (u == p->convert_wrapper) {
-            // This is a fuckup we can't ignore.
+            // This is something we can't ignore.
             MP_FATAL(p, "Cannot convert decoder/filter output to any format "
                      "supported by the output.\n");
             p->public.failed_output_conversion = true;

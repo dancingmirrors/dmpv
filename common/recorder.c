@@ -305,7 +305,7 @@ static void check_restart(struct mp_recorder *priv)
             min_ts = MP_PTS_MIN(min_ts, rst->packets[i]->pts);
     }
 
-    // Subtitle only stream (wait longer) or stream without any PTS (fuck it).
+    // Subtitle only stream (wait longer) or stream without any PTS.
     if (min_ts == MP_NOPTS_VALUE)
         return;
 

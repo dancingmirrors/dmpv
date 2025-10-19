@@ -144,7 +144,7 @@ static int control(stream_t *s, int cmd, void *arg)
         // return anything helpful to determine seekability upfront, so here's
         // a hardcoded whitelist. Not our fault.
         // In addition we also have to jump through ridiculous hoops just to
-        // get the fucking protocol name.
+        // get the protocol name.
         const char *proto = NULL;
         if (avio->av_class && avio->av_class->child_next) {
             // This usually yields the URLContext (why does it even exist?),

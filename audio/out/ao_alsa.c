@@ -889,12 +889,12 @@ static int init(struct ao *ao)
     // set them. This can happen with dmix: as of alsa 1.0.29, dmix can do
     // stereo only, but advertises the surround chmaps of the underlying device.
     // In this case, e.g. setting 6 channels will succeed, but requesting  5.1
-    // afterwards will fail. Then it will return something like "FL FR NA NA NA NA"
-    // as channel map. This means we would have to pad stereo output to 6
+    // afterwards will fail. Then it will return something like "FL FR NA NA NA
+    // NA" as channel map. This means we would have to pad stereo output to 6
     // channels with silence, which would require lots of extra processing. You
     // can't change the number of channels to 2 either, because the hw params
-    // are already set! So just fuck it and reopen the device with the chmap
-    // "cleaned out" of NA entries.
+    // are already set! So just reopen the device with the chmap "cleaned out"
+    // of NA entries.
     if (r >= 0) {
         struct mp_chmap without_na = ao->channels;
         mp_chmap_remove_na(&without_na);

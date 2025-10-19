@@ -212,7 +212,6 @@ static void encode(struct ao *ao, struct mp_aframe *af)
     int64_t frame_pts = av_rescale_q(frame->pts, encoder->time_base,
                                      ac->worst_time_base);
     if (ac->lastpts != AV_NOPTS_VALUE && frame_pts <= ac->lastpts) {
-        // whatever the fuck this code does?
         MP_WARN(ao, "audio frame pts went backwards (%d <- %d), autofixed\n",
                 (int)frame->pts, (int)ac->lastpts);
         frame_pts = ac->lastpts + 1;

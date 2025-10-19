@@ -94,7 +94,6 @@ void mp_aframe_reset(struct mp_aframe *frame)
 // Remove all actual audio data and leave only the metadata.
 void mp_aframe_unref_data(struct mp_aframe *frame)
 {
-    // In a fucked up way, this is less complex than just unreffing the data.
     struct mp_aframe *tmp = mp_aframe_create();
     MPSWAP(struct mp_aframe, *tmp, *frame);
     mp_aframe_reset(frame);
@@ -610,8 +609,7 @@ bool mp_aframe_reverse(struct mp_aframe *f)
 
 int mp_aframe_approx_byte_size(struct mp_aframe *frame)
 {
-    // God damn, AVFrame is too fucking annoying. Just go with the size that
-    // allocating a new frame would use.
+    // Just go with the size that allocating a new frame would use.
     int planes = mp_aframe_get_planes(frame);
     size_t sstride = mp_aframe_get_sstride(frame);
     int samples = frame->av_frame->nb_samples;

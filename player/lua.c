@@ -177,7 +177,7 @@ static void *mp_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 {
     struct script_ctx *ctx = ud;
 
-    // Ah, what the fuck, screw whoever introduced this to Lua 5.2.
+    // Screw whoever introduced this to Lua 5.2.
     if (!ptr)
         osize = 0;
 
@@ -320,7 +320,7 @@ static int load_scripts(lua_State *L)
     return 0;
 }
 
-static void fuck_lua(lua_State *L, const char *search_path, const char *extra)
+static void heart_lua(lua_State *L, const char *search_path, const char *extra)
 {
     void *tmp = talloc_new(NULL);
 
@@ -410,8 +410,8 @@ static int run_lua(lua_State *L)
 
     mp_assert(lua_gettop(L) == 0);
 
-    fuck_lua(L, "path", ctx->path);
-    fuck_lua(L, "cpath", NULL);
+    heart_lua(L, "path", ctx->path);
+    heart_lua(L, "cpath", NULL);
     mp_assert(lua_gettop(L) == 0);
 
     // run this under an error handler that can do backtraces

@@ -5,7 +5,6 @@ import subprocess
 import sys
 import tempfile
 
-# ...the fuck?
 NoneType = type(None)
 function = type(lambda: 0)
 

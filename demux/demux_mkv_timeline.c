@@ -583,7 +583,7 @@ void build_ordered_chapter_timeline(struct timeline *tl)
     };
     build_timeline_loop(ctx, chapters, &info, 0);
 
-    // Fuck everything: filter out all "unset" chapters.
+    // Filter out all "unset" chapters.
     for (int n = m->num_ordered_chapters - 1; n >= 0; n--) {
         if (!chapters[n].metadata)
             MP_TARRAY_REMOVE_AT(chapters, m->num_ordered_chapters, n);

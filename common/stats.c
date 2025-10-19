@@ -155,7 +155,6 @@ void stats_global_query(struct mpv_global *global, struct mpv_node *out)
         node_map_add_double(ne, "value", t_ms);
         node_map_add_string(ne, "text", mp_tprintf(80, "%.2f ms", t_ms));
 
-        // Not enough energy left for a clean solution. Fuck it.
         if (t_ms > 2000) {
             for (int n = 0; n < stats->num_entries; n++) {
                 struct stat_entry *e = stats->entries[n];

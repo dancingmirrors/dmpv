@@ -769,12 +769,12 @@ int mp_mkostemps(char *template, int suffixlen, int flags)
     }
 
     mp_rand_state s = mp_rand_seed(0);
-    for (size_t fuckshit = 0; fuckshit < UINT32_MAX; fuckshit++) {
+    for (size_t i = 0; i < UINT32_MAX; i++) {
         // Using a random value may make it require fewer iterations (even if
         // not truly random; just a counter would be sufficient).
-        size_t fuckmess = mp_rand_next(&s);
+        size_t j = mp_rand_next(&s);
         char crap[7] = "";
-        snprintf(crap, sizeof(crap), "%06zx", fuckmess);
+        snprintf(crap, sizeof(crap), "%06zx", j);
         memcpy(t, crap, 6);
 
         int res = open(template, O_RDWR | O_CREAT | O_EXCL | flags, 0600);

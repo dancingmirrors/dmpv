@@ -235,8 +235,8 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
         }
 
         int shift = d->shift;
-        // What the fuck: for some inexplicable reason, MONOB uses shift=7
-        // in pixdesc, which is basically out of bounds. Pixdesc bug?
+        // For some inexplicable reason, MONOB uses shift=7 in pixdesc, which is
+        // basically out of bounds. Pixdesc bug?
         // Make it behave like MONOW. (No, the bit-order is not different.)
         if (fmt == AV_PIX_FMT_MONOBLACK)
             shift = 0;
@@ -314,7 +314,7 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
             goto fail; // plane doesn't exist
     }
 
-    // What the fuck: this is probably a pixdesc bug, so fix it.
+    // This is probably a pixdesc bug, so fix it.
     if (fmt == AV_PIX_FMT_RGB8) {
         desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2};
         desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3};

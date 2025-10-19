@@ -1380,8 +1380,7 @@ static void demux_seek_lavf(demuxer_t *demuxer, double seek_pts, int flags)
     // Hack to make wav seeking "deterministic". Without this, features like
     // backward playback won't work.
     if (priv->pcm_seek_hack && !priv->pcm_seek_hack_packet_size) {
-        // This might for example be the initial seek. Fuck it up like the
-        // bullshit it is.
+        // This might for example be the initial seek.
         AVPacket *pkt = av_packet_alloc();
         MP_HANDLE_OOM(pkt);
         if (av_read_frame(priv->avfc, pkt) >= 0)

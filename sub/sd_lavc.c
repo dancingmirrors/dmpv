@@ -476,8 +476,6 @@ static struct sub_bitmaps *get_bitmaps(struct sd *sd, struct mp_osd_res d,
 
             float shit = (opts->sub_scale - 1.0f) / 2;
 
-            // Fortunately VO isn't supposed to give a FUCKING FUCK about
-            // whether the sub might e.g. go outside of the screen.
             sub->x -= sub->dw * shit;
             sub->y -= sub->dh * shit;
             sub->dw += sub->dw * shit * 2;

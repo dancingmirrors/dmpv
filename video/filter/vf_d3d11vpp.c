@@ -197,7 +197,7 @@ static int recreate_video_proc(struct mp_filter *vf)
                                                          p->video_proc,
                                                          0, TRUE, &src_rc);
 
-    // This is supposed to stop drivers from fucking up the video quality.
+    // This is supposed to stop drivers from messing up the video quality.
     ID3D11VideoContext_VideoProcessorSetStreamAutoProcessingMode(p->video_ctx,
                                                                  p->video_proc,
                                                                  0, FALSE);

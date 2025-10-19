@@ -1002,7 +1002,7 @@ again:;
             // and change the p->dr_buffers array. To make it worse, it could
             // free multiple dr_buffers due to weird theoretical corner cases.
             // This is also why we use the goto to iterate again from the
-            // start, because everything gets fucked up. Hail satan!
+            // start, because everything gets messed up. Hail Satan!
             struct mp_image *ref = buffer->mpi;
             buffer->mpi = NULL;
             talloc_free(ref);
