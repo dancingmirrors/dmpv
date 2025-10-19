@@ -401,7 +401,7 @@ static const struct gl_functions gl_functions[] = {
             {0},
         },
     },
-    // This one overrides GLX_SGI_swap_control on platforms using mesa. The
+    // This one overrides GLX_SGI_swap_control on platforms using Mesa. The
     // only difference is that it supports glXSwapInterval(0).
     {
         .extension = "GLX_MESA_swap_control",
