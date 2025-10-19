@@ -46,7 +46,8 @@ check(desc      = "warning CFLAGS",
                         "-Werror=format-security",
                         "-Wvla", "-Wundef",
                         "-Wno-pointer-sign",
-                        "-Wno-switch"]))
+                        "-Wno-switch",
+                        "-Wno-unused-result"]))
 
 check("gnuc",
       desc      = "GNU C",
