@@ -188,10 +188,15 @@ static char *get_term_status_msg(struct MPContext *mpctx)
         saddf(&line, "(Paused) ");
     }
 
+    if ((mpctx->ao_chain) && (mpctx->vo_chain)) {
+        saddf(&line, "A/V");
+    }
+    else {
     if (mpctx->ao_chain)
         saddf(&line, "A");
     if (mpctx->vo_chain)
         saddf(&line, "V");
+    }
     saddf(&line, ": ");
 
     // Playback position
