@@ -5,16 +5,12 @@ from TOOLS.configure_common import *
 
 begin()
 
-# (workaround for insufficient Python lambda syntax)
 def chain(*a):
     return a[-1]
 
 check("-lgpl",
       desc      = "LGPL (version 2.1 or later) build",
-      default   = False)
-check("gpl*",
-      desc      = "GPL (version 2 or later) build",
-      deps_neg  = "lgpl")
+      default   = True)
 check(desc      = "whether the compiler works",
       required  = "C compiler missing or broken.",
       fn        = lambda: check_program("CC") and check_cc(link = []))
@@ -202,12 +198,6 @@ check(desc      = "FFmpeg",
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
-check("-oss*",
-      desc      = "OSS audio output",
-      deps      = "gpl",
-      fn        = lambda: check_cc(include = "sys/soundcard.h",
-                  expr = "SNDCTL_DSP_HALT;"),
-      sources   = "audio/out/ao_oss.c")
 check("-sndio*",
       desc      = "sndio audio output",
       fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
@@ -285,17 +275,6 @@ check("memfd-create*",
       fn        = lambda: check_cc(include = "sys/mman.h", link = [],
                                    expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"))
 
-check("-x11*",
-      desc      = "X11",
-      deps      = "gpl",
-      fn        = lambda: check_pkg_config("x11         >= 1.0.0",
-                                           "xscrnsaver  >= 1.0.0",
-                                           "xext        >= 1.0.0",
-                                           "xinerama    >= 1.0.0",
-                                           "xpresent    >= 1.0.0",
-                                           "xrandr      >= 1.2.0"),
-      sources   = "video/out/x11_common.c")
-
 check("-vulkan*",
       desc      = "Vulkan context support",
       deps      = "libplacebo",
@@ -303,8 +282,6 @@ check("-vulkan*",
       sources   = ["video/out/vulkan/context.c",
                    "video/out/vulkan/utils.c",
                    "video/out/vulkan/context_display.c"])
-check(deps      = ["vulkan", "x11"],
-      sources   = "video/out/vulkan/context_xlib.c")
 check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
 
@@ -312,17 +289,6 @@ check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl"),
       required  = "Required.")
-check("-gl-x11*",
-      desc      = "OpenGL X11 Backend",
-      deps      = ["egl", "x11"],
-      fn        = lambda: check_cc(link = "-lGL",
-                                   include = "GL/glx.h",
-                                   expr = "glXGetCurrentDisplay();"),
-      sources   = "video/out/opengl/context_glx.c")
-check("-egl-x11*",
-      desc      = "OpenGL X11 EGL Backend",
-      deps      = ["x11", "egl", "gbm"],
-      sources   = "video/out/opengl/context_x11egl.c")
 check("-egl-drm*",
       desc      = "OpenGL DRM EGL Backend",
       deps      = ["drm", "gbm", "egl"],
@@ -338,10 +304,6 @@ check("-vaapi*",
       fn        = lambda: check_pkg_config("libva >= 0.36.0"),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
-check("-vaapi-x11*",
-      desc      = "VA-API (X11 support)",
-      deps      = ["vaapi", "x11"],
-      fn        = lambda: check_pkg_config("libva-x11 >= 0.36.0"))
 check("-vaapi-wayland*",
       desc      = "VA-API (Wayland support)",
       deps      = ["vaapi", "gl-wayland"],
@@ -350,19 +312,13 @@ check("-vaapi-drm*",
       desc      = "VA-API (DRM/EGL support)",
       deps      = ["vaapi", "egl-drm"],
       fn        = lambda: check_pkg_config("libva-drm >= 0.36.0"))
-check("-vaapi-glx*",
-      desc      = "VA-API GLX",
-      deps      = ["gpl", "vaapi-x11", "gl-x11"])
-check("-vaapi-x-egl*",
-      desc      = "VA-API EGL on X11",
-      deps      = ["vaapi-x11", "egl-x11"])
 check("-vaapi-vulkan*",
       desc      = "VA-API Vulkan",
       deps      = ["vaapi", "vulkan"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 check("-vaapi-egl*",
       desc      = "VA-API EGL",
-      deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
+      deps      = "vaapi-wayland",
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
 
 check("-jpeg*",
@@ -397,7 +353,7 @@ check("spirv-cross*",
 
 check("-gl*",
       desc      = "OpenGL context support",
-      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-wayland"],
+      deps_any  = ["egl-drm", "gl-wayland"],
       required  = "Required.",
       sources   = ["video/out/opengl/common.c",
                    "video/out/opengl/context.c",
@@ -410,16 +366,14 @@ check(deps      = ["drm", "egl", "gbm", "gl"],
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps_any  = ["egl-x11", "gl-wayland"],
+      deps      = "gl-wayland",
       sources   = "video/out/opengl/egl_helpers.c"),
 
-check(deps_any   = ["drm", "x11", "wayland"],
+check(deps_any   = ["drm", "wayland"],
       sources    = "video/out/present_sync.c")
 
 check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
-check(deps      = ["vulkan", "x11"],
-      sources   = "video/out/vulkan/context_xlib.c")
 
 check(deps      = ["drm", "gl", "egl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")

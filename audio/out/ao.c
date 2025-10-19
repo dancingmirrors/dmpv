@@ -36,7 +36,6 @@
 #include "common/global.h"
 
 extern const struct ao_driver audio_out_alsa;
-extern const struct ao_driver audio_out_oss;
 extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_pcm;
@@ -45,9 +44,6 @@ extern const struct ao_driver audio_out_lavc;
 static const struct ao_driver * const audio_out_drivers[] = {
 #if HAVE_ALSA
     &audio_out_alsa,
-#endif
-#if HAVE_OSS
-    &audio_out_oss,
 #endif
 #if HAVE_SNDIO
     &audio_out_sndio,

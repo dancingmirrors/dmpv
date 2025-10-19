@@ -1,39 +1,27 @@
 mpv is a fork of mplayer2, which is a fork of MPlayer.
 
-mpv as a whole is licensed under the GNU General Public License GPL version 2
-or later (called GPLv2+ in this document, see LICENSE.GPL for full license
-text) by default, or the GNU Lesser General Public License LGPL version 2 or
-later (LGPLv2.1+ in this document, see LICENSE.LGPL for full license text) if
-built with the --enable-lgpl configure switch.
+This particular fork of mpv as a whole is licensed under the GNU Lesser General
+Public License LGPL version 2 or later (LGPLv2.1+ in this document, see
+LICENSE.LGPL for the full license text).
 
-Most source files are LGPLv2.1+ or GPLv2+, but some files are available under
-more liberal licenses, such as BSD, MIT, ISC, and possibly others. Look at the
-copyright header of each source file, and grep the sources for "Copyright" if
-you need to know details. C source files without Copyright notice are usually
-licensed as LGPLv2.1+. Also see the list of files with specific licenses below
-(not all files can have a standard license header).
+Some files are available under more liberal licenses, such as BSD, MIT, ISC, and
+possibly others. Look at the copyright header of each source file, and grep the
+sources for "Copyright" if you need to know details. C source files without
+Copyright notice are usually licensed as LGPLv2.1+. Also see the list of files
+with specific licenses below (not all files can have a standard license
+header).
 
 All new contributions must be LGPLv2.1+ licensed. Using a more liberal license
 compatible to LGPLv2.1+ is also okay.
 
 Changes done to GPL code must come with the implicit/explicit agreement that the
 project can relicense the changes to LGPLv2.1+ at a later point without asking
-the contributor. This is a safeguard for making potential relicensing of
-remaining GPL code to LGPLv2.1+ easier.
+the contributor.
 
 For information about authors and contributors, consult the git log, which
 contains the complete SVN and CVS history as well.
 
 "v2.1+" in this context means "version 2.1 or later".
 
-mpv can be built as LGPLv2.1+ with the --enable-lgpl configure option. To add
-a LGPL mode to mpv, MPlayer code had to be relicensed from GPLv2+ to LGPLv2.1+
-by asking the MPlayer authors for permission. Since permission could not be
-obtained from everyone, LGPL mode disables the following features:
-- X11 support
-- OSS audio output
-
-The following files are still GPL only (--enable-lgpl disables them):
-
-    audio/out/ao_oss.c              will stay GPL
-    video/out/x11_common.*          probably impossible
+To add a LGPL mode to mpv, MPlayer code had to be relicensed from GPLv2+ to
+LGPLv2.1+ by asking the MPlayer authors for permission.

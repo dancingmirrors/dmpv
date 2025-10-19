@@ -88,8 +88,7 @@ extern "C" {
  * There may be certain requirements on the OpenGL implementation:
  *
  * - Intel/Linux: EGL is required, and also the native display resource needs
- *                to be provided (e.g. MPV_RENDER_PARAM_X11_DISPLAY for X11 and
- *                MPV_RENDER_PARAM_WL_DISPLAY for Wayland)
+ *                to be provided (e.g. MPV_RENDER_PARAM_WL_DISPLAY for Wayland).
  *
  * Once these things are setup, hardware decoding can be enabled/disabled at
  * any time by setting the "hwdec" property.

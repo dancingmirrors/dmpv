@@ -38,14 +38,10 @@
 static bool is_software_gl(GL *gl)
 {
     const char *renderer = gl->GetString(GL_RENDERER);
-    // Note we don't attempt to blacklist Microsoft's fallback implementation.
-    // It only provides OpenGL 1.1 and will be skipped anyway.
     return !renderer ||
            strcmp(renderer, "Software Rasterizer") == 0 ||
            strstr(renderer, "llvmpipe") ||
-           strstr(renderer, "softpipe") ||
-           strcmp(renderer, "Mesa X11") == 0 ||
-           strcmp(renderer, "Apple Software Renderer") == 0;
+           strstr(renderer, "softpipe");
 }
 
 // This guesses whether our DR path is fast or slow

@@ -78,9 +78,9 @@ static int init(struct ra_hwdec *hw)
     }
 
     /*
-     * The drm_params resource is not provided when using X11 or Wayland, but
-     * there are extensions that supposedly provide this information from the
-     * drivers. Not properly documented. Of course.
+     * The drm_params resource is not provided when using Wayland, but there
+     * are extensions that supposedly provide this information from the drivers.
+     * Not properly documented, of course.
      */
     mpv_opengl_drm_params_v2 *params = ra_get_native_resource(hw->ra_ctx->ra,
                                                               "drm_params_v2");

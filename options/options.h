@@ -28,9 +28,6 @@ typedef struct mp_vo_opts {
     char *fsscreen_name;
     char *winname;
     char *appid;
-    int x11_netwm;
-    int x11_bypass_compositor;
-    int x11_present;
     bool cursor_passthrough;
     bool native_keyrepeat;
 
@@ -299,8 +296,6 @@ typedef struct MPOpts {
     int coverart_auto;
     bool coverart_whitelist;
     bool osd_bar_visible;
-
-    int w32_priority;
 
     struct stream_lavf_params *stream_lavf_opts;
 
