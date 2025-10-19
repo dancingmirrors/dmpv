@@ -8,9 +8,6 @@ begin()
 def chain(*a):
     return a[-1]
 
-check("-lgpl",
-      desc      = "LGPL (version 2.1 or later) build",
-      default   = True)
 check(desc      = "whether the compiler works",
       required  = "C compiler missing or broken.",
       fn        = lambda: check_program("CC") and check_cc(link = []))
@@ -130,10 +127,7 @@ check("glob-posix*",
       desc      = "glob() POSIX support",
       deps      = "posix",
       fn        = lambda: check_cc(include = "glob.h",
-                                   expr = 'glob("filename", 0, 0, 0);'))
-check("glob*",
-      desc      = "glob() support",
-      deps      = "glob-posix",
+                                   expr = 'glob("filename", 0, 0, 0);'),
       required  = "Required.")
 check("fchmod*",
       fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"))
@@ -366,7 +360,7 @@ check(deps      = ["drm", "egl", "gbm", "gl"],
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps      = "gl-wayland",
+      deps      = "egl",
       sources   = "video/out/opengl/egl_helpers.c"),
 
 check(deps_any   = ["drm", "wayland"],
