@@ -103,9 +103,8 @@ typedef struct mpv_opengl_init_params {
      * This retrieves OpenGL function pointers, and will use them in subsequent
      * operation.
      * Usually, you can simply call the GL context APIs from this callback (e.g.
-     * glXGetProcAddressARB or wglGetProcAddress), but some APIs do not always
-     * return pointers for all standard functions (even if present); in this
-     * case you have to compensate by looking up these functions yourself when
+     * glXGetProcAddressARB), but some APIs do not always return pointers for
+     * all standard functions (even if present).
      */
     void *(*get_proc_address)(void *ctx, const char *name);
     /**

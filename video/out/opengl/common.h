@@ -48,17 +48,16 @@ enum {
     MPGL_CAP_1D_TEX             = (1 << 14),
     MPGL_CAP_3D_TEX             = (1 << 15),
     MPGL_CAP_DEBUG              = (1 << 16),
-    MPGL_CAP_DXINTEROP          = (1 << 17),    // WGL_NV_DX_interop
-    MPGL_CAP_EXT16              = (1 << 18),    // GL_EXT_texture_norm16
-    MPGL_CAP_ARB_FLOAT          = (1 << 19),    // GL_ARB_texture_float
-    MPGL_CAP_EXT_CR_HFLOAT      = (1 << 20),    // GL_EXT_color_buffer_half_float
-    MPGL_CAP_UBO                = (1 << 21),    // GL_ARB_uniform_buffer_object
-    MPGL_CAP_SSBO               = (1 << 22),    // GL_ARB_shader_storage_buffer_object
-    MPGL_CAP_COMPUTE_SHADER     = (1 << 23),    // GL_ARB_compute_shader & GL_ARB_shader_image_load_store
-    MPGL_CAP_NESTED_ARRAY       = (1 << 24),    // GL_ARB_arrays_of_arrays
+    MPGL_CAP_EXT16              = (1 << 17),    // GL_EXT_texture_norm16
+    MPGL_CAP_ARB_FLOAT          = (1 << 18),    // GL_ARB_texture_float
+    MPGL_CAP_EXT_CR_HFLOAT      = (1 << 19),    // GL_EXT_color_buffer_half_float
+    MPGL_CAP_UBO                = (1 << 20),    // GL_ARB_uniform_buffer_object
+    MPGL_CAP_SSBO               = (1 << 21),    // GL_ARB_shader_storage_buffer_object
+    MPGL_CAP_COMPUTE_SHADER     = (1 << 22),    // GL_ARB_compute_shader & GL_ARB_shader_image_load_store
+    MPGL_CAP_NESTED_ARRAY       = (1 << 23),    // GL_ARB_arrays_of_arrays
 
-    MPGL_CAP_SLOW_DR            = (1 << 29),    // direct rendering is assumed to be slow
-    MPGL_CAP_SW                 = (1 << 30),    // indirect or sw renderer
+    MPGL_CAP_SLOW_DR            = (1 << 24),    // direct rendering is assumed to be slow
+    MPGL_CAP_SW                 = (1 << 25),    // indirect or sw renderer
 };
 
 // E.g. 310 means 3.1
@@ -220,9 +219,6 @@ struct GL {
 
     GLint (GLAPIENTRY *GetVideoSync)(GLuint *);
     GLint (GLAPIENTRY *WaitVideoSync)(GLint, GLint, unsigned int *);
-
-    void (GLAPIENTRY *GetTranslatedShaderSourceANGLE)(GLuint, GLsizei,
-                                                      GLsizei*, GLchar* source);
 
     void (GLAPIENTRY *DebugMessageCallback)(MP_GLDEBUGPROC callback,
                                             const void *userParam);
