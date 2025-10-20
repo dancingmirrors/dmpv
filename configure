@@ -380,11 +380,6 @@ check("-sdl2*",
       fn        = lambda: check_pkg_config("sdl2"),
       sources   = "video/out/vo_sdl.c")
 
-check("-ndebug*",
-      desc      = "-DNDEBUG",
-      default   = False,
-      fn        = add_cflags("-DNDEBUG"))
-
 check(deps      = ["gl", "egl", "egl-helpers"],
       sources   = "video/filter/vf_gpu.c")
 
