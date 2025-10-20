@@ -29,10 +29,9 @@
  *
  * Note that this concept originates from the GLX_OML_sync_control extension
  * which includes another parameter: sbc (swap counter of frame that was
- * last displayed). Both the xorg present extension and wayland's
- * presentation-time protocol do not include sbc values so they are omitted
- * from this mechanism. mpv does not need to keep track of sbc calls and can
- * have reliable presentation without it.
+ * last displayed). Wayland's presentation-time protocol does not include sbc
+ * values so it is omitted from this mechanism. mpv does not need to keep track
+ * of sbc calls and can have reliable presentation without it.
  */
 
 void present_sync_get_info(struct mp_present *present, struct vo_vsync_info *info)
