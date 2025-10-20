@@ -32,12 +32,9 @@
 #include "context.h"
 #include "spirv.h"
 
-/* OpenGL */
-extern const struct ra_ctx_fns ra_ctx_drm_egl;
-extern const struct ra_ctx_fns ra_ctx_wayland_egl;
-
-/* Vulkan */
 extern const struct ra_ctx_fns ra_ctx_vulkan_wayland;
+extern const struct ra_ctx_fns ra_ctx_wayland_egl;
+extern const struct ra_ctx_fns ra_ctx_drm_egl;
 extern const struct ra_ctx_fns ra_ctx_vulkan_display;
 
 static const struct ra_ctx_fns *contexts[] = {
@@ -49,9 +46,11 @@ static const struct ra_ctx_fns *contexts[] = {
     &ra_ctx_wayland_egl,
 #endif
 
+/* XXX
 #if HAVE_EGL_DRM
     &ra_ctx_drm_egl,
 #endif
+*/
 
 #if HAVE_VULKAN
     &ra_ctx_vulkan_display,
