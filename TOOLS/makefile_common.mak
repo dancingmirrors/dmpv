@@ -49,6 +49,8 @@ install:
 	$(Q) cp -v etc/mpv-icon-8bit-128x128.png /usr/local/share/icons/hicolor/128x128/apps/mpv.png
 	$(Q) mkdir -p /usr/local/share/applications
 	$(Q) cp -v etc/mpv.desktop /usr/local/share/applications
+	$(Q) mkdir -p /usr/local/etc
+	$(Q) cp -v etc/mpv.conf /usr/local/etc
 
 uninstall:
 	$(LOG) "UNINSTALL"
@@ -58,6 +60,7 @@ uninstall:
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/64x64/apps/mpv.png
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/128x128/apps/mpv.png
 	$(Q) rm -f -v /usr/local/share/applications/mpv.desktop
+	$(Q) rm -f -v /usr/local/etc/mpv.conf
 
 # Generic pattern rules (used for most source files).
 
