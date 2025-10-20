@@ -1,27 +1,24 @@
 mpv is a fork of mplayer2, which is a fork of MPlayer.
 
 This particular fork of mpv as a whole is licensed under the GNU Lesser General
-Public License LGPL version 2 or later (LGPLv2.1+ in this document, see
-LICENSE.LGPL for the full license text).
+Public License LGPL version 2 or later (LGPLv2.1+ in this document; see LICENSE
+for the full license text).
 
 Some files are available under more liberal licenses, such as BSD, MIT, ISC, and
 possibly others. Look at the copyright header of each source file, and grep the
 sources for "Copyright" if you need to know details. C source files without
 Copyright notice are usually licensed as LGPLv2.1+. Also see the list of files
 with specific licenses below (not all files can have a standard license
-header).
+header). "v2.1+" in this context means "version 2.1 or later".
 
 All new contributions must be LGPLv2.1+ licensed. Using a more liberal license
-compatible to LGPLv2.1+ is also okay.
+compatible with LGPLv2.1+ is also okay.
 
-Changes done to GPL code must come with the implicit/explicit agreement that the
-project can relicense the changes to LGPLv2.1+ at a later point without asking
-the contributor.
+Changes done to the old GPL code had to come with the implicit/explicit
+agreement that the project could relicense the changes to LGPLv2.1+ at a later
+point without asking the contributor. To add a LGPL mode to mpv, MPlayer code
+had to be relicensed from GPLv2+ to LGPLv2.1+ by asking the MPlayer authors for
+permission.
 
 For information about authors and contributors, consult the git log, which
 contains the complete SVN and CVS history as well.
-
-"v2.1+" in this context means "version 2.1 or later".
-
-To add a LGPL mode to mpv, MPlayer code had to be relicensed from GPLv2+ to
-LGPLv2.1+ by asking the MPlayer authors for permission.
