@@ -267,8 +267,7 @@ check("memfd-create*",
       desc      = "memfd_create()",
       deps      = "wayland",
       fn        = lambda: check_cc(include = "sys/mman.h", link = [],
-                                   expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"),
-      sources   = "video/out/vo_wlshm.c")
+                                   expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"))
 
 check("-vulkan*",
       desc      = "Vulkan context support",

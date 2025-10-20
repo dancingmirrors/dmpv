@@ -49,7 +49,6 @@
 
 extern const struct vo_driver video_out_gpu;
 extern const struct vo_driver video_out_sdl;
-extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
@@ -60,9 +59,6 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_gpu,
 #if HAVE_SDL2
     &video_out_sdl,
-#endif
-#if HAVE_WAYLAND && HAVE_MEMFD_CREATE
-    &video_out_wlshm,
 #endif
 #if HAVE_DRM
     &video_out_drm,
