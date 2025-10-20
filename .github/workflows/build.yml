@@ -24,7 +24,7 @@ jobs:
           ./configure --prefix=/usr/local --enable-shared ; make -j4 ; sudo make install
 
           git clone --depth 1 --recursive https://github.com/haasn/libplacebo.git ; cd libplacebo
-          meson setup --prefix=/usr/local build ; meson compile -C build ; cd build && sudo ninja install
+          meson setup --prefix=/usr/local build ; meson compile -C build ; cd build ; sudo ninja install
 
       - name: configure
         run: ./configure
