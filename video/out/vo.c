@@ -48,6 +48,7 @@
 #include "osdep/threads.h"
 
 extern const struct vo_driver video_out_gpu;
+extern const struct vo_driver video_out_sdl;
 extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
@@ -57,6 +58,9 @@ extern const struct vo_driver video_out_lavc;
 static const struct vo_driver *const video_out_drivers[] =
 {
     &video_out_gpu,
+#if HAVE_SDL2
+    &video_out_sdl,
+#endif
 #if HAVE_WAYLAND && HAVE_MEMFD_CREATE
     &video_out_wlshm,
 #endif
@@ -64,7 +68,6 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_drm,
 #endif
     &video_out_null,
-    // should not be auto-selected
     &video_out_image,
     &video_out_lavc,
 };

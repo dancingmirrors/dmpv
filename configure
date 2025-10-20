@@ -375,6 +375,11 @@ check(deps      = ["drm", "gl", "egl"],
 check(deps      = ["drm", "gl", "egl", "libplacebo", "vaapi"],
       sources   = "video/out/hwdec/dmabuf_interop_pl.c")
 
+check("-sdl2*",
+      desc      = "SDL video output",
+      fn        = lambda: check_pkg_config("sdl2"),
+      sources   = "video/out/vo_sdl.c")
+
 check("-ndebug*",
       desc      = "-DNDEBUG",
       default   = False,
