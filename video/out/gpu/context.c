@@ -33,7 +33,6 @@
 #include "spirv.h"
 
 /* OpenGL */
-extern const struct ra_ctx_fns ra_ctx_glx;
 extern const struct ra_ctx_fns ra_ctx_drm_egl;
 extern const struct ra_ctx_fns ra_ctx_wayland_egl;
 
