@@ -143,9 +143,11 @@ check("bsd-thread-name*",
                   or check_cc(include = "pthread.h", expr = 'char name; pthread_setname_np(pthread_self(), "%s", name);'))
 
 check("bsd-fstatfs*",
+      desc      = "BSD fstatfs",
       fn        = lambda: check_cc(include = ["sys/param.h", "sys/mount.h"],
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_fstypename;"))
 check("linux-fstatfs*",
+      desc      = "Linux fstatfs",
       fn        = lambda: check_cc(include = "sys/vfs.h",
                     expr = "struct statfs fs; fstatfs(0, &fs); fs.f_namelen;"))
 
