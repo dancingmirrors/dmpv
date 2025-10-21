@@ -403,6 +403,10 @@ static const m_option_t mp_opts[] = {
         .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
 
+// ------------------------- stream options --------------------
+
+    {"edition", OPT_CHOICE(edition_id, {"auto", -1}), M_RANGE(0, 8190)},
+
 // ------------------------- demuxer options --------------------
 
     {"frames", OPT_CHOICE(play_frames, {"all", -1}), M_RANGE(0, INT_MAX)},
