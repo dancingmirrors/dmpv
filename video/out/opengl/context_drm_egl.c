@@ -753,4 +753,5 @@ const struct ra_ctx_fns ra_ctx_drm_egl = {
     .uninit         = drm_egl_uninit,
     .wait_events    = drm_egl_wait_events,
     .wakeup         = drm_egl_wakeup,
+    .hidden         = true,
 };
