@@ -148,7 +148,7 @@ static int init(struct ra_hwdec *hw)
         return -1;
     }
     if (!p->ctx->av_device_ref) {
-        MP_VERBOSE(hw, "libavutil vaapi code rejected the driver?\n");
+        MP_VERBOSE(hw, "libavutil VA-API code rejected the driver?\n");
         return -1;
     }
 
@@ -278,7 +278,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     CHECK_VA_STATUS(mapper, "vaSyncSurface()");
     p->surface_acquired = true;
 
-    // We use AVDRMFrameDescriptor to store the dmabuf so we need to copy the
+    // We use AVDRMFrameDescriptor to store the DMA-BUF so we need to copy the
     // values over.
     int num_returned_planes = 0;
     p->desc.nb_layers = desc.num_layers;

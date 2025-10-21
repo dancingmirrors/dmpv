@@ -316,7 +316,7 @@ static void add_all_hwdec_methods(struct hwdec_info **infos, int *num_infos)
             wrapper = codec->wrapper_name;
 
         // A decoder can provide multiple methods. In particular, hwaccels
-        // provide various methods (e.g. native h264 with vaapi), but
+        // provide various methods (e.g. native h264 with VA-API), but
         // even wrapper decoders could provide multiple methods.
         bool found_any = false;
         for (int n = 0; ; n++) {
