@@ -447,6 +447,7 @@ add_sources(
     "input/event.c",
     "input/input.c",
     "input/ipc.c",
+    "input/ipc-unix.c",
     "input/keycodes.c",
     "misc/bstr.c",
     "misc/charset_conv.c",
@@ -470,10 +471,14 @@ add_sources(
     "options/parse_commandline.c",
     "options/parse_configfile.c",
     "options/path.c",
+    "osdep/main-fn-unix.c",
     "osdep/io.c",
     "osdep/subprocess.c",
+    "osdep/subprocess-posix.c",
+    "osdep/terminal-unix.c",
     "osdep/threads.c",
     "osdep/timer.c",
+    "osdep/timer-unix.c",
     "player/audio.c",
     "player/client.c",
     "player/command.c",
@@ -545,27 +550,5 @@ add_sources(
     "video/repack.c",
     "video/sws_utils.c",
 )
-
-if is_running():
-
-    pick_first_matching_dep(
-            ("posix",           "osdep/main-fn-unix.c"),
-    )
-
-    pick_first_matching_dep(
-        ("posix",               "osdep/terminal-unix.c"),
-    )
-
-    pick_first_matching_dep(
-        ("_",                   "osdep/timer-unix.c"),
-    )
-
-    pick_first_matching_dep(
-        ("posix",               "input/ipc-unix.c"),
-    )
-
-    pick_first_matching_dep(
-        ("posix",               "osdep/subprocess-posix.c"),
-    )
 
 finish()
