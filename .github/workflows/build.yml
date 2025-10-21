@@ -21,7 +21,9 @@ jobs:
           sudo apt-get build-dep -y mpv
 
           git clone --depth 1 https://github.com/ffmpeg/ffmpeg.git ; cd ffmpeg
-          ./configure --prefix=/usr/local --enable-shared ; make -j4 ; sudo make install
+          ./configure --prefix=/usr/local --enable-shared --disable-doc \
+          --disable-htmlpages --disable-manpages --disable-txtpages \
+          --disable-podpages ; make -j4 ; sudo make install
 
           git clone --depth 1 --recursive https://github.com/haasn/libplacebo.git ; cd libplacebo
           meson setup --prefix=/usr/local build ; meson compile -C build ; cd build ; sudo ninja install
