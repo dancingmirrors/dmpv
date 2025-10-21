@@ -377,7 +377,6 @@ check(deps      = ["drm", "gl", "egl", "libplacebo", "vaapi"],
 
 check("-sdl2*",
       desc      = "SDL video output",
-      deps      = "vulkan",
       fn        = lambda: check_pkg_config("sdl2"),
       sources   = "video/out/vo_sdl.c")
 
