@@ -241,6 +241,8 @@ struct autoprobe_info {
 const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vulkan",          HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vulkan-copy",     HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"no",              HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {0}
 };
@@ -595,6 +597,10 @@ static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
     #if HAVE_VAAPI
     mp_info(log, "  vaapi\n");
     mp_info(log, "  vaapi-copy\n");
+    #endif
+    #if HAVE_VULKAN
+    mp_info(log, "  vulkan\n");
+    mp_info(log, "  vulkan-copy\n");
     #endif
     mp_info(log, "  no\n");
     mp_info(log, "  auto-safe\n");
