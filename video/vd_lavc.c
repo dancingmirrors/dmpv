@@ -62,6 +62,7 @@ static void uninit_avctx(struct mp_filter *vd);
 static int get_buffer2_direct(AVCodecContext *avctx, AVFrame *pic, int flags);
 static enum AVPixelFormat get_format_hwdec(struct AVCodecContext *avctx,
                                            const enum AVPixelFormat *pix_fmt);
+
 static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
                           struct bstr name);
 
@@ -589,21 +590,12 @@ static void select_and_set_hwdec(struct mp_filter *vd)
 static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
                           struct bstr name)
 {
-    struct hwdec_info *hwdecs = NULL;
-    int num_hwdecs = 0;
-    add_all_hwdec_methods(&hwdecs, &num_hwdecs);
-
-    mp_info(log, "Valid values (with alternative full names):\n");
-
-    for (int n = 0; n < num_hwdecs; n++) {
-        struct hwdec_info *hwdec = &hwdecs[n];
-
-        mp_info(log, "  %s (%s)\n", hwdec->method_name, hwdec->name);
-    }
-
-    talloc_free(hwdecs);
-
+    mp_info(log, "Supported values:\n");
     mp_info(log, "  auto (yes '')\n");
+    #if HAVE_VAAPI
+    mp_info(log, "  vaapi\n");
+    mp_info(log, "  vaapi-copy\n");
+    #endif
     mp_info(log, "  no\n");
     mp_info(log, "  auto-safe\n");
     mp_info(log, "  auto-copy\n");
