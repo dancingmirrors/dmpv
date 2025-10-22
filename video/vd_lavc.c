@@ -144,7 +144,7 @@ const struct m_sub_options vd_lavc_conf = {
         .dr = -1,
         .hwdec_api = (char *[]){"auto", NULL,},
         //.hwdec_codecs = "h264,vc1,hevc,vp8,vp9,av1,prores,ffv1",
-        .hwdec_codecs = "h264",
+        .hwdec_codecs = "h264,vc1",
         // Maximum number of surfaces the player wants to buffer. This number
         // might require adjustment depending on whatever the player does;
         // for example, if vo_gpu increases the number of reference surfaces for
