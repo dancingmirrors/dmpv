@@ -11,7 +11,7 @@
 #define SUB_GAP_KEEP 0.4
 
 struct sd {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
     struct mp_subtitle_opts *opts;
 
@@ -57,7 +57,7 @@ void lavc_conv_reset(struct lavc_conv *priv);
 void lavc_conv_uninit(struct lavc_conv *priv);
 
 struct sd_filter {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
     struct mp_sub_filter_opts *opts;
     const struct sd_filter_functions *driver;

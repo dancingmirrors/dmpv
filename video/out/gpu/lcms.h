@@ -27,11 +27,11 @@ struct lut3d {
 };
 
 struct mp_log;
-struct mpv_global;
+struct dmpv_global;
 struct gl_lcms;
 
 struct gl_lcms *gl_lcms_init(void *talloc_ctx, struct mp_log *log,
-                             struct mpv_global *global,
+                             struct dmpv_global *global,
                              struct mp_icc_opts *opts);
 void gl_lcms_update_options(struct gl_lcms *p);
 bool gl_lcms_set_memory_profile(struct gl_lcms *p, bstr profile);

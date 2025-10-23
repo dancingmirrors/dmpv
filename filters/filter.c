@@ -65,7 +65,7 @@ struct mp_pin {
 
 // Root filters create this, all other filters reference it.
 struct filter_runner {
-    struct mpv_global *global;
+    struct dmpv_global *global;
 
     void (*wakeup_cb)(void *ctx);
     void *wakeup_ctx;
@@ -863,7 +863,7 @@ static const struct mp_filter_info filter_root = {
     .name = "root",
 };
 
-struct mp_filter *mp_filter_create_root(struct mpv_global *global)
+struct mp_filter *mp_filter_create_root(struct dmpv_global *global)
 {
     struct mp_filter_params params = {
         .info = &filter_root,

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -103,7 +103,7 @@ static void process_non_option(struct playlist *files, const char *arg)
 
 // returns M_OPT_... error code
 int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
-                                   struct mpv_global *global, char **argv)
+                                   struct dmpv_global *global, char **argv)
 {
     int ret = M_OPT_UNKNOWN;
     int mode = 0;
@@ -223,7 +223,7 @@ err_out:
  * command line parsing), and --really-quiet suppresses messages printed
  * during normal options parsing.
  */
-void m_config_preparse_command_line(m_config_t *config, struct mpv_global *global,
+void m_config_preparse_command_line(m_config_t *config, struct dmpv_global *global,
                                     int *verbose, char **argv)
 {
     struct parse_state p = {config, argv, mp_null_log};

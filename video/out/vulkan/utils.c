@@ -2,7 +2,7 @@
 #include "video/out/placebo/utils.h"
 #include "utils.h"
 
-bool mpvk_init(struct mpvk_ctx *vk, struct ra_ctx *ctx, const char *surface_ext)
+bool dmpvk_init(struct dmpvk_ctx *vk, struct ra_ctx *ctx, const char *surface_ext)
 {
     vk->pllog = mppl_log_create(ctx, ctx->vo->log);
     if (!vk->pllog)
@@ -26,11 +26,11 @@ bool mpvk_init(struct mpvk_ctx *vk, struct ra_ctx *ctx, const char *surface_ext)
     return true;
 
 error:
-    mpvk_uninit(vk);
+    dmpvk_uninit(vk);
     return false;
 }
 
-void mpvk_uninit(struct mpvk_ctx *vk)
+void dmpvk_uninit(struct dmpvk_ctx *vk)
 {
     if (vk->surface) {
         mp_assert(vk->vkinst);

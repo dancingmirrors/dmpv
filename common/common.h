@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_MPCOMMON_H
@@ -25,7 +25,7 @@
 
 #include "misc/mp_assert.h"
 #include "osdep/compiler.h"
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 // double should be able to represent this exactly
 #define MP_NOPTS_VALUE (-0x1p+63)
@@ -92,8 +92,8 @@ enum video_sync {
                        (x) == VS_DISP_VDROP ||          \
                        (x) == VS_DISP_NONE)
 
-extern const char mpv_version[];
-extern const char mpv_copyright[];
+extern const char dmpv_version[];
+extern const char dmpv_copyright[];
 
 char *mp_format_time(double time, bool fractions);
 char *mp_format_time_fmt(const char *fmt, double time);

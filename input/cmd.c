@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -155,7 +155,7 @@ static bool finish_cmd(struct mp_log *log, struct mp_cmd *cmd)
 }
 
 static bool set_node_arg(struct mp_log *log, struct mp_cmd *cmd, int i,
-                         mpv_node *val)
+                         dmpv_node *val)
 {
     const char *name = get_arg_name(cmd->def, i);
 
@@ -172,7 +172,7 @@ static bool set_node_arg(struct mp_log *log, struct mp_cmd *cmd, int i,
 
     struct mp_cmd_arg arg = {.type = opt};
     void *dst = &arg.v;
-    if (val->format == MPV_FORMAT_STRING) {
+    if (val->format == DMPV_FORMAT_STRING) {
         int r = m_option_parse(log, opt, bstr0(cmd->name),
                                 bstr0(val->u.string), dst);
         if (r < 0) {
@@ -199,14 +199,14 @@ static bool set_node_arg(struct mp_log *log, struct mp_cmd *cmd, int i,
     return true;
 }
 
-static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
+static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, dmpv_node *node)
 {
-    mp_assert(node->format == MPV_FORMAT_NODE_ARRAY);
-    mpv_node_list *args = node->u.list;
+    mp_assert(node->format == DMPV_FORMAT_NODE_ARRAY);
+    dmpv_node_list *args = node->u.list;
     int cur = 0;
 
     while (cur < args->num) {
-        if (args->values[cur].format != MPV_FORMAT_STRING)
+        if (args->values[cur].format != DMPV_FORMAT_STRING)
             break;
         if (!apply_flag(cmd, bstr0(args->values[cur].u.string)))
             break;
@@ -214,7 +214,7 @@ static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, mpv_node *nod
     }
 
     bstr cmd_name = {0};
-    if (cur < args->num && args->values[cur].format == MPV_FORMAT_STRING)
+    if (cur < args->num && args->values[cur].format == DMPV_FORMAT_STRING)
         cmd_name = bstr0(args->values[cur++].u.string);
     if (!find_cmd(log, cmd, cmd_name))
         return false;
@@ -228,13 +228,13 @@ static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, mpv_node *nod
     return true;
 }
 
-static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
+static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, dmpv_node *node)
 {
-    mp_assert(node->format == MPV_FORMAT_NODE_MAP);
-    mpv_node_list *args = node->u.list;
+    mp_assert(node->format == DMPV_FORMAT_NODE_MAP);
+    dmpv_node_list *args = node->u.list;
 
-    mpv_node *name = node_map_get(node, "name");
-    if (!name || name->format != MPV_FORMAT_STRING)
+    dmpv_node *name = node_map_get(node, "name");
+    if (!name || name->format != DMPV_FORMAT_STRING)
         return false;
 
     if (!find_cmd(log, cmd, bstr0(name->u.string)))
@@ -249,16 +249,16 @@ static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
 
     for (int n = 0; n < args->num; n++) {
         const char *key = args->keys[n];
-        mpv_node *val = &args->values[n];
+        dmpv_node *val = &args->values[n];
 
         if (strcmp(key, "name") == 0) {
             // already handled above
         } else if (strcmp(key, "_flags") == 0) {
-            if (val->format != MPV_FORMAT_NODE_ARRAY)
+            if (val->format != DMPV_FORMAT_NODE_ARRAY)
                 return false;
-            mpv_node_list *flags = val->u.list;
+            dmpv_node_list *flags = val->u.list;
             for (int i = 0; i < flags->num; i++) {
-                if (flags->values[i].format != MPV_FORMAT_STRING)
+                if (flags->values[i].format != DMPV_FORMAT_STRING)
                     return false;
                 if (!apply_flag(cmd, bstr0(flags->values[i].u.string)))
                     return false;
@@ -287,16 +287,16 @@ static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
     return true;
 }
 
-struct mp_cmd *mp_input_parse_cmd_node(struct mp_log *log, mpv_node *node)
+struct mp_cmd *mp_input_parse_cmd_node(struct mp_log *log, dmpv_node *node)
 {
     struct mp_cmd *cmd = talloc_ptrtype(NULL, cmd);
     talloc_set_destructor(cmd, destroy_cmd);
     *cmd = (struct mp_cmd) { .scale = 1, .scale_units = 1 };
 
     bool res = false;
-    if (node->format == MPV_FORMAT_NODE_ARRAY) {
+    if (node->format == DMPV_FORMAT_NODE_ARRAY) {
         res = cmd_node_array(log, cmd, node);
-    } else if (node->format == MPV_FORMAT_NODE_MAP) {
+    } else if (node->format == DMPV_FORMAT_NODE_MAP) {
         res = cmd_node_map(log, cmd, node);
     }
 
@@ -512,11 +512,11 @@ struct mp_cmd *mp_input_parse_cmd_strv(struct mp_log *log, const char **argv)
     int count = 0;
     while (argv[count])
         count++;
-    mpv_node *items = talloc_zero_array(NULL, mpv_node, count);
-    mpv_node_list list = {.values = items, .num = count};
-    mpv_node node = {.format = MPV_FORMAT_NODE_ARRAY, .u = {.list = &list}};
+    dmpv_node *items = talloc_zero_array(NULL, dmpv_node, count);
+    dmpv_node_list list = {.values = items, .num = count};
+    dmpv_node node = {.format = DMPV_FORMAT_NODE_ARRAY, .u = {.list = &list}};
     for (int n = 0; n < count; n++) {
-        items[n] = (mpv_node){.format = MPV_FORMAT_STRING,
+        items[n] = (dmpv_node){.format = DMPV_FORMAT_STRING,
                               .u = {.string = (char *)argv[n]}};
     }
     struct mp_cmd *res = mp_input_parse_cmd_node(log, &node);
@@ -593,8 +593,8 @@ void mp_cmd_dump(struct mp_log *log, int msgl, char *header, struct mp_cmd *cmd)
         char *s = m_option_print(cmd->args[n].type, &cmd->args[n].v);
         if (n)
             mp_msg(log, msgl, ", ");
-        struct mpv_node node = {
-            .format = MPV_FORMAT_STRING,
+        struct dmpv_node node = {
+            .format = DMPV_FORMAT_STRING,
             .u.string = s ? s : "(NULL)",
         };
         char *esc = NULL;

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MP_GL_VIDEO_H
@@ -199,7 +199,7 @@ enum {
 };
 
 struct gl_video *gl_video_init(struct ra *ra, struct mp_log *log,
-                               struct mpv_global *g);
+                               struct dmpv_global *g);
 void gl_video_uninit(struct gl_video *p);
 void gl_video_set_osd_source(struct gl_video *p, struct osd_state *osd);
 bool gl_video_check_format(struct gl_video *p, int mp_format);

@@ -1,20 +1,20 @@
 /*
  * Based on GyS-TermIO v2.0 (for GySmail v3) (copyright (C) 1999 A'rpi/ESP-team)
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -45,8 +45,8 @@
 
 // Timeout in ms after which the poll for input is aborted. The FG/BG state is
 // tested before every wait, and a positive value allows reactivating input
-// processing when mpv is brought to the foreground while it was running in the
-// background. In such a situation, an infinite timeout (-1) will keep mpv
+// processing when dmpv is brought to the foreground while it was running in the
+// background. In such a situation, an infinite timeout (-1) will keep dmpv
 // waiting for input without realizing the terminal state changed - and thus
 // buffer all keypresses until ENTER is pressed.
 #define INPUT_TIMEOUT 1000
@@ -325,7 +325,7 @@ static void enable_kx(bool enable)
 {
     // This check is actually always true, as enable_kx calls are all guarded
     // by read_terminal, which is true only if both stdin and stdout are a
-    // tty. Note that stderr being redirected away has no influence over mpv's
+    // tty. Note that stderr being redirected away has no influence over dmpv's
     // I/O handling except for disabling the terminal OSD, and thus stderr
     // shouldn't be relied on here either.
     if (isatty(tty_out)) {
@@ -513,7 +513,7 @@ void terminal_setup_getch(struct input_ctx *ictx)
     }
 
     // Disable reading from the terminal even if stdout is not a tty, to make
-    //   mpv ... | less
+    //   dmpv ... | less
     // do the right thing.
     read_terminal = isatty(tty_in) && isatty(STDOUT_FILENO);
 

@@ -175,7 +175,7 @@ def begin():
         # check() invocations will print the options they understand.
         return
 
-    _G.temp_path = tempfile.mkdtemp(prefix = "mpv-configure-")
+    _G.temp_path = tempfile.mkdtemp(prefix = "dmpv-configure-")
     def _cleanup():
         shutil.rmtree(_G.temp_path)
     atexit.register(_cleanup)
@@ -661,7 +661,7 @@ def finish():
 
     _G.config_h += "\n"
     add_config_h_define("CONFIGURATION", " ".join(sys.argv))
-    add_config_h_define("MPV_CONFDIR", "$(CONFLOADDIR)")
+    add_config_h_define("DMPV_CONFDIR", "$(CONFLOADDIR)")
     enabled_features = [x[0] for x in filter(lambda x: x[1], _G.dep_enabled.items())]
     add_config_h_define("FULLCONFIG", " ".join(sorted(enabled_features)))
 

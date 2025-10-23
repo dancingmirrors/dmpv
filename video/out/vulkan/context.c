@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "misc/mp_assert.h"
@@ -110,7 +110,7 @@ const struct m_sub_options vulkan_conf = {
 };
 
 struct priv {
-    struct mpvk_ctx *vk;
+    struct dmpvk_ctx *vk;
     struct vulkan_opts *opts;
     struct ra_vk_ctx_params params;
     struct ra_tex proxy_tex;
@@ -118,7 +118,7 @@ struct priv {
 
 static const struct ra_swapchain_fns vulkan_swapchain;
 
-struct mpvk_ctx *ra_vk_ctx_get(struct ra_ctx *ctx)
+struct dmpvk_ctx *ra_vk_ctx_get(struct ra_ctx *ctx)
 {
     if (!ctx->swapchain || ctx->swapchain->fns != &vulkan_swapchain)
         return NULL;
@@ -133,7 +133,7 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
         return;
 
     struct priv *p = ctx->swapchain->priv;
-    struct mpvk_ctx *vk = p->vk;
+    struct dmpvk_ctx *vk = p->vk;
 
     if (ctx->ra) {
         pl_gpu_finish(vk->gpu);
@@ -147,7 +147,7 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
     TA_FREEP(&ctx->swapchain);
 }
 
-bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
+bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
                     struct ra_vk_ctx_params params,
                     VkPresentModeKHR preferred_mode)
 {

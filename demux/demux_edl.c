@@ -1,20 +1,20 @@
 /*
  * Original author: Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -24,7 +24,7 @@
 #include <limits.h>
 #include <math.h>
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "demux.h"
 #include "timeline.h"
@@ -36,7 +36,7 @@
 #include "common/tags.h"
 #include "stream/stream.h"
 
-#define HEADER "# mpv EDL v0\n"
+#define HEADER "# dmpv EDL v0\n"
 
 struct tl_part {
     char *filename;             // what is stream_open()ed
@@ -582,7 +582,7 @@ static void fix_filenames(struct tl_parts *parts, char *source_path)
     }
 }
 
-static void build_mpv_edl_timeline(struct timeline *tl)
+static void build_dmpv_edl_timeline(struct timeline *tl)
 {
     struct priv *p = tl->demuxer->priv;
 
@@ -650,5 +650,5 @@ const struct demuxer_desc demuxer_desc_edl = {
     .name = "edl",
     .desc = "Edit decision list",
     .open = try_open_file,
-    .load_timeline = build_mpv_edl_timeline,
+    .load_timeline = build_dmpv_edl_timeline,
 };

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -60,7 +60,7 @@ struct slice {
 
 struct mp_draw_sub_cache
 {
-    struct mpv_global *global;
+    struct dmpv_global *global;
 
     // Possibly cached parts. Also implies what's in the video_overlay.
     struct part parts[MAX_OSD_PARTS];
@@ -832,7 +832,7 @@ char *mp_draw_sub_get_dbg_info(struct mp_draw_sub_cache *p)
         mp_imgfmt_to_name(p->calpha_tmp ? p->calpha_tmp->imgfmt : 0));
 }
 
-struct mp_draw_sub_cache *mp_draw_sub_alloc(void *ta_parent, struct mpv_global *g)
+struct mp_draw_sub_cache *mp_draw_sub_alloc(void *ta_parent, struct dmpv_global *g)
 {
     struct mp_draw_sub_cache *c = talloc_zero(ta_parent, struct mp_draw_sub_cache);
     c->global = g;

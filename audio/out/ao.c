@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -21,7 +21,7 @@
 #include <math.h>
 #include "misc/mp_assert.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "config.h"
 #include "ao.h"
@@ -96,11 +96,11 @@ const struct m_sub_options ao_conf = {
     .defaults = &(const OPT_BASE_STRUCT){
         .audio_buffer = 0.2,
         .audio_device = "auto",
-        .audio_client_name = "mpv",
+        .audio_client_name = "dmpv",
     },
 };
 
-static struct ao *ao_alloc(bool probing, struct mpv_global *global,
+static struct ao *ao_alloc(bool probing, struct dmpv_global *global,
                            void (*wakeup_cb)(void *ctx), void *wakeup_ctx,
                            char *name)
 {
@@ -137,7 +137,7 @@ error:
     return NULL;
 }
 
-static struct ao *ao_init(bool probing, struct mpv_global *global,
+static struct ao *ao_init(bool probing, struct dmpv_global *global,
                           void (*wakeup_cb)(void *ctx), void *wakeup_ctx,
                           struct encode_lavc_context *encode_lavc_ctx, int flags,
                           int samplerate, int format, struct mp_chmap channels,
@@ -225,7 +225,7 @@ static void split_ao_device(void *tmp, char *opt, char **out_ao, char **out_dev)
     *out_ao = bstrto0(tmp, b_ao);
 }
 
-struct ao *ao_init_best(struct mpv_global *global,
+struct ao *ao_init_best(struct dmpv_global *global,
                         int init_flags,
                         void (*wakeup_cb)(void *ctx), void *wakeup_ctx,
                         struct encode_lavc_context *encode_lavc_ctx,
@@ -395,7 +395,7 @@ bool ao_untimed(struct ao *ao)
 // ---
 
 struct ao_hotplug {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     void (*wakeup_cb)(void *ctx);
     void *wakeup_ctx;
     // A single AO instance is used to listen to hotplug events. It wouldn't
@@ -409,7 +409,7 @@ struct ao_hotplug {
     bool needs_update;
 };
 
-struct ao_hotplug *ao_hotplug_create(struct mpv_global *global,
+struct ao_hotplug *ao_hotplug_create(struct dmpv_global *global,
                                      void (*wakeup_cb)(void *ctx),
                                      void *wakeup_ctx)
 {
@@ -534,7 +534,7 @@ static void dummy_wakeup(void *ctx)
 {
 }
 
-void ao_print_devices(struct mpv_global *global, struct mp_log *log,
+void ao_print_devices(struct dmpv_global *global, struct mp_log *log,
                       struct ao *playback_ao)
 {
     struct ao_hotplug *hp = ao_hotplug_create(global, dummy_wakeup, NULL);

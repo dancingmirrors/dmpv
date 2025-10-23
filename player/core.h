@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_MP_CORE_H
@@ -229,7 +229,7 @@ extern const int num_ptracks[STREAM_TYPE_COUNT];
 typedef struct MPContext {
     bool initialized;
     bool is_cli;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct MPOpts *opts;
     struct mp_log *log;
     struct stats_ctx *stats;
@@ -465,8 +465,8 @@ struct mp_abort_entry {
     // without holding the abort_lock.
     struct mp_cancel *cancel;
     // For client API.
-    struct mpv_handle *client;  // non-NULL if done by a client API user
-    int client_work_type;       // client API type, e.h. MPV_EVENT_COMMAND_REPLY
+    struct dmpv_handle *client;  // non-NULL if done by a client API user
+    int client_work_type;       // client API type, e.h. DMPV_EVENT_COMMAND_REPLY
     uint64_t client_work_id;    // client API user reply_userdata value
                                 // (only valid if client_work_type set)
 };
@@ -608,7 +608,7 @@ struct mp_script_args {
     const struct mp_scripting *backend;
     struct MPContext *mpctx;
     struct mp_log *log;
-    struct mpv_handle *client;
+    struct dmpv_handle *client;
     const char *filename;
     const char *path;
 };

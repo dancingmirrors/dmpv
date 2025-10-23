@@ -1,5 +1,5 @@
-#ifndef MPV_MP_THREAD_POOL_H
-#define MPV_MP_THREAD_POOL_H
+#ifndef DMPV_MP_THREAD_POOL_H
+#define DMPV_MP_THREAD_POOL_H
 
 #include <stdbool.h>
 struct mp_thread_pool;

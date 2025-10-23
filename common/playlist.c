@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "misc/mp_assert.h"
@@ -21,7 +21,7 @@
 #include "common/global.h"
 #include "common/msg.h"
 #include "misc/random.h"
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "options/path.h"
 
 #include "demux/demux.h"
@@ -263,18 +263,18 @@ struct playlist_entry *playlist_get_first_in_same_playlist(
         goto exit;
 
     // Don't go to the beginning of the playlist when the current playlist-path
-    // starts with the previous playlist-path, e.g. with mpv --loop-playlist
+    // starts with the previous playlist-path, e.g. with dmpv --loop-playlist
     // archive_dir/, which expands to archive_dir/{1..9}.zip, the current
     // playlist path "archive_dir/1.zip" begins with the playlist-path
     // "archive_dir/" of {2..9}.zip, so go to 9.zip instead of 2.zip. But
     // playlist-prev-playlist from e.g. the directory "foobar" to the directory
     // "foo" should still go to the first entry in "foo/", and this should all
-    // work whether mpv's arguments have trailing slashes or not, e.g. in the
+    // work whether dmpv's arguments have trailing slashes or not, e.g. in the
     // first example:
-    // mpv archive_dir results in the playlist-paths "archive_dir/1.zip" and
+    // dmpv archive_dir results in the playlist-paths "archive_dir/1.zip" and
     // "archive_dir"
-    // mpv archive_dir/ in "archive_dir/1.zip" and "archive_dir/"
-    // mpv archive_dir// in "archive_dir//1.zip" and "archive_dir//"
+    // dmpv archive_dir/ in "archive_dir/1.zip" and "archive_dir/"
+    // dmpv archive_dir// in "archive_dir//1.zip" and "archive_dir//"
     // Always adding a separator to entry->playlist_path to fix the foobar foo
     // case would break the previous 2 cases instead. Stripping the separator
     // from entry->playlist_path if present and appending it again makes this
@@ -393,7 +393,7 @@ struct playlist_entry *playlist_entry_from_index(struct playlist *pl, int index)
 }
 
 struct playlist *playlist_parse_file(const char *file, struct mp_cancel *cancel,
-                                     struct mpv_global *global)
+                                     struct dmpv_global *global)
 {
     struct mp_log *log = mp_log_new(NULL, global->log, "!playlist_parser");
     mp_verbose(log, "Parsing playlist file %s...\n", file);

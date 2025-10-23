@@ -13,8 +13,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef MPV_CLIENT_API_RENDER_GL_H_
-#define MPV_CLIENT_API_RENDER_GL_H_
+#ifndef DMPV_CLIENT_API_RENDER_GL_H_
+#define DMPV_CLIENT_API_RENDER_GL_H_
 
 #include "render.h"
 
@@ -22,33 +22,33 @@
 extern "C" {
 #endif
 
-typedef struct mpv_opengl_init_params {
+typedef struct dmpv_opengl_init_params {
     void *(*get_proc_address)(void *ctx, const char *name);
     void *get_proc_address_ctx;
-} mpv_opengl_init_params;
+} dmpv_opengl_init_params;
 
-typedef struct mpv_opengl_fbo {
+typedef struct dmpv_opengl_fbo {
     int fbo;
     int w, h;
     int internal_format;
-} mpv_opengl_fbo;
+} dmpv_opengl_fbo;
 
-typedef struct mpv_opengl_drm_params {
+typedef struct dmpv_opengl_drm_params {
     int fd;
     int crtc_id;
     int connector_id;
     struct _drmModeAtomicReq **atomic_request_ptr;
     int render_fd;
-} mpv_opengl_drm_params;
+} dmpv_opengl_drm_params;
 
-typedef struct mpv_opengl_drm_draw_surface_size {
+typedef struct dmpv_opengl_drm_draw_surface_size {
     /**
      * size of the draw plane surface in pixels.
      */
     int width, height;
-} mpv_opengl_drm_draw_surface_size;
+} dmpv_opengl_drm_draw_surface_size;
 
-typedef struct mpv_opengl_drm_params_v2 {
+typedef struct dmpv_opengl_drm_params_v2 {
     int fd;
     int crtc_id;
     int connector_id;
@@ -56,10 +56,10 @@ typedef struct mpv_opengl_drm_params_v2 {
     struct _drmModeAtomicReq **atomic_request_ptr;
 
     int render_fd;
-} mpv_opengl_drm_params_v2;
+} dmpv_opengl_drm_params_v2;
 
 
-#define mpv_opengl_drm_osd_size mpv_opengl_drm_draw_surface_size
+#define dmpv_opengl_drm_osd_size dmpv_opengl_drm_draw_surface_size
 
 #ifdef __cplusplus
 }

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -39,7 +39,7 @@ extern const struct m_sub_options drm_conf;
 
 struct drm_frame {
     struct drm_prime_framebuffer fb;
-    struct mp_image *image; // associated mpv image
+    struct mp_image *image; // associated dmpv image
 };
 
 struct priv {
@@ -123,7 +123,7 @@ static void disable_video_plane(struct ra_hwdec *hw)
     // Disabling the drmprime video plane is needed on some devices when using
     // the primary plane for video. Primary buffer can't be active with no
     // framebuffer associated. So we need this function to commit it right away
-    // as mpv will free all framebuffers on playback end.
+    // as dmpv will free all framebuffers on playback end.
     drmModeAtomicReqPtr request = drmModeAtomicAlloc();
     if (request) {
         drm_object_set_property(request, p->ctx->drmprime_video_plane, "FB_ID", 0);
@@ -151,8 +151,8 @@ static int overlay_frame(struct ra_hwdec *hw, struct mp_image *hw_image,
 
     // grab atomic request from native resources
     if (p->ctx) {
-        struct mpv_opengl_drm_params_v2 *drm_params;
-        drm_params = (mpv_opengl_drm_params_v2 *)ra_get_native_resource(ra, "drm_params_v2");
+        struct dmpv_opengl_drm_params_v2 *drm_params;
+        drm_params = (dmpv_opengl_drm_params_v2 *)ra_get_native_resource(ra, "drm_params_v2");
         if (!drm_params) {
             MP_ERR(hw, "Failed to retrieve drm params from native resources\n");
             return -1;
@@ -169,7 +169,7 @@ static int overlay_frame(struct ra_hwdec *hw, struct mp_image *hw_image,
 
         // grab draw plane windowing info to eventually upscale the overlay
         // as egl windows could be upscaled to draw plane.
-        struct mpv_opengl_drm_draw_surface_size *draw_surface_size = ra_get_native_resource(ra, "drm_draw_surface_size");
+        struct dmpv_opengl_drm_draw_surface_size *draw_surface_size = ra_get_native_resource(ra, "drm_draw_surface_size");
         if (draw_surface_size) {
             scale_dst_rect(hw, draw_surface_size->width, draw_surface_size->height, dst, &p->dst);
         } else {
@@ -258,7 +258,7 @@ static int init(struct ra_hwdec *hw)
     drmprime_video_plane = opts->drmprime_video_plane;
     talloc_free(tmp);
 
-    struct mpv_opengl_drm_params_v2 *drm_params;
+    struct dmpv_opengl_drm_params_v2 *drm_params;
 
     drm_params = ra_get_native_resource(hw->ra_ctx->ra, "drm_params_v2");
     if (drm_params) {

@@ -1,24 +1,24 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
 #include <math.h>
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "config.h"
 
@@ -50,7 +50,7 @@ struct gl_lcms {
     enum mp_csp_trc current_trc;
 
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_icc_opts *opts;
 };
 
@@ -95,7 +95,7 @@ static void gl_lcms_destructor(void *ptr)
 }
 
 struct gl_lcms *gl_lcms_init(void *talloc_ctx, struct mp_log *log,
-                             struct mpv_global *global,
+                             struct dmpv_global *global,
                              struct mp_icc_opts *opts)
 {
     struct gl_lcms *p = talloc_ptrtype(talloc_ctx, p);
@@ -459,7 +459,7 @@ error_exit:
 #else /* HAVE_LCMS2 */
 
 struct gl_lcms *gl_lcms_init(void *talloc_ctx, struct mp_log *log,
-                             struct mpv_global *global,
+                             struct dmpv_global *global,
                              struct mp_icc_opts *opts)
 {
     return (struct gl_lcms *) talloc_new(talloc_ctx);

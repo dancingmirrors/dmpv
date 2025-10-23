@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -26,7 +26,7 @@
 
 #include <libavutil/md5.h>
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "osdep/io.h"
 
@@ -86,8 +86,8 @@ void mp_parse_cfgfiles(struct MPContext *mpctx)
     if (encoding)
         section = "playback-default";
 
-    load_all_cfgfiles(mpctx, NULL, "/usr/local/etc/mpv.conf");
-    load_all_cfgfiles(mpctx, section, "mpv.conf|config");
+    load_all_cfgfiles(mpctx, NULL, "/usr/local/etc/dmpv.conf");
+    load_all_cfgfiles(mpctx, section, "dmpv.conf|config");
 
     if (encoding) {
         m_config_set_profile(mpctx->mconfig, SECT_ENCODE, 0);
@@ -126,7 +126,7 @@ static void mp_load_per_file_config(struct MPContext *mpctx)
         char *name = mp_basename(cfg);
 
         bstr dir = mp_dirname(cfg);
-        char *dircfg = mp_path_join_bstr(NULL, dir, bstr0("mpv.conf"));
+        char *dircfg = mp_path_join_bstr(NULL, dir, bstr0("dmpv.conf"));
         try_load_config(mpctx, dircfg, FILE_LOCAL_FLAGS, MSGL_INFO);
         talloc_free(dircfg);
 
@@ -289,7 +289,7 @@ static void write_redirects_for_parent_dirs(struct MPContext *mpctx, char *path)
     // resuming playback when playing parent directories whose entries are
     // expanded only the first time they are "played". For example, if
     // "/a/b/c.mkv" is the current entry, also create resume files for /a/b and
-    // /a, so that "mpv --directory-mode=lazy /a" resumes playback from
+    // /a, so that "dmpv --directory-mode=lazy /a" resumes playback from
     // /a/b/c.mkv even when b isn't the first directory in /a.
     bstr dir = mp_dirname(path);
     // There is no need to write a redirect entry for "/".
@@ -372,9 +372,9 @@ void mp_write_watch_later_conf(struct MPContext *mpctx)
 
     write_redirects_for_parent_dirs(mpctx, path);
 
-    // Also write redirect entries for a playlist that mpv expanded if the
+    // Also write redirect entries for a playlist that dmpv expanded if the
     // current entry is a URL, this is mostly useful for playing multiple
-    // archives of images, e.g. with mpv 1.zip 2.zip and quit-watch-later
+    // archives of images, e.g. with dmpv 1.zip 2.zip and quit-watch-later
     // on 2.zip, write redirect entries for 2.zip, not just for the archive://
     // URL.
     if (cur->playlist_path && mp_is_url(bstr0(path))) {

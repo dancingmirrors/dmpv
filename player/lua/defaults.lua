@@ -349,7 +349,7 @@ local function process_timers()
                 t0 = now  -- first due callback: always executes, remember t0
             elseif timer.next_deadline > t0 then
                 -- don't block forever with slow callbacks and endless timers.
-                -- we'll continue right after checking mpv events.
+                -- we'll continue right after checking dmpv events.
                 return 0
             end
 

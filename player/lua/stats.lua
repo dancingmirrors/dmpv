@@ -77,7 +77,7 @@ local o = {
     no_ass_it1 = "\027[3m",
     no_ass_it0 = "\027[0m",
 
-    bindlist = "no",  -- print page 4 to the terminal on startup and quit mpv
+    bindlist = "no",  -- print page 4 to the terminal on startup and quit dmpv
 }
 options.read_options(o)
 
@@ -108,7 +108,7 @@ local function init_buffers()
 end
 local cache_ahead_buf, cache_speed_buf
 local perf_buffers = {}
--- Save all properties known to this version of mpv
+-- Save all properties known to this version of dmpv
 local property_list = {}
 for p in string.gmatch(mp.get_property("property-list"), "([^,]+)") do property_list[p] = true end
 -- Mapping of properties to their deprecated names
@@ -381,7 +381,7 @@ local name_prefixes = {
 -- extract a command "subject" from a command string, by removing all
 -- generic prefix tokens and then returning the first interesting sub-word
 -- of the next token. For target-script name we also check another token.
--- The tokenizer works fine for things we care about - valid mpv commands,
+-- The tokenizer works fine for things we care about - valid dmpv commands,
 -- properties and script names, possibly quoted, white-space[s]-separated.
 -- It's decent in practice, and worst case is "incorrect" subject.
 local function cmd_subject(cmd)
@@ -827,7 +827,7 @@ local function keybinding_info(after_scroll)
     if not kbinfo_lines or not after_scroll then
         kbinfo_lines = get_kbinfo_lines()
     end
-    -- up to 20 lines for the terminal - so that mpv can also print
+    -- up to 20 lines for the terminal - so that dmpv can also print
     -- the status line without scrolling, and up to 40 lines for libass
     -- because it can put a big performance toll on libass to process
     -- many lines which end up outside (below) the screen.

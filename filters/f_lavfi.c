@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -409,7 +409,7 @@ static bool init_pads(struct lavfi *c)
             goto error;
 
         char name[256];
-        snprintf(name, sizeof(name), "mpv_sink_%s", pad->name);
+        snprintf(name, sizeof(name), "dmpv_sink_%s", pad->name);
 
         if (avfilter_graph_create_filter(&pad->buffer, dst_filter,
                                          name, NULL, NULL, c->graph) < 0)
@@ -504,7 +504,7 @@ static bool init_pads(struct lavfi *c)
         const AVFilter *filter = avfilter_get_by_name(filter_name);
         if (filter) {
             char name[256];
-            snprintf(name, sizeof(name), "mpv_src_%s", pad->name);
+            snprintf(name, sizeof(name), "dmpv_src_%s", pad->name);
 
             pad->buffer = avfilter_graph_alloc_filter(c->graph, filter, name);
         }
@@ -1088,7 +1088,7 @@ void print_lavfi_help(struct mp_log *log, const char *name, int media_type)
 void print_lavfi_help_list(struct mp_log *log, int media_type)
 {
     dump_list(log, media_type);
-    mp_info(log, "\nIf libavfilter filters clash with builtin mpv filters,\n"
+    mp_info(log, "\nIf libavfilter filters clash with builtin dmpv filters,\n"
             "prefix them with lavfi- to select the libavfilter one.\n\n");
 }
 
@@ -1105,7 +1105,7 @@ static void print_help(struct mp_log *log, int mediatype, char *name, char *ex)
         "\n"
         " \"%s\"\n"
         "\n"
-        "Otherwise, mpv and libavfilter syntax will conflict.\n"
+        "Otherwise, dmpv and libavfilter syntax will conflict.\n"
         "\n", name, name, ex);
 }
 

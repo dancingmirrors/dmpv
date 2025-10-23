@@ -8,7 +8,7 @@
 #include "osd.h"
 
 struct sh_stream;
-struct mpv_global;
+struct dmpv_global;
 struct demux_packet;
 struct mp_recorder_sink;
 struct dec_sub;
@@ -37,7 +37,7 @@ struct attachment_list {
     int num_entries;
 };
 
-struct dec_sub *sub_create(struct mpv_global *global, struct track *track,
+struct dec_sub *sub_create(struct dmpv_global *global, struct track *track,
                            struct attachment_list *attachments, int order);
 void sub_destroy(struct dec_sub *sub);
 

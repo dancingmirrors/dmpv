@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "common/common.h"
@@ -62,7 +62,7 @@ static void gl_ctx_set_context(struct offscreen_ctx *ctx, bool enable)
         MP_ERR(ctx, "Could not make EGL context current.\n");
 }
 
-static struct offscreen_ctx *gl_offscreen_ctx_create(struct mpv_global *global,
+static struct offscreen_ctx *gl_offscreen_ctx_create(struct dmpv_global *global,
                                                      struct mp_log *log)
 {
     struct offscreen_ctx *ctx = talloc_zero(NULL, struct offscreen_ctx);

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "misc/mp_assert.h"
@@ -24,7 +24,7 @@
 #include "client.h"
 #include "command.h"
 #include "core.h"
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "screenshot.h"
 
 #include "audio/out/ao.h"
@@ -413,8 +413,8 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
     mpctx->start_timestamp = mp_time_sec();
     mp_wakeup_core(mpctx);
 
-    mp_notify(mpctx, MPV_EVENT_SEEK, NULL);
-    mp_notify(mpctx, MPV_EVENT_TICK, NULL);
+    mp_notify(mpctx, DMPV_EVENT_SEEK, NULL);
+    mp_notify(mpctx, DMPV_EVENT_TICK, NULL);
 
     update_ab_loop_clip(mpctx);
 
@@ -1049,7 +1049,7 @@ int handle_force_window(struct MPContext *mpctx, bool force)
         update_screensaver_state(mpctx);
         vo_set_paused(vo, true);
         vo_redraw(vo);
-        mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
     }
 
     return 0;
@@ -1070,7 +1070,7 @@ static void handle_dummy_ticks(struct MPContext *mpctx)
     {
         if (mp_time_sec() - mpctx->last_idle_tick > 0.050) {
             mpctx->last_idle_tick = mp_time_sec();
-            mp_notify(mpctx, MPV_EVENT_TICK, NULL);
+            mp_notify(mpctx, DMPV_EVENT_TICK, NULL);
         }
     }
 }
@@ -1137,7 +1137,7 @@ static void handle_playback_restart(struct MPContext *mpctx)
         mpctx->restart_complete = true;
         mpctx->current_seek = (struct seek_params){0};
         handle_playback_time(mpctx);
-        mp_notify(mpctx, MPV_EVENT_PLAYBACK_RESTART, NULL);
+        mp_notify(mpctx, DMPV_EVENT_PLAYBACK_RESTART, NULL);
         update_core_idle_state(mpctx);
         if (!mpctx->playing_msg_shown) {
             if (opts->playing_msg && opts->playing_msg[0]) {
@@ -1288,7 +1288,7 @@ void idle_loop(struct MPContext *mpctx)
             uninit_audio_out(mpctx);
             handle_force_window(mpctx, true);
             mp_wakeup_core(mpctx);
-            mp_notify(mpctx, MPV_EVENT_IDLE, NULL);
+            mp_notify(mpctx, DMPV_EVENT_IDLE, NULL);
             need_reinit = false;
         }
         mp_idle(mpctx);

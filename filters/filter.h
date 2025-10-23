@@ -5,7 +5,7 @@
 
 #include "frame.h"
 
-struct mpv_global;
+struct dmpv_global;
 struct mp_filter;
 
 // A filter input or output. These always come in pairs: one mp_pin is for
@@ -310,7 +310,7 @@ struct mp_filter {
     // this.
     void *priv;
 
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
 
     // Array of public pins. API users can read this, but are not allowed to
@@ -449,12 +449,12 @@ void mp_filter_graph_interrupt(struct mp_filter *root);
 // - passing it as parent filter to top-level filters
 // - driving the filter loop between the shared filters
 // - setting the wakeup callback for async filtering
-// - implicitly passing down global data like mpv_global and keeping filter
+// - implicitly passing down global data like dmpv_global and keeping filter
 //   constructor functions simple
 // Note that you can still connect pins of filters with different parents or
 // root filters, but then you may have to manually invoke mp_filter_graph_run()
 // on the root filters of the connected filters to drive data flow.
-struct mp_filter *mp_filter_create_root(struct mpv_global *global);
+struct mp_filter *mp_filter_create_root(struct dmpv_global *global);
 
 // Asynchronous filters may need to wakeup the user thread if the status of any
 // mp_pin has changed. If this is called, the callback provider should get the

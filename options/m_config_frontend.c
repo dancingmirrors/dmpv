@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <float.h>
@@ -128,7 +128,7 @@ static int show_profile(struct m_config *config, bstr param)
 
 static struct m_config *m_config_from_obj_desc(void *talloc_ctx,
                                                struct mp_log *log,
-                                               struct mpv_global *global,
+                                               struct dmpv_global *global,
                                                struct m_obj_desc *desc)
 {
     struct m_sub_options *root = talloc_ptrtype(NULL, root);
@@ -153,7 +153,7 @@ struct m_config *m_config_from_obj_desc_noalloc(void *talloc_ctx,
 }
 
 static int m_config_set_obj_params(struct m_config *config, struct mp_log *log,
-                                   struct mpv_global *global,
+                                   struct dmpv_global *global,
                                    struct m_obj_desc *desc, char **args)
 {
     for (int n = 0; args && args[n * 2 + 0]; n++) {
@@ -167,7 +167,7 @@ static int m_config_set_obj_params(struct m_config *config, struct mp_log *log,
 }
 
 struct m_config *m_config_from_obj_desc_and_args(void *ta_parent,
-    struct mp_log *log, struct mpv_global *global, struct m_obj_desc *desc,
+    struct mp_log *log, struct dmpv_global *global, struct m_obj_desc *desc,
     char **args)
 {
     struct m_config *config = m_config_from_obj_desc(ta_parent, log, global, desc);
@@ -775,7 +775,7 @@ done:
 }
 
 int m_config_set_option_node(struct m_config *config, bstr name,
-                             struct mpv_node *data, int flags)
+                             struct dmpv_node *data, int flags)
 {
     int r;
 
@@ -787,7 +787,7 @@ int m_config_set_option_node(struct m_config *config, bstr name,
     // the old value, as opposed to e.g. appending to lists.
     union m_option_value val = m_option_value_default;
 
-    if (data->format == MPV_FORMAT_STRING) {
+    if (data->format == DMPV_FORMAT_STRING) {
         bstr param = bstr0(data->u.string);
         r = m_option_parse(mp_null_log, co->opt, name, param, &val);
     } else {
@@ -1061,14 +1061,14 @@ void m_config_finish_default_profile(struct m_config *config, int flags)
     p->num_opts = 0;
 }
 
-struct mpv_node m_config_get_profiles(struct m_config *config)
+struct dmpv_node m_config_get_profiles(struct m_config *config)
 {
-    struct mpv_node root;
-    node_init(&root, MPV_FORMAT_NODE_ARRAY, NULL);
+    struct dmpv_node root;
+    node_init(&root, DMPV_FORMAT_NODE_ARRAY, NULL);
 
     for (m_profile_t *profile = config->profiles; profile; profile = profile->next)
     {
-        struct mpv_node *entry = node_array_add(&root, MPV_FORMAT_NODE_MAP);
+        struct dmpv_node *entry = node_array_add(&root, DMPV_FORMAT_NODE_MAP);
 
         node_map_add_string(entry, "name", profile->name);
         if (profile->desc)
@@ -1082,11 +1082,11 @@ struct mpv_node m_config_get_profiles(struct m_config *config)
             talloc_free(s);
         }
 
-        struct mpv_node *opts =
-            node_map_add(entry, "options", MPV_FORMAT_NODE_ARRAY);
+        struct dmpv_node *opts =
+            node_map_add(entry, "options", DMPV_FORMAT_NODE_ARRAY);
 
         for (int n = 0; n < profile->num_opts; n++) {
-            struct mpv_node *opt_entry = node_array_add(opts, MPV_FORMAT_NODE_MAP);
+            struct dmpv_node *opt_entry = node_array_add(opts, DMPV_FORMAT_NODE_MAP);
             node_map_add_string(opt_entry, "key", profile->opts[n * 2 + 0]);
             node_map_add_string(opt_entry, "value", profile->opts[n * 2 + 1]);
         }

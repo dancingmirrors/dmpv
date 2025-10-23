@@ -19,7 +19,7 @@
 #include <libplacebo/vulkan.h>
 
 // Shared struct used to hold vulkan context information
-struct mpvk_ctx {
+struct dmpvk_ctx {
     pl_log pllog;
     pl_vk_inst vkinst;
     pl_vulkan vulkan;

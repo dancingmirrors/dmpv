@@ -134,7 +134,7 @@ static int ra_init_gl(struct ra *ra, GL *gl)
     }
 
     // While we can handle compute shaders on GLES the spec (intentionally)
-    // does not support binding textures for writing, which all uses inside mpv
+    // does not support binding textures for writing, which all uses inside dmpv
     // would require. So disable it unconditionally anyway.
     if (ra->glsl_es)
         ra->caps &= ~RA_CAP_COMPUTE;

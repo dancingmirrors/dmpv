@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <math.h>
@@ -39,7 +39,7 @@
 #define QUEUE_MIN_PACKETS 16
 
 struct mp_recorder {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
 
     struct mp_recorder_sink **streams;
@@ -126,7 +126,7 @@ done:
     return ret;
 }
 
-struct mp_recorder *mp_recorder_create(struct mpv_global *global,
+struct mp_recorder *mp_recorder_create(struct dmpv_global *global,
                                        const char *target_file,
                                        struct sh_stream **streams,
                                        int num_streams,
@@ -199,7 +199,7 @@ struct mp_recorder *mp_recorder_create(struct mpv_global *global,
     char version[200];
     snprintf(version, sizeof(version), "%s experimental stream recording "
              "feature (can generate broken files - please report bugs)",
-             mpv_version);
+             dmpv_version);
     av_dict_set(&priv->mux->metadata, "encoding_tool", version, 0);
 
     if (avformat_write_header(priv->mux, NULL) < 0) {
@@ -215,7 +215,7 @@ struct mp_recorder *mp_recorder_create(struct mpv_global *global,
 
     MP_WARN(priv, "This is an experimental feature. Output files might be "
                   "broken or not play correctly with various players "
-                  "(including mpv itself).\n");
+                  "(including dmpv itself).\n");
 
     return priv;
 

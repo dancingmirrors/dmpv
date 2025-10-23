@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_M_OPTION_H
@@ -32,8 +32,8 @@ typedef struct m_option_type m_option_type_t;
 typedef struct m_option m_option_t;
 struct m_config;
 struct mp_log;
-struct mpv_node;
-struct mpv_global;
+struct dmpv_node;
+struct dmpv_global;
 
 ///////////////////////////// Options types declarations ////////////////////
 
@@ -348,12 +348,12 @@ struct m_option_type {
     //  M_OPT_INVALID:      src is incorrectly formatted
     //  >= 0:               success
     //  other error code:   some other error, essentially M_OPT_INVALID refined
-    int (*set)(const m_option_t *opt, void *dst, struct mpv_node *src);
+    int (*set)(const m_option_t *opt, void *dst, struct dmpv_node *src);
 
     // Copy the option value in src to dst. Use ta_parent for any dynamic
-    // memory allocations. It's explicitly allowed to have mpv_node reference
-    // static strings (and even mpv_node_list.keys), though.
-    int (*get)(const m_option_t *opt, void *ta_parent, struct mpv_node *dst,
+    // memory allocations. It's explicitly allowed to have dmpv_node reference
+    // static strings (and even dmpv_node_list.keys), though.
+    int (*get)(const m_option_t *opt, void *ta_parent, struct dmpv_node *dst,
                void *src);
 
     // Return whether the values are the same. (There are no "unordered"
@@ -561,7 +561,7 @@ static inline void m_option_free(const m_option_t *opt, void *dst)
 
 // see m_option_type.set
 static inline int m_option_set_node(const m_option_t *opt, void *dst,
-                                    struct mpv_node *src)
+                                    struct dmpv_node *src)
 {
     if (opt->type->set)
         return opt->type->set(opt, dst, src);
@@ -570,11 +570,11 @@ static inline int m_option_set_node(const m_option_t *opt, void *dst,
 
 // Call m_option_parse for strings, m_option_set_node otherwise.
 int m_option_set_node_or_string(struct mp_log *log, const m_option_t *opt,
-                                const char *name, void *dst, struct mpv_node *src);
+                                const char *name, void *dst, struct dmpv_node *src);
 
 // see m_option_type.get
 static inline int m_option_get_node(const m_option_t *opt, void *ta_parent,
-                                    struct mpv_node *dst, void *src)
+                                    struct dmpv_node *dst, void *src)
 {
     if (opt->type->get)
         return opt->type->get(opt, ta_parent, dst, src);

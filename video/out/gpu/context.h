@@ -19,7 +19,7 @@ extern const struct m_sub_options ra_ctx_conf;
 struct ra_ctx {
     struct vo *vo;
     struct ra *ra;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
 
     struct ra_ctx_opts opts;

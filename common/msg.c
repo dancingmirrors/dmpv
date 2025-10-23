@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -24,7 +24,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "osdep/atomic.h"
@@ -54,7 +54,7 @@
 #define EARLY_FILE_BUF 5000
 
 struct mp_log_root {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     pthread_mutex_t lock;
     pthread_mutex_t log_file_lock;
     pthread_cond_t log_file_wakeup;
@@ -249,7 +249,7 @@ void mp_msg_set_term_title(struct mp_log *log, const char *title)
     }
 }
 
-bool mp_msg_has_status_line(struct mpv_global *global)
+bool mp_msg_has_status_line(struct dmpv_global *global)
 {
     struct mp_log_root *root = global->log->root;
     pthread_mutex_lock(&root->lock);
@@ -519,7 +519,7 @@ struct mp_log *mp_log_new(void *talloc_ctx, struct mp_log *parent,
     return log;
 }
 
-void mp_msg_init(struct mpv_global *global)
+void mp_msg_init(struct dmpv_global *global)
 {
     mp_assert(!global->log);
 
@@ -605,7 +605,7 @@ static void terminate_log_file_thread(struct mp_log_root *root)
 
 // If opt is different from *current_path, update *current_path and return true.
 // No lock must be held; passed values must be accessible without.
-static bool check_new_path(struct mpv_global *global, char *opt,
+static bool check_new_path(struct dmpv_global *global, char *opt,
                            char **current_path)
 {
     void *tmp = talloc_new(NULL);
@@ -629,7 +629,7 @@ static bool check_new_path(struct mpv_global *global, char *opt,
     return res;
 }
 
-void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
+void mp_msg_update_msglevels(struct dmpv_global *global, struct MPOpts *opts)
 {
     struct mp_log_root *root = global->log->root;
 
@@ -716,7 +716,7 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
     }
 }
 
-void mp_msg_force_stderr(struct mpv_global *global, bool force_stderr)
+void mp_msg_force_stderr(struct dmpv_global *global, bool force_stderr)
 {
     struct mp_log_root *root = global->log->root;
 
@@ -726,14 +726,14 @@ void mp_msg_force_stderr(struct mpv_global *global, bool force_stderr)
 }
 
 // Only to be called from the main thread.
-bool mp_msg_has_log_file(struct mpv_global *global)
+bool mp_msg_has_log_file(struct dmpv_global *global)
 {
     struct mp_log_root *root = global->log->root;
 
     return !!root->log_file;
 }
 
-void mp_msg_uninit(struct mpv_global *global)
+void mp_msg_uninit(struct dmpv_global *global)
 {
     struct mp_log_root *root = global->log->root;
     terminate_log_file_thread(root);
@@ -755,7 +755,7 @@ void mp_msg_uninit(struct mpv_global *global)
 // early logging store log messages before they have a known destination.
 // there are two early log buffers which are similar logically, and both cease
 // function (if still exist, independently) once the log destination is known,
-// or mpv init is complete (typically, after all clients/scripts init is done).
+// or dmpv init is complete (typically, after all clients/scripts init is done).
 //
 // - "normal" early_buffer, holds early terminal-level logs, and is handed over
 //   to the first client which requests such log buffer, so that it sees older
@@ -764,13 +764,13 @@ void mp_msg_uninit(struct mpv_global *global)
 //
 // - early_filebuffer - early log-file messages until a log file name is known.
 //   main cases where meaningful messages are accumulated before the filename
-//   is known are when log-file is set at mpv.conf, or from script/client init.
+//   is known are when log-file is set at dmpv.conf, or from script/client init.
 //   once a file name is known, the early buffer is flushed and destroyed.
 //   unlike the "proper" log-file buffer, the early filebuffer is not backed by
 //   a write thread, and hence non-blocking (can overwrite old messages).
 //   it's also bigger than the actual file buffer (early: 5000, actual: 100).
 
-static void mp_msg_set_early_logging_raw(struct mpv_global *global, bool enable,
+static void mp_msg_set_early_logging_raw(struct dmpv_global *global, bool enable,
                                          struct mp_log_buffer **root_logbuf,
                                          int size, int level)
 {
@@ -797,7 +797,7 @@ static void mp_msg_set_early_logging_raw(struct mpv_global *global, bool enable,
     pthread_mutex_unlock(&root->lock);
 }
 
-void mp_msg_set_early_logging(struct mpv_global *global, bool enable)
+void mp_msg_set_early_logging(struct dmpv_global *global, bool enable)
 {
     struct mp_log_root *root = global->log->root;
 
@@ -809,7 +809,7 @@ void mp_msg_set_early_logging(struct mpv_global *global, bool enable)
                                  EARLY_FILE_BUF, MP_LOG_BUFFER_MSGL_LOGFILE);
 }
 
-struct mp_log_buffer *mp_msg_log_buffer_new(struct mpv_global *global,
+struct mp_log_buffer *mp_msg_log_buffer_new(struct dmpv_global *global,
                                             int size, int level,
                                             void (*wakeup_cb)(void *ctx),
                                             void *wakeup_cb_ctx)
@@ -946,15 +946,15 @@ const char *const mp_log_levels[MSGL_MAX + 1] = {
     [MSGL_STATS]        = "stats",
 };
 
-const int mp_mpv_log_levels[MSGL_MAX + 1] = {
-    [MSGL_FATAL]        = MPV_LOG_LEVEL_FATAL,
-    [MSGL_ERR]          = MPV_LOG_LEVEL_ERROR,
-    [MSGL_WARN]         = MPV_LOG_LEVEL_WARN,
-    [MSGL_INFO]         = MPV_LOG_LEVEL_INFO,
+const int mp_dmpv_log_levels[MSGL_MAX + 1] = {
+    [MSGL_FATAL]        = DMPV_LOG_LEVEL_FATAL,
+    [MSGL_ERR]          = DMPV_LOG_LEVEL_ERROR,
+    [MSGL_WARN]         = DMPV_LOG_LEVEL_WARN,
+    [MSGL_INFO]         = DMPV_LOG_LEVEL_INFO,
     [MSGL_STATUS]       = 0, // never used
-    [MSGL_V]            = MPV_LOG_LEVEL_V,
-    [MSGL_DEBUG]        = MPV_LOG_LEVEL_DEBUG,
-    [MSGL_TRACE]        = MPV_LOG_LEVEL_TRACE,
+    [MSGL_V]            = DMPV_LOG_LEVEL_V,
+    [MSGL_DEBUG]        = DMPV_LOG_LEVEL_DEBUG,
+    [MSGL_TRACE]        = DMPV_LOG_LEVEL_TRACE,
     [MSGL_STATS]        = 0, // never used
 };
 

@@ -3,20 +3,20 @@
  *
  * Copyright (C) 2012 Rudolf Polzer <divVerent@xonotic.org>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -48,7 +48,7 @@
 
 struct formatmap_entry {
     Uint32 sdl;
-    unsigned int mpv;
+    unsigned int dmpv;
     int is_rgba;
 };
 const struct formatmap_entry formats[] = {
@@ -82,7 +82,7 @@ const struct formatmap_entry formats[] = {
 
 struct keymap_entry {
     SDL_Keycode sdl;
-    int mpv;
+    int dmpv;
 };
 const struct keymap_entry keys[] = {
     {SDLK_RETURN, MP_KEY_ENTER},
@@ -153,7 +153,7 @@ const struct keymap_entry keys[] = {
 
 struct mousemap_entry {
     Uint8 sdl;
-    int mpv;
+    int dmpv;
 };
 const struct mousemap_entry mousebtns[] = {
     {SDL_BUTTON_LEFT, MP_MBTN_LEFT},
@@ -467,7 +467,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     for (i = 0; i < vc->renderer_info.num_texture_formats; ++i)
         for (j = 0; j < sizeof(formats) / sizeof(formats[0]); ++j)
             if (vc->renderer_info.texture_formats[i] == formats[j].sdl)
-                if (params->imgfmt == formats[j].mpv)
+                if (params->imgfmt == formats[j].dmpv)
                     texfmt = formats[j].sdl;
     if (texfmt == SDL_PIXELFORMAT_UNKNOWN) {
         MP_ERR(vo, "Invalid pixel format\n");
@@ -555,21 +555,21 @@ static void wait_events(struct vo *vo, int64_t until_time_us)
             break;
         case SDL_TEXTINPUT: {
             int sdl_mod = SDL_GetModState();
-            int mpv_mod = 0;
+            int dmpv_mod = 0;
             // we ignore KMOD_LSHIFT, KMOD_RSHIFT and KMOD_RALT (if
             // mp_input_use_alt_gr() is true) because these are already
             // factored into ev.text.text
             if (sdl_mod & (KMOD_LCTRL | KMOD_RCTRL))
-                mpv_mod |= MP_KEY_MODIFIER_CTRL;
+                dmpv_mod |= MP_KEY_MODIFIER_CTRL;
             if ((sdl_mod & KMOD_LALT) ||
                 ((sdl_mod & KMOD_RALT) && !mp_input_use_alt_gr(vo->input_ctx)))
-                mpv_mod |= MP_KEY_MODIFIER_ALT;
+                dmpv_mod |= MP_KEY_MODIFIER_ALT;
             if (sdl_mod & (KMOD_LGUI | KMOD_RGUI))
-                mpv_mod |= MP_KEY_MODIFIER_META;
+                dmpv_mod |= MP_KEY_MODIFIER_META;
             struct bstr t = {
                 ev.text.text, strlen(ev.text.text)
             };
-            mp_input_put_key_utf8(vo->input_ctx, mpv_mod, t);
+            mp_input_put_key_utf8(vo->input_ctx, dmpv_mod, t);
             break;
         }
         case SDL_KEYDOWN: {
@@ -585,7 +585,7 @@ static void wait_events(struct vo *vo, int64_t until_time_us)
             int i;
             for (i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i)
                 if (keys[i].sdl == ev.key.keysym.sym) {
-                    keycode = keys[i].mpv;
+                    keycode = keys[i].dmpv;
                     break;
                 }
             if (keycode) {
@@ -608,7 +608,7 @@ static void wait_events(struct vo *vo, int64_t until_time_us)
             int i;
             for (i = 0; i < sizeof(mousebtns) / sizeof(mousebtns[0]); ++i)
                 if (mousebtns[i].sdl == ev.button.button) {
-                    mp_input_put_key(vo->input_ctx, mousebtns[i].mpv | MP_KEY_STATE_DOWN);
+                    mp_input_put_key(vo->input_ctx, mousebtns[i].dmpv | MP_KEY_STATE_DOWN);
                     break;
                 }
             break;
@@ -617,7 +617,7 @@ static void wait_events(struct vo *vo, int64_t until_time_us)
             int i;
             for (i = 0; i < sizeof(mousebtns) / sizeof(mousebtns[0]); ++i)
                 if (mousebtns[i].sdl == ev.button.button) {
-                    mp_input_put_key(vo->input_ctx, mousebtns[i].mpv | MP_KEY_STATE_UP);
+                    mp_input_put_key(vo->input_ctx, mousebtns[i].dmpv | MP_KEY_STATE_UP);
                     break;
                 }
             break;
@@ -826,7 +826,7 @@ static int preinit(struct vo *vo)
     SDL_SetHintWithPriority(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0",
                             SDL_HINT_DEFAULT);
 
-    // predefine MPV options (SDL env vars shall be overridden)
+    // predefine DMPV options (SDL env vars shall be overridden)
     SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC, vc->vsync ? "1" : "0",
                             SDL_HINT_OVERRIDE);
 
@@ -836,7 +836,7 @@ static int preinit(struct vo *vo)
     }
 
     // then actually try
-    vc->window = SDL_CreateWindow("MPV", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    vc->window = SDL_CreateWindow("DMPV", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                                   640, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     if (!vc->window) {
         MP_ERR(vo, "SDL_CreateWindow failed\n");
@@ -865,7 +865,7 @@ static int query_format(struct vo *vo, int format)
     for (i = 0; i < vc->renderer_info.num_texture_formats; ++i)
         for (j = 0; j < sizeof(formats) / sizeof(formats[0]); ++j)
             if (vc->renderer_info.texture_formats[i] == formats[j].sdl)
-                if (format == formats[j].mpv)
+                if (format == formats[j].dmpv)
                     return 1;
     return 0;
 }
@@ -910,7 +910,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
 static struct mp_image *get_window_screenshot(struct vo *vo)
 {
     struct priv *vc = vo->priv;
-    struct mp_image *image = mp_image_alloc(vc->osd_format.mpv, vo->dwidth,
+    struct mp_image *image = mp_image_alloc(vc->osd_format.dmpv, vo->dwidth,
                                                                 vo->dheight);
     if (!image)
         return NULL;

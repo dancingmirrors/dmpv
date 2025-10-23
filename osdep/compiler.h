@@ -1,7 +1,7 @@
 #include <assert.h>
 
-#ifndef MPV_COMPILER_H
-#define MPV_COMPILER_H
+#ifndef DMPV_COMPILER_H
+#define DMPV_COMPILER_H
 
 #define MP_EXPAND_ARGS(...) __VA_ARGS__
 

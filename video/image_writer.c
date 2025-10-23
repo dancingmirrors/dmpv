@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -41,7 +41,7 @@
 #include "common/av_common.h"
 #include "common/msg.h"
 #include "image_writer.h"
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "misc/lavc_compat.h"
 #include "video/fmt-conversion.h"
 #include "video/img_format.h"
@@ -595,7 +595,7 @@ int image_writer_format_from_ext(const char *ext)
 static struct mp_image *convert_image(struct mp_image *image, int destfmt,
                                       enum mp_csp_levels yuv_levels,
                                       const struct image_writer_opts *opts,
-                                      struct mpv_global *global,
+                                      struct dmpv_global *global,
                                       struct mp_log *log)
 {
     int d_w, d_h;
@@ -654,7 +654,7 @@ static struct mp_image *convert_image(struct mp_image *image, int destfmt,
 }
 
 bool write_image(struct mp_image *image, const struct image_writer_opts *opts,
-                 const char *filename, struct mpv_global *global,
+                 const char *filename, struct dmpv_global *global,
                  struct mp_log *log, bool overwrite)
 {
     struct image_writer_opts defs = image_writer_opts_defaults;

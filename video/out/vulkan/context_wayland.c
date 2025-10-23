@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "video/out/gpu/context.h"
@@ -24,7 +24,7 @@
 #include "utils.h"
 
 struct priv {
-    struct mpvk_ctx vk;
+    struct dmpvk_ctx vk;
     bool use_fifo;
 };
 
@@ -57,17 +57,17 @@ static void wayland_vk_uninit(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
 
     ra_vk_ctx_uninit(ctx);
-    mpvk_uninit(&p->vk);
+    dmpvk_uninit(&p->vk);
     vo_wayland_uninit(ctx->vo);
 }
 
 static bool wayland_vk_init(struct ra_ctx *ctx)
 {
     struct priv *p = ctx->priv = talloc_zero(ctx, struct priv);
-    struct mpvk_ctx *vk = &p->vk;
+    struct dmpvk_ctx *vk = &p->vk;
     int msgl = ctx->opts.probing ? MSGL_V : MSGL_ERR;
 
-    if (!mpvk_init(vk, ctx, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME))
+    if (!dmpvk_init(vk, ctx, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME))
         goto error;
 
     if (!vo_wayland_init(ctx->vo))

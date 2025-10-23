@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "context.h"
@@ -278,14 +278,14 @@ const struct m_sub_options vulkan_display_conf = {
 };
 
 struct priv {
-    struct mpvk_ctx vk;
+    struct dmpvk_ctx vk;
     struct vulkan_display_opts *opts;
     uint32_t width;
     uint32_t height;
     uint32_t refresh_rate;
 
 #if HAVE_DRM
-    struct mpv_opengl_drm_params_v2 drm_params;
+    struct dmpv_opengl_drm_params_v2 drm_params;
 #endif
 };
 
@@ -352,7 +352,7 @@ static void display_uninit(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
 
     ra_vk_ctx_uninit(ctx);
-    mpvk_uninit(&p->vk);
+    dmpvk_uninit(&p->vk);
 
 #if HAVE_DRM
     if (p->drm_params.render_fd != -1) {
@@ -365,7 +365,7 @@ static void display_uninit(struct ra_ctx *ctx)
 static bool display_init(struct ra_ctx *ctx)
 {
     struct priv *p = ctx->priv = talloc_zero(ctx, struct priv);
-    struct mpvk_ctx *vk = &p->vk;
+    struct dmpvk_ctx *vk = &p->vk;
     int msgl = ctx->opts.probing ? MSGL_V : MSGL_ERR;
     VkResult res;
     bool ret = false;
@@ -377,7 +377,7 @@ static bool display_init(struct ra_ctx *ctx)
     int mode_idx = p->opts->mode;
     int plane_idx = p->opts->plane;
 
-    if (!mpvk_init(vk, ctx, VK_KHR_DISPLAY_EXTENSION_NAME))
+    if (!dmpvk_init(vk, ctx, VK_KHR_DISPLAY_EXTENSION_NAME))
         goto error;
 
     char *device_name = ra_vk_ctx_get_device_name(ctx);

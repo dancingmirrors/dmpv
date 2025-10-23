@@ -3,20 +3,20 @@
  * Copyright (C) 2006 Michael Niedermayer
  * Copyright (C) 2009 Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -52,7 +52,7 @@
 // Needed because the av_log callback does not provide a library-safe message
 // callback.
 static pthread_mutex_t log_lock = PTHREAD_MUTEX_INITIALIZER;
-static struct mpv_global *log_mpv_instance;
+static struct dmpv_global *log_dmpv_instance;
 static struct mp_log *log_root, *log_decaudio, *log_decvideo, *log_demuxer;
 static bool log_print_prefix = true;
 
@@ -115,7 +115,7 @@ static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt,
     // Note: mp_log is thread-safe, but destruction of the log instances is not.
     pthread_mutex_lock(&log_lock);
 
-    if (!log_mpv_instance) {
+    if (!log_dmpv_instance) {
         pthread_mutex_unlock(&log_lock);
         // Fallback to stderr
         vfprintf(stderr, fmt, vl);
@@ -141,11 +141,11 @@ static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt,
     pthread_mutex_unlock(&log_lock);
 }
 
-void init_libav(struct mpv_global *global)
+void init_libav(struct dmpv_global *global)
 {
     pthread_mutex_lock(&log_lock);
-    if (!log_mpv_instance) {
-        log_mpv_instance = global;
+    if (!log_dmpv_instance) {
+        log_dmpv_instance = global;
         log_root = mp_log_new(NULL, global->log, "ffmpeg");
         log_decaudio = mp_log_new(log_root, log_root, "audio");
         log_decvideo = mp_log_new(log_root, log_root, "video");
@@ -161,12 +161,12 @@ void init_libav(struct mpv_global *global)
 #endif
 }
 
-void uninit_libav(struct mpv_global *global)
+void uninit_libav(struct dmpv_global *global)
 {
     pthread_mutex_lock(&log_lock);
-    if (log_mpv_instance == global) {
+    if (log_dmpv_instance == global) {
         av_log_set_callback(av_log_default_callback);
-        log_mpv_instance = NULL;
+        log_dmpv_instance = NULL;
         talloc_free(log_root);
     }
     pthread_mutex_unlock(&log_lock);

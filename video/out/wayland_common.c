@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -1988,7 +1988,7 @@ int vo_wayland_allocate_memfd(struct vo *vo, size_t size)
 #if !HAVE_MEMFD_CREATE
     return VO_ERROR;
 #else
-    int fd = memfd_create("mpv", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    int fd = memfd_create("dmpv", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (fd < 0) {
         MP_ERR(vo, "Failed to allocate memfd: %s\n", mp_strerror(errno));
         return VO_ERROR;
@@ -2302,7 +2302,7 @@ bool vo_wayland_init(struct vo *vo)
     wl_surface_commit(wl->surface);
 
     /* Do another roundtrip to ensure all of the above is initialized
-     * before mpv does anything else. */
+     * before dmpv does anything else. */
     wl_display_roundtrip(wl->display);
 
     return true;

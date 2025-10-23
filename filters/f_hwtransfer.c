@@ -157,7 +157,7 @@ static void hwupload_process(struct mp_filter *f)
      * match.
      *
      * Technically, we could have frames from different device contexts,
-     * which would require an explicit transfer, but mpv doesn't let you
+     * which would require an explicit transfer, but dmpv doesn't let you
      * create that configuration.
      */
     if (src->imgfmt == p->hw_imgfmt) {

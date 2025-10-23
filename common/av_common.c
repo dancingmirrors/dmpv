@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <math.h>
@@ -156,7 +156,7 @@ static AVRational get_def_tb(AVRational *tb)
     return tb && tb->num > 0 && tb->den > 0 ? *tb : AV_TIME_BASE_Q;
 }
 
-// Convert the mpv style timestamp (seconds as double) to a libavcodec style
+// Convert the dmpv style timestamp (seconds as double) to a libavcodec style
 // timestamp (integer units in a given timebase).
 int64_t mp_pts_to_av(double mp_pts, AVRational *tb)
 {

@@ -1,5 +1,5 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
  * This file can be distributed under the 3-clause license ("New BSD License").
  *

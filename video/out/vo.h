@@ -4,20 +4,20 @@
  * Strongly modified, most parts rewritten: A'rpi/ESP-team - 2000-2001
  * (C) MPlayer developers
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_VIDEO_OUT_H
@@ -445,7 +445,7 @@ struct vo {
     const struct vo_driver *driver;
     struct mp_log *log;
     void *priv;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct vo_wayland_state *wl;
     struct vo_drm_state *drm;
     struct mp_hwdec_devices *hwdec_devs;
@@ -481,8 +481,8 @@ struct vo {
     float monitor_par;
 };
 
-struct mpv_global;
-struct vo *init_best_video_out(struct mpv_global *global, struct vo_extra *ex);
+struct dmpv_global;
+struct vo *init_best_video_out(struct dmpv_global *global, struct vo_extra *ex);
 int vo_reconfig(struct vo *vo, struct mp_image_params *p);
 int vo_reconfig2(struct vo *vo, struct mp_image *img);
 

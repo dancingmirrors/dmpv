@@ -1,4 +1,4 @@
-name: mpv
+name: dmpv
 
 on:
   push:
@@ -35,5 +35,5 @@ jobs:
         run: |
           make
           sudo make install
-          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/mpv
-          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/mpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv

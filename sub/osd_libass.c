@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <math.h>
@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "misc/bstr.h"
 #include "misc/mp_assert.h"
 #include "common/common.h"
@@ -36,7 +36,7 @@ static const char osd_font_pfb[] =
 #include "options/options.h"
 
 
-#define ASS_USE_OSD_FONT "{\\fnmpv-osd-symbols}"
+#define ASS_USE_OSD_FONT "{\\fndmpv-osd-symbols}"
 
 static void append_ass(struct ass_state *ass, struct mp_osd_res *res,
                        ASS_Image **img_list, bool *changed);
@@ -52,7 +52,7 @@ static void create_ass_renderer(struct osd_state *osd, struct ass_state *ass)
 
     ass->log = mp_log_new(NULL, osd->log, "libass");
     ass->library = mp_ass_init(osd->global, osd->opts->osd_style, ass->log);
-    ass_add_font(ass->library, "mpv-osd-symbols", (void *)osd_font_pfb,
+    ass_add_font(ass->library, "dmpv-osd-symbols", (void *)osd_font_pfb,
                  sizeof(osd_font_pfb) - 1);
 
     ass->render = ass_renderer_init(ass->library);

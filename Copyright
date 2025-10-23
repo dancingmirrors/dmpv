@@ -1,4 +1,4 @@
-mpv is a fork of mplayer2, which is a fork of MPlayer.
+dmpv is a fork of mpv, which is a fork of mplayer2, which is a fork of MPlayer.
 
 This particular fork of mpv as a whole is licensed under the GNU Lesser General
 Public License LGPL version 2 or later (LGPLv2.1+ in this document; see LICENSE

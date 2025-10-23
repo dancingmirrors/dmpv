@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_STREAM_H
@@ -131,7 +131,7 @@ typedef struct stream {
     bool is_directory : 1; // directory on the filesystem
     bool access_references : 1; // open other streams
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
 
     struct mp_cancel *cancel;   // cancellation notification
 
@@ -197,18 +197,18 @@ int stream_read_peek(stream_t *s, void *buf, int buf_size);
 void stream_drop_buffers(stream_t *s);
 int64_t stream_get_size(stream_t *s);
 
-struct mpv_global;
+struct dmpv_global;
 
 struct bstr stream_read_complete(struct stream *s, void *talloc_ctx,
                                  int max_size);
 struct bstr stream_read_file(const char *filename, void *talloc_ctx,
-                             struct mpv_global *global, int max_size);
+                             struct dmpv_global *global, int max_size);
 
 int stream_control(stream_t *s, int cmd, void *arg);
 void free_stream(stream_t *s);
 
 struct stream_open_args {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_cancel *cancel;   // aborting stream access (used directly)
     const char *url;
     int flags;                  // STREAM_READ etc.
@@ -218,18 +218,18 @@ struct stream_open_args {
 
 int stream_create_with_args(struct stream_open_args *args, struct stream **ret);
 struct stream *stream_create(const char *url, int flags,
-                             struct mp_cancel *c, struct mpv_global *global);
-stream_t *open_output_stream(const char *filename, struct mpv_global *global);
+                             struct mp_cancel *c, struct dmpv_global *global);
+stream_t *open_output_stream(const char *filename, struct dmpv_global *global);
 
 void mp_url_unescape_inplace(char *buf);
 char *mp_url_unescape(void *talloc_ctx, char *url);
 char *mp_url_escape(void *talloc_ctx, const char *s, const char *ok);
 
 // stream_memory.c
-struct stream *stream_memory_open(struct mpv_global *global, void *data, int len);
+struct stream *stream_memory_open(struct dmpv_global *global, void *data, int len);
 
 // stream_concat.c
-struct stream *stream_concat_open(struct mpv_global *global, struct mp_cancel *c,
+struct stream *stream_concat_open(struct dmpv_global *global, struct mp_cancel *c,
                                   struct stream **streams, int num_streams);
 
 // stream_file.c
@@ -240,7 +240,7 @@ char *mp_file_get_path(void *talloc_ctx, bstr url);
 struct AVDictionary;
 void mp_setup_av_network_options(struct AVDictionary **dict,
                                  const char *target_fmt,
-                                 struct mpv_global *global,
+                                 struct dmpv_global *global,
                                  struct mp_log *log);
 
 void stream_print_proto_list(struct mp_log *log);

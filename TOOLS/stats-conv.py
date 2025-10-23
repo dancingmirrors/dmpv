@@ -12,7 +12,7 @@ if len(sys.argv) > 2:
 event_regex = re.compile(events)
 
 """
-This script is meant to display stats written by mpv --dump-stats=filename.
+This script is meant to display stats written by dmpv --dump-stats=filename.
 In general, each line in that file is an event of the form:
 
     <timestamp in microseconds> <text> '#' <comment>

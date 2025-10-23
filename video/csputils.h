@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_CSPUTILS_H
@@ -224,9 +224,9 @@ extern const struct m_opt_choice_alternatives mp_alpha_names[];
 
 extern const struct m_sub_options mp_csp_equalizer_conf;
 
-struct mpv_global;
+struct dmpv_global;
 struct mp_csp_equalizer_state *mp_csp_equalizer_create(void *ta_parent,
-                                                    struct mpv_global *global);
+                                                    struct dmpv_global *global);
 bool mp_csp_equalizer_state_changed(struct mp_csp_equalizer_state *state);
 void mp_csp_equalizer_state_get(struct mp_csp_equalizer_state *state,
                                 struct mp_csp_params *params);

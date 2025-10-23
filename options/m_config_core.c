@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -595,7 +595,7 @@ struct m_config_cache *m_config_cache_from_shadow(void *ta_parent,
 }
 
 struct m_config_cache *m_config_cache_alloc(void *ta_parent,
-                                            struct mpv_global *global,
+                                            struct dmpv_global *global,
                                             const struct m_sub_options *group)
 {
     return m_config_cache_from_shadow(ta_parent, global->config, group);
@@ -851,7 +851,7 @@ void m_config_cache_set_dispatch_change_cb(struct m_config_cache *cache,
     }
 }
 
-void *mp_get_config_group(void *ta_parent, struct mpv_global *global,
+void *mp_get_config_group(void *ta_parent, struct dmpv_global *global,
                           const struct m_sub_options *group)
 {
     struct m_config_cache *cache = m_config_cache_alloc(NULL, global, group);
@@ -861,7 +861,7 @@ void *mp_get_config_group(void *ta_parent, struct mpv_global *global,
     return cache->opts;
 }
 
-void mp_read_option_raw(struct mpv_global *global, const char *name,
+void mp_read_option_raw(struct dmpv_global *global, const char *name,
                         const struct m_option_type *type, void *dst)
 {
     struct m_config_shadow *shadow = global->config;
@@ -893,7 +893,7 @@ void mp_read_option_raw(struct mpv_global *global, const char *name,
     MP_ASSERT_UNREACHABLE(); // not found
 }
 
-static const struct m_config_group *find_group(struct mpv_global *global,
+static const struct m_config_group *find_group(struct dmpv_global *global,
                                                const struct m_option *cfg)
 {
     struct m_config_shadow *shadow = global->config;
@@ -907,7 +907,7 @@ static const struct m_config_group *find_group(struct mpv_global *global,
 }
 
 void *m_config_group_from_desc(void *ta_parent, struct mp_log *log,
-        struct mpv_global *global, struct m_obj_desc *desc, const char *name)
+        struct dmpv_global *global, struct m_obj_desc *desc, const char *name)
 {
     const struct m_config_group *group = find_group(global, desc->options);
     if (group) {

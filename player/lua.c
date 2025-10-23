@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "misc/mp_assert.h"
@@ -30,7 +30,7 @@
 
 #include "osdep/io.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/common.h"
 #include "options/m_property.h"
@@ -80,7 +80,7 @@ struct script_ctx {
     const char *path; // NULL if single file
     lua_State *state;
     struct mp_log *log;
-    struct mpv_handle *client;
+    struct dmpv_handle *client;
     struct MPContext *mpctx;
     size_t lua_malloc_size;
     lua_Alloc lua_allocf;
@@ -136,8 +136,8 @@ static void af_pushcclosure(lua_State *L, af_CFunction fn, int n);
 #define     af_pushcfunction(L, fn) af_pushcclosure((L), (fn), 0)
 
 
-// add_af_dir, add_af_mpv_alloc take a valid DIR*/char* value respectively,
-// and closedir/mpv_free it when the parent is freed.
+// add_af_dir, add_af_dmpv_alloc take a valid DIR*/char* value respectively,
+// and closedir/dmpv_free it when the parent is freed.
 
 static void destruct_af_dir(void *p)
 {
@@ -151,21 +151,21 @@ static void add_af_dir(void *parent, DIR *d)
     talloc_set_destructor(pd, destruct_af_dir);
 }
 
-static void destruct_af_mpv_alloc(void *p)
+static void destruct_af_dmpv_alloc(void *p)
 {
-    mpv_free(*(char**)p);
+    dmpv_free(*(char**)p);
 }
 
-static void add_af_mpv_alloc(void *parent, char *ma)
+static void add_af_dmpv_alloc(void *parent, char *ma)
 {
     char **p = talloc(parent, char*);
     *p = ma;
-    talloc_set_destructor(p, destruct_af_mpv_alloc);
+    talloc_set_destructor(p, destruct_af_dmpv_alloc);
 }
 
 
-// Perform the equivalent of mpv_free_node_contents(node) when tmp is freed.
-static void steal_node_allocations(void *tmp, mpv_node *node)
+// Perform the equivalent of dmpv_free_node_contents(node) when tmp is freed.
+static void steal_node_allocations(void *tmp, dmpv_node *node)
 {
     talloc_steal(tmp, node_get_alloc(node));
 }
@@ -229,7 +229,7 @@ static int check_error(lua_State *L, int err)
         return 1;
     }
     lua_pushnil(L);
-    lua_pushstring(L, mpv_error_string(err));
+    lua_pushstring(L, dmpv_error_string(err));
     return 2;
 }
 
@@ -433,12 +433,12 @@ static int load_lua(struct mp_script_args *args)
     *ctx = (struct script_ctx) {
         .mpctx = args->mpctx,
         .client = args->client,
-        .name = mpv_client_name(args->client),
+        .name = dmpv_client_name(args->client),
         .log = args->log,
         .filename = args->filename,
         .path = args->path,
         .stats = stats_ctx_create(ctx, args->mpctx->global,
-                    mp_tprintf(80, "script/%s", mpv_client_name(args->client))),
+                    mp_tprintf(80, "script/%s", dmpv_client_name(args->client))),
     };
 
     stats_register_thread_cputime(ctx->stats, "cpu");
@@ -534,16 +534,16 @@ static int script_get_script_directory(lua_State *L)
     return 0;
 }
 
-static void pushnode(lua_State *L, mpv_node *node);
+static void pushnode(lua_State *L, dmpv_node *node);
 
 static int script_raw_wait_event(lua_State *L, void *tmp)
 {
     struct script_ctx *ctx = get_ctx(L);
 
-    mpv_event *event = mpv_wait_event(ctx->client, luaL_optnumber(L, 1, 1e20));
+    dmpv_event *event = dmpv_wait_event(ctx->client, luaL_optnumber(L, 1, 1e20));
 
-    struct mpv_node rn;
-    mpv_event_to_node(&rn, event);
+    struct dmpv_node rn;
+    dmpv_event_to_node(&rn, event);
     steal_node_allocations(tmp, &rn);
 
     pushnode(L, &rn); // event
@@ -560,13 +560,13 @@ static int script_request_event(lua_State *L)
     // brute force event name -> id; stops working for events > assumed max
     int event_id = -1;
     for (int n = 0; n < 256; n++) {
-        const char *name = mpv_event_name(n);
+        const char *name = dmpv_event_name(n);
         if (name && strcmp(name, event) == 0) {
             event_id = n;
             break;
         }
     }
-    lua_pushboolean(L, mpv_request_event(ctx->client, event_id, enable) >= 0);
+    lua_pushboolean(L, dmpv_request_event(ctx->client, event_id, enable) >= 0);
     return 1;
 }
 
@@ -574,8 +574,8 @@ static int script_enable_messages(lua_State *L)
 {
     struct script_ctx *ctx = get_ctx(L);
     const char *level = luaL_checkstring(L, 1);
-    int r = mpv_request_log_messages(ctx->client, level);
-    if (r == MPV_ERROR_INVALID_PARAMETER)
+    int r = dmpv_request_log_messages(ctx->client, level);
+    if (r == DMPV_ERROR_INVALID_PARAMETER)
         luaL_error(L, "Invalid log level '%s'", level);
     return check_error(L, r);
 }
@@ -585,7 +585,7 @@ static int script_command(lua_State *L)
     struct script_ctx *ctx = get_ctx(L);
     const char *s = luaL_checkstring(L, 1);
 
-    return check_error(L, mpv_command_string(ctx->client, s));
+    return check_error(L, dmpv_command_string(ctx->client, s));
 }
 
 static int script_commandv(lua_State *L)
@@ -602,7 +602,7 @@ static int script_commandv(lua_State *L)
         args[n - 1] = s;
     }
     args[num] = NULL;
-    return check_error(L, mpv_command(ctx->client, args));
+    return check_error(L, dmpv_command(ctx->client, args));
 }
 
 static int script_del_property(lua_State *L)
@@ -610,7 +610,7 @@ static int script_del_property(lua_State *L)
     struct script_ctx *ctx = get_ctx(L);
     const char *p = luaL_checkstring(L, 1);
 
-    return check_error(L, mpv_del_property(ctx->client, p));
+    return check_error(L, dmpv_del_property(ctx->client, p));
 }
 
 static int script_set_property(lua_State *L)
@@ -619,7 +619,7 @@ static int script_set_property(lua_State *L)
     const char *p = luaL_checkstring(L, 1);
     const char *v = luaL_checkstring(L, 2);
 
-    return check_error(L, mpv_set_property_string(ctx->client, p, v));
+    return check_error(L, dmpv_set_property_string(ctx->client, p, v));
 }
 
 static int script_set_property_bool(lua_State *L)
@@ -628,7 +628,7 @@ static int script_set_property_bool(lua_State *L)
     const char *p = luaL_checkstring(L, 1);
     int v = lua_toboolean(L, 2);
 
-    return check_error(L, mpv_set_property(ctx->client, p, MPV_FORMAT_FLAG, &v));
+    return check_error(L, dmpv_set_property(ctx->client, p, DMPV_FORMAT_FLAG, &v));
 }
 
 static bool is_int(double d)
@@ -641,19 +641,19 @@ static int script_set_property_number(lua_State *L)
     struct script_ctx *ctx = get_ctx(L);
     const char *p = luaL_checkstring(L, 1);
     double d = luaL_checknumber(L, 2);
-    // If the number might be an integer, then set it as integer. The mpv core
+    // If the number might be an integer, then set it as integer. The dmpv core
     // will (probably) convert INT64 to DOUBLE when setting, but not the other
     // way around.
     int res;
     if (is_int(d)) {
-        res = mpv_set_property(ctx->client, p, MPV_FORMAT_INT64, &(int64_t){d});
+        res = dmpv_set_property(ctx->client, p, DMPV_FORMAT_INT64, &(int64_t){d});
     } else {
-        res = mpv_set_property(ctx->client, p, MPV_FORMAT_DOUBLE, &d);
+        res = dmpv_set_property(ctx->client, p, DMPV_FORMAT_DOUBLE, &d);
     }
     return check_error(L, res);
 }
 
-static void makenode(void *tmp, mpv_node *dst, lua_State *L, int t)
+static void makenode(void *tmp, dmpv_node *dst, lua_State *L, int t)
 {
     luaL_checkstack(L, 6, "makenode");
 
@@ -661,21 +661,21 @@ static void makenode(void *tmp, mpv_node *dst, lua_State *L, int t)
         t = lua_gettop(L) + (t + 1);
     switch (lua_type(L, t)) {
     case LUA_TNIL:
-        dst->format = MPV_FORMAT_NONE;
+        dst->format = DMPV_FORMAT_NONE;
         break;
     case LUA_TNUMBER: {
         double d = lua_tonumber(L, t);
         if (is_int(d)) {
-            dst->format = MPV_FORMAT_INT64;
+            dst->format = DMPV_FORMAT_INT64;
             dst->u.int64 = d;
         } else {
-            dst->format = MPV_FORMAT_DOUBLE;
+            dst->format = DMPV_FORMAT_DOUBLE;
             dst->u.double_ = d;
         }
         break;
     }
     case LUA_TBOOLEAN:
-        dst->format = MPV_FORMAT_FLAG;
+        dst->format = DMPV_FORMAT_FLAG;
         dst->u.flag = !!lua_toboolean(L, t);
         break;
     case LUA_TSTRING: {
@@ -683,32 +683,32 @@ static void makenode(void *tmp, mpv_node *dst, lua_State *L, int t)
         char *s = (char *)lua_tolstring(L, t, &len);
         bool has_zeros = !!memchr(s, 0, len);
         if (has_zeros) {
-            mpv_byte_array *ba = talloc_zero(tmp, mpv_byte_array);
-            *ba = (mpv_byte_array){talloc_memdup(tmp, s, len), len};
-            dst->format = MPV_FORMAT_BYTE_ARRAY;
+            dmpv_byte_array *ba = talloc_zero(tmp, dmpv_byte_array);
+            *ba = (dmpv_byte_array){talloc_memdup(tmp, s, len), len};
+            dst->format = DMPV_FORMAT_BYTE_ARRAY;
             dst->u.ba = ba;
         } else {
-            dst->format = MPV_FORMAT_STRING;
+            dst->format = DMPV_FORMAT_STRING;
             dst->u.string = talloc_strdup(tmp, s);
         }
         break;
     }
     case LUA_TTABLE: {
         // Lua uses the same type for arrays and maps, so guess the correct one.
-        int format = MPV_FORMAT_NONE;
+        int format = DMPV_FORMAT_NONE;
         if (lua_getmetatable(L, t)) { // mt
             lua_getfield(L, -1, "type"); // mt val
             if (lua_type(L, -1) == LUA_TSTRING) {
                 const char *type = lua_tostring(L, -1);
                 if (strcmp(type, "MAP") == 0) {
-                    format = MPV_FORMAT_NODE_MAP;
+                    format = DMPV_FORMAT_NODE_MAP;
                 } else if (strcmp(type, "ARRAY") == 0) {
-                    format = MPV_FORMAT_NODE_ARRAY;
+                    format = DMPV_FORMAT_NODE_ARRAY;
                 }
             }
             lua_pop(L, 2);
         }
-        if (format == MPV_FORMAT_NONE) {
+        if (format == DMPV_FORMAT_NONE) {
             // If all keys are integers, and they're in sequence, take it
             // as an array.
             int count = 0;
@@ -723,24 +723,24 @@ static void makenode(void *tmp, mpv_node *dst, lua_State *L, int t)
                 }
             }
             if (count > 0)
-                format = MPV_FORMAT_NODE_ARRAY;
+                format = DMPV_FORMAT_NODE_ARRAY;
             lua_pushnil(L); // nil
             while (lua_next(L, t) != 0) { // key value
                 count--;
                 lua_pop(L, 1); // key
                 if (count < 0) {
                     lua_pop(L, 1); // -
-                    format = MPV_FORMAT_NODE_MAP;
+                    format = DMPV_FORMAT_NODE_MAP;
                     break;
                 }
             }
         }
-        if (format == MPV_FORMAT_NONE)
-            format = MPV_FORMAT_NODE_ARRAY; // probably empty table; assume array
-        mpv_node_list *list = talloc_zero(tmp, mpv_node_list);
+        if (format == DMPV_FORMAT_NONE)
+            format = DMPV_FORMAT_NODE_ARRAY; // probably empty table; assume array
+        dmpv_node_list *list = talloc_zero(tmp, dmpv_node_list);
         dst->format = format;
         dst->u.list = list;
-        if (format == MPV_FORMAT_NODE_ARRAY) {
+        if (format == DMPV_FORMAT_NODE_ARRAY) {
             for (int n = 0; ; n++) {
                 lua_pushinteger(L, n + 1); // n1
                 lua_gettable(L, t); // t[n1]
@@ -779,9 +779,9 @@ static int script_set_property_native(lua_State *L, void *tmp)
 {
     struct script_ctx *ctx = get_ctx(L);
     const char *p = luaL_checkstring(L, 1);
-    struct mpv_node node;
+    struct dmpv_node node;
     makenode(tmp, &node, L, 2);
-    int res = mpv_set_property(ctx->client, p, MPV_FORMAT_NODE, &node);
+    int res = dmpv_set_property(ctx->client, p, DMPV_FORMAT_NODE, &node);
     return check_error(L, res);
 
 }
@@ -790,21 +790,21 @@ static int script_get_property_base(lua_State *L, void *tmp, int is_osd)
 {
     struct script_ctx *ctx = get_ctx(L);
     const char *name = luaL_checkstring(L, 1);
-    int type = is_osd ? MPV_FORMAT_OSD_STRING : MPV_FORMAT_STRING;
+    int type = is_osd ? DMPV_FORMAT_OSD_STRING : DMPV_FORMAT_STRING;
 
     char *result = NULL;
-    int err = mpv_get_property(ctx->client, name, type, &result);
+    int err = dmpv_get_property(ctx->client, name, type, &result);
     if (err >= 0) {
-        add_af_mpv_alloc(tmp, result);
+        add_af_dmpv_alloc(tmp, result);
         lua_pushstring(L, result);
         return 1;
     } else {
-        if (lua_isnoneornil(L, 2) && type == MPV_FORMAT_OSD_STRING) {
+        if (lua_isnoneornil(L, 2) && type == DMPV_FORMAT_OSD_STRING) {
             lua_pushstring(L, "");
         } else {
             lua_pushvalue(L, 2);
         }
-        lua_pushstring(L, mpv_error_string(err));
+        lua_pushstring(L, dmpv_error_string(err));
         return 2;
     }
 }
@@ -825,13 +825,13 @@ static int script_get_property_bool(lua_State *L)
     const char *name = luaL_checkstring(L, 1);
 
     int result = 0;
-    int err = mpv_get_property(ctx->client, name, MPV_FORMAT_FLAG, &result);
+    int err = dmpv_get_property(ctx->client, name, DMPV_FORMAT_FLAG, &result);
     if (err >= 0) {
         lua_pushboolean(L, !!result);
         return 1;
     } else {
         lua_pushvalue(L, 2);
-        lua_pushstring(L, mpv_error_string(err));
+        lua_pushstring(L, dmpv_error_string(err));
         return 2;
     }
 }
@@ -841,40 +841,40 @@ static int script_get_property_number(lua_State *L)
     struct script_ctx *ctx = get_ctx(L);
     const char *name = luaL_checkstring(L, 1);
 
-    // Note: the mpv core will (hopefully) convert INT64 to DOUBLE
+    // Note: the dmpv core will (hopefully) convert INT64 to DOUBLE
     double result = 0;
-    int err = mpv_get_property(ctx->client, name, MPV_FORMAT_DOUBLE, &result);
+    int err = dmpv_get_property(ctx->client, name, DMPV_FORMAT_DOUBLE, &result);
     if (err >= 0) {
         lua_pushnumber(L, result);
         return 1;
     } else {
         lua_pushvalue(L, 2);
-        lua_pushstring(L, mpv_error_string(err));
+        lua_pushstring(L, dmpv_error_string(err));
         return 2;
     }
 }
 
-static void pushnode(lua_State *L, mpv_node *node)
+static void pushnode(lua_State *L, dmpv_node *node)
 {
     luaL_checkstack(L, 6, "pushnode");
 
     switch (node->format) {
-    case MPV_FORMAT_STRING:
+    case DMPV_FORMAT_STRING:
         lua_pushstring(L, node->u.string);
         break;
-    case MPV_FORMAT_INT64:
+    case DMPV_FORMAT_INT64:
         lua_pushnumber(L, node->u.int64);
         break;
-    case MPV_FORMAT_DOUBLE:
+    case DMPV_FORMAT_DOUBLE:
         lua_pushnumber(L, node->u.double_);
         break;
-    case MPV_FORMAT_NONE:
+    case DMPV_FORMAT_NONE:
         lua_pushnil(L);
         break;
-    case MPV_FORMAT_FLAG:
+    case DMPV_FORMAT_FLAG:
         lua_pushboolean(L, node->u.flag);
         break;
-    case MPV_FORMAT_NODE_ARRAY:
+    case DMPV_FORMAT_NODE_ARRAY:
         lua_newtable(L); // table
         lua_getfield(L, LUA_REGISTRYINDEX, "ARRAY"); // table mt
         lua_setmetatable(L, -2); // table
@@ -883,7 +883,7 @@ static void pushnode(lua_State *L, mpv_node *node)
             lua_rawseti(L, -2, n + 1); // table
         }
         break;
-    case MPV_FORMAT_NODE_MAP:
+    case DMPV_FORMAT_NODE_MAP:
         lua_newtable(L); // table
         lua_getfield(L, LUA_REGISTRYINDEX, "MAP"); // table mt
         lua_setmetatable(L, -2); // table
@@ -893,7 +893,7 @@ static void pushnode(lua_State *L, mpv_node *node)
             lua_rawset(L, -3);
         }
         break;
-    case MPV_FORMAT_BYTE_ARRAY:
+    case DMPV_FORMAT_BYTE_ARRAY:
         lua_pushlstring(L, node->u.ba->data, node->u.ba->size);
         break;
     default:
@@ -912,29 +912,29 @@ static int script_get_property_native(lua_State *L, void *tmp)
     const char *name = luaL_checkstring(L, 1);
     mp_lua_optarg(L, 2);
 
-    mpv_node node;
-    int err = mpv_get_property(ctx->client, name, MPV_FORMAT_NODE, &node);
+    dmpv_node node;
+    int err = dmpv_get_property(ctx->client, name, DMPV_FORMAT_NODE, &node);
     if (err >= 0) {
         steal_node_allocations(tmp, &node);
         pushnode(L, &node);
         return 1;
     }
     lua_pushvalue(L, 2);
-    lua_pushstring(L, mpv_error_string(err));
+    lua_pushstring(L, dmpv_error_string(err));
     return 2;
 }
 
-static mpv_format check_property_format(lua_State *L, int arg)
+static dmpv_format check_property_format(lua_State *L, int arg)
 {
     if (lua_isnil(L, arg))
-        return MPV_FORMAT_NONE;
+        return DMPV_FORMAT_NONE;
     const char *fmts[] = {"none", "native", "bool", "string", "number", NULL};
     switch (luaL_checkoption(L, arg, "none", fmts)) {
-    case 0: return MPV_FORMAT_NONE;
-    case 1: return MPV_FORMAT_NODE;
-    case 2: return MPV_FORMAT_FLAG;
-    case 3: return MPV_FORMAT_STRING;
-    case 4: return MPV_FORMAT_DOUBLE;
+    case 0: return DMPV_FORMAT_NONE;
+    case 1: return DMPV_FORMAT_NODE;
+    case 2: return DMPV_FORMAT_FLAG;
+    case 3: return DMPV_FORMAT_STRING;
+    case 4: return DMPV_FORMAT_DOUBLE;
     }
     abort();
 }
@@ -945,15 +945,15 @@ static int script_raw_observe_property(lua_State *L)
     struct script_ctx *ctx = get_ctx(L);
     uint64_t id = luaL_checknumber(L, 1);
     const char *name = luaL_checkstring(L, 2);
-    mpv_format format = check_property_format(L, 3);
-    return check_error(L, mpv_observe_property(ctx->client, id, name, format));
+    dmpv_format format = check_property_format(L, 3);
+    return check_error(L, dmpv_observe_property(ctx->client, id, name, format));
 }
 
 static int script_raw_unobserve_property(lua_State *L)
 {
     struct script_ctx *ctx = get_ctx(L);
     uint64_t id = luaL_checknumber(L, 1);
-    lua_pushnumber(L, mpv_unobserve_property(ctx->client, id));
+    lua_pushnumber(L, dmpv_unobserve_property(ctx->client, id));
     return 1;
 }
 
@@ -961,17 +961,17 @@ static int script_command_native(lua_State *L, void *tmp)
 {
     struct script_ctx *ctx = get_ctx(L);
     mp_lua_optarg(L, 2);
-    struct mpv_node node;
-    struct mpv_node result;
+    struct dmpv_node node;
+    struct dmpv_node result;
     makenode(tmp, &node, L, 1);
-    int err = mpv_command_node(ctx->client, &node, &result);
+    int err = dmpv_command_node(ctx->client, &node, &result);
     if (err >= 0) {
         steal_node_allocations(tmp, &result);
         pushnode(L, &result);
         return 1;
     }
     lua_pushvalue(L, 2);
-    lua_pushstring(L, mpv_error_string(err));
+    lua_pushstring(L, dmpv_error_string(err));
     return 2;
 }
 
@@ -979,9 +979,9 @@ static int script_raw_command_native_async(lua_State *L, void *tmp)
 {
     struct script_ctx *ctx = get_ctx(L);
     uint64_t id = luaL_checknumber(L, 1);
-    struct mpv_node node;
+    struct dmpv_node node;
     makenode(tmp, &node, L, 2);
-    int res = mpv_command_node_async(ctx->client, id, &node);
+    int res = dmpv_command_node_async(ctx->client, id, &node);
     return check_error(L, res);
 }
 
@@ -989,14 +989,14 @@ static int script_raw_abort_async_command(lua_State *L)
 {
     struct script_ctx *ctx = get_ctx(L);
     uint64_t id = luaL_checknumber(L, 1);
-    mpv_abort_async_command(ctx->client, id);
+    dmpv_abort_async_command(ctx->client, id);
     return 0;
 }
 
 static int script_get_time(lua_State *L)
 {
     struct script_ctx *ctx = get_ctx(L);
-    lua_pushnumber(L, mpv_get_time_us(ctx->client) / (double)(1000 * 1000));
+    lua_pushnumber(L, dmpv_get_time_us(ctx->client) / (double)(1000 * 1000));
     return 1;
 }
 
@@ -1028,7 +1028,7 @@ static int script_format_time(lua_State *L)
 static int script_get_wakeup_pipe(lua_State *L)
 {
     struct script_ctx *ctx = get_ctx(L);
-    lua_pushinteger(L, mpv_get_wakeup_pipe(ctx->client));
+    lua_pushinteger(L, dmpv_get_wakeup_pipe(ctx->client));
     return 1;
 }
 
@@ -1038,14 +1038,14 @@ static int script_raw_hook_add(lua_State *L)
     uint64_t ud = luaL_checkinteger(L, 1);
     const char *name = luaL_checkstring(L, 2);
     int pri = luaL_checkinteger(L, 3);
-    return check_error(L, mpv_hook_add(ctx->client, ud, name, pri));
+    return check_error(L, dmpv_hook_add(ctx->client, ud, name, pri));
 }
 
 static int script_raw_hook_continue(lua_State *L)
 {
     struct script_ctx *ctx = get_ctx(L);
     lua_Integer id = luaL_checkinteger(L, 1);
-    return check_error(L, mpv_hook_continue(ctx->client, id));
+    return check_error(L, dmpv_hook_continue(ctx->client, id));
 }
 
 static int script_readdir(lua_State *L, void *tmp)
@@ -1153,7 +1153,7 @@ static int script_parse_json(lua_State *L, void *tmp)
     char *text = talloc_strdup(tmp, luaL_checkstring(L, 1));
     bool trail = lua_toboolean(L, 2);
     bool ok = false;
-    struct mpv_node node;
+    struct dmpv_node node;
     if (json_parse(tmp, &node, &text, MAX_JSON_DEPTH) >= 0) {
         json_skip_whitespace(&text);
         ok = !text[0] || trail;
@@ -1171,7 +1171,7 @@ static int script_parse_json(lua_State *L, void *tmp)
 
 static int script_format_json(lua_State *L, void *tmp)
 {
-    struct mpv_node node;
+    struct dmpv_node node;
     makenode(tmp, &node, L, 1);
     char *dst = talloc_strdup(tmp, "");
     if (json_write(&dst, &node) >= 0) {

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -23,7 +23,7 @@
 #include <pthread.h>
 #include <math.h>
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "config.h"
 #include "osdep/atomic.h"
@@ -211,7 +211,7 @@ static void dealloc_vo(struct vo *vo)
     talloc_free(vo);
 }
 
-static struct vo *vo_create(bool probing, struct mpv_global *global,
+static struct vo *vo_create(bool probing, struct dmpv_global *global,
                             struct vo_extra *ex, char *name)
 {
     mp_assert(ex->wakeup_cb);
@@ -276,7 +276,7 @@ error:
     return NULL;
 }
 
-struct vo *init_best_video_out(struct mpv_global *global, struct vo_extra *ex)
+struct vo *init_best_video_out(struct dmpv_global *global, struct vo_extra *ex)
 {
     struct mp_vo_opts *opts = mp_get_config_group(NULL, global, &vo_sub_opts);
     struct m_obj_settings *vo_list = opts->video_driver_list;
@@ -933,7 +933,7 @@ static bool render_frame(struct vo *vo)
     if (in->dropped_frame) {
         MP_STATS(vo, "drop-vo");
     } else {
-        // If the initial redraw request was true or mpv is still playing,
+        // If the initial redraw request was true or dmpv is still playing,
         // then we can clear it here since we just performed a redraw, or the
         // next loop will draw what we need. However if there initially is
         // no redraw request, then something can change this (i.e. the OSD)

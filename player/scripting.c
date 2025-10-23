@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
@@ -77,13 +77,13 @@ static void run_script(struct mp_script_args *arg)
 {
     char name[90];
     snprintf(name, sizeof(name), "%s (%s)", arg->backend->name,
-             mpv_client_name(arg->client));
+             dmpv_client_name(arg->client));
     mpthread_set_name(name);
 
     if (arg->backend->load(arg) < 0)
         MP_ERR(arg, "Could not load %s %s\n", arg->backend->name, arg->filename);
 
-    mpv_destroy(arg->client);
+    dmpv_destroy(arg->client);
     talloc_free(arg);
 }
 
@@ -176,7 +176,7 @@ static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
 
     mp_client_set_weak(arg->client);
     arg->log = mp_client_get_log(arg->client);
-    int64_t id = mpv_client_id(arg->client);
+    int64_t id = dmpv_client_id(arg->client);
 
     MP_DBG(arg, "Loading %s %s...\n", backend->name, arg->filename);
 
@@ -185,7 +185,7 @@ static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
     } else {
         pthread_t thread;
         if (pthread_create(&thread, NULL, script_thread, arg)) {
-            mpv_destroy(arg->client);
+            dmpv_destroy(arg->client);
             talloc_free(arg);
             return -1;
         }
@@ -244,7 +244,7 @@ static void load_builtin_script(struct MPContext *mpctx, int slot, bool enable,
             *pid = mp_load_script(mpctx, fname);
         } else {
             char *name = mp_tprintf(22, "@%"PRIi64, *pid);
-            mp_client_send_event(mpctx, name, 0, MPV_EVENT_SHUTDOWN, NULL);
+            mp_client_send_event(mpctx, name, 0, DMPV_EVENT_SHUTDOWN, NULL);
         }
     }
 }
@@ -291,8 +291,8 @@ static int load_run(struct mp_script_args *args)
         return -1;
     args->client = NULL; // ownership lost
 
-    char *fdopt = fds[1] >= 0 ? mp_tprintf(80, "--mpv-ipc-fd=%d:%d", fds[0], fds[1])
-                              : mp_tprintf(80, "--mpv-ipc-fd=%d", fds[0]);
+    char *fdopt = fds[1] >= 0 ? mp_tprintf(80, "--dmpv-ipc-fd=%d:%d", fds[0], fds[1])
+                              : mp_tprintf(80, "--dmpv-ipc-fd=%d", fds[0]);
 
     struct mp_subprocess_opts opts = {
         .exe = (char *)args->filename,

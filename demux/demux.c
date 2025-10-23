@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <float.h>
@@ -33,7 +33,7 @@
 #include "config.h"
 #include "options/m_config.h"
 #include "options/m_option.h"
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "common/av_common.h"
 #include "common/msg.h"
 #include "common/global.h"
@@ -171,7 +171,7 @@ const struct m_sub_options demux_conf = {
 
 struct demux_internal {
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct stats_ctx *stats;
 
     bool can_cache;             // not a slave demuxer; caching makes sense
@@ -3265,7 +3265,7 @@ struct parent_stream_info {
     char *filename;
 };
 
-static struct demuxer *open_given_type(struct mpv_global *global,
+static struct demuxer *open_given_type(struct dmpv_global *global,
                                        struct mp_log *log,
                                        const struct demuxer_desc *desc,
                                        struct stream *stream,
@@ -3404,7 +3404,7 @@ static const int d_force[]   = {DEMUX_CHECK_FORCE, -1};
 static struct demuxer *demux_open(struct stream *stream,
                                   struct mp_cancel *cancel,
                                   struct demuxer_params *params,
-                                  struct mpv_global *global)
+                                  struct dmpv_global *global)
 {
     const int *check_levels = d_normal;
     const struct demuxer_desc *check_desc = NULL;
@@ -3466,7 +3466,7 @@ done:
     return demuxer;
 }
 
-static struct stream *create_web_concat_stream(struct mpv_global *global,
+static struct stream *create_web_concat_stream(struct dmpv_global *global,
                                                    struct mp_cancel *c,
                                                    bstr init, struct stream *real)
 {
@@ -3491,7 +3491,7 @@ static struct stream *create_web_concat_stream(struct mpv_global *global,
 struct demuxer *demux_open_url(const char *url,
                                struct demuxer_params *params,
                                struct mp_cancel *cancel,
-                               struct mpv_global *global)
+                               struct dmpv_global *global)
 {
     if (!params)
         return NULL;

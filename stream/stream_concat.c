@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/common.h>
@@ -160,7 +160,7 @@ static const stream_info_t stream_info_concat = {
 // array. Takes over ownership of every stream passed to it (it will free them
 // if the concat stream is closed).
 // If an error happens, NULL is returned, and the streams are not freed.
-struct stream *stream_concat_open(struct mpv_global *global, struct mp_cancel *c,
+struct stream *stream_concat_open(struct dmpv_global *global, struct mp_cancel *c,
                                   struct stream **streams, int num_streams)
 {
     // (struct priv is blatantly abused to pass in the stream list)

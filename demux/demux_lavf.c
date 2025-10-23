@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2004 Michael Niedermayer <michaelni@gmx.at>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <pthread.h>
@@ -703,7 +703,7 @@ static void handle_new_stream(demuxer_t *demuxer, int i)
         if (!mp_chmap_from_av_layout(&sh->codec->channels, &codec->ch_layout)) {
             char layout[128] = {0};
             MP_WARN(demuxer,
-                    "Failed to convert channel layout %s to mpv one!\n",
+                    "Failed to convert channel layout %s to dmpv one!\n",
                     av_channel_layout_describe(&codec->ch_layout,
                                                layout, 128) < 0 ?
                     "undefined" : layout);
@@ -1349,7 +1349,7 @@ static void demux_seek_lavf(demuxer_t *demuxer, double seek_pts, int flags)
         MP_WARN(demuxer, "Some timestamps returned by the demuxer were linearized. "
                          "A low level seek was requested; this won't work due to "
                          "restrictions in libavformat's API. You may have more "
-                         "luck by enabling or enlarging the mpv cache.\n");
+                         "luck by enabling or enlarging the dmpv cache.\n");
     }
 
     if (priv->linearize_ts < 0)

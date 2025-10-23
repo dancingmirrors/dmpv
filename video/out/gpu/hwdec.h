@@ -12,7 +12,7 @@
 struct ra_hwdec_ctx {
     // Set these before calling `ra_hwdec_ctx_init`
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct ra_ctx *ra_ctx;
 
     bool loading_done;
@@ -36,7 +36,7 @@ struct ra_hwdec *ra_hwdec_get(struct ra_hwdec_ctx *ctx, int imgfmt);
 struct ra_hwdec {
     const struct ra_hwdec_driver *driver;
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct ra_ctx *ra_ctx;
     struct mp_hwdec_devices *devs;
     // GLSL extensions required to sample textures from this.
@@ -134,7 +134,7 @@ extern const struct ra_hwdec_driver *const ra_hwdec_drivers[];
 
 struct ra_hwdec *ra_hwdec_load_driver(struct ra_ctx *ra_ctx,
                                       struct mp_log *log,
-                                      struct mpv_global *global,
+                                      struct dmpv_global *global,
                                       struct mp_hwdec_devices *devs,
                                       const struct ra_hwdec_driver *drv,
                                       bool is_auto);

@@ -22,7 +22,7 @@ int mp_ptwrap_mutex_init(const char *file, int line, pthread_mutex_t *m,
 // you are not supposed to define any symbols that clash with reserved names.
 // Other than that, they should be fine.
 
-// Note: mpv normally never checks pthread error return values of certain
+// Note: dmpv normally never checks pthread error return values of certain
 //       functions that  should never fail. It does so because these cases would
 //       be undefined behavior anyway (such as double-frees etc.). However,
 //       since there are no good pthread debugging tools, these wrappers are

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "misc/mp_assert.h"
@@ -178,7 +178,7 @@ struct mp_sws_context *mp_sws_alloc(void *talloc_ctx)
 // Enable auto-update of parameters from command line. Don't try to set custom
 // options (other than possibly .src/.dst), because they might be overwritten
 // if the user changes any options.
-void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct mpv_global *g)
+void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct dmpv_global *g)
 {
     // Should only ever be NULL for tests.
     if (!g)
@@ -294,7 +294,7 @@ static struct mp_image *check_alignment(struct mp_log *log,
     // corrupting memory...
     // So use 32, a value that has been experimentally determined to be safe,
     // and which in most cases is not larger than decoder output. It is smaller
-    // or equal to what most image allocators in mpv/ffmpeg use.
+    // or equal to what most image allocators in dmpv/ffmpeg use.
     size_t align = 32;
     mp_assert(align <= MP_IMAGE_BYTE_ALIGN); // or mp_image_alloc will not cut it
 

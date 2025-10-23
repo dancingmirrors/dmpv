@@ -1,1 +1,1 @@
-int mpv_main(int argc, char *argv[]);
+int dmpv_main(int argc, char *argv[]);

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_CFG_MPLAYER_H
@@ -189,7 +189,7 @@ const struct m_sub_options vo_sub_opts = {
         .taskbar_progress = true,
         .border = true,
         .fit_border = true,
-        .appid = "mpv",
+        .appid = "dmpv",
         .WinID = -1,
         .window_scale = 1.0,
         .unscaled = 2,
@@ -745,7 +745,7 @@ static const struct MPOpts mp_default_opts = {
     .softvol_max = 260,
     .softvol_volume = 100,
     .gapless_audio = -1,
-    .wintitle = "${?media-title:${media-title}}${!media-title:No file} - mpv",
+    .wintitle = "${?media-title:${media-title}}${!media-title:No file} - dmpv",
     .stop_screensaver = 1,
     .cursor_autohide_delay = 1000,
     .video_osd = true,
@@ -806,7 +806,7 @@ static const struct MPOpts mp_default_opts = {
     .audiofile_auto = -1,
     .coverart_whitelist = true,
     .osd_bar_visible = true,
-    .screenshot_template = "mpv-%n",
+    .screenshot_template = "dmpv-%n",
     .play_dir = 1,
 
     .audio_output_channels = {

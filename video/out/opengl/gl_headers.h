@@ -5,12 +5,12 @@
  *
  * This header is based on:
  * - Khronos GLES headers (MIT)
- * - mpv or MPlayer code (LGPL 2.1 or later)
+ * - dmpv or MPlayer code (LGPL 2.1 or later)
  * - probably Mesa GL headers (MIT)
  */
 
-#ifndef MPV_GL_HEADERS_H
-#define MPV_GL_HEADERS_H
+#ifndef DMPV_GL_HEADERS_H
+#define DMPV_GL_HEADERS_H
 
 #include <stdint.h>
 

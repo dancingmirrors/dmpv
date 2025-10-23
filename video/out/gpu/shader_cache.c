@@ -105,10 +105,10 @@ struct gl_shader_cache {
 
     // For the disk-cache.
     char *cache_dir;
-    struct mpv_global *global; // can be NULL
+    struct dmpv_global *global; // can be NULL
 };
 
-struct gl_shader_cache *gl_sc_create(struct ra *ra, struct mpv_global *global,
+struct gl_shader_cache *gl_sc_create(struct ra *ra, struct dmpv_global *global,
                                      struct mp_log *log)
 {
     struct gl_shader_cache *sc = talloc_ptrtype(NULL, sc);
@@ -576,7 +576,7 @@ static bool create_pass(struct gl_shader_cache *sc, struct sc_entry *entry)
     void *tmp = talloc_new(NULL);
     struct ra_renderpass_params params = sc->params;
 
-    const char *cache_header = "mpv shader cache v1\n";
+    const char *cache_header = "dmpv shader cache v1\n";
     char *cache_filename = NULL;
     char *cache_dir = NULL;
 

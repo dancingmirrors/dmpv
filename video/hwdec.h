@@ -76,7 +76,7 @@ void hwdec_devices_request_for_img_fmt(struct mp_hwdec_devices *devs,
 char *hwdec_devices_get_names(struct mp_hwdec_devices *devs);
 
 struct mp_image;
-struct mpv_global;
+struct dmpv_global;
 
 struct hwcontext_create_dev_params {
     bool probing;   // if true, don't log errors if unavailable
@@ -89,7 +89,7 @@ struct hwcontext_fns {
     // Fill in special format-specific requirements.
     void (*refine_hwframes)(struct AVBufferRef *hw_frames_ctx);
     // Returns a AVHWDeviceContext*. Used for copy hwdecs.
-    struct AVBufferRef *(*create_dev)(struct mpv_global *global,
+    struct AVBufferRef *(*create_dev)(struct dmpv_global *global,
                                       struct mp_log *log,
                                       struct hwcontext_create_dev_params *params);
     // Return whether this is using some sort of sub-optimal emulation layer.

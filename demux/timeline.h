@@ -40,7 +40,7 @@ struct timeline_par {
 };
 
 struct timeline {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
     struct mp_cancel *cancel;
 
@@ -65,7 +65,7 @@ struct timeline {
     struct demuxer *meta;
 };
 
-struct timeline *timeline_load(struct mpv_global *global, struct mp_log *log,
+struct timeline *timeline_load(struct dmpv_global *global, struct mp_log *log,
                                struct demuxer *demuxer);
 void timeline_destroy(struct timeline *tl);
 

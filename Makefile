@@ -3,7 +3,7 @@ BUILDDIR = build
 include $(BUILDDIR)/config.mak
 include $(ROOT)/TOOLS/makefile_common.mak
 
-PROJNAME = mpv
+PROJNAME = dmpv
 
 .PHONY: .force
 
@@ -30,7 +30,7 @@ $(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/%
 
 $(BUILD)/common/version.o: $(BUILD)/generated/version.h
 
-$(BUILD)/osdep/mpv.o: $(BUILD)/generated/version.h
+$(BUILD)/osdep/dmpv.o: $(BUILD)/generated/version.h
 
 $(BUILD)/demux/demux_mkv.o $(BUILD)/demux/ebml.o: \
     $(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c

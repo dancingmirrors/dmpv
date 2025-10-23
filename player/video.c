@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -21,7 +21,7 @@
 #include <math.h>
 #include "misc/mp_assert.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "options/options.h"
@@ -82,7 +82,7 @@ int reinit_video_filters(struct MPContext *mpctx)
 
     mp_force_video_refresh(mpctx);
 
-    mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
 
     return 0;
 }
@@ -128,7 +128,7 @@ void uninit_video_out(struct MPContext *mpctx)
     uninit_video_chain(mpctx);
     if (mpctx->video_out) {
         vo_destroy(mpctx->video_out);
-        mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
     }
     mpctx->video_out = NULL;
 }
@@ -162,7 +162,7 @@ void uninit_video_chain(struct MPContext *mpctx)
 
         mpctx->video_status = STATUS_EOF;
 
-        mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
     }
 }
 
@@ -234,7 +234,7 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
         if (!mpctx->video_out) {
             MP_FATAL(mpctx, "Error opening/initializing "
                     "the selected video_out (--vo) device.\n");
-            mpctx->error_playing = MPV_ERROR_VO_INIT_FAILED;
+            mpctx->error_playing = DMPV_ERROR_VO_INIT_FAILED;
             goto err_out;
         }
         mpctx->mouse_cursor_visible = true;
@@ -1029,7 +1029,7 @@ void write_video(struct MPContext *mpctx)
     struct vo *vo = vo_c->vo;
 
     if (vo_c->filter->reconfig_happened) {
-        mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
         vo_c->filter->reconfig_happened = false;
     }
 
@@ -1160,10 +1160,10 @@ void write_video(struct MPContext *mpctx)
 
         int vo_r = vo_reconfig2(vo, mpctx->next_frames[0]);
         if (vo_r < 0) {
-            mpctx->error_playing = MPV_ERROR_VO_INIT_FAILED;
+            mpctx->error_playing = DMPV_ERROR_VO_INIT_FAILED;
             goto error;
         }
-        mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
     }
 
     mpctx->time_frame -= get_relative_time(mpctx);
@@ -1249,7 +1249,7 @@ void write_video(struct MPContext *mpctx)
         }
     }
 
-    mp_notify(mpctx, MPV_EVENT_TICK, NULL);
+    mp_notify(mpctx, DMPV_EVENT_TICK, NULL);
 
     // hr-seek past EOF -> returns last frame, but terminates playback. The
     // early EOF is needed to trigger the exit before the next seek is executed.

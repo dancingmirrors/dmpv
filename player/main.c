@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -30,7 +30,7 @@
 #include <libplacebo/config.h>
 #endif
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/dispatch.h"
 #include "misc/random.h"
@@ -88,7 +88,7 @@ enum exit_reason {
 };
 
 const char mp_help_text[] =
-"Usage:   mpv [options] [url|path/]filename\n"
+"Usage:   dmpv [options] [url|path/]filename\n"
 "\n"
 "Basic options:\n"
 " --start=<time>    seek to given (percent, seconds, or hh:mm:ss) position\n"
@@ -98,7 +98,7 @@ const char mp_help_text[] =
 " --sub-file=<file> specify subtitle file to use\n"
 " --playlist=<file> specify playlist file\n"
 "\n"
-" --list-options    list all mpv options\n"
+" --list-options    list all dmpv options\n"
 " --h=<string>      print options which contain the given string in their name\n"
 "\n";
 
@@ -148,7 +148,7 @@ void mp_print_version(struct mp_log *log, int always)
 {
     int v = always ? MSGL_INFO : MSGL_V;
     mp_msg(log, v, "%s %s\n",
-           mpv_version, mpv_copyright);
+           dmpv_version, dmpv_copyright);
 #if HAVE_LIBPLACEBO
     mp_msg(log, v, "libplacebo version: %s\n", PL_VERSION);
 #endif
@@ -246,7 +246,7 @@ struct MPContext *mp_create(void)
         return NULL;
     }
 
-    char *enable_talloc = getenv("MPV_LEAK_REPORT");
+    char *enable_talloc = getenv("DMPV_LEAK_REPORT");
     if (enable_talloc && strcmp(enable_talloc, "1") == 0)
         talloc_enable_leak_report();
 
@@ -267,7 +267,7 @@ struct MPContext *mp_create(void)
 
     pthread_mutex_init(&mpctx->abort_lock, NULL);
 
-    mpctx->global = talloc_zero(mpctx, struct mpv_global);
+    mpctx->global = talloc_zero(mpctx, struct dmpv_global);
 
     stats_global_init(mpctx->global);
 
@@ -296,7 +296,7 @@ struct MPContext *mp_create(void)
     mp_clients_init(mpctx);
     mpctx->osd = osd_create(mpctx->global);
 
-    char *verbose_env = getenv("MPV_VERBOSE");
+    char *verbose_env = getenv("DMPV_VERBOSE");
     if (verbose_env)
         mpctx->opts->verbose = atoi(verbose_env);
 
@@ -405,7 +405,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     return 0;
 }
 
-int mpv_main(int argc, char *argv[])
+int dmpv_main(int argc, char *argv[])
 {
     struct MPContext *mpctx = mp_create();
     if (!mpctx)

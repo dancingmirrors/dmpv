@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -27,7 +27,7 @@
 
 #include "osdep/timer.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "options/m_config.h"
 #include "options/options.h"
 #include "common/global.h"
@@ -117,7 +117,7 @@ bool osd_res_equals(struct mp_osd_res a, struct mp_osd_res b)
         && a.display_par == b.display_par;
 }
 
-struct osd_state *osd_create(struct mpv_global *global)
+struct osd_state *osd_create(struct dmpv_global *global)
 {
     mp_assert(MAX_OSD_PARTS >= OSDTYPE_COUNT);
 

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -91,7 +91,7 @@ static void cache_destroy(void *p)
 // Create a cache. This also initializes the cache file from the options. The
 // log parameter must stay valid until demux_cache is destroyed.
 // Free with talloc_free().
-struct demux_cache *demux_cache_create(struct mpv_global *global,
+struct demux_cache *demux_cache_create(struct dmpv_global *global,
                                        struct mp_log *log)
 {
     struct demux_cache *cache = talloc_zero(NULL, struct demux_cache);
@@ -111,7 +111,7 @@ struct demux_cache *demux_cache_create(struct mpv_global *global,
         goto fail;
 
     mp_mkdirp(cache_dir);
-    cache->filename = mp_path_join(cache, cache_dir, "mpv-cache-XXXXXX.dat");
+    cache->filename = mp_path_join(cache, cache_dir, "dmpv-cache-XXXXXX.dat");
     cache->fd = mp_mkostemps(cache->filename, 4, O_CLOEXEC);
     if (cache->fd < 0) {
         MP_ERR(cache, "Failed to create cache temporary file.\n");

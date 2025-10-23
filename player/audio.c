@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -22,7 +22,7 @@
 #include <math.h>
 #include "misc/mp_assert.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "common/encode.h"
@@ -89,7 +89,7 @@ static int recreate_audio_filters(struct MPContext *mpctx)
 
     update_speed_filters(mpctx);
 
-    mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
 
     return 0;
 
@@ -231,7 +231,7 @@ void uninit_audio_out(struct MPContext *mpctx)
         }
         ao_uninit(mpctx->ao);
 
-        mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
     }
     mpctx->ao = NULL;
     TA_FREEP(&mpctx->ao_filter_fmt);
@@ -265,7 +265,7 @@ void uninit_audio_chain(struct MPContext *mpctx)
 
         mpctx->audio_status = STATUS_EOF;
 
-        mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
     }
 }
 
@@ -450,7 +450,7 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
         }
 
         MP_ERR(mpctx, "Could not open/initialize audio device -> no sound.\n");
-        mpctx->error_playing = MPV_ERROR_AO_INIT_FAILED;
+        mpctx->error_playing = DMPV_ERROR_AO_INIT_FAILED;
         goto init_error;
     }
 
@@ -476,7 +476,7 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
         ao_start(mpctx->ao);
 
     mp_wakeup_core(mpctx);
-    mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
 
     return 0;
 
@@ -536,7 +536,7 @@ void reinit_audio_chain_src(struct MPContext *mpctx, struct track *track)
 {
     mp_assert(!mpctx->ao_chain);
 
-    mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
 
     struct ao_chain *ao_c = talloc_zero(NULL, struct ao_chain);
     mpctx->ao_chain = ao_c;

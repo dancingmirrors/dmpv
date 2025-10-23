@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -28,7 +28,7 @@
 
 #include "osdep/io.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "demux/demux.h"
@@ -45,7 +45,7 @@
 
 struct tl_ctx {
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct MPOpts *opts;
     struct timeline *tl;
 
@@ -491,7 +491,7 @@ static void check_track_compatibility(struct tl_ctx *tl, struct demuxer *mainsrc
                 demuxer_stream_by_demuxer_id(p->source, m->type, m->demuxer_id);
             if (s) {
                 // There are actually many more things that in theory have to
-                // match (though mpv's implementation doesn't care).
+                // match (though dmpv's implementation doesn't care).
                 if (strcmp(s->codec->codec, m->codec->codec) != 0)
                     MP_WARN(tl, "Timeline segments have mismatching codec.\n");
                 if (s->codec->extradata_size != m->codec->extradata_size ||

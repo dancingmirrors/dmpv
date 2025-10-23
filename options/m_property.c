@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /// \file
@@ -28,7 +28,7 @@
 
 #include "misc/client.h"
 
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "m_option.h"
 #include "m_property.h"
 #include "common/msg.h"
@@ -128,7 +128,7 @@ int m_property_do(struct mp_log *log, const struct m_property *prop_list,
         return str != NULL;
     }
     case M_PROPERTY_SET_STRING: {
-        struct mpv_node node = { .format = MPV_FORMAT_STRING, .u.string = arg };
+        struct dmpv_node node = { .format = DMPV_FORMAT_STRING, .u.string = arg };
         return m_property_do(log, prop_list, name, M_PROPERTY_SET_NODE, &node, ctx);
     }
     case M_PROPERTY_MULTIPLY: {
@@ -173,7 +173,7 @@ int m_property_do(struct mp_log *log, const struct m_property *prop_list,
             return r;
         if ((r = do_action(prop_list, name, M_PROPERTY_GET, &val, ctx)) <= 0)
             return r;
-        struct mpv_node *node = arg;
+        struct dmpv_node *node = arg;
         int err = m_option_get_node(&opt, NULL, node, &val);
         if (err == M_OPT_UNKNOWN) {
             r = M_PROPERTY_NOT_IMPLEMENTED;
@@ -444,27 +444,27 @@ int m_property_read_sub(const struct m_sub_property *props, int action, void *ar
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        struct mpv_node node;
-        node.format = MPV_FORMAT_NODE_MAP;
-        node.u.list = talloc_zero(NULL, mpv_node_list);
-        mpv_node_list *list = node.u.list;
+        struct dmpv_node node;
+        node.format = DMPV_FORMAT_NODE_MAP;
+        node.u.list = talloc_zero(NULL, dmpv_node_list);
+        dmpv_node_list *list = node.u.list;
         for (int n = 0; props && props[n].name; n++) {
             const struct m_sub_property *prop = &props[n];
             if (prop->unavailable)
                 continue;
             MP_TARRAY_GROW(list, list->values, list->num);
             MP_TARRAY_GROW(list, list->keys, list->num);
-            mpv_node *val = &list->values[list->num];
+            dmpv_node *val = &list->values[list->num];
             if (m_option_get_node(&prop->type, list, val, (void*)&prop->value) < 0)
             {
                 char *s = m_option_print(&prop->type, &prop->value);
-                val->format = MPV_FORMAT_STRING;
+                val->format = DMPV_FORMAT_STRING;
                 val->u.string = talloc_steal(list, s);
             }
             list->keys[list->num] = (char *)prop->name;
             list->num++;
         }
-        *(struct mpv_node *)arg = node;
+        *(struct dmpv_node *)arg = node;
         return M_PROPERTY_OK;
     }
     case M_PROPERTY_PRINT: {
@@ -530,14 +530,14 @@ int m_property_read_list(int action, void *arg, int count,
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        struct mpv_node node;
-        node.format = MPV_FORMAT_NODE_ARRAY;
-        node.u.list = talloc_zero(NULL, mpv_node_list);
+        struct dmpv_node node;
+        node.format = DMPV_FORMAT_NODE_ARRAY;
+        node.u.list = talloc_zero(NULL, dmpv_node_list);
         node.u.list->num = count;
-        node.u.list->values = talloc_array(node.u.list, mpv_node, count);
+        node.u.list->values = talloc_array(node.u.list, dmpv_node, count);
         for (int n = 0; n < count; n++) {
-            struct mpv_node *sub = &node.u.list->values[n];
-            sub->format = MPV_FORMAT_NONE;
+            struct dmpv_node *sub = &node.u.list->values[n];
+            sub->format = DMPV_FORMAT_NONE;
             int r;
             r = get_item(n, M_PROPERTY_GET_NODE, sub, ctx);
             if (r == M_PROPERTY_NOT_IMPLEMENTED) {
@@ -554,7 +554,7 @@ int m_property_read_list(int action, void *arg, int count,
             err: ;
             }
         }
-        *(struct mpv_node *)arg = node;
+        *(struct dmpv_node *)arg = node;
         return M_PROPERTY_OK;
     }
     case M_PROPERTY_PRINT: {
