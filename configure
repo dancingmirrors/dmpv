@@ -92,9 +92,7 @@ check("-git*",
 check(desc      = "-fstack-protector-strong",
       fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
 
-check("posix*",
-      desc      = "POSIX",
-      fn        = lambda: check_cc(include = "unistd.h",
+check(fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
       required  = "Required.",
       sources   = ["osdep/language-posix.c",
@@ -102,8 +100,7 @@ check("posix*",
                    "sub/filter_regex.c",
                    "osdep/path-unix.c"])
 
-check(desc      = "pthread.h",
-      fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
+check(fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
                                    include = "pthread.h",
                                    expr = "pthread_self();"),
       required  = "Required.")
@@ -127,14 +124,11 @@ check("-uchardet*",
       deps      = "iconv",
       fn        = lambda: check_pkg_config("uchardet"))
 
-check("glob-posix*",
-      desc      = "glob() POSIX support",
-      deps      = "posix",
-      fn        = lambda: check_cc(include = "glob.h",
+check(fn        = lambda: check_cc(include = "glob.h",
                                    expr = 'glob("filename", 0, 0, 0);'),
       required  = "Required.")
-check("fchmod*",
-      fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"))
+check(fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"),
+      required  = "Required.")
 
 check("glibc-thread-name*",
       fn        = lambda: check_cc(include = "pthread.h",
@@ -169,8 +163,7 @@ check("-libass*",
                    "sub/osd_libass.c",
                    "sub/sd_ass.c"])
 
-check("-zlib*",
-      fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
+check(fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
                                    expr = "inflate(0, Z_NO_FLUSH);"),
       required  = "Required.")
 
