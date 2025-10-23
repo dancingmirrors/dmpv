@@ -252,7 +252,7 @@ check("-wayland*",
                           check_program("WAYSCAN") and
                           check_pkg_config("wayland-client    >= 1.21.0",
                                            "wayland-cursor    >= 1.21.0",
-                                           "wayland-protocols >= 1.32.0",
+                                           "wayland-protocols >= 1.38.0",
                                            "xkbcommon         >= 0.3.0"),
       sources   = ["video/out/wayland_common.c",
                    "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
