@@ -103,7 +103,7 @@ enum mp_voctrl {
     VOCTRL_GET_DISPLAY_NAMES,
 
     // Retrieve window contents. (Normal screenshots use vo_get_current_frame().)
-    // Deprecated for VOCTRL_SCREENSHOT with corresponding flags.
+    // Still used in the SDL VO.
     VOCTRL_SCREENSHOT_WIN,              // struct mp_image**
 
     // A normal screenshot - VOs can react to this if vo_get_current_frame() is

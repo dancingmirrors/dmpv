@@ -156,8 +156,9 @@ static char *json_execute_command(struct dmpv_handle *client, void *ta_parent,
             rc = DMPV_ERROR_INVALID_PARAMETER;
             goto error;
         } else {
-            mp_warn(log, "'request_id' must be an integer. Using other types is "
-                    "deprecated and will trigger an error in the future!\n");
+            mp_err(log, "'request_id' must be an integer.\n");
+            rc = DMPV_ERROR_INVALID_PARAMETER;
+            goto error;
         }
     }
 

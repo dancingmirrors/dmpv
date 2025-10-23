@@ -197,7 +197,6 @@ static bool write_lavc(struct image_writer_ctx *ctx, mp_image_t *image, FILE *fp
     }
 
     if (codec->id == AV_CODEC_ID_MJPEG) {
-        // Annoying deprecated garbage for the jpg encoder.
         if (image->params.color.levels == MP_CSP_LEVELS_PC)
             avctx->pix_fmt = replace_j_format(avctx->pix_fmt);
     }

@@ -66,7 +66,6 @@ struct mp_decoder_list *mp_select_decoders(struct mp_log *log,
         bstr entry;
         bstr_split_tok(sel, ",", &entry, &sel);
         if (bstr_equals0(entry, "-")) {
-            mp_warn(log, "Excluding codecs is deprecated.\n");
             stop = true;
             break;
         }
