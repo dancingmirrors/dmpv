@@ -27,8 +27,7 @@ add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
            "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing",
            "-g3")
-check(desc      = "C11/C99",
-      fn        = lambda: check_cc(flags = "-std=c11") or
+check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
       required  = "Required.")
 check("-optimize",
@@ -105,11 +104,12 @@ check(fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
                                    expr = "pthread_self();"),
       required  = "Required.")
 
-check(desc      = "stdatomic.h",
+check("stdatomic*",
       fn        = lambda: check_cc(include = "stdatomic.h",
                                    expr =
                         "atomic_int_least64_t test = ATOMIC_VAR_INIT(123);"
-                        "atomic_fetch_add(&test, 1);"),
+                        "atomic_fetch_add(&test, 1);"))
+check(deps_any  = ["stdatomic", "gnuc"],
       required  = "Required.")
 
 check("-libiconv-plug*",
@@ -172,7 +172,6 @@ check("-lcms2*",
       fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
 
 check("-libarchive*",
-      desc      = "libarchive wrapper for reading zip files and more",
       fn        = lambda: check_pkg_config("libarchive >= 3.0.0"),
       sources   = ["demux/demux_libarchive.c",
                    "stream/stream_libarchive.c"])
