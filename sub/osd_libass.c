@@ -36,7 +36,7 @@ static const char osd_font_pfb[] =
 #include "options/options.h"
 
 
-#define ASS_USE_OSD_FONT "{\\fndmpv-osd-symbols}"
+#define ASS_USE_OSD_FONT "{\\fnmpv-osd-symbols}"
 
 static void append_ass(struct ass_state *ass, struct mp_osd_res *res,
                        ASS_Image **img_list, bool *changed);
@@ -52,7 +52,7 @@ static void create_ass_renderer(struct osd_state *osd, struct ass_state *ass)
 
     ass->log = mp_log_new(NULL, osd->log, "libass");
     ass->library = mp_ass_init(osd->global, osd->opts->osd_style, ass->log);
-    ass_add_font(ass->library, "dmpv-osd-symbols", (void *)osd_font_pfb,
+    ass_add_font(ass->library, "mpv-osd-symbols", (void *)osd_font_pfb,
                  sizeof(osd_font_pfb) - 1);
 
     ass->render = ass_renderer_init(ass->library);
