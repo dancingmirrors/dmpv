@@ -451,6 +451,8 @@ static const m_option_t mp_opts[] = {
     {"image-display-duration", OPT_DOUBLE(image_display_duration),
         M_RANGE(0, INFINITY)},
 
+     {"index", OPT_CHOICE(index_mode, {"default", 1}, {"recreate", 0})},
+
     // select audio/video/subtitle stream
     // keep in sync with num_ptracks[] and MAX_PTRACKS
     {"aid", OPT_TRACKCHOICE(stream_id[0][STREAM_AUDIO])},
@@ -490,6 +492,8 @@ static const m_option_t mp_opts[] = {
     {"cache-pause-initial", OPT_BOOL(cache_pause_initial)},
     {"cache-pause-wait", OPT_FLOAT(cache_pause_wait), M_RANGE(0, FLT_MAX)},
 
+    {"mf-fps", OPT_DOUBLE(mf_fps)},
+    {"mf-type", OPT_STRING(mf_type)},
     {"", OPT_SUBSTRUCT(stream_lavf_opts, stream_lavf_conf)},
 
 // ------------------------- a-v sync options --------------------
@@ -830,6 +834,10 @@ static const struct MPOpts mp_default_opts = {
         .set = 1,
         .auto_safe = 1,
     },
+
+    .index_mode = 1,
+
+    .mf_fps = 1.0,
 
     .display_tags = (char *[]){
         "Artist", "Album", "Album_Artist", "Comment", "Composer",
