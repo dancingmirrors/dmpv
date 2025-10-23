@@ -17,22 +17,32 @@ jobs:
         run: |
           sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
           sudo apt-get update
-          sudo apt-get install -y build-essential git meson nasm ninja-build yasm
+          sudo apt-get install -y build-essential clang git meson nasm ninja-build yasm
           sudo apt-get build-dep -y mpv
 
-          git clone --depth 1 https://github.com/ffmpeg/ffmpeg.git ; cd ffmpeg
-          ./configure --prefix=/usr/local --enable-shared --disable-doc \
-          --disable-htmlpages --disable-manpages --disable-txtpages \
-          --disable-podpages ; make -j4 ; sudo make install
+          git clone --depth 1 https://github.com/ffmpeg/ffmpeg.git
+          cd ffmpeg
+          ./configure --enable-shared --prefix=/usr/local
+          make -j4
+          sudo make install
 
-          git clone --depth 1 --recursive https://github.com/haasn/libplacebo.git ; cd libplacebo
-          meson setup --prefix=/usr/local build ; meson compile -C build ; cd build ; sudo ninja install
+          git clone --depth 1 --recursive https://github.com/haasn/libplacebo.git
+          cd libplacebo
+          meson setup --backend=ninja --prefix=/usr/local build
+          meson compile -C build
+          cd build
+          sudo ninja install
 
-      - name: configure
-        run: ./configure
-
-      - name: make and make install
+      - name: configure, build, install, test (GCC and clang)
         run: |
+          ./configure
+          make
+          sudo make install
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
+
+          make dist-clean
+          CC=clang ./configure
           make
           sudo make install
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
