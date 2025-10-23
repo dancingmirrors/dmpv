@@ -17,10 +17,10 @@ check("gpl*",
       deps_neg  = "lgpl")
 
 check(desc      = "whether the compiler works",
-      required  = "C compiler missing or broken.",
+      required  = "Required.",
       fn        = lambda: check_program("CC") and check_cc(link = []))
 check(desc      = "pkg-config",
-      required  = "pkg-config missing or broken.",
+      required  = "Required.",
       fn        = lambda: check_program("PKG_CONFIG"))
 
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
@@ -30,7 +30,7 @@ add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
 check(desc      = "C11/C99",
       fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
-      required  = "No C11 or C99 support.")
+      required  = "Required.")
 check("-optimize",
       fn        = lambda: chain(add_cflags("-O3", "-march=native",
                                 "-pipe", "-fno-signed-zeros",
@@ -93,30 +93,26 @@ check(desc      = "-fstack-protector-strong",
       fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
 
 check("posix*",
+      desc      = "POSIX",
       fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
-      required  = "Unable to find a POSIX environment.",
+      required  = "Required.",
       sources   = ["osdep/language-posix.c",
                    "osdep/polldev.c",
                    "sub/filter_regex.c",
                    "osdep/path-unix.c"])
 
-check("pthreads",
+check(desc      = "pthread.h",
       fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
                                    include = "pthread.h",
-                                   expr = "pthread_self();"))
-check(desc      = "any pthread support",
-      deps      = "pthreads",
-      required  = "Unable to find pthreads support.")
+                                   expr = "pthread_self();"),
+      required  = "Required.")
 
-check("stdatomic*",
+check(desc      = "stdatomic.h",
       fn        = lambda: check_cc(include = "stdatomic.h",
                                    expr =
                         "atomic_int_least64_t test = ATOMIC_VAR_INIT(123);"
-                        "atomic_fetch_add(&test, 1);"))
-check("atomics",
-      desc      = "stdatomic.h support or slow emulation",
-      deps_any  = ["stdatomic", "gnuc"],
+                        "atomic_fetch_add(&test, 1);"),
       required  = "Required.")
 
 check("-libiconv-plug*",
@@ -141,11 +137,9 @@ check("fchmod*",
       fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"))
 
 check("glibc-thread-name*",
-      deps      = "pthreads",
       fn        = lambda: check_cc(include = "pthread.h",
                     expr = 'pthread_setname_np(pthread_self(), "ducks");'))
 check("bsd-thread-name*",
-      deps      = "pthreads",
       fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],
                     expr = 'pthread_set_name_np(pthread_self(), "ducks");')
                   or check_cc(include = "pthread.h", expr = 'char name; pthread_setname_np(pthread_self(), "%s", name);'))
@@ -198,7 +192,7 @@ check(desc      = "FFmpeg",
                     "libswscale     >= 7.5.100",
                     "libavfilter    >= 9.12.100",
                     "libswresample  >= 4.12.100"),
-      required  = "Required FFmpeg libraries not found or too old.")
+      required  = "Required.")
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
