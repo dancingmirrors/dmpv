@@ -364,18 +364,9 @@ check("-jpeg*",
                                  check_cc(include = ["stdio.h", "jpeglib.h"],
                                           link = "-ljpeg")))
 
-check("-shaderc-shared",
-      desc      = "libshaderc SPIR-V compiler (shared library)",
-      fn        = lambda: check_cc(include = "shaderc/shaderc.h",
-                                   link = "-lshaderc_shared"))
-check("-shaderc-static",
-      desc      = "libshaderc SPIR-V compiler (static library)",
-      deps_neg  = "shaderc-shared",
-      fn        = lambda: check_cc(include = "shaderc/shaderc.h",
-                                   link = ["-lshaderc_combined", "-lstdc++"]))
 check("shaderc*",
       desc      = "libshaderc SPIR-V compiler",
-      deps_any  = ["shaderc-shared", "shaderc-static"],
+      fn        = lambda: check_pkg_config("shaderc >= 2023.8.1"),
       sources   = "video/out/gpu/spirv_shaderc.c")
 check("-spirv-cross-shared",
       desc      = "SPIRV-Cross SPIR-V shader converter (shared library)",
