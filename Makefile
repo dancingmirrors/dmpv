@@ -35,11 +35,6 @@ $(BUILD)/osdep/mpv.o: $(BUILD)/generated/version.h
 $(BUILD)/demux/demux_mkv.o $(BUILD)/demux/ebml.o: \
     $(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c
 
-$(BUILD)/video/out/x11_common.o: $(BUILD)/generated/etc/mpv-icon-8bit-16x16.png.inc \
-                                 $(BUILD)/generated/etc/mpv-icon-8bit-32x32.png.inc \
-                                 $(BUILD)/generated/etc/mpv-icon-8bit-64x64.png.inc \
-                                 $(BUILD)/generated/etc/mpv-icon-8bit-128x128.png.inc
-
 $(BUILD)/input/input.o: $(BUILD)/generated/etc/input.conf.inc
 
 $(BUILD)/player/main.o: $(BUILD)/generated/etc/builtin.conf.inc
