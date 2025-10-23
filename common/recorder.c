@@ -198,7 +198,7 @@ struct mp_recorder *mp_recorder_create(struct dmpv_global *global,
     // and mp4 support this directly.
     char version[200];
     snprintf(version, sizeof(version), "%s experimental stream recording "
-             "feature (can generate broken files - please report bugs)",
+             "feature (can generate broken files - please don't report bugs)",
              dmpv_version);
     av_dict_set(&priv->mux->metadata, "encoding_tool", version, 0);
 
