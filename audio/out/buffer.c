@@ -89,10 +89,10 @@ static void *playthread(void *arg);
 void ao_wakeup_playthread(struct ao *ao)
 {
     struct buffer_state *p = ao->buffer_state;
-    pthread_mutex_lock(&p->pt_lock);
+    mp_mutex_lock(&p->pt_lock);
     p->need_wakeup = true;
     pthread_cond_broadcast(&p->pt_wakeup);
-    pthread_mutex_unlock(&p->pt_lock);
+    mp_mutex_unlock(&p->pt_lock);
 }
 
 // called locked
@@ -189,7 +189,7 @@ int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_ns)
     struct buffer_state *p = ao->buffer_state;
     mp_assert(!ao->driver->write);
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
 
     int pos = read_buffer(ao, data, samples, &(bool){0});
 
@@ -203,7 +203,7 @@ int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_ns)
         pthread_cond_broadcast(&p->wakeup);
     }
 
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
 
     return pos;
 }
@@ -253,12 +253,12 @@ int ao_control(struct ao *ao, enum aocontrol cmd, void *arg)
     if (ao->driver->control) {
         // Only need to lock in push mode.
         if (ao->driver->write)
-            pthread_mutex_lock(&p->lock);
+            mp_mutex_lock(&p->lock);
 
         r = ao->driver->control(ao, cmd, arg);
 
         if (ao->driver->write)
-            pthread_mutex_unlock(&p->lock);
+            mp_mutex_unlock(&p->lock);
     }
     return r;
 }
@@ -267,7 +267,7 @@ double ao_get_delay(struct ao *ao)
 {
     struct buffer_state *p = ao->buffer_state;
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
 
     double driver_delay;
     if (ao->driver->write) {
@@ -284,7 +284,7 @@ double ao_get_delay(struct ao *ao)
     if (p->pending)
         pending += mp_aframe_get_size(p->pending);
 
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
     return driver_delay + pending / (double)ao->samplerate;
 }
 
@@ -295,7 +295,7 @@ void ao_reset(struct ao *ao)
     bool wakeup = false;
     bool do_reset = false;
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
 
     TA_FREEP(&p->pending);
     mp_async_queue_reset(p->queue);
@@ -318,7 +318,7 @@ void ao_reset(struct ao *ao)
     p->hw_paused = false;
     p->end_time_ns = 0;
 
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
 
     if (do_reset)
         ao->driver->reset(ao);
@@ -336,7 +336,7 @@ void ao_start(struct ao *ao)
     struct buffer_state *p = ao->buffer_state;
     bool do_start = false;
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
 
     p->playing = true;
 
@@ -345,7 +345,7 @@ void ao_start(struct ao *ao)
         do_start = true;
     }
 
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
 
     // Pull AOs might call ao_read_data() so do this outside the lock.
     if (do_start)
@@ -366,7 +366,7 @@ void ao_set_paused(struct ao *ao, bool paused, bool eof)
     if (eof && paused && ao_is_playing(ao))
         ao_drain(ao);
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
 
     if ((p->playing || !ao->driver->write) && !p->paused && paused) {
         if (p->streaming && !ao->stream_silence) {
@@ -404,7 +404,7 @@ void ao_set_paused(struct ao *ao, bool paused, bool eof)
     }
     p->paused = paused;
 
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
 
     if (do_change_state) {
         if (is_hw_paused) {
@@ -435,9 +435,9 @@ bool ao_is_playing(struct ao *ao)
 {
     struct buffer_state *p = ao->buffer_state;
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
     bool playing = p->playing;
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
 
     return playing;
 }
@@ -447,11 +447,11 @@ void ao_drain(struct ao *ao)
 {
     struct buffer_state *p = ao->buffer_state;
 
-    pthread_mutex_lock(&p->lock);
+    mp_mutex_lock(&p->lock);
     while (!p->paused && p->playing) {
-        pthread_mutex_unlock(&p->lock);
+        mp_mutex_unlock(&p->lock);
         double delay = ao_get_delay(ao);
-        pthread_mutex_lock(&p->lock);
+        mp_mutex_lock(&p->lock);
 
         // Limit to buffer + arbitrary ~250ms max. waiting for robustness.
         delay += mp_async_queue_get_samples(p->queue) / (double)ao->samplerate;
@@ -465,12 +465,12 @@ void ao_drain(struct ao *ao)
 
         if (!p->playing && mp_async_queue_get_samples(p->queue)) {
             MP_WARN(ao, "underrun during draining\n");
-            pthread_mutex_unlock(&p->lock);
+            mp_mutex_unlock(&p->lock);
             ao_start(ao);
-            pthread_mutex_lock(&p->lock);
+            mp_mutex_lock(&p->lock);
         }
     }
-    pthread_mutex_unlock(&p->lock);
+    mp_mutex_unlock(&p->lock);
 
     ao_reset(ao);
 }
@@ -486,10 +486,10 @@ void ao_uninit(struct ao *ao)
     struct buffer_state *p = ao->buffer_state;
 
     if (p && p->thread_valid) {
-        pthread_mutex_lock(&p->pt_lock);
+        mp_mutex_lock(&p->pt_lock);
         p->terminate = true;
         pthread_cond_broadcast(&p->pt_wakeup);
-        pthread_mutex_unlock(&p->pt_lock);
+        mp_mutex_unlock(&p->pt_lock);
 
         pthread_join(p->thread, NULL);
         p->thread_valid = false;
@@ -682,7 +682,7 @@ static void *playthread(void *arg)
     struct buffer_state *p = ao->buffer_state;
     mpthread_set_name("ao");
     while (1) {
-        pthread_mutex_lock(&p->lock);
+        mp_mutex_lock(&p->lock);
 
         bool retry = false;
         if (!ao->driver->initially_blocked || p->initial_unblocked)
@@ -698,11 +698,11 @@ static void *playthread(void *arg)
             timeout = ao->device_buffer / (double)ao->samplerate * 0.25;
         }
 
-        pthread_mutex_unlock(&p->lock);
+        mp_mutex_unlock(&p->lock);
 
-        pthread_mutex_lock(&p->pt_lock);
+        mp_mutex_lock(&p->pt_lock);
         if (p->terminate) {
-            pthread_mutex_unlock(&p->pt_lock);
+            mp_mutex_unlock(&p->pt_lock);
             break;
         }
         if (!p->need_wakeup && !retry) {
@@ -712,7 +712,7 @@ static void *playthread(void *arg)
             MP_STATS(ao, "end audio wait");
         }
         p->need_wakeup = false;
-        pthread_mutex_unlock(&p->pt_lock);
+        mp_mutex_unlock(&p->pt_lock);
     }
     return NULL;
 }
@@ -721,9 +721,9 @@ void ao_unblock(struct ao *ao)
 {
     if (ao->driver->write) {
         struct buffer_state *p = ao->buffer_state;
-        pthread_mutex_lock(&p->lock);
+        mp_mutex_lock(&p->lock);
         p->initial_unblocked = true;
-        pthread_mutex_unlock(&p->lock);
+        mp_mutex_unlock(&p->lock);
         ao_wakeup_playthread(ao);
     }
 }

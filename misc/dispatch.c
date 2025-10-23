@@ -126,14 +126,14 @@ void mp_dispatch_set_onlock_fn(struct mp_dispatch_queue *queue,
 static void mp_dispatch_append(struct mp_dispatch_queue *queue,
                                struct mp_dispatch_item *item)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     if (item->mergeable) {
         for (struct mp_dispatch_item *cur = queue->head; cur; cur = cur->next) {
             if (cur->mergeable && cur->fn == item->fn &&
                 cur->fn_data == item->fn_data)
             {
                 talloc_free(item);
-                pthread_mutex_unlock(&queue->lock);
+                mp_mutex_unlock(&queue->lock);
                 return;
             }
         }
@@ -153,7 +153,7 @@ static void mp_dispatch_append(struct mp_dispatch_queue *queue,
     // interrupted instead.
     if (!queue->wakeup_fn)
         queue->interrupted = true;
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 
     if (queue->wakeup_fn)
         queue->wakeup_fn(queue->wakeup_ctx);
@@ -218,7 +218,7 @@ void mp_dispatch_enqueue_notify(struct mp_dispatch_queue *queue,
 void mp_dispatch_cancel_fn(struct mp_dispatch_queue *queue,
                            mp_dispatch_fn fn, void *fn_data)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     struct mp_dispatch_item **pcur = &queue->head;
     queue->tail = NULL;
     while (*pcur) {
@@ -231,7 +231,7 @@ void mp_dispatch_cancel_fn(struct mp_dispatch_queue *queue,
             pcur = &cur->next;
         }
     }
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }
 
 // Run fn(fn_data) on the target thread synchronously. This function enqueues
@@ -247,10 +247,10 @@ void mp_dispatch_run(struct mp_dispatch_queue *queue,
     };
     mp_dispatch_append(queue, &item);
 
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     while (!item.completed)
         pthread_cond_wait(&queue->cond, &queue->lock);
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }
 
 // Process any outstanding dispatch items in the queue. This also handles
@@ -271,7 +271,7 @@ void mp_dispatch_run(struct mp_dispatch_queue *queue,
 // no enqueued callback can call the lock/unlock functions).
 void mp_dispatch_queue_process(struct mp_dispatch_queue *queue, double timeout)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     queue->wait = timeout > 0 ? mp_time_ns_add(mp_time_ns(), timeout) : 0;
     mp_assert(!queue->in_process); // recursion not allowed
     queue->in_process = true;
@@ -295,11 +295,11 @@ void mp_dispatch_queue_process(struct mp_dispatch_queue *queue, double timeout)
             // from mp_dispatch_lock(), which is done by locked=true.
             mp_assert(!queue->locked);
             queue->locked = true;
-            pthread_mutex_unlock(&queue->lock);
+            mp_mutex_unlock(&queue->lock);
 
             item->fn(item->fn_data);
 
-            pthread_mutex_lock(&queue->lock);
+            mp_mutex_lock(&queue->lock);
             mp_assert(queue->locked);
             queue->locked = false;
             // Wakeup mp_dispatch_run(), also mp_dispatch_lock().
@@ -320,7 +320,7 @@ void mp_dispatch_queue_process(struct mp_dispatch_queue *queue, double timeout)
     mp_assert(!queue->locked);
     queue->in_process = false;
     queue->interrupted = false;
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }
 
 // If the queue is inside of mp_dispatch_queue_process(), make it return as
@@ -331,10 +331,10 @@ void mp_dispatch_queue_process(struct mp_dispatch_queue *queue, double timeout)
 // wakeup the main thread from another thread in a race free way).
 void mp_dispatch_interrupt(struct mp_dispatch_queue *queue)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     queue->interrupted = true;
     pthread_cond_broadcast(&queue->cond);
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }
 
 // If a mp_dispatch_queue_process() call is in progress, then adjust the maximum
@@ -347,12 +347,12 @@ void mp_dispatch_interrupt(struct mp_dispatch_queue *queue)
 // to wait in external APIs.
 void mp_dispatch_adjust_timeout(struct mp_dispatch_queue *queue, int64_t until)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     if (queue->in_process && queue->wait > until) {
         queue->wait = until;
         pthread_cond_broadcast(&queue->cond);
     }
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }
 
 // Grant exclusive access to the target thread's state. While this is active,
@@ -364,7 +364,7 @@ void mp_dispatch_adjust_timeout(struct mp_dispatch_queue *queue, int64_t until)
 // already holding the dispatch lock.
 void mp_dispatch_lock(struct mp_dispatch_queue *queue)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     // Must not be called recursively from dispatched callbacks.
     if (queue->in_process)
         mp_assert(!pthread_equal(queue->in_process_thread, pthread_self()));
@@ -378,10 +378,10 @@ void mp_dispatch_lock(struct mp_dispatch_queue *queue)
     if (queue->onlock_fn)
         queue->onlock_fn(queue->onlock_ctx);
     while (!queue->in_process) {
-        pthread_mutex_unlock(&queue->lock);
+        mp_mutex_unlock(&queue->lock);
         if (queue->wakeup_fn)
             queue->wakeup_fn(queue->wakeup_ctx);
-        pthread_mutex_lock(&queue->lock);
+        mp_mutex_lock(&queue->lock);
         if (queue->in_process)
             break;
         pthread_cond_wait(&queue->cond, &queue->lock);
@@ -396,13 +396,13 @@ void mp_dispatch_lock(struct mp_dispatch_queue *queue)
     queue->locked = true;
     queue->locked_explicit = true;
     queue->locked_explicit_thread = pthread_self();
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }
 
 // Undo mp_dispatch_lock().
 void mp_dispatch_unlock(struct mp_dispatch_queue *queue)
 {
-    pthread_mutex_lock(&queue->lock);
+    mp_mutex_lock(&queue->lock);
     mp_assert(queue->locked);
     // Must be called after a mp_dispatch_lock(), from the same thread.
     mp_assert(queue->locked_explicit);
@@ -414,5 +414,5 @@ void mp_dispatch_unlock(struct mp_dispatch_queue *queue)
     // Wakeup mp_dispatch_queue_process(), and maybe other mp_dispatch_lock()s.
     // (Would be nice to wake up only 1 other locker if lock_requests>0.)
     pthread_cond_broadcast(&queue->cond);
-    pthread_mutex_unlock(&queue->lock);
+    mp_mutex_unlock(&queue->lock);
 }

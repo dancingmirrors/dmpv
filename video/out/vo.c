@@ -175,9 +175,9 @@ static void read_opts(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
 
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     in->timing_offset = (uint64_t)(MP_TIME_S_TO_NS(vo->opts->timing_offset));
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 static void update_opts(void *p)
@@ -469,16 +469,16 @@ static void update_vsync_timing_after_swap(struct vo *vo,
 static void update_display_fps(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     if (in->internal_events & VO_EVENT_WIN_STATE) {
         in->internal_events &= ~(unsigned)VO_EVENT_WIN_STATE;
 
-        pthread_mutex_unlock(&in->lock);
+        mp_mutex_unlock(&in->lock);
 
         double fps = 0;
         vo->driver->control(vo, VOCTRL_GET_DISPLAY_FPS, &fps);
 
-        pthread_mutex_lock(&in->lock);
+        mp_mutex_lock(&in->lock);
 
         in->reported_display_fps = fps;
     }
@@ -499,7 +499,7 @@ static void update_display_fps(struct vo *vo)
         wakeup_core(vo);
     }
 
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 static void check_vo_caps(struct vo *vo)
@@ -547,12 +547,12 @@ static void run_reconfig(void *p)
         vo->params = NULL;
     }
 
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     talloc_free(in->current_frame);
     in->current_frame = NULL;
     forget_frames(vo);
     reset_vsync_timings(vo);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 
     update_display_fps(vo);
 }
@@ -642,12 +642,12 @@ void vo_wait_default(struct vo *vo, int64_t until_time)
 {
     struct vo_internal *in = vo->in;
 
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     if (!in->need_wakeup) {
         struct timespec ts = mp_time_ns_to_realtime(until_time);
         pthread_cond_timedwait(&in->wakeup, &in->lock, &ts);
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 // Called unlocked.
@@ -660,9 +660,9 @@ static void wait_vo(struct vo *vo, int64_t until_time)
     } else {
         vo_wait_default(vo, until_time);
     }
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     in->need_wakeup = false;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 static void wakeup_locked(struct vo *vo)
@@ -681,9 +681,9 @@ void vo_wakeup(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
 
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     wakeup_locked(vo);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 static bool still_displaying(struct vo *vo)
@@ -702,9 +702,9 @@ static bool still_displaying(struct vo *vo)
 // Return true if there is still a frame being displayed (or queued).
 bool vo_still_displaying(struct vo *vo)
 {
-    pthread_mutex_lock(&vo->in->lock);
+    mp_mutex_lock(&vo->in->lock);
     bool res = still_displaying(vo);
-    pthread_mutex_unlock(&vo->in->lock);
+    mp_mutex_unlock(&vo->in->lock);
     return res;
 }
 
@@ -712,13 +712,13 @@ bool vo_still_displaying(struct vo *vo)
 void vo_request_wakeup_on_done(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&vo->in->lock);
+    mp_mutex_lock(&vo->in->lock);
     if (still_displaying(vo)) {
         in->wakeup_on_done = true;
     } else {
         wakeup_core(vo);
     }
-    pthread_mutex_unlock(&vo->in->lock);
+    mp_mutex_unlock(&vo->in->lock);
 }
 
 // Whether vo_queue_frame() can be called. If the VO is not ready yet, the
@@ -732,7 +732,7 @@ void vo_request_wakeup_on_done(struct vo *vo)
 bool vo_is_ready_for_frame(struct vo *vo, int64_t next_pts)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     bool blocked = vo->driver->initially_blocked &&
                    !(in->internal_events & VO_EVENT_INITIAL_UNBLOCK);
     bool r = vo->config_ok && !in->frame_queued && !blocked &&
@@ -754,7 +754,7 @@ bool vo_is_ready_for_frame(struct vo *vo, int64_t next_pts)
                 wakeup_locked(vo);
         }
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return r;
 }
 
@@ -764,7 +764,7 @@ bool vo_is_ready_for_frame(struct vo *vo, int64_t next_pts)
 void vo_queue_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     mp_assert(vo->config_ok && !in->frame_queued &&
            (!in->current_frame || in->current_frame->num_vsyncs < 1));
     in->hasframe = true;
@@ -773,7 +773,7 @@ void vo_queue_frame(struct vo *vo, struct vo_frame *frame)
     in->wakeup_pts = frame->display_synced
                    ? 0 : frame->pts + MPMAX(frame->duration, 0);
     wakeup_locked(vo);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 // If a frame is currently being rendered (or queued), wait until it's done.
@@ -781,10 +781,10 @@ void vo_queue_frame(struct vo *vo, struct vo_frame *frame)
 void vo_wait_frame(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     while (in->frame_queued || in->rendering)
         pthread_cond_wait(&in->wakeup, &in->lock);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 // Wait until realtime is >= ts
@@ -793,12 +793,12 @@ static void wait_until(struct vo *vo, int64_t target)
 {
     struct vo_internal *in = vo->in;
     struct timespec ts = mp_time_us_to_realtime(target);
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     while (target > mp_time_us()) {
         if (pthread_cond_timedwait(&in->wakeup, &in->lock, &ts))
             break;
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 static bool render_frame(struct vo *vo)
@@ -809,7 +809,7 @@ static bool render_frame(struct vo *vo)
 
     update_display_fps(vo);
 
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
 
     if (in->frame_queued) {
         talloc_free(in->current_frame);
@@ -887,7 +887,7 @@ static bool render_frame(struct vo *vo)
         // timer instead, but possibly benefits from preparing a frame early.
         bool can_queue = !in->frame_queued &&
             (in->current_frame->num_vsyncs < 1 || !use_vsync);
-        pthread_mutex_unlock(&in->lock);
+        mp_mutex_unlock(&in->lock);
 
         if (can_queue)
             wakeup_core(vo);
@@ -917,7 +917,7 @@ static bool render_frame(struct vo *vo)
 
         stats_time_end(in->stats, "video-flip");
 
-        pthread_mutex_lock(&in->lock);
+        mp_mutex_lock(&in->lock);
         in->dropped_frame = prev_drop_count < vo->in->drop_count;
         in->rendering = false;
 
@@ -958,7 +958,7 @@ done:
         in->wakeup_on_done = false;
         wakeup_core(vo);
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 
     return more_frames;
 }
@@ -970,7 +970,7 @@ static void do_redraw(struct vo *vo)
     if (!vo->config_ok || (vo->driver->caps & VO_CAP_NORETAIN))
         return;
 
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     in->request_redraw = false;
     bool full_redraw = in->dropped_frame;
     struct vo_frame *frame = NULL;
@@ -986,7 +986,7 @@ static void do_redraw(struct vo *vo)
     frame->still = true;
     frame->pts = 0;
     frame->duration = -1;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 
     vo->driver->draw_frame(vo, frame);
     vo->driver->flip_page(vo);
@@ -1034,7 +1034,7 @@ static void *vo_thread(void *ptr)
         int64_t now = mp_time_ns();
         int64_t wait_until = now + MP_TIME_S_TO_NS(working ? 0 : 1000);
 
-        pthread_mutex_lock(&in->lock);
+        mp_mutex_lock(&in->lock);
         if (in->wakeup_pts) {
             if (in->wakeup_pts > now) {
                 wait_until = MPMIN(wait_until, in->wakeup_pts);
@@ -1053,7 +1053,7 @@ static void *vo_thread(void *ptr)
         in->send_reset = false;
         bool send_pause = in->paused != vo_paused;
         vo_paused = in->paused;
-        pthread_mutex_unlock(&in->lock);
+        mp_mutex_unlock(&in->lock);
 
         if (send_reset)
             vo->driver->control(vo, VOCTRL_RESET, NULL);
@@ -1083,7 +1083,7 @@ done:
 void vo_set_paused(struct vo *vo, bool paused)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     if (in->paused != paused) {
         in->paused = paused;
         if (in->paused && in->dropped_frame) {
@@ -1093,55 +1093,55 @@ void vo_set_paused(struct vo *vo, bool paused)
         reset_vsync_timings(vo);
         wakeup_locked(vo);
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 int64_t vo_get_drop_count(struct vo *vo)
 {
-    pthread_mutex_lock(&vo->in->lock);
+    mp_mutex_lock(&vo->in->lock);
     int64_t r = vo->in->drop_count;
-    pthread_mutex_unlock(&vo->in->lock);
+    mp_mutex_unlock(&vo->in->lock);
     return r;
 }
 
 void vo_increment_drop_count(struct vo *vo, int64_t n)
 {
-    pthread_mutex_lock(&vo->in->lock);
+    mp_mutex_lock(&vo->in->lock);
     vo->in->drop_count += n;
-    pthread_mutex_unlock(&vo->in->lock);
+    mp_mutex_unlock(&vo->in->lock);
 }
 
 // Make the VO redraw the OSD at some point in the future.
 void vo_redraw(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     if (!in->request_redraw) {
         in->request_redraw = true;
         in->want_redraw = false;
         wakeup_locked(vo);
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 bool vo_want_redraw(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     bool r = in->want_redraw;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return r;
 }
 
 void vo_seek_reset(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     forget_frames(vo);
     reset_vsync_timings(vo);
     in->send_reset = true;
     wakeup_locked(vo);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 // Whether at least 1 frame was queued or rendered since last seek or reconfig.
@@ -1189,45 +1189,45 @@ void vo_get_src_dst_rects(struct vo *vo, struct mp_rect *out_src,
 void vo_set_queue_params(struct vo *vo, int64_t offset_us, int num_req_frames)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     in->flip_queue_offset = offset_us;
     in->req_frames = MPCLAMP(num_req_frames, 1, VO_MAX_REQ_FRAMES);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 int vo_get_num_req_frames(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     int res = in->req_frames;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res;
 }
 
 double vo_get_vsync_interval(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     double res = vo->in->vsync_interval > 1 ? vo->in->vsync_interval : -1;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res;
 }
 
 double vo_get_estimated_vsync_interval(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     double res = in->estimated_vsync_interval;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res;
 }
 
 double vo_get_estimated_vsync_jitter(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     double res = in->estimated_vsync_jitter;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res;
 }
 
@@ -1240,7 +1240,7 @@ double vo_get_estimated_vsync_jitter(struct vo *vo)
 double vo_get_delay(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     mp_assert (!in->frame_queued);
     int64_t res = 0;
     if (in->base_vsync && in->vsync_interval > 1 && in->current_frame) {
@@ -1250,33 +1250,33 @@ double vo_get_delay(struct vo *vo)
         if (!in->current_frame->display_synced)
             res = 0;
     }
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res ? MP_TIME_NS_TO_S(res - mp_time_ns()) : 0;
 }
 
 void vo_discard_timing_info(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     reset_vsync_timings(vo);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 int64_t vo_get_delayed_count(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     int64_t res = vo->in->delayed_count;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res;
 }
 
 double vo_get_display_fps(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     double res = vo->in->display_fps;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return res;
 }
 
@@ -1285,14 +1285,14 @@ double vo_get_display_fps(struct vo *vo)
 void vo_event(struct vo *vo, int event)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     if ((in->queued_events & event & VO_EVENTS_USER) != (event & VO_EVENTS_USER))
         wakeup_core(vo);
     if (event)
         wakeup_locked(vo);
     in->queued_events |= event;
     in->internal_events |= event;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
 }
 
 // Check event flags set with vo_event(). Return the mask of events that was
@@ -1300,30 +1300,30 @@ void vo_event(struct vo *vo, int event)
 int vo_query_and_reset_events(struct vo *vo, int events)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     int r = in->queued_events & events;
     in->queued_events &= ~(unsigned)r;
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return r;
 }
 
 struct mp_image *vo_get_current_frame(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     struct mp_image *r = NULL;
     if (vo->in->current_frame)
         r = mp_image_new_ref(vo->in->current_frame->current);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return r;
 }
 
 struct vo_frame *vo_get_current_vo_frame(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
-    pthread_mutex_lock(&in->lock);
+    mp_mutex_lock(&in->lock);
     struct vo_frame *r = vo_frame_ref(vo->in->current_frame);
-    pthread_mutex_unlock(&in->lock);
+    mp_mutex_unlock(&in->lock);
     return r;
 }
 

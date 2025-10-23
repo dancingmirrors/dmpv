@@ -57,7 +57,7 @@ static void *worker_thread(void *arg)
 
     mpthread_set_name("worker");
 
-    pthread_mutex_lock(&pool->lock);
+    mp_mutex_lock(&pool->lock);
 
     struct timespec ts = {0};
     bool got_timeout = false;
@@ -84,11 +84,11 @@ static void *worker_thread(void *arg)
         }
 
         pool->busy_threads += 1;
-        pthread_mutex_unlock(&pool->lock);
+        mp_mutex_unlock(&pool->lock);
 
         work.fn(work.fn_ctx);
 
-        pthread_mutex_lock(&pool->lock);
+        mp_mutex_lock(&pool->lock);
         pool->busy_threads -= 1;
 
         ts = (struct timespec){0};
@@ -102,14 +102,14 @@ static void *worker_thread(void *arg)
             if (pthread_equal(pool->threads[n], pthread_self())) {
                 pthread_detach(pthread_self());
                 MP_TARRAY_REMOVE_AT(pool->threads, pool->num_threads, n);
-                pthread_mutex_unlock(&pool->lock);
+                mp_mutex_unlock(&pool->lock);
                 return NULL;
             }
         }
         MP_ASSERT_UNREACHABLE();
     }
 
-    pthread_mutex_unlock(&pool->lock);
+    mp_mutex_unlock(&pool->lock);
     return NULL;
 }
 
@@ -118,7 +118,7 @@ static void thread_pool_dtor(void *ctx)
     struct mp_thread_pool *pool = ctx;
 
 
-    pthread_mutex_lock(&pool->lock);
+    mp_mutex_lock(&pool->lock);
 
     pool->terminate = true;
     pthread_cond_broadcast(&pool->wakeup);
@@ -129,7 +129,7 @@ static void thread_pool_dtor(void *ctx)
     pool->threads = NULL;
     pool->num_threads = 0;
 
-    pthread_mutex_unlock(&pool->lock);
+    mp_mutex_unlock(&pool->lock);
 
     for (int n = 0; n < num_threads; n++)
         pthread_join(threads[n], NULL);
@@ -167,11 +167,11 @@ struct mp_thread_pool *mp_thread_pool_create(void *ta_parent, int init_threads,
     pool->min_threads = min_threads;
     pool->max_threads = max_threads;
 
-    pthread_mutex_lock(&pool->lock);
+    mp_mutex_lock(&pool->lock);
     for (int n = 0; n < init_threads; n++)
         add_thread(pool);
     bool ok = pool->num_threads >= init_threads;
-    pthread_mutex_unlock(&pool->lock);
+    mp_mutex_unlock(&pool->lock);
 
     if (!ok)
         TA_FREEP(&pool);
@@ -186,7 +186,7 @@ static bool thread_pool_add(struct mp_thread_pool *pool, void (*fn)(void *ctx),
 
     mp_assert(fn);
 
-    pthread_mutex_lock(&pool->lock);
+    mp_mutex_lock(&pool->lock);
     struct work work = {fn, fn_ctx};
 
     // If there are not enough threads to process all at once, but we can
@@ -207,7 +207,7 @@ static bool thread_pool_add(struct mp_thread_pool *pool, void (*fn)(void *ctx),
         pthread_cond_signal(&pool->wakeup);
     }
 
-    pthread_mutex_unlock(&pool->lock);
+    mp_mutex_unlock(&pool->lock);
     return ok;
 }
 

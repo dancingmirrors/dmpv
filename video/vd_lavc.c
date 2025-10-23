@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "misc/mp_assert.h"
+#include "osdep/threads.h"
 #include <stdbool.h>
 
 #include <libavcodec/avcodec.h>
@@ -979,7 +980,7 @@ static int get_buffer2_direct(AVCodecContext *avctx, AVFrame *pic, int flags)
     struct mp_filter *vd = avctx->opaque;
     vd_ffmpeg_ctx *p = vd->priv;
 
-    pthread_mutex_lock(&p->dr_lock);
+    mp_mutex_lock(&p->dr_lock);
 
     int w = pic->width;
     int h = pic->height;
@@ -1051,7 +1052,7 @@ static int get_buffer2_direct(AVCodecContext *avctx, AVFrame *pic, int flags)
     }
     talloc_free(img);
 
-    pthread_mutex_unlock(&p->dr_lock);
+    mp_mutex_unlock(&p->dr_lock);
 
     return 0;
 
@@ -1059,7 +1060,7 @@ fallback:
     if (!p->dr_failed)
         MP_VERBOSE(p, "DR failed - disabling.\n");
     p->dr_failed = true;
-    pthread_mutex_unlock(&p->dr_lock);
+    mp_mutex_unlock(&p->dr_lock);
 
     return avcodec_default_get_buffer2(avctx, pic, flags);
 }

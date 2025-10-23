@@ -230,15 +230,15 @@ static void update_segment(struct dec_sub *sub)
 bool sub_can_preload(struct dec_sub *sub)
 {
     bool r;
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     r = sub->sd->driver->accept_packets_in_advance && !sub->preload_attempted;
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
     return r;
 }
 
 void sub_preload(struct dec_sub *sub)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
 
     struct mp_dispatch_queue *demux_waiter = mp_dispatch_create(NULL);
     demux_set_stream_wakeup_cb(sub->sh, wakeup_demux, demux_waiter);
@@ -261,7 +261,7 @@ void sub_preload(struct dec_sub *sub)
     demux_set_stream_wakeup_cb(sub->sh, NULL, NULL);
     talloc_free(demux_waiter);
 
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
 }
 
 static bool is_new_segment(struct dec_sub *sub, struct demux_packet *p)
@@ -276,7 +276,7 @@ static bool is_new_segment(struct dec_sub *sub, struct demux_packet *p)
 bool sub_read_packets(struct dec_sub *sub, double video_pts, bool force)
 {
     bool r = true;
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     video_pts = pts_to_subtitle(sub, video_pts);
     while (1) {
         bool read_more = true;
@@ -327,7 +327,7 @@ bool sub_read_packets(struct dec_sub *sub, double video_pts, bool force)
 
         talloc_free(pkt);
     }
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
     return r;
 }
 
@@ -335,7 +335,7 @@ bool sub_read_packets(struct dec_sub *sub, double video_pts, bool force)
 struct sub_bitmaps *sub_get_bitmaps(struct dec_sub *sub, struct mp_osd_res dim,
                                     int format, double pts)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
 
     pts = pts_to_subtitle(sub, pts);
 
@@ -348,14 +348,14 @@ struct sub_bitmaps *sub_get_bitmaps(struct dec_sub *sub, struct mp_osd_res dim,
         sub->sd->driver->get_bitmaps)
         res = sub->sd->driver->get_bitmaps(sub->sd, dim, format, pts);
 
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
     return res;
 }
 
 // The returned string is talloc'ed.
 char *sub_get_text(struct dec_sub *sub, double pts, enum sd_text_type type)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     char *text = NULL;
 
     pts = pts_to_subtitle(sub, pts);
@@ -365,13 +365,13 @@ char *sub_get_text(struct dec_sub *sub, double pts, enum sd_text_type type)
 
     if (sub->sd->driver->get_text)
         text = sub->sd->driver->get_text(sub->sd, pts, type);
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
     return text;
 }
 
 struct sd_times sub_get_times(struct dec_sub *sub, double pts)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     struct sd_times res = { .start = MP_NOPTS_VALUE, .end = MP_NOPTS_VALUE };
 
     pts = pts_to_subtitle(sub, pts);
@@ -382,34 +382,34 @@ struct sd_times sub_get_times(struct dec_sub *sub, double pts)
     if (sub->sd->driver->get_times)
         res = sub->sd->driver->get_times(sub->sd, pts);
 
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
     return res;
 }
 
 void sub_reset(struct dec_sub *sub)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     if (sub->sd->driver->reset)
         sub->sd->driver->reset(sub->sd);
     sub->last_pkt_pts = MP_NOPTS_VALUE;
     sub->last_vo_pts = MP_NOPTS_VALUE;
     talloc_free(sub->new_segment);
     sub->new_segment = NULL;
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
 }
 
 void sub_select(struct dec_sub *sub, bool selected)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     if (sub->sd->driver->select)
         sub->sd->driver->select(sub->sd, selected);
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
 }
 
 int sub_control(struct dec_sub *sub, enum sd_ctrl cmd, void *arg)
 {
     int r = CONTROL_UNKNOWN;
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     bool propagate = false;
     switch (cmd) {
     case SD_CTRL_SET_VIDEO_DEF_FPS:
@@ -444,22 +444,22 @@ int sub_control(struct dec_sub *sub, enum sd_ctrl cmd, void *arg)
     }
     if (propagate && sub->sd->driver->control)
         r = sub->sd->driver->control(sub->sd, cmd, arg);
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
     return r;
 }
 
 void sub_set_recorder_sink(struct dec_sub *sub, struct mp_recorder_sink *sink)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     sub->recorder_sink = sink;
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
 }
 
 void sub_set_play_dir(struct dec_sub *sub, int dir)
 {
-    pthread_mutex_lock(&sub->lock);
+    mp_mutex_lock(&sub->lock);
     sub->play_dir = dir;
-    pthread_mutex_unlock(&sub->lock);
+    mp_mutex_unlock(&sub->lock);
 }
 
 bool sub_is_primary_visible(struct dec_sub *sub)

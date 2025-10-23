@@ -26,6 +26,7 @@
 #include "common/common.h"
 #include "options/options.h"
 #include "misc/lavc_compat.h"
+#include "osdep/threads.h"
 #include "video/fmt-conversion.h"
 #include "video/mp_image.h"
 #include "misc/dmpv_talloc.h"
@@ -199,7 +200,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *voframe)
         return;
 
     // Lock for shared timestamp fields.
-    pthread_mutex_lock(&ectx->lock);
+    mp_mutex_lock(&ectx->lock);
 
     double pts = mpi->pts;
     double outpts = pts;
@@ -231,7 +232,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *voframe)
             ectx->next_in_pts = nextpts;
     }
 
-    pthread_mutex_unlock(&ectx->lock);
+    mp_mutex_unlock(&ectx->lock);
 
     AVFrame *frame = mp_image_to_av_frame(mpi);
     MP_HANDLE_OOM(frame);

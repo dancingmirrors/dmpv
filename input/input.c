@@ -50,8 +50,8 @@
 #include "stream/stream.h"
 #include "common/common.h"
 
-#define input_lock(ictx)    pthread_mutex_lock(&ictx->mutex)
-#define input_unlock(ictx)  pthread_mutex_unlock(&ictx->mutex)
+#define input_lock(ictx)    mp_mutex_lock(&ictx->mutex)
+#define input_unlock(ictx)  mp_mutex_unlock(&ictx->mutex)
 
 #define MP_MAX_KEY_DOWN 16
 

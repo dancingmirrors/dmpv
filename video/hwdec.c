@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include "misc/mp_assert.h"
+#include "osdep/threads.h"
 
 #include <libavutil/hwcontext.h>
 
@@ -40,7 +41,7 @@ struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt_and_type(struct mp_hwdec_device
                                                           enum AVHWDeviceType device_type)
 {
     struct mp_hwdec_ctx *res = NULL;
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     for (int n = 0; n < devs->num_hwctxs; n++) {
         struct mp_hwdec_ctx *dev = devs->hwctxs[n];
         AVHWDeviceContext *hw_device_ctx =
@@ -51,7 +52,7 @@ struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt_and_type(struct mp_hwdec_device
             break;
         }
     }
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
     return res;
 }
 
@@ -62,29 +63,29 @@ struct mp_hwdec_ctx *hwdec_devices_get_first(struct mp_hwdec_devices *devs)
 
 struct mp_hwdec_ctx *hwdec_devices_get_n(struct mp_hwdec_devices *devs, int n)
 {
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     struct mp_hwdec_ctx *res = n < devs->num_hwctxs ? devs->hwctxs[n] : NULL;
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
     return res;
 }
 
 void hwdec_devices_add(struct mp_hwdec_devices *devs, struct mp_hwdec_ctx *ctx)
 {
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     MP_TARRAY_APPEND(devs, devs->hwctxs, devs->num_hwctxs, ctx);
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
 }
 
 void hwdec_devices_remove(struct mp_hwdec_devices *devs, struct mp_hwdec_ctx *ctx)
 {
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     for (int n = 0; n < devs->num_hwctxs; n++) {
         if (devs->hwctxs[n] == ctx) {
             MP_TARRAY_REMOVE_AT(devs->hwctxs, devs->num_hwctxs, n);
             break;
         }
     }
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
 }
 
 void hwdec_devices_set_loader(struct mp_hwdec_devices *devs,

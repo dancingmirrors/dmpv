@@ -32,6 +32,7 @@
 #include "options/m_config.h"
 #include "options/m_option.h"
 #include "options/options.h"
+#include "osdep/threads.h"
 #include "osdep/timer.h"
 #include "video/out/vo.h"
 #include "misc/dmpv_talloc.h"
@@ -162,7 +163,7 @@ void encode_lavc_set_metadata(struct encode_lavc_context *ctx,
 {
     struct encode_priv *p = ctx->priv;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     if (ctx->options->copy_metadata) {
         p->metadata = mp_tags_dup(ctx, metadata);
@@ -189,7 +190,7 @@ void encode_lavc_set_metadata(struct encode_lavc_context *ctx,
         }
     }
 
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 bool encode_lavc_free(struct encode_lavc_context *ctx)
@@ -318,7 +319,7 @@ void encode_lavc_expect_stream(struct encode_lavc_context *ctx,
 {
     struct encode_priv *p = ctx->priv;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     enum AVMediaType codec_type = mp_to_av_stream_type(type);
 
@@ -342,7 +343,7 @@ void encode_lavc_expect_stream(struct encode_lavc_context *ctx,
     MP_TARRAY_APPEND(p, p->streams, p->num_streams, dst);
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 // Signal that you are ready to encode (you provide the codec params etc. too).
@@ -356,7 +357,7 @@ static void encode_lavc_add_stream(struct encoder_context *enc,
 {
     struct encode_priv *p = ctx->priv;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     struct mux_stream *dst = find_mux_stream(ctx, info->codecpar->codec_type);
     if (!dst) {
@@ -392,7 +393,7 @@ static void encode_lavc_add_stream(struct encoder_context *enc,
     maybe_init_muxer(ctx);
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 // Write a packet. This will take over ownership of `pkt`
@@ -403,7 +404,7 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
 
     mp_assert(dst->st);
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     if (p->failed)
         goto done;
@@ -440,7 +441,7 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
     pkt = NULL;
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
     if (pkt)
         av_packet_unref(pkt);
 }
@@ -455,9 +456,9 @@ void encode_lavc_discontinuity(struct encode_lavc_context *ctx)
     if (!ctx)
         return;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
     ctx->discontinuity_pts_offset = MP_NOPTS_VALUE;
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 static void encode_lavc_printoptions(struct mp_log *log, const void *obj,
@@ -678,7 +679,7 @@ int encode_lavc_getstatus(struct encode_lavc_context *ctx,
     float minutes, megabytes, fps, x;
     float f = MPMAX(0.0001, relative_position);
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     if (p->failed) {
         snprintf(buf, bufsize, "(failed)\n");
@@ -702,7 +703,7 @@ int encode_lavc_getstatus(struct encode_lavc_context *ctx,
     buf[bufsize - 1] = 0;
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
     return 0;
 }
 
@@ -710,9 +711,9 @@ bool encode_lavc_didfail(struct encode_lavc_context *ctx)
 {
     if (!ctx)
         return false;
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
     bool fail = ctx->priv->failed;
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
     return fail;
 }
 

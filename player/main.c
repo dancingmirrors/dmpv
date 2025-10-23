@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include "misc/mp_assert.h"
+#include "osdep/threads.h"
 #include <string.h>
 #include <pthread.h>
 #include <locale.h>
@@ -94,11 +95,11 @@ static struct MPContext *terminal_owner;
 
 static bool cas_terminal_owner(struct MPContext *old, struct MPContext *new)
 {
-    pthread_mutex_lock(&terminal_owner_lock);
+    mp_mutex_lock(&terminal_owner_lock);
     bool r = terminal_owner == old;
     if (r)
         terminal_owner = new;
-    pthread_mutex_unlock(&terminal_owner_lock);
+    mp_mutex_unlock(&terminal_owner_lock);
     return r;
 }
 

@@ -7,6 +7,7 @@
 #include "misc/dispatch.h"
 #include "misc/mp_assert.h"
 #include "osdep/atomic.h"
+#include "osdep/threads.h"
 #include "video/mp_image.h"
 
 #include "dr_helper.h"
@@ -54,21 +55,21 @@ struct dr_helper *dr_helper_create(struct mp_dispatch_queue *dispatch,
 
 void dr_helper_acquire_thread(struct dr_helper *dr)
 {
-    pthread_mutex_lock(&dr->thread_lock);
+    mp_mutex_lock(&dr->thread_lock);
     mp_assert(!dr->thread_valid); // fails on API user errors
     dr->thread_valid = true;
     dr->thread = pthread_self();
-    pthread_mutex_unlock(&dr->thread_lock);
+    mp_mutex_unlock(&dr->thread_lock);
 }
 
 void dr_helper_release_thread(struct dr_helper *dr)
 {
-    pthread_mutex_lock(&dr->thread_lock);
+    mp_mutex_lock(&dr->thread_lock);
     // Fails on API user errors.
     mp_assert(dr->thread_valid);
     mp_assert(pthread_equal(dr->thread, pthread_self()));
     dr->thread_valid = false;
-    pthread_mutex_unlock(&dr->thread_lock);
+    mp_mutex_unlock(&dr->thread_lock);
 }
 
 struct free_dr_context {
@@ -92,10 +93,10 @@ static void free_dr_buffer_on_dr_thread(void *opaque, uint8_t *data)
     struct free_dr_context *ctx = opaque;
     struct dr_helper *dr = ctx->dr;
 
-    pthread_mutex_lock(&dr->thread_lock);
+    mp_mutex_lock(&dr->thread_lock);
     bool on_this_thread =
         dr->thread_valid && pthread_equal(ctx->dr->thread, pthread_self());
-    pthread_mutex_unlock(&dr->thread_lock);
+    mp_mutex_unlock(&dr->thread_lock);
 
     // The image could be unreffed even on the DR thread. In practice, this
     // matters most on DR destruction.

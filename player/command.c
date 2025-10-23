@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "misc/mp_assert.h"
+#include "osdep/threads.h"
 #include <time.h>
 #include <math.h>
 #include <sys/types.h>
@@ -5948,10 +5949,10 @@ static void cmd_subprocess(void *p)
     fdctx[1].capture = cmd->args[3].v.b;
     fdctx[2].capture = cmd->args[4].v.b;
 
-    pthread_mutex_lock(&mpctx->abort_lock);
+    mp_mutex_lock(&mpctx->abort_lock);
     cmd->abort->coupled_to_playback = playback_only;
     mp_abort_recheck_locked(mpctx, cmd->abort);
-    pthread_mutex_unlock(&mpctx->abort_lock);
+    mp_mutex_unlock(&mpctx->abort_lock);
 
     mp_core_unlock(mpctx);
 

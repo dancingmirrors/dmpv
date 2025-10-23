@@ -21,6 +21,7 @@
 #include <string.h>
 #include <strings.h>
 #include "misc/mp_assert.h"
+#include "osdep/threads.h"
 #include <stdbool.h>
 #include <pthread.h>
 
@@ -579,9 +580,9 @@ struct m_config_cache *m_config_cache_from_shadow(void *ta_parent,
     in->shadow = shadow;
     in->src = shadow->data;
 
-    pthread_mutex_lock(&shadow->lock);
+    mp_mutex_lock(&shadow->lock);
     in->data = allocate_option_data(cache, shadow, group_index, in->src);
-    pthread_mutex_unlock(&shadow->lock);
+    mp_mutex_unlock(&shadow->lock);
 
     cache->opts = in->data->gdata[0].udata;
 
@@ -688,7 +689,7 @@ bool m_config_cache_update(struct m_config_cache *cache)
     if (!cache_check_update(cache))
         return false;
 
-    pthread_mutex_lock(&shadow->lock);
+    mp_mutex_lock(&shadow->lock);
     bool res = false;
     while (1) {
         void *p;
@@ -697,7 +698,7 @@ bool m_config_cache_update(struct m_config_cache *cache)
             break;
         res = true;
     }
-    pthread_mutex_unlock(&shadow->lock);
+    mp_mutex_unlock(&shadow->lock);
     return res;
 }
 
@@ -710,9 +711,9 @@ bool m_config_cache_get_next_changed(struct m_config_cache *cache, void **opt)
     if (!cache_check_update(cache) && in->upd_group < 0)
         return false;
 
-    pthread_mutex_lock(&shadow->lock);
+    mp_mutex_lock(&shadow->lock);
     update_next_option(cache, opt);
-    pthread_mutex_unlock(&shadow->lock);
+    mp_mutex_unlock(&shadow->lock);
     return !!*opt;
 }
 
@@ -757,7 +758,7 @@ bool m_config_cache_write_opt(struct m_config_cache *cache, void *ptr)
     struct m_config_group *g = &shadow->groups[group_idx];
     const struct m_option *opt = &g->group->opts[opt_idx];
 
-    pthread_mutex_lock(&shadow->lock);
+    mp_mutex_lock(&shadow->lock);
 
     struct m_group_data *gdst = m_config_gdata(in->data, group_idx);
     struct m_group_data *gsrc = m_config_gdata(in->src, group_idx);
@@ -776,7 +777,7 @@ bool m_config_cache_write_opt(struct m_config_cache *cache, void *ptr)
         }
     }
 
-    pthread_mutex_unlock(&shadow->lock);
+    mp_mutex_unlock(&shadow->lock);
 
     return changed;
 }
@@ -787,7 +788,7 @@ void m_config_cache_set_wakeup_cb(struct m_config_cache *cache,
     struct config_cache *in = cache->internal;
     struct m_config_shadow *shadow = in->shadow;
 
-    pthread_mutex_lock(&shadow->lock);
+    mp_mutex_lock(&shadow->lock);
     if (in->in_list) {
         for (int n = 0; n < shadow->num_listeners; n++) {
             if (shadow->listeners[n] == in) {
@@ -809,7 +810,7 @@ void m_config_cache_set_wakeup_cb(struct m_config_cache *cache,
         in->wakeup_cb = cb;
         in->wakeup_cb_ctx = cb_ctx;
     }
-    pthread_mutex_unlock(&shadow->lock);
+    mp_mutex_unlock(&shadow->lock);
 }
 
 static void dispatch_notify(void *p)
