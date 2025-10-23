@@ -170,6 +170,35 @@ struct va_native_display {
     void (*destroy)(void *native_ctx);
 };
 
+#if HAVE_VAAPI_X11
+#include <X11/Xlib.h>
+#include <va/va_x11.h>
+
+static void x11_destroy(void *native_ctx)
+{
+    XCloseDisplay(native_ctx);
+}
+
+static void x11_create(struct mp_log *log, VADisplay **out_display,
+                       void **out_native_ctx, const char *path)
+{
+    void *native_display = XOpenDisplay(NULL);
+    if (!native_display)
+        return;
+    *out_display = vaGetDisplay(native_display);
+    if (*out_display) {
+        *out_native_ctx = native_display;
+    } else {
+        XCloseDisplay(native_display);
+    }
+}
+
+static const struct va_native_display disp_x11 = {
+    .create = x11_create,
+    .destroy = x11_destroy,
+};
+#endif
+
 #if HAVE_VAAPI_DRM
 #include <unistd.h>
 #include <fcntl.h>
@@ -214,6 +243,9 @@ static const struct va_native_display disp_drm = {
 static const struct va_native_display *const native_displays[] = {
 #if HAVE_VAAPI_DRM
     &disp_drm,
+#endif
+#if HAVE_VAAPI_X11
+    &disp_x11,
 #endif
     NULL
 };

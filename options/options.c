@@ -118,6 +118,9 @@ static const m_option_t mp_vo_opt_list[] = {
     {"focus-on-open", OPT_BOOL(focus_on_open)},
     {"force-render", OPT_BOOL(force_render)},
     {"force-window-position", OPT_BOOL(force_window_position)},
+#if HAVE_X11
+    {"x11-name", OPT_STRING(winname)},
+#endif
 #if HAVE_WAYLAND
     {"wayland-app-id", OPT_STRING(appid)},
 #endif
@@ -165,6 +168,13 @@ static const m_option_t mp_vo_opt_list[] = {
         {"display-vdrop", VS_DISP_VDROP},
         {"display-desync", VS_DISP_NONE},
         {"desync", VS_NONE})},
+#if HAVE_X11
+    {"x11-netwm", OPT_CHOICE(x11_netwm, {"yes", 0}, {"auto", -1}, {"no", 1})},
+    {"x11-bypass-compositor", OPT_CHOICE(x11_bypass_compositor,
+        {"no", 0}, {"yes", 1}, {"fs-only", 2}, {"never", 3})},
+    {"x11-present", OPT_CHOICE(x11_present,
+        {"no", 0}, {"auto", 1}, {"yes", 2})},
+#endif
     {"swapchain-depth", OPT_INT(swapchain_depth), M_RANGE(1, 8)},
     {0}
 };
@@ -193,6 +203,10 @@ const struct m_sub_options vo_sub_opts = {
         .WinID = -1,
         .window_scale = 1.0,
         .unscaled = 2,
+#if HAVE_X11
+        .x11_bypass_compositor = 2,
+        .x11_present = 1,
+#endif
         .ontop_level = -1,
         .timing_offset = 0.050,
         .swapchain_depth = 3,

@@ -157,7 +157,6 @@ const struct m_obj_list vo_obj_list = {
     .aliases = {
         {"gl", "gpu"},
         {"opengl", "gpu"},
-        {"opengl-cb"},
         {0}
     },
     .allow_trailer = true,

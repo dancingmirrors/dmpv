@@ -1,8 +1,10 @@
 dmpv is a fork of mpv, which is a fork of mplayer2, which is a fork of MPlayer.
 
-This particular fork of mpv as a whole is licensed under the GNU Lesser General
-Public License LGPL version 2 or later (LGPLv2.1+ in this document; see LICENSE
-for the full license text).
+dmpv is licensed under the GNU General Public License GPL version 2, or the
+GNU Lesser General Public License LGPL version 2 or later if built with
+./configure --enable-lgpl.
+
+Consult LICENSE.GPL and LICENSE.LGPL for details.
 
 Some files are available under more liberal licenses, such as BSD, MIT, ISC, and
 possibly others. Look at the copyright header of each source file, and grep the
@@ -22,3 +24,8 @@ permission.
 
 For information about authors and contributors, consult the git log, which
 contains the complete SVN and CVS history as well.
+
+./configure --enable-lgpl disables the following features:
+
+OSS audio output (audio/out/ao_oss.c)
+X11 support      (video/out/x11_common.*)

@@ -370,6 +370,9 @@ static bool is_egl15(void)
 // platform client extension platform_ext_name, and 3. does not support passing
 // an attrib list, because the type for that parameter is different in the EXT
 // and standard functions.
+//  platform: e.g. EGL_PLATFORM_X11_KHR
+//  platform_ext_name: e.g. "EGL_KHR_platform_x11"
+//  native_display: e.g. X11 Display*
 // Returns EGL_NO_DISPLAY on failure.
 // Warning: the EGL version can be different at runtime depending on the chosen
 // platform, so this might return a display corresponding to some older EGL

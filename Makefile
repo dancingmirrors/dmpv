@@ -18,6 +18,11 @@ $(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c: $(ROOT)/TOOLS/ma
 	$(Q) $< --generate-header > $(BUILD)/generated/ebml_types.h
 	$(Q) $< --generate-definitions > $(BUILD)/generated/ebml_defs.c
 
+$(BUILD)/video/out/x11_common.o: $(BUILD)/generated/etc/dmpv-icon-8bit-16x16.png.inc \
+                                 $(BUILD)/generated/etc/dmpv-icon-8bit-32x32.png.inc \
+                                 $(BUILD)/generated/etc/dmpv-icon-8bit-64x64.png.inc \
+                                 $(BUILD)/generated/etc/dmpv-icon-8bit-128x128.png.inc
+
 $(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/%
 	$(LOG) "INC" $@
 	$(Q) mkdir -p $(@D)

@@ -35,6 +35,16 @@
 #include "misc/render_gl.h"
 #endif
 
+#if HAVE_VAAPI_X11
+#include <va/va_x11.h>
+
+static VADisplay *create_x11_va_display(struct ra *ra)
+{
+    Display *x11 = ra_get_native_resource(ra, "x11");
+    return x11 ? vaGetDisplay(x11) : NULL;
+}
+#endif
+
 #if HAVE_VAAPI_WAYLAND
 #include <va/va_wayland.h>
 
@@ -65,6 +75,9 @@ struct va_create_native {
 };
 
 static const struct va_create_native create_native_cbs[] = {
+#if HAVE_VAAPI_X11
+    {"x11",     create_x11_va_display},
+#endif
 #if HAVE_VAAPI_WAYLAND
     {"wayland", create_wayland_va_display},
 #endif

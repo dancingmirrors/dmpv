@@ -15,6 +15,9 @@
 #if HAVE_WAYLAND
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #endif
+#if HAVE_X11
+#define VK_USE_PLATFORM_XLIB_KHR
+#endif
 
 #include <libplacebo/vulkan.h>
 

@@ -446,6 +446,7 @@ struct vo {
     struct mp_log *log;
     void *priv;
     struct dmpv_global *global;
+    struct vo_x11_state *x11;
     struct vo_wayland_state *wl;
     struct vo_drm_state *drm;
     struct mp_hwdec_devices *hwdec_devs;
