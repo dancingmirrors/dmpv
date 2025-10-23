@@ -593,19 +593,19 @@ static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
                           struct bstr name)
 {
     mp_info(log, "Supported values:\n");
-    mp_info(log, "  auto (yes '')\n");
+    mp_info(log, "    auto (yes '')\n");
     #if HAVE_VAAPI
-    mp_info(log, "  vaapi\n");
-    mp_info(log, "  vaapi-copy\n");
+    mp_info(log, "    vaapi\n");
+    mp_info(log, "    vaapi-copy\n");
     #endif
     #if HAVE_VULKAN
-    mp_info(log, "  vulkan\n");
-    mp_info(log, "  vulkan-copy\n");
+    mp_info(log, "    vulkan\n");
+    mp_info(log, "    vulkan-copy\n");
     #endif
-    mp_info(log, "  no\n");
-    mp_info(log, "  auto-safe\n");
-    mp_info(log, "  auto-copy\n");
-    mp_info(log, "  auto-copy-safe\n");
+    mp_info(log, "    no\n");
+    mp_info(log, "    auto-safe\n");
+    mp_info(log, "    auto-copy\n");
+    mp_info(log, "    auto-copy-safe\n");
 
     return M_OPT_EXIT;
 }
