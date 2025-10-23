@@ -974,7 +974,6 @@ const struct vo_driver video_out_sdl = {
         .renderer_index = -1,
         .vsync = true,
         .allow_sw = true,
-        .switch_mode = true,
     },
     .options = (const struct m_option []){
         {"sw", OPT_BOOL(allow_sw)},
