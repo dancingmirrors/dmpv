@@ -178,12 +178,12 @@ check("-libarchive*",
 
 check(desc      = "FFmpeg",
       fn        = lambda: check_pkg_config(
-                    "libavutil      >= 59.34.100",
-                    "libavcodec     >= 60.31.102",
-                    "libavformat    >= 60.16.100",
-                    "libswscale     >= 7.5.100",
+                    "libavutil      >= 58.12.100",
+                    "libavcodec     >= 60.15.100",
+                    "libavformat    >= 60.6.100",
+                    "libswscale     >= 7.2.100",
                     "libavfilter    >= 9.12.100",
-                    "libswresample  >= 4.12.100"),
+                    "libswresample  >= 4.10.100"),
       required  = "Required.")
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))

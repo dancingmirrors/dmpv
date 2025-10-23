@@ -29,7 +29,9 @@
 #include <libavcodec/avcodec.h>
 #include <libavutil/mastering_display_metadata.h>
 
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 16, 100)
 # include <libavutil/dovi_meta.h>
+#endif
 
 #include "misc/dmpv_talloc.h"
 
@@ -992,10 +994,17 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
     dst->pict_type = src->pict_type;
 
     dst->fields = 0;
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(58, 7, 100)
     if (src->flags & AV_FRAME_FLAG_INTERLACED)
         dst->fields |= MP_IMGFIELD_INTERLACED;
     if (src->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)
         dst->fields |= MP_IMGFIELD_TOP_FIRST;
+#else
+    if (src->interlaced_frame)
+        dst->fields |= MP_IMGFIELD_INTERLACED;
+    if (src->top_field_first)
+        dst->fields |= MP_IMGFIELD_TOP_FIRST;
+#endif
     if (src->repeat_pict == 1)
         dst->fields |= MP_IMGFIELD_REPEAT_FIRST;
 
@@ -1046,6 +1055,7 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
     if (sd)
         dst->a53_cc = sd->buf;
 
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 16, 100)
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_DOVI_METADATA);
     if (sd)
         dst->dovi = sd->buf;
@@ -1053,6 +1063,7 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_DOVI_RPU_BUFFER);
     if (sd)
         dst->dovi_buf = sd->buf;
+#endif
 
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_FILM_GRAIN_PARAMS);
     if (sd)
@@ -1114,10 +1125,17 @@ struct AVFrame *mp_image_to_av_frame(struct mp_image *src)
     dst->extended_data = dst->data;
 
     dst->pict_type = src->pict_type;
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(58, 7, 100)
     if (src->fields & MP_IMGFIELD_INTERLACED)
         dst->flags |= AV_FRAME_FLAG_INTERLACED;
     if (src->fields & MP_IMGFIELD_TOP_FIRST)
         dst->flags |= AV_FRAME_FLAG_TOP_FIELD_FIRST;
+#else
+    if (src->fields & MP_IMGFIELD_INTERLACED)
+        dst->interlaced_frame = 1;
+    if (src->fields & MP_IMGFIELD_TOP_FIRST)
+        dst->top_field_first = 1;
+#endif
     if (src->fields & MP_IMGFIELD_REPEAT_FIRST)
         dst->repeat_pict = 1;
 
