@@ -30,7 +30,7 @@ if test "$cwd" ; then
   cd "$cwd"
 fi
 
-version="$(git describe --match "v[0-9]*" --always --tags | sed 's/^v//')"
+version="$(git describe --match "v[0-9]*" --always --tags --abbrev=0 | sed 's/^v//')"
 
 VERSION="${version}${extra}"
 
