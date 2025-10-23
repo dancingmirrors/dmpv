@@ -2478,8 +2478,6 @@ static int mp_property_display_fps(void *ctx, struct m_property *prop,
     double fps = mpctx->video_out ? vo_get_display_fps(mpctx->video_out) : 0;
     switch (action) {
     case M_PROPERTY_SET: {
-        MP_WARN(mpctx, "Setting the display-fps property is deprecated; set "
-                       "the override-display-fps property instead.\n");
         struct dmpv_node val = {
             .format = DMPV_FORMAT_DOUBLE,
             .u.double_ = *(double *)arg,

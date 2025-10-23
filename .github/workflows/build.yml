@@ -20,7 +20,8 @@ jobs:
           sudo apt-get install -y build-essential clang git meson nasm ninja-build yasm
           sudo apt-get build-dep -y mpv
           sudo apt-get install libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev \
-                       libavfilter-dev libswscale-dev libswresample-dev libpostproc-dev
+                       libavfilter-dev libswscale-dev libswresample-dev libpostproc-dev \
+                       libplacebo-dev
           git clone --depth 1 https://github.com/ffmpeg/ffmpeg.git
           cd ffmpeg
           ./configure --enable-shared --prefix=/usr/local
@@ -49,10 +50,7 @@ jobs:
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
-          sudo rm -f /usr/local/lib/libav*.so
-          sudo rm -f /usr/local/lib/pkgconfig/libav*
-          sudo rm -f /usr/local/lib/x86_64-linux-gnu/libplacebo*.so
-          sudo rm -f /usr/local/lib/x86_64-linux-gnu/pkgconfig/libplacebo.pc
+          sudo rm -rf /usr/local/*
           unset LD_LIBRARY_PATH
           make dist-clean
           ./configure
