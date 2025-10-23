@@ -45,6 +45,7 @@
 #include "generated/wayland/fractional-scale-v1.h"
 #include "generated/wayland/cursor-shape-v1.h"
 #include "generated/wayland/xdg-activation-v1.h"
+#include "generated/wayland/fifo-v1.h"
 
 #ifndef CLOCK_MONOTONIC_RAW
 #define CLOCK_MONOTONIC_RAW 4

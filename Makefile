@@ -78,3 +78,4 @@ $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/fractional-scale/,fractio
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/cursor-shape/,cursor-shape-v1))
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/tablet/,tablet-v2))
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/xdg-activation/,xdg-activation-v1))
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/fifo/,fifo-v1))
