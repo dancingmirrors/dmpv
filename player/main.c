@@ -87,20 +87,7 @@ enum exit_reason {
     EXIT_ERROR,
 };
 
-const char mp_help_text[] =
-"Usage:   dmpv [options] [url|path/]filename\n"
-"\n"
-"Basic options:\n"
-" --start=<time>    seek to given (percent, seconds, or hh:mm:ss) position\n"
-" --no-audio        do not play sound\n"
-" --no-video        do not play video\n"
-" --fs              fullscreen playback\n"
-" --sub-file=<file> specify subtitle file to use\n"
-" --playlist=<file> specify playlist file\n"
-"\n"
-" --list-options    list all dmpv options\n"
-" --h=<string>      print options which contain the given string in their name\n"
-"\n";
+const char mp_help_text[] = "dmpv [options] file [--list-options]\n";
 
 static pthread_mutex_t terminal_owner_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct MPContext *terminal_owner;

@@ -201,7 +201,7 @@ void check_library_versions(struct mp_log *log, int v)
 
     for (int n = 0; n < MP_ARRAY_SIZE(libs); n++) {
         const struct lib *l = &libs[n];
-        mp_msg(log, v, "   %-15s %d.%d.%d", l->name, V(l->buildv));
+        mp_msg(log, v, "%-15s %d.%d.%d", l->name, V(l->buildv));
         if (l->buildv != l->runv)
             mp_msg(log, v, " (runtime %d.%d.%d)", V(l->runv));
         mp_msg(log, v, "\n");
