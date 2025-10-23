@@ -231,6 +231,7 @@ check(deps      = ["drm", "drmprime"],
                    "video/out/hwdec/hwdec_drmprime_overlay.c"])
 
 check("gbm",
+      desc      = "Generic Buffer Management",
       fn        = lambda: check_pkg_config("gbm"))
 
 check("-libplacebo*",
