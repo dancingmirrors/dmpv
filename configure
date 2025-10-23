@@ -289,12 +289,16 @@ check("-vulkan*",
       fn        = lambda: check_pkg_config("vulkan"),
       sources   = ["video/out/vulkan/context.c",
                    "video/out/vulkan/utils.c",
-                   "video/out/hwdec/hwdec_vulkan.c",
                    "video/out/vulkan/context_display.c"])
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
+check("-hwdec-vulkan*",
+      desc      = "Vulkan hardware acceleration",
+      deps      = "vulkan",
+      fn        = lambda: check_pkg_config("libavutil >= 60.13.100"),
+      sources   = "video/out/hwdec/hwdec_vulkan.c")
 
 check("-egl*",
       desc      = "EGL 1.4",

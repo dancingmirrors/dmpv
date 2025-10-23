@@ -599,7 +599,7 @@ static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
     mp_info(log, "    vaapi\n");
     mp_info(log, "    vaapi-copy\n");
     #endif
-    #if HAVE_VULKAN
+    #if HAVE_HWDEC_VULKAN
     mp_info(log, "    vulkan\n");
     mp_info(log, "    vulkan-copy\n");
     #endif

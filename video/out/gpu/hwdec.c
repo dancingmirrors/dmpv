@@ -39,7 +39,7 @@ const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
     &ra_hwdec_drmprime,
     &ra_hwdec_drmprime_overlay,
 #endif
-#if HAVE_VULKAN
+#if HAVE_HWDEC_VULKAN
     &ra_hwdec_vulkan,
 #endif
     NULL
