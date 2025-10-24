@@ -32,8 +32,7 @@ jobs:
           cd libplacebo
           meson setup --backend=ninja --prefix=/usr/local build
           meson compile -C build
-          cd build
-          sudo ninja install
+          sudo ninja -C build install
 
       - name: configure, build, install, test (GCC and clang)
         run: |
@@ -51,7 +50,6 @@ jobs:
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
           sudo rm -rf /usr/local/*
-          unset LD_LIBRARY_PATH
           make dist-clean
           ./configure
           make -j4
