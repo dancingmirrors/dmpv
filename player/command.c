@@ -3870,6 +3870,8 @@ static const struct m_property mp_properties_base[] = {
     {"audio-pts", mp_property_audio_pts},
     {"playtime-remaining", mp_property_playtime_remaining},
     {"playback-time", mp_property_playback_time},
+    {"remaining-file-loops", mp_property_remaining_file_loops},
+    {"remaining-ab-loops", mp_property_remaining_ab_loops},
     {"chapter", mp_property_chapter},
     {"edition", mp_property_edition},
     {"current-edition", mp_property_current_edition},
@@ -3993,9 +3995,6 @@ static const struct m_property mp_properties_base[] = {
 
     {"ab-loop-a", mp_property_ab_loop},
     {"ab-loop-b", mp_property_ab_loop},
-    {"remaining-file-loops", mp_property_remaining_file_loops},
-    {"remaining-ab-loops", mp_property_remaining_ab_loops},
-    {"chapter", mp_property_chapter},
 
 #define PROPERTY_BITRATE(name, old, type) \
     {name, mp_property_packet_bitrate, (void *)(uintptr_t)((type)|(old?0x100:0))}
