@@ -248,6 +248,7 @@ def check_wayland_protos():
     add_config_mak_var("WL_PROTO_DIR", data)
     return True
 check("-wayland*",
+      desc      = "Wayland support",
       fn        = lambda: check_wayland_protos() and
                           check_cc(include = "linux/input-event-codes.h",
                                    link = []) and
@@ -269,13 +270,13 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "$(BUILD)/generated/wayland/fifo-v1.c"])
 check("memfd-create*",
-      desc      = "memfd_create()",
+      desc      = "memfd_create() for Wayland",
       deps      = "wayland",
       fn        = lambda: check_cc(include = "sys/mman.h", link = [],
                                    expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"))
 
 check("-x11*",
-      desc      = "X11",
+      desc      = "X11 support",
       deps      = "gpl",
       fn        = lambda: check_pkg_config("x11         >= 1.0.0",
                                            "xscrnsaver  >= 1.0.0",
