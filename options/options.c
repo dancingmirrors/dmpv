@@ -567,7 +567,7 @@ static const m_option_t mp_opts[] = {
     {"audio-stream-silence", OPT_BOOL(audio_stream_silence)},
     {"audio-wait-open", OPT_FLOAT(audio_wait_open), M_RANGE(0, 60)},
     {"force-window", OPT_CHOICE(force_vo,
-        {"no", 0}, {"yes", 1})},
+        {"no", 0}, {"immediate", 1}, {"yes", 2})},
 
     {"volume-max", OPT_FLOAT(softvol_max), M_RANGE(100, 1000)},
     // values <0 for volume and mute are legacy and ignored
