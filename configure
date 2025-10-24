@@ -105,6 +105,7 @@ check(fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
       required  = "Required.")
 
 check("stdatomic*",
+      desc      = "stdatomic.h or slow emulation",
       fn        = lambda: check_cc(include = "stdatomic.h",
                                    expr =
                         "atomic_int_least64_t test = ATOMIC_VAR_INIT(123);"
