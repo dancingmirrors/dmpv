@@ -189,13 +189,13 @@ static char *get_term_status_msg(struct MPContext *mpctx)
     }
 
     if ((mpctx->ao_chain) && (mpctx->vo_chain)) {
-        saddf(&line, "A/V");
+        saddf(&line, "INFO");
     }
     else {
     if (mpctx->ao_chain)
-        saddf(&line, "A");
+        saddf(&line, "INFO");
     if (mpctx->vo_chain)
-        saddf(&line, "V");
+        saddf(&line, "INFO");
     }
     saddf(&line, ": ");
 
