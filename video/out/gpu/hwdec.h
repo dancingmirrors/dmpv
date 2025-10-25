@@ -43,6 +43,7 @@ struct ra_hwdec {
     const char **glsl_extensions;
     // For free use by hwdec driver
     void *priv;
+    // For working around the vdpau vs. vaapi mess.
     bool probing;
     // Used in overlay mode only.
     float overlay_colorkey[4];

@@ -25,7 +25,12 @@ permission.
 For information about authors and contributors, consult the git log, which
 contains the complete SVN and CVS history as well.
 
-./configure --enable-lgpl disables the following features:
+./configure --enable-lgpl disables the following files and associated features:
 
-OSS audio output (audio/out/ao_oss.c)
-X11 support      (video/out/x11_common.*)
+audio/out/ao_oss.c
+video/vdpau.c
+video/vdpau.h
+video/vdpau_mixer.c
+video/vdpau_mixer.h
+video/out/x11_common.c
+video/out/x11_common.h

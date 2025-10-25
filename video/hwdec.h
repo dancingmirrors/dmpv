@@ -102,5 +102,6 @@ const struct hwcontext_fns *hwdec_get_hwcontext_fns(int av_hwdevice_type);
 
 extern const struct hwcontext_fns hwcontext_fns_drmprime;
 extern const struct hwcontext_fns hwcontext_fns_vaapi;
+extern const struct hwcontext_fns hwcontext_fns_vdpau;
 
 #endif

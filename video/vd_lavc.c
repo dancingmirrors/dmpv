@@ -244,6 +244,8 @@ const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vulkan",          HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vulkan-copy",     HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vdpau-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vdpau",           HWDEC_FLAG_AUTO},
     {"no",              HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {0}
 };
@@ -593,7 +595,7 @@ static void select_and_set_hwdec(struct mp_filter *vd)
 static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
                           struct bstr name)
 {
-    mp_info(log, "Supported values:\n");
+    mp_info(log, "Supported values (if enabled in FFmpeg):\n");
     mp_info(log, "    auto (yes '')\n");
     #if HAVE_VAAPI
     mp_info(log, "    vaapi\n");
@@ -602,6 +604,10 @@ static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
     #if HAVE_HWDEC_VULKAN
     mp_info(log, "    vulkan\n");
     mp_info(log, "    vulkan-copy\n");
+    #endif
+    #if HAVE_VDPAU
+    mp_info(log, "    vdpau\n");
+    mp_info(log, "    vdpau-copy\n");
     #endif
     mp_info(log, "    no\n");
     mp_info(log, "    auto-safe\n");

@@ -268,6 +268,10 @@ enum mp_imgfmt {
     // AV_PIX_FMT_PAL8
     IMGFMT_PAL8,
 
+    // Hardware accelerated formats. Plane data points to special data
+    // structures, instead of pixel data.
+    IMGFMT_VDPAU,           // VdpVideoSurface
+
     // Not an actual format; base for dmpv-specific descriptor table.
     // Some may still map to AV_PIX_FMT_*.
     IMGFMT_CUST_BASE,
@@ -305,6 +309,7 @@ enum mp_imgfmt {
     IMGFMT_GBRP6,
 
     // Hardware accelerated formats (again).
+    IMGFMT_VDPAU_OUTPUT,    // VdpOutputSurface
     IMGFMT_VAAPI,
     IMGFMT_VULKAN,          // VKImage
     IMGFMT_DRMPRIME,        // AVDRMFrameDescriptor

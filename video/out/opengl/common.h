@@ -43,6 +43,7 @@ enum {
     MPGL_CAP_FB                 = (1 << 5),
     MPGL_CAP_VAO                = (1 << 6),
     MPGL_CAP_TEX_RG             = (1 << 10),    // GL_ARB_texture_rg / GL 3.x
+    MPGL_CAP_VDPAU              = (1 << 11),    // GL_NV_vdpau_interop
     MPGL_CAP_APPLE_RGB_422      = (1 << 12),    // GL_APPLE_rgb_422
     MPGL_CAP_1D_TEX             = (1 << 14),
     MPGL_CAP_3D_TEX             = (1 << 15),
@@ -215,6 +216,16 @@ struct GL {
     void (GLAPIENTRY *GetQueryObjectuiv)(GLuint, GLenum, GLuint *);
     void (GLAPIENTRY *GetQueryObjectui64v)(GLuint, GLenum, GLuint64 *);
 
+    void (GLAPIENTRY *VDPAUInitNV)(const GLvoid *, const GLvoid *);
+    void (GLAPIENTRY *VDPAUFiniNV)(void);
+    GLvdpauSurfaceNV (GLAPIENTRY *VDPAURegisterOutputSurfaceNV)
+        (GLvoid *, GLenum, GLsizei, const GLuint *);
+    GLvdpauSurfaceNV (GLAPIENTRY *VDPAURegisterVideoSurfaceNV)
+        (GLvoid *, GLenum, GLsizei, const GLuint *);
+    void (GLAPIENTRY *VDPAUUnregisterSurfaceNV)(GLvdpauSurfaceNV);
+    void (GLAPIENTRY *VDPAUSurfaceAccessNV)(GLvdpauSurfaceNV, GLenum);
+    void (GLAPIENTRY *VDPAUMapSurfacesNV)(GLsizei, const GLvdpauSurfaceNV *);
+    void (GLAPIENTRY *VDPAUUnmapSurfacesNV)(GLsizei, const GLvdpauSurfaceNV *);
 
     GLint (GLAPIENTRY *GetVideoSync)(GLuint *);
     GLint (GLAPIENTRY *WaitVideoSync)(GLint, GLint, unsigned int *);
