@@ -43,10 +43,14 @@ install:
 	$(Q) mkdir -p /usr/local/share/icons/hicolor/32x32/apps
 	$(Q) mkdir -p /usr/local/share/icons/hicolor/64x64/apps
 	$(Q) mkdir -p /usr/local/share/icons/hicolor/128x128/apps
+	$(Q) mkdir -p /usr/local/share/icons/hicolor/scalable/apps
+	$(Q) mkdir -p /usr/local/share/icons/hicolor/symbolic/apps
 	$(Q) cp -v etc/dmpv-icon-8bit-16x16.png /usr/local/share/icons/hicolor/16x16/apps/dmpv.png
 	$(Q) cp -v etc/dmpv-icon-8bit-32x32.png /usr/local/share/icons/hicolor/32x32/apps/dmpv.png
 	$(Q) cp -v etc/dmpv-icon-8bit-64x64.png /usr/local/share/icons/hicolor/64x64/apps/dmpv.png
 	$(Q) cp -v etc/dmpv-icon-8bit-128x128.png /usr/local/share/icons/hicolor/128x128/apps/dmpv.png
+	$(Q) cp -v etc/dmpv.svg /usr/local/share/icons/hicolor/scalable/apps/dmpv.svg
+	$(Q) cp -v etc/dmpv-symbolic.svg /usr/local/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg
 	$(Q) mkdir -p /usr/local/share/applications
 	$(Q) cp -v etc/dmpv.desktop /usr/local/share/applications
 	$(Q) mkdir -p /usr/local/etc
@@ -59,6 +63,8 @@ uninstall:
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/32x32/apps/dmpv.png
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/64x64/apps/dmpv.png
 	$(Q) rm -f -v /usr/local/share/icons/hicolor/128x128/apps/dmpv.png
+	$(Q) rm -f -v /usr/local/share/icons/hicolor/scalable/apps/dmpv.svg
+	$(Q) rm -f -v /usr/local/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg
 	$(Q) rm -f -v /usr/local/share/applications/dmpv.desktop
 	$(Q) rm -f -v /usr/local/etc/dmpv.conf
 
