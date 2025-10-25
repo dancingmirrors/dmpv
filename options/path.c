@@ -139,11 +139,11 @@ static char **mp_find_all_config_files_limited(void *talloc_ctx,
 
             char *file = mp_path_join_bstr(ret, bstr0(dir), fn);
             if (mp_path_exists(file)) {
-                MP_DBG(global, "config path: '%.*s' -> '%s'\n",
+                MP_VERBOSE(global, "config path: '%.*s' -> '%s'\n",
                         BSTR_P(fn), file);
                 MP_TARRAY_APPEND(NULL, ret, num_ret, file);
             } else {
-                MP_DBG(global, "config path: '%.*s' -/-> '%s'\n",
+                MP_VERBOSE(global, "config path: '%.*s' -/-> '%s'\n",
                         BSTR_P(fn), file);
             }
         }
