@@ -40,6 +40,7 @@
 #include "options/m_option.h"
 #include "common/msg.h"
 #include "osdep/endian.h"
+#include "osdep/timer.h"
 
 #include <alsa/asoundlib.h>
 
@@ -973,7 +974,7 @@ static bool recover_and_get_state(struct ao *ao, struct mp_pcm_state *state)
             if (err == -EAGAIN) {
                 // Cargo-cult from decades ago, with a cargo cult timeout.
                 MP_INFO(ao, "PCM resume EAGAIN - retrying.\n");
-                sleep(1);
+                mp_sleep_ns(MP_TIME_S_TO_NS(1));
                 continue;
             }
             if (err == -ENOSYS) {
