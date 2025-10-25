@@ -62,3 +62,11 @@ jobs:
           sudo make install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
+
+          make dist-clean
+          ./configure --enable-lgpl
+          make -j4
+          sudo make install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+          sudo make uninstall
