@@ -46,8 +46,7 @@ check(desc      = "warning CFLAGS",
                         "-Werror=format-security",
                         "-Wvla", "-Wundef",
                         "-Wno-pointer-sign",
-                        "-Wno-switch",
-                        "-Wno-unused-result"]))
+                        "-Wno-switch"]))
 
 check("gnuc",
       desc      = "GNU C",
@@ -70,7 +69,8 @@ check(desc      = "extra GCC warnings",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
                         "-Wmissing-prototypes", "-Wshadow",
-                        "-Wparentheses", "-Wpointer-arith"]))
+                        "-Wparentheses", "-Wpointer-arith",
+                        "-Wno-unused-result"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
