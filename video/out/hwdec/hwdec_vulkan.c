@@ -114,6 +114,7 @@ static int vulkan_init(struct ra_hwdec *hw)
     device_hwctx->enabled_dev_extensions = vk->vulkan->extensions;
     device_hwctx->nb_enabled_dev_extensions = vk->vulkan->num_extensions;
 
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(59, 34, 100)
     device_hwctx->nb_qf = 0;
     device_hwctx->qf[device_hwctx->nb_qf++] = (AVVulkanDeviceQueueFamily) {
         .idx = vk->vulkan->queue_graphics.index,
@@ -140,6 +141,21 @@ static int vulkan_init(struct ra_hwdec *hw)
             };
         }
     }
+#else
+    int decode_index = -1;
+    for (int i = 0; i < num_qf; i++) {
+        if ((qf[i].queueFamilyProperties.queueFlags) & VK_QUEUE_VIDEO_DECODE_BIT_KHR)
+            decode_index = i;
+    }
+    device_hwctx->queue_family_index = vk->vulkan->queue_graphics.index;
+    device_hwctx->nb_graphics_queues = vk->vulkan->queue_graphics.count;
+    device_hwctx->queue_family_tx_index = vk->vulkan->queue_transfer.index;
+    device_hwctx->nb_tx_queues = vk->vulkan->queue_transfer.count;
+    device_hwctx->queue_family_comp_index = vk->vulkan->queue_compute.index;
+    device_hwctx->nb_comp_queues = vk->vulkan->queue_compute.count;
+    device_hwctx->queue_family_decode_index = decode_index;
+    device_hwctx->nb_decode_queues = qf[decode_index].queueFamilyProperties.queueCount;
+#endif
 
     ret = av_hwdevice_ctx_init(hw_device_ctx);
     if (ret < 0) {
