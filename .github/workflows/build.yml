@@ -70,3 +70,17 @@ jobs:
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
           sudo make uninstall
+
+          make dist-clean
+          ./configure --disable-libplacebo
+          make -j4
+          sudo make install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          make dist-clean
+          CC=clang ./configure --disable-libplacebo
+          make -j4
+          sudo make install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
