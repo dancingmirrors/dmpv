@@ -84,3 +84,25 @@ jobs:
           sudo make install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
+
+          sudo apt-get purge -y libplacebo-dev
+          git clone --depth 1 --recursive --branch v6.338.2 https://github.com/haasn/libplacebo.git
+          cd libplacebo
+          meson setup build
+          meson compile -C build
+          sudo ninja -C build install
+          cd ..
+
+          make dist-clean
+          ./configure
+          make -j4
+          sudo make install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          make dist-clean
+          CC=clang ./configure
+          make -j4
+          sudo make install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
