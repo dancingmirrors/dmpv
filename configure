@@ -239,7 +239,9 @@ check("-libplacebo*",
       desc      = "libplacebo support",
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
-                   "video/out/placebo/utils.c"])
+                   "video/out/placebo/utils.c",
+                   "video/out/vo_default.c",
+                   "video/out/default/context.c"])
 
 def check_wayland_protos():
     data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
@@ -300,7 +302,6 @@ check(deps      = ["vulkan", "wayland"],
 check("-hwdec-vulkan*",
       desc      = "Vulkan hardware acceleration",
       deps      = "vulkan",
-      fn        = lambda: check_pkg_config("libavutil >= 60.13.100"),
       sources   = "video/out/hwdec/hwdec_vulkan.c")
 
 check("-egl*",
