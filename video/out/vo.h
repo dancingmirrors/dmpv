@@ -72,7 +72,7 @@ enum mp_voctrl {
     // Triggered by any change to the OSD (e.g. OSD style changes)
     VOCTRL_OSD_CHANGED,
 
-    /* private to vo_gpu */
+    /* currently still used by vo_gpu_next */
     VOCTRL_LOAD_HWDEC_API,
 
     VOCTRL_PREINIT,
@@ -119,7 +119,7 @@ enum mp_voctrl {
     VOCTRL_GET_DISPLAY_RES,             // int[2]
     VOCTRL_GET_WINDOW_ID,               // int64_t*
 
-    /* private to vo_gpu */
+    /* currently still used by vo_gpu_next */
     VOCTRL_EXTERNAL_RESIZE,
 
     VOCTRL_HDR_METADATA,            // struct mp_hdr_metadata*

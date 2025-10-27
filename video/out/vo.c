@@ -48,7 +48,6 @@
 #include "osdep/threads.h"
 
 extern const struct vo_driver video_out_default;
-extern const struct vo_driver video_out_gpu;
 extern const struct vo_driver video_out_sdl;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
@@ -60,7 +59,6 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_LIBPLACEBO
     &video_out_default,
 #endif
-    &video_out_gpu,
 #if HAVE_SDL2
     &video_out_sdl,
 #endif

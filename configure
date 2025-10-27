@@ -425,9 +425,6 @@ check(deps      = ["drm", "gl", "egl"],
 check(deps      = ["drm", "gl", "egl", "libplacebo", "vaapi"],
       sources   = "video/out/hwdec/dmabuf_interop_pl.c")
 
-check(deps      = ["gl", "egl", "egl-helpers"],
-      sources   = "video/filter/vf_gpu.c")
-
 check("-sdl2*",
       desc      = "SDL video output",
       fn        = lambda: check_pkg_config("sdl2"),
@@ -592,7 +589,6 @@ add_sources(
     "video/out/gpu/video.c",
     "video/out/gpu/video_shaders.c",
     "video/out/vo.c",
-    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_null.c",
