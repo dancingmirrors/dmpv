@@ -59,7 +59,7 @@ static int vulkan_init(struct ra_hwdec *hw)
 
     struct dmpvk_ctx *vk = ra_vk_ctx_get(hw->ra_ctx);
     if (!vk) {
-        MP_MSG(hw, level, "This is not a libplacebo Vulkan GPU API context.\n");
+        MP_WARN(hw, "This is not a libplacebo Vulkan GPU API context.\n");
         return 0;
     }
 
