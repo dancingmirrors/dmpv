@@ -50,6 +50,8 @@ $(BUILD)/player/lua.o: $(BUILD)/generated/player/lua/defaults.lua.inc \
                        $(BUILD)/generated/player/lua/assdraw.lua.inc \
                        $(BUILD)/generated/player/lua/options.lua.inc \
                        $(BUILD)/generated/player/lua/stats.lua.inc \
+                       $(BUILD)/generated/player/lua/360-sbs.lua.inc \
+                       $(BUILD)/generated/player/lua/360-sg.lua.inc \
                        $(BUILD)/generated/player/lua/positioning.lua.inc \
 
 # $(1): path prefix to the protocol, $(1)/$(2).xml is the full path

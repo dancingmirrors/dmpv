@@ -150,6 +150,8 @@ typedef struct MPOpts {
     char **script_files;
     char **script_opts;
     bool lua_load_stats;
+    bool lua_load_360_sbs;
+    bool lua_load_360_sg;
     bool auto_load_scripts;
     bool lua_load_positioning;
 
