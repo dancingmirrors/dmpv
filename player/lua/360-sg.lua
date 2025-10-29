@@ -6,7 +6,7 @@ local res   = 4.0
 local dfov  = 120.0
 
 local update = function ()
-    local ok, err = mp.command(string.format("no-osd vf add @vrrev:v360=sg:flat:in_stereo=2d:out_stereo=2d:id_fov=240.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*135.0:h=%s*135.0",dfov,yaw,pitch,res,res))
+    local ok, err = mp.command(string.format("async no-osd vf add @vrrev:v360=sg:flat:in_stereo=2d:out_stereo=2d:id_fov=240.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*135.0:h=%s*135.0",dfov,yaw,pitch,res,res))
 end
 
 local increment_res = function ()
@@ -28,7 +28,7 @@ end
 
 local increment_pitch = function ()
     update()
-    pitch = pitch+1.0
+    pitch = pitch+5.0
     if pitch >= 30.0 then
         pitch = 30.0
     end
@@ -36,7 +36,7 @@ local increment_pitch = function ()
 end
 local decrement_pitch = function ()
     update()
-    pitch = pitch-1.0
+    pitch = pitch-5.0
     if pitch < -30.0 then
         pitch = -30.0
     end
@@ -45,7 +45,7 @@ end
 
 local increment_yaw = function ()
     update()
-    yaw = yaw+1.0
+    yaw = yaw+5.0
     if yaw >= 20.0 then
         yaw = 20.0
     end
@@ -53,7 +53,7 @@ local increment_yaw = function ()
 end
 local decrement_yaw = function ()
     update()
-    yaw = yaw-1.0
+    yaw = yaw-5.0
     if yaw <= -20.0 then
         yaw = -20.0
     end
@@ -62,17 +62,17 @@ end
 
 local increment_zoom = function ()
     update()
-    dfov = dfov-1.0
-    if dfov <= 1.0 then
-    dfov = 1.0
+    dfov = dfov-5.0
+    if dfov <= 15.0 then
+    dfov = 15.0
     end
     update()
 end
 local decrement_zoom = function ()
     update()
-    dfov = dfov+1.0
-    if dfov >= 149.0 then
-    dfov = 149.0
+    dfov = dfov+15.0
+    if dfov >= 140.0 then
+    dfov = 140.0
     end
     update()
 end
