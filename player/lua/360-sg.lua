@@ -6,7 +6,7 @@ local res   = 4.0
 local dfov  = 120.0
 
 local update = function ()
-    local ok, err = mp.command(string.format("async no-osd vf add @vrrev:v360=sg:flat:in_stereo=2d:out_stereo=2d:id_fov=240.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*135.0:h=%s*135.0",dfov,yaw,pitch,res,res))
+    local ok, err = mp.command(string.format("no-osd sync vf add @vrrev:v360=sg:flat:in_stereo=2d:out_stereo=2d:id_fov=240.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*135.0:h=%s*135.0",dfov,yaw,pitch,res,res))
 end
 
 local increment_res = function ()
@@ -77,17 +77,17 @@ local decrement_zoom = function ()
     update()
 end
 
-mp.add_forced_key_binding("i", increment_pitch, 'repeatable')
-mp.add_forced_key_binding("k", decrement_pitch, 'repeatable')
+mp.add_forced_key_binding("i", increment_pitch, 'nonrepeatable')
+mp.add_forced_key_binding("k", decrement_pitch, 'nonrepeatable')
 
-mp.add_key_binding("l", increment_yaw, 'repeatable')
-mp.add_key_binding("j", decrement_yaw, 'repeatable')
+mp.add_key_binding("l", increment_yaw, 'nonrepeatable')
+mp.add_key_binding("j", decrement_yaw, 'nonrepeatable')
 
-mp.add_forced_key_binding("+", increment_res, 'repeatable')
-mp.add_forced_key_binding("_", decrement_res, 'repeatable')
+mp.add_forced_key_binding("+", increment_res, 'nonrepeatable')
+mp.add_forced_key_binding("_", decrement_res, 'nonrepeatable')
 
-mp.add_forced_key_binding("=", increment_zoom, 'repeatable')
-mp.add_forced_key_binding("-", decrement_zoom, 'repeatable')
+mp.add_forced_key_binding("=", increment_zoom, 'nonrepeatable')
+mp.add_forced_key_binding("-", decrement_zoom, 'nonrepeatable')
 
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "no")
