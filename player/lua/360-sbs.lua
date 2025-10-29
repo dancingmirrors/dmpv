@@ -11,69 +11,45 @@ end
 
 local increment_res = function ()
     update()
-    res = res+1.0
-    if res >= 6.0 then
-    res = 6.0
-    end
+    res = math.min(res + 1.0, 6.0)
     update()
 end
 local decrement_res = function ()
     update()
-    res = res-1.0
-    if res <= 1.0 then
-    res = 1.0
-    end
+    res = math.max(res - 1.0, 1.0)
     update()
 end
 
 local increment_pitch = function ()
     update()
-    pitch = pitch+5.0
-    if pitch >= 30.0 then
-        pitch = 30.0
-    end
+    pitch = math.min(pitch + 5.0, 30.0)
     update()
 end
 local decrement_pitch = function ()
     update()
-    pitch = pitch-5.0
-    if pitch < -30.0 then
-        pitch = -30.0
-    end
+    pitch = math.max(pitch - 5.0, -60.0)
     update()
 end
 
 local increment_yaw = function ()
     update()
-    yaw = yaw+5.0
-    if yaw >= 20.0 then
-        yaw = 20.0
-    end
+    yaw = math.min(yaw + 5.0, 20.0)
     update()
 end
 local decrement_yaw = function ()
     update()
-    yaw = yaw-5.0
-    if yaw <= -20.0 then
-        yaw = -20.0
-    end
+    yaw = math.max(yaw - 5.0, -20.0)
     update()
 end
 
 local increment_zoom = function ()
     update()
-    dfov = dfov-5.0
-    if dfov <= 15.0 then
-    dfov = 15.0
-    end
+    dfov = math.max(dfov - 10.0, 30.0)
     update()
 end
 local decrement_zoom = function ()
     update()
-    dfov = dfov+15.0
-    if dfov >= 140.0 then
-    dfov = 140.0
-    end
+    dfov = math.min(dfov + 10.0, 140.0)
     update()
 end
 
