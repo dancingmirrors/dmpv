@@ -217,7 +217,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
                                                        true);
         if (upload.successful_init) {
             if (upload.f) {
-                mp_verbose(log, "Converting %s[%s] -> %s[%s]\n",
+                mp_info(log, "Converting %s[%s] -> %s[%s]\n",
                         mp_imgfmt_to_name(imgpar.imgfmt),
                         mp_imgfmt_to_name(src_fmt),
                         mp_imgfmt_to_name(imgpar.imgfmt),
@@ -321,7 +321,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
             sws->out_format = out;
             sws->out_params = p->imgparams;
             sws->use_out_params = force_sws_params;
-            mp_verbose(log, "Converting %s -> %s\n", mp_imgfmt_to_name(src_fmt),
+            mp_info(log, "Converting %s -> %s\n", mp_imgfmt_to_name(src_fmt),
                     mp_imgfmt_to_name(sws->out_format));
             filters[1] = sws->f;
         }

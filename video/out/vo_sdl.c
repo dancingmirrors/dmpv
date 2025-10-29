@@ -327,7 +327,7 @@ static bool try_create_renderer(struct vo *vo, int i, const char *driver)
     }
 
     if (vc->renderer_index != i) {
-        MP_VERBOSE(vo, "Using %s\n", vc->renderer_info.name);
+        MP_INFO(vo, "Using %s\n", vc->renderer_info.name);
         vc->renderer_index = i;
     }
 
