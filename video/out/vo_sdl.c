@@ -902,6 +902,24 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     dst.w = vc->dst_rect.x1 - vc->dst_rect.x0;
     dst.h = vc->dst_rect.y1 - vc->dst_rect.y0;
 
+    {
+        int out_w = 0, out_h = 0;
+        if (vc->renderer) {
+            if (SDL_GetRendererOutputSize(vc->renderer, &out_w, &out_h) != 0) {
+                SDL_GetWindowSize(vc->window, &out_w, &out_h);
+            }
+        } else {
+            SDL_GL_GetDrawableSize(vc->window, &out_w, &out_h);
+            if (out_w == 0 || out_h == 0)
+                SDL_GetWindowSize(vc->window, &out_w, &out_h);
+        }
+
+        if (out_w > 0 && out_h > 0) {
+            dst.x = (out_w - dst.w) / 2;
+            dst.y = (out_h - dst.h) / 2;
+        }
+    }
+
     SDL_RenderCopy(vc->renderer, vc->tex, &src, &dst);
 
     draw_osd(vo);
