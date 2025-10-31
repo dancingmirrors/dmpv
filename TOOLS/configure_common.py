@@ -684,19 +684,18 @@ def finish():
     def _resolve_install_path(val, max_iter=10):
         if val is None:
             return None
+        import re
         res = val
         for _ in range(max_iter):
-            changed = False
-            import re
+            changed_flag = [False]
             def repl(match):
                 name = match.group(1)
                 if name in _G.install_paths:
-                    nonlocal changed  # Python 3.8+: inner scope
-                    changed = True
+                    changed_flag[0] = True
                     return _G.install_paths[name]
                 return match.group(0)
             new = re.sub(r"\$\(([^)]+)\)", repl, res)
-            if not changed:
+            if not changed_flag[0]:
                 res = new
                 break
             res = new
