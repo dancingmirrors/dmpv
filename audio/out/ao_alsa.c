@@ -44,6 +44,8 @@
 
 #include <alsa/asoundlib.h>
 
+#include "config.h"
+
 #if defined(SND_CHMAP_API_VERSION) && SND_CHMAP_API_VERSION >= (1 << 16)
 #define HAVE_CHMAP_API 1
 #else
