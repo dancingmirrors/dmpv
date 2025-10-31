@@ -24,6 +24,8 @@
 
 #include "video/mp_image.h"
 
+#include "config.h"
+
 typedef struct {
     uint32_t format;
     uint32_t padding;
