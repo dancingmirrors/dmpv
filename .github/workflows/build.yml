@@ -27,7 +27,7 @@ jobs:
 
           git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland.git --branch 1.23
           cd wayland
-          meson setup --prefix=/usr/local build
+          meson setup --prefix=/usr/local -Ddocumentation=false build
           meson compile -C build
           sudo ninja -C build install
 
