@@ -97,6 +97,31 @@ def begin():
     _G.root_dir = "."
     _G.build_dir = "build"
 
+    projname = os.environ.get("PROJNAME")
+    if not projname:
+        try:
+            makefile_path = os.path.join(_G.root_dir, "Makefile")
+            if os.path.exists(makefile_path):
+                with open(makefile_path, "r") as mf:
+                    for ln in mf:
+                        line = ln.strip()
+                        if line.startswith("PROJNAME"):
+                            parts = line.split("=", 1)
+                            if len(parts) == 2:
+                                projname = parts[1].strip()
+                                if projname.startswith('"') and projname.endswith('"'):
+                                    projname = projname[1:-1]
+                                projname = projname.split()[0]
+                                break
+        except Exception:
+            projname = None
+    if not projname:
+        try:
+            projname = os.path.basename(os.path.realpath(_G.root_dir)) or "dmpv"
+        except Exception:
+            projname = "dmpv"
+    _G.install_paths["PROJNAME"] = projname
+
     for var, val in install_paths_info:
         _G.install_paths[var] = val
 
@@ -656,7 +681,32 @@ def finish():
 
     _G.config_h += "\n"
     add_config_h_define("CONFIGURATION", " ".join(sys.argv))
-    add_config_h_define("DMPV_CONFDIR", "$(CONFLOADDIR)")
+    def _resolve_install_path(val, max_iter=10):
+        if val is None:
+            return None
+        res = val
+        for _ in range(max_iter):
+            changed = False
+            import re
+            def repl(match):
+                name = match.group(1)
+                if name in _G.install_paths:
+                    nonlocal changed  # Python 3.8+: inner scope
+                    changed = True
+                    return _G.install_paths[name]
+                return match.group(0)
+            new = re.sub(r"\$\(([^)]+)\)", repl, res)
+            if not changed:
+                res = new
+                break
+            res = new
+        return res
+
+    confload = _G.install_paths.get("CONFLOADDIR")
+    if confload is None:
+        confload = "$(PREFIX)/etc/$(PROJNAME)"
+    confload_resolved = _resolve_install_path(confload)
+    add_config_h_define("DMPV_CONFDIR", confload_resolved or confload)
     enabled_features = [x[0] for x in filter(lambda x: x[1], _G.dep_enabled.items())]
     add_config_h_define("FULLCONFIG", " ".join(sorted(enabled_features)))
 
