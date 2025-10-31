@@ -53,6 +53,8 @@ jobs:
           meson compile -C build
           sudo ninja -C build install
 
+          sudo ldconfig
+
       - name: configure, build, install, test (GCC and clang)
         run: |
           ./configure --enable-lgpl
@@ -111,6 +113,8 @@ jobs:
           meson compile -C build
           sudo ninja -C build install
           cd ..
+
+          sudo ldconfig
 
           make dist-clean
           ./configure
