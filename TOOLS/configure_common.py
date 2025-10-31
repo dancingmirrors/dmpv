@@ -222,7 +222,7 @@ def begin():
 # Check whether the first argument is the same type of any in the following
 # arguments. This _always_ returns val, but throws an exception if type checking
 # fails.
-# This is not very pythonic, but I'm trying to prevent bugs, so bugger off.
+# This is not very Pythonic, but I'm trying to prevent bugs, so bugger off.
 def typecheck(val, *types):
     vt = type(val)
     for t in types:
@@ -471,10 +471,9 @@ def _run_process(args):
                          stdin = -1)
     (p_out, p_err) = p.communicate()
     # We don't really want this. But Python 3 in particular makes it too much of
-    # a PITA (think power drill in anus) to consistently use byte strings, so
-    # we need to use "unicode" strings. Yes, a bad program could just blow up
-    # our butt here by outputting invalid UTF-8.
-    # Weakly support Python 2 too (gcc outputs UTF-8, which crashes Python 2).
+    # a PITA to consistently use byte strings, so we need to use "unicode" strings.
+    # Yes, a bad program could just blow us up here by outputting invalid UTF-8.
+    # Weakly support Python 2 too (GCC outputs UTF-8, which crashes Python 2).
     if type(b"") != str:
         p_out = p_out.decode("utf-8")
         p_err = p_err.decode("utf-8")
