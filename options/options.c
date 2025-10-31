@@ -218,6 +218,11 @@ const struct m_sub_options vo_sub_opts = {
             .w_per = true,
             .h_per = true,
         },
+       .geometry = {
+            .x = 0,
+            .y = 0,
+            .xy_valid = 1,
+       },
     },
 };
 
