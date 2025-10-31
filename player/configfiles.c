@@ -23,10 +23,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <utime.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
 
 #include <libavutil/md5.h>
 
 #include "misc/dmpv_talloc.h"
+#include "misc/ta.h"
 
 #include "osdep/io.h"
 
@@ -47,6 +51,69 @@
 
 #include "core.h"
 #include "command.h"
+
+static char *preferred_config_path(struct MPContext *mpctx)
+{
+    char *path = NULL;
+    struct dmpv_global *global = mpctx->global;
+
+    const char *xdg_config = getenv("XDG_CONFIG_HOME");
+    if (xdg_config && xdg_config[0]) {
+        path = ta_asprintf(global, "%s/dmpv/dmpv.conf", xdg_config);
+        if (path) {
+            if (access(path, R_OK) == 0)
+                return path;
+            talloc_free(path);
+            path = NULL;
+        }
+    } else {
+        const char *home = getenv("HOME");
+        if (home && home[0]) {
+            path = ta_asprintf(global, "%s/.config/dmpv/dmpv.conf", home);
+            if (path) {
+                if (access(path, R_OK) == 0)
+                    return path;
+                talloc_free(path);
+                path = NULL;
+            }
+        }
+    }
+
+    const char *xdg_dirs = getenv("XDG_CONFIG_DIRS");
+    if (!xdg_dirs || !xdg_dirs[0]) xdg_dirs = "/etc/xdg";
+    {
+        char *dirs = ta_strdup(global, xdg_dirs);
+        if (dirs) {
+            char *saveptr = NULL;
+            char *dir = strtok_r(dirs, ":", &saveptr);
+            while (dir) {
+                path = ta_asprintf(global, "%s/dmpv/dmpv.conf", dir);
+                if (path) {
+                    if (access(path, R_OK) == 0) {
+                        talloc_free(dirs);
+                        return path;
+                    }
+                    talloc_free(path);
+                    path = NULL;
+                }
+                dir = strtok_r(NULL, ":", &saveptr);
+            }
+            talloc_free(dirs);
+        }
+    }
+
+#ifdef DMPV_CONFDIR
+    path = ta_asprintf(global, "%s/dmpv.conf", DMPV_CONFDIR);
+    if (path) {
+        if (access(path, R_OK) == 0)
+            return path;
+        talloc_free(path);
+        path = NULL;
+    }
+#endif
+
+    return NULL;
+}
 
 static void load_all_cfgfiles(struct MPContext *mpctx, char *section,
                               char *filename)
@@ -86,7 +153,13 @@ void mp_parse_cfgfiles(struct MPContext *mpctx)
     if (encoding)
         section = "playback-default";
 
-    load_all_cfgfiles(mpctx, NULL, "/usr/local/etc/dmpv.conf");
+    char *pref = preferred_config_path(mpctx);
+    if (pref) {
+        MP_MSG(mpctx, MSGL_V, "Loading config (preferred) '%s'\n", pref);
+        m_config_parse_config_file(mpctx->mconfig, mpctx->global, pref, NULL, 0);
+        talloc_free(pref);
+    }
+
     load_all_cfgfiles(mpctx, section, "dmpv.conf|config");
 
     if (encoding) {
