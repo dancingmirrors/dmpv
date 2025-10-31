@@ -79,6 +79,20 @@ static void update_speed_filters(struct MPContext *mpctx)
     mp_output_chain_set_audio_speed(ao_c->filter, speed, resample, drop);
 }
 
+static bool has_video_track(struct MPContext *mpctx)
+{
+    if (mpctx->vo_chain && mpctx->vo_chain->is_coverart)
+        return false;
+
+    for (int n = 0; n < mpctx->num_tracks; n++) {
+        struct track *track = mpctx->tracks[n];
+        if (track->type == STREAM_VIDEO && !track->attached_picture && !track->image)
+            return true;
+    }
+
+    return false;
+}
+
 static int recreate_audio_filters(struct MPContext *mpctx)
 {
     struct ao_chain *ao_c = mpctx->ao_chain;
@@ -188,6 +202,16 @@ void update_playback_speed(struct MPContext *mpctx)
     mpctx->video_speed = mpctx->opts->playback_speed * mpctx->speed_factor_v;
 
     update_speed_filters(mpctx);
+}
+
+void audio_update_media_role(struct MPContext *mpctx)
+{
+    if (!mpctx->ao)
+        return;
+
+    enum aocontrol_media_role role = has_video_track(mpctx) ?
+        AOCONTROL_MEDIA_ROLE_MOVIE : AOCONTROL_MEDIA_ROLE_MUSIC;
+    ao_control(mpctx->ao, AOCONTROL_UPDATE_MEDIA_ROLE, &role);
 }
 
 static void ao_chain_reset_state(struct ao_chain *ao_c)

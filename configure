@@ -189,6 +189,14 @@ check(desc      = "FFmpeg",
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
+check("-pipewire*",
+      desc      = "PipeWire audio output",
+      fn        = lambda: check_pkg_config("libpipewire-0.3 >= 0.3.57"),
+      sources   = "audio/out/ao_pipewire.c")
+check("-alsa*",
+      desc      = "ALSA audio output",
+      fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
+      sources   = "audio/out/ao_alsa.c")
 check("-oss*",
       desc      = "OSS audio output",
       deps      = "gpl",
@@ -199,10 +207,6 @@ check("-sndio*",
       desc      = "sndio audio output",
       fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
       sources   = "audio/out/ao_sndio.c")
-check("-alsa*",
-      desc      = "ALSA audio output",
-      fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
-      sources   = "audio/out/ao_alsa.c")
 
 check("wsdisplay-usl-io-h*",
       fn        = lambda: check_cc(include = ["sys/types.h",
