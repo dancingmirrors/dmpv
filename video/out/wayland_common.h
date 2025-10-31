@@ -170,7 +170,6 @@ bool vo_wayland_check_visible(struct vo *vo);
 bool vo_wayland_init(struct vo *vo);
 bool vo_wayland_reconfig(struct vo *vo);
 
-int vo_wayland_allocate_memfd(struct vo *vo, size_t size);
 int vo_wayland_control(struct vo *vo, int *events, int request, void *arg);
 
 void vo_wayland_handle_scale(struct vo_wayland_state *wl);

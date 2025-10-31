@@ -272,11 +272,6 @@ check("-wayland*",
                    "$(BUILD)/generated/wayland/viewporter.c",
                    "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
                    "$(BUILD)/generated/wayland/fifo-v1.c"])
-check("memfd-create*",
-      desc      = "memfd_create() for Wayland",
-      deps      = "wayland",
-      fn        = lambda: check_cc(include = "sys/mman.h", link = [],
-                                   expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"))
 
 check("-x11*",
       desc      = "X11 support",
