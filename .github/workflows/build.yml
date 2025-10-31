@@ -25,11 +25,15 @@ jobs:
 
           sudo apt-get build-dep -y libxkbcommon wayland-protocols
 
+          set -x
+
           git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland.git --branch 1.23
           cd wayland
           meson setup --prefix=/usr/local -Ddocumentation=false build
           meson compile -C build
           sudo ninja -C build install
+          pkg-config --libs wayland-egl
+          pkg-config --atleast-version=9.0.0 wayland-egl ; echo $?
 
           git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland-protocols.git --branch 1.41
           cd wayland-protocols
@@ -51,6 +55,14 @@ jobs:
 
       - name: configure, build, install, test (GCC and clang)
         run: |
+          ./configure --enable-lgpl
+          make -j4
+          sudo make install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+          sudo make uninstall
+
+          make dist-clean
           ./configure
           make -j4
           sudo make install
@@ -77,14 +89,6 @@ jobs:
           sudo make install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
-
-          make dist-clean
-          ./configure --enable-lgpl
-          make -j4
-          sudo make install
-          ldd /usr/local/bin/dmpv
-          /usr/local/bin/dmpv
-          sudo make uninstall
 
           make dist-clean
           ./configure --disable-libplacebo
