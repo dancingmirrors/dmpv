@@ -223,6 +223,7 @@ const struct m_sub_options vo_sub_opts = {
             .y = 0,
             .xy_valid = 1,
        },
+       .force_window_position = true,
     },
 };
 
