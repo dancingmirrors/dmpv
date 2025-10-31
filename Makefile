@@ -81,3 +81,6 @@ $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/cursor-shape/,cursor-shap
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/tablet/,tablet-v2))
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/xdg-activation/,xdg-activation-v1))
 $(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/fifo/,fifo-v1))
+ifeq ($(HAVE_WP_COLOR_MANAGER_V1),1)
+$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/color-management/,color-management-v1))
+endif
