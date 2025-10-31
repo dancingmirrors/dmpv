@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import atexit
 import os
 import shutil
@@ -314,12 +315,11 @@ def set_exe_format(fmt):
 #       if the check was disabled, and could add unneeded things to CFLAGS.
 #       If this function returns False, all added build flags are removed again,
 #       which makes it easy to compose checks.
-#       You're not supposed to call check() itself from fn.
 #   sources: String, Array of Strings, or None.
 #            If the check is enabled, add these sources to the build.
 #            Duplicate sources are removed at end of configuration.
 #   required: String or None. If this is a string, the check is required, and
-#             if it's not enabled, the string is printed as error message.
+#             if this is not enabled, the string is printed as error message.
 def check(name = None, option = None, desc = None, deps = None, deps_any = None,
           deps_neg = None, sources = None, fn = None, required = None,
           default = None):
@@ -375,7 +375,7 @@ def check(name = None, option = None, desc = None, deps = None, deps_any = None,
         print("  %-30s %s %s [%s]" % (opt, act, desc, defaction))
         return
 
-    _G.log_file.write("\n--- Test: %s\n" % (name if name else "(unnnamed)"))
+    _G.log_file.write("\n--- Test: %s\n" % (name if name else "(unnamed)"))
 
     if desc:
         sys.stdout.write("Checking for %s... " % desc)
@@ -451,7 +451,7 @@ def check(name = None, option = None, desc = None, deps = None, deps_any = None,
     if desc:
         sys.stdout.write("%s\n" % outcome)
     _G.log_file.write("--- Outcome: %s (%s=%d)\n" %
-                      (outcome, name if name else "(unnnamed)", use_dep))
+                      (outcome, name if name else "(unnamed)", use_dep))
 
     if required is not None and not use_dep:
         print("Warning: %s" % required)
@@ -503,8 +503,6 @@ def _run_process(args):
 #   defined: String or None. Adds code that fails if "#ifdef $value" fails.
 #   flags: String, array of strings, or None. Each string is added to the
 #          compiler command line.
-#          Also, if the test succeeds, all arguments are added to the CFLAGS
-#          (if language==c) written to config.mak.
 #   link: String, array of strings, or None. Each string is added to the
 #         compiler command line, and the compiler is made to link (not passing
 #         "-c").
@@ -647,6 +645,22 @@ def add_config_h_define(name, val):
     if val is None:
         val = ""
     _G.config_h += "#define %s %s\n" % (name, val)
+    # Also export HAVE_* defines to config.mak so Makefile can read them reliably.
+    # Only export simple identifiers (avoid exporting arbitrary strings).
+    try:
+        import re
+        if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', name) and name.startswith("HAVE_"):
+            # val may be a quoted string; normalize to unquoted token or 0/1.
+            v = val
+            # If it's a quoted string, keep as-is; else if it's numeric or empty, pass through.
+            # Remove surrounding quotes if present so config.mak value is a plain token/number.
+            if isinstance(v, str) and len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+                v = v[1:-1]
+            # Write into config.mak using add_config_mak_var so proper escaping is applied.
+            add_config_mak_var(name, v)
+    except Exception:
+        # Best-effort: don't let errors here break configure.
+        pass
 
 # Add a makefile variable of the given name to config.mak.
 # If val is a string, it's quoted as string literal.
@@ -709,6 +723,40 @@ def finish():
     enabled_features = [x[0] for x in filter(lambda x: x[1], _G.dep_enabled.items())]
     add_config_h_define("FULLCONFIG", " ".join(sorted(enabled_features)))
 
+    # Emit per-feature #defines in config.h using canonical HAVE_... names.
+    # This avoids creating short lowercase macros (like 'alsa') that collide
+    # with identifiers in the code. Produce names like HAVE_ALSA,
+    # HAVE_WP_COLOR_MANAGER_V1, etc.
+    import re
+    def token_to_define(tok):
+        # If token already looks like a C identifier and already starts with HAVE_,
+        # return it unchanged.
+        if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', tok) and tok.startswith("HAVE_"):
+            return tok
+        # Otherwise synthesize HAVE_<UPPERCASE_TOKEN>, replacing illegal chars.
+        s = re.sub(r'[^A-Za-z0-9]', '_', tok)   # replace non-alnum with underscore
+        s = s.upper()
+        if not s.startswith("HAVE_"):
+            s = "HAVE_" + s
+        # Ensure it is a valid identifier (fallback)
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', s):
+            # sanitize again more aggressively
+            s = re.sub(r'^[^A-Za-z_]+', '', s)
+            if not s:
+                s = "HAVE_FEATURE"
+        return s
+
+    _G.config_h += "\n"
+    for tok in sorted(enabled_features):
+        name = token_to_define(tok)
+        _G.config_h += "#define %s 1\n" % name
+        # Also export synthesized HAVE_* names into config.mak so make can
+        # evaluate them at parse time (useful for conditional generation).
+        try:
+            add_config_mak_var(name, "1")
+        except Exception:
+            # best-effort: do not fail configure if exporting fails
+            pass
     with open(os.path.join(_G.build_dir, "config.h"), "w") as f:
         f.write(_G.config_h)
 
@@ -739,9 +787,16 @@ def finish():
         # reason). Since we do not know whether a source file is generated, the
         # convention is that the user takes care of prefixing it.
         if not s.startswith("$(BUILD)"):
+            # If the path already uses some other Make variable, reject it.
             assert not s.startswith("$") # no other variables which make sense
-            assert not s.startswith("generated/") # requires $(BUILD) prefix
-            s = "$(ROOT)/%s" % s
+            # If configure registered a generated artifact (paths under generated/),
+            # treat that as a build-time generated source and prefix with $(BUILD).
+            # This avoids producing paths like $(ROOT)/generated/... which later
+            # get an extra $(BUILD)/ prefix and leads to build/build/...
+            if s.startswith("generated/"):
+                s = "$(BUILD)/%s" % s
+            else:
+                s = "$(ROOT)/%s" % s
         sources.append(s)
 
     _G.config_mak += "SOURCES = \\\n"
