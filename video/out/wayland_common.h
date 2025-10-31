@@ -22,6 +22,8 @@
 #include "input/event.h"
 #include "vo.h"
 
+#include "video/mp_image.h"
+
 typedef struct {
     uint32_t format;
     uint32_t padding;
@@ -135,6 +137,23 @@ struct vo_wayland_state {
     struct wp_viewport   *viewport;
     struct wp_viewport   *osd_viewport;
     struct wp_viewport   *video_viewport;
+
+#if HAVE_WP_COLOR_MANAGER_V1
+    /* color-management (wp-color-management-v1) */
+    struct wp_color_manager_v1 *color_manager;
+    struct wp_color_management_surface_v1 *color_surface;
+    struct wp_color_management_surface_feedback_v1 *color_surface_feedback;
+    struct wp_image_description_creator_icc_v1 *icc_creator;
+    struct mp_image_params target_params;
+    bool supports_icc;
+    bool supports_parametric;
+    bool supports_display_primaries;
+    void *icc_file;
+    uint32_t icc_size;
+    /* HDR metadata from compositor (target max CLL / max FALL) */
+    uint32_t target_max_cll;
+    uint32_t target_max_fall;
+#endif
 
     /* Input */
     struct wl_keyboard *keyboard;
