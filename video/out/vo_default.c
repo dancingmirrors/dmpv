@@ -53,6 +53,8 @@
 #include "video/out/opengl/ra_gl.h"
 #endif
 
+#include "placebo/tone_map_helpers.h"
+
 struct osd_entry {
     pl_tex tex;
     struct pl_overlay_part *parts;
@@ -2010,12 +2012,37 @@ static void update_render_options(struct vo *vo)
         [GAMUT_LINEAR]          = &pl_gamut_map_linear,
     };
 
+
     pars->color_map_params.tone_mapping_function = tone_map_funs[opts->tone_map.curve];
-AV_NOWARN_DEPRECATED(
-    pars->color_map_params.tone_mapping_param = opts->tone_map.curve_param;
-    if (isnan(pars->color_map_params.tone_mapping_param))
-        pars->color_map_params.tone_mapping_param = 0.0;
-)
+
+    {
+        double val = opts->tone_map.curve_param;
+        if (isnan(val))
+            val = 0.0;
+
+#if PL_API_VER >= 340
+        struct pl_tone_map_params tm;
+        if (pltm_build_from_opts(NULL, val, &tm) &&
+            pltm_apply_to_color_map(&pars->color_map_params, &tm)) {
+            MP_VERBOSE(p, "libplacebo: applied typed pl_tone_map_params (param=%g)\n", val);
+        } else {
+            AV_NOWARN_DEPRECATED(
+                pars->color_map_params.tone_mapping_param = val;
+                if (isnan(pars->color_map_params.tone_mapping_param))
+                    pars->color_map_params.tone_mapping_param = 0.0;
+            )
+            MP_VERBOSE(p, "libplacebo: fallback write to deprecated tone_mapping_param = %g\n", val);
+        }
+#else
+        AV_NOWARN_DEPRECATED(
+            pars->color_map_params.tone_mapping_param = val;
+            if (isnan(pars->color_map_params.tone_mapping_param))
+                pars->color_map_params.tone_mapping_param = 0.0;
+        )
+        MP_VERBOSE(p, "libplacebo: using deprecated tone_mapping_param = %g\n", val);
+#endif
+    }
+
     pars->color_map_params.inverse_tone_mapping = opts->tone_map.inverse;
     pars->color_map_params.contrast_recovery = opts->tone_map.contrast_recovery;
     pars->color_map_params.visualize_lut = opts->tone_map.visualize;
