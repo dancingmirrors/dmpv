@@ -23,6 +23,16 @@
 
 #include "options/m_option.h"
 
+#include "config.h"
+
+#if !HAVE_LIBPLACEBO
+struct pl_hdr_metadata; /* forward declaration for when libplacebo is unavailable */
+
+void pl_hdr_metadata_merge(struct pl_hdr_metadata *dst, const struct pl_hdr_metadata *src);
+int pl_hdr_metadata_equal(const struct pl_hdr_metadata *a, const struct pl_hdr_metadata *b);
+int pl_hdr_metadata_contains(const struct pl_hdr_metadata *hdr, uint32_t flag);
+#endif
+
 /* NOTE: the csp and levels AUTO values are converted to specific ones
  * above vf/vo level. At least vf_scale relies on all valid settings being
  * nonzero at vf/vo level.
