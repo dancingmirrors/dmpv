@@ -250,28 +250,51 @@ def check_wayland_protos():
         return False
     add_config_mak_var("WL_PROTO_DIR", data)
     return True
+
 check("-wayland*",
-      desc      = "Wayland support",
-      fn        = lambda: check_wayland_protos() and
-                          check_cc(include = "linux/input-event-codes.h",
-                                   link = []) and
-                          check_program("WAYSCAN") and
-                          check_pkg_config("wayland-client    >= 1.21.0",
-                                           "wayland-cursor    >= 1.21.0",
-                                           "wayland-protocols >= 1.38",
-                                           "xkbcommon         >= 0.3.0"),
-      sources   = ["video/out/wayland_common.c",
-                   "$(BUILD)/generated/wayland/idle-inhibit-unstable-v1.c",
-                   "$(BUILD)/generated/wayland/presentation-time.c",
-                   "$(BUILD)/generated/wayland/xdg-shell.c",
-                   "$(BUILD)/generated/wayland/fractional-scale-v1.c",
-                   "$(BUILD)/generated/wayland/cursor-shape-v1.c",
-                   "$(BUILD)/generated/wayland/tablet-v2.c",
-                   "$(BUILD)/generated/wayland/xdg-decoration-unstable-v1.c",
-                   "$(BUILD)/generated/wayland/xdg-activation-v1.c",
-                   "$(BUILD)/generated/wayland/viewporter.c",
-                   "$(BUILD)/generated/wayland/linux-dmabuf-unstable-v1.c",
-                   "$(BUILD)/generated/wayland/fifo-v1.c"])
+      desc = "Wayland support",
+      fn = lambda: (
+          check_wayland_protos() and
+          check_cc(include="linux/input-event-codes.h", link=[]) and
+          check_program("WAYSCAN") and
+          check_pkg_config(
+              "wayland-client    >= 1.21.0",
+              "wayland-cursor    >= 1.21.0",
+              "wayland-protocols >= 1.38",
+              "xkbcommon         >= 0.3.0"
+          )
+      ),
+      sources = [
+          "video/out/wayland_common.c",
+          "generated/wayland/idle-inhibit-unstable-v1.c",
+          "generated/wayland/presentation-time.c",
+          "generated/wayland/xdg-shell.c",
+          "generated/wayland/fractional-scale-v1.c",
+          "generated/wayland/cursor-shape-v1.c",
+          "generated/wayland/tablet-v2.c",
+          "generated/wayland/xdg-decoration-unstable-v1.c",
+          "generated/wayland/xdg-activation-v1.c",
+          "generated/wayland/viewporter.c",
+          "generated/wayland/linux-dmabuf-unstable-v1.c",
+          "generated/wayland/fifo-v1.c",
+      ],
+)
+def have_wp_color_manager_v1():
+    try:
+        if check_pkg_config("wayland-protocols >= 1.41"):
+            return True
+    except Exception:
+        pass
+    data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
+    if not data:
+        return False
+    import os
+    return os.path.isdir(os.path.join(data, "staging", "color-management"))
+check("HAVE_WP_COLOR_MANAGER_V1",
+      deps      = "wayland",
+      desc      = "Wayland's color-management-v1",
+      fn        = lambda: have_wp_color_manager_v1(),
+      sources   = "generated/wayland/color-management-v1.c")
 
 check("-x11*",
       desc      = "X11 support",
