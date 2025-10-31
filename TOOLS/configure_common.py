@@ -725,8 +725,7 @@ def finish():
 
     # Emit per-feature #defines in config.h using canonical HAVE_... names.
     # This avoids creating short lowercase macros (like 'alsa') that collide
-    # with identifiers in the code. Produce names like HAVE_ALSA,
-    # HAVE_WP_COLOR_MANAGER_V1, etc.
+    # with identifiers in the code. Produce names like HAVE_ALSA, HAVE_OSS, etc.
     import re
     def token_to_define(tok):
         # If token already looks like a C identifier and already starts with HAVE_,

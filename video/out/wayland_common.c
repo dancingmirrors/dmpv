@@ -47,9 +47,7 @@
 #include "generated/wayland/cursor-shape-v1.h"
 #include "generated/wayland/xdg-activation-v1.h"
 #include "generated/wayland/fifo-v1.h"
-#if HAVE_WP_COLOR_MANAGER_V1
 #include "generated/wayland/color-management-v1.h"
-#endif
 
 #ifndef CLOCK_MONOTONIC_RAW
 #define CLOCK_MONOTONIC_RAW 4
@@ -59,7 +57,6 @@
 #define XDG_TOPLEVEL_STATE_SUSPENDED 9
 #endif
 
-#if HAVE_WP_COLOR_MANAGER_V1
 static void image_description_failed(void *data, struct wp_image_description_v1 *image_description,
                                      uint32_t reason, const char *message);
 static void image_description_ready(void *data, struct wp_image_description_v1 *image_description,
@@ -248,7 +245,6 @@ static const struct wp_image_description_info_v1_listener image_description_info
     info_target_max_cll,
     info_target_max_fall,
 };
-#endif
 
 static const struct mp_keymap keymap[] = {
     /* Special keys */
@@ -1372,7 +1368,6 @@ static void feedback_discarded(void *data, struct wp_presentation_feedback *fbac
         remove_feedback(fback_pool, fback);
 }
 
-#if HAVE_WP_COLOR_MANAGER_V1
 static void surface_feedback_preferred_changed(void *data,
                                               struct wp_color_management_surface_feedback_v1 *feedback,
                                               uint32_t identity)
@@ -1384,7 +1379,6 @@ static void surface_feedback_preferred_changed(void *data,
         wp_image_description_v1_add_listener(desc, &image_description_listener, wl);
     }
 }
-#endif
 
 static const struct wp_presentation_feedback_listener feedback_listener = {
     feedback_sync_output,
@@ -1485,12 +1479,10 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     int found = 1;
     struct vo_wayland_state *wl = data;
 
-#if HAVE_WP_COLOR_MANAGER_V1
     if (!strcmp(interface, wp_color_manager_v1_interface.name) && found++) {
         ver = MPMIN(ver, 1);
         wl->color_manager = wl_registry_bind(reg, id, &wp_color_manager_v1_interface, ver);
     }
-#endif
 
     if (!strcmp(interface, wl_compositor_interface.name) && (ver >= 4) && found++) {
         ver = MPMIN(ver, 6); /* Cap at 6 in case new events are added later. */
@@ -2217,7 +2209,6 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
         if (!out)
             return VO_NOTAVAIL;
 
-#if HAVE_WP_COLOR_MANAGER_V1
         if (wl->icc_file && wl->icc_size > 0) {
             MP_VERBOSE(wl, "VOCTRL_GET_ICC_PROFILE: returning compositor ICC (%u bytes)\n", wl->icc_size);
             void *copy = talloc_memdup(NULL, wl->icc_file, wl->icc_size);
@@ -2234,7 +2225,6 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
             return VO_FALSE;
         }
     }
-#endif
     case VOCTRL_CHECK_EVENTS: {
         wayland_dispatch_events(wl, 1, 0);
         check_dnd_fd(wl);
@@ -2516,7 +2506,6 @@ bool vo_wayland_init(struct vo *vo)
     wl_callback_add_listener(wl->frame_callback, &frame_listener, wl);
     wl_surface_commit(wl->surface);
 
-#if HAVE_WP_COLOR_MANAGER_V1
     if (wl->color_manager) {
         MP_VERBOSE(wl, "Compositor supports the %s protocol\n",
                    wp_color_manager_v1_interface.name);
@@ -2540,7 +2529,6 @@ bool vo_wayland_init(struct vo *vo)
             }
         }
     }
-#endif
 
     /* Do another roundtrip to ensure all of the above is initialized
      * before dmpv does anything else. */
@@ -2692,14 +2680,12 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->dmabuf_feedback)
         zwp_linux_dmabuf_feedback_v1_destroy(wl->dmabuf_feedback);
 
-#if HAVE_WP_COLOR_MANAGER_V1
     if (wl->color_surface_feedback)
         wp_color_management_surface_feedback_v1_destroy(wl->color_surface_feedback);
     if (wl->color_surface)
         wp_color_management_surface_v1_destroy(wl->color_surface);
     if (wl->color_manager)
         wp_color_manager_v1_destroy(wl->color_manager);
-#endif
 
     if (wl->seat)
         wl_seat_destroy(wl->seat);

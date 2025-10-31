@@ -264,7 +264,7 @@ check("-wayland*",
           check_pkg_config(
               "wayland-client    >= 1.21.0",
               "wayland-cursor    >= 1.21.0",
-              "wayland-protocols >= 1.38",
+              "wayland-protocols >= 1.41",
               "xkbcommon         >= 0.3.0"
           )
       ),
@@ -281,24 +281,9 @@ check("-wayland*",
           "generated/wayland/viewporter.c",
           "generated/wayland/linux-dmabuf-unstable-v1.c",
           "generated/wayland/fifo-v1.c",
+          "generated/wayland/color-management-v1.c"
       ],
 )
-def have_wp_color_manager_v1():
-    try:
-        if check_pkg_config("wayland-protocols >= 1.41"):
-            return True
-    except Exception:
-        pass
-    data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
-    if not data:
-        return False
-    import os
-    return os.path.isdir(os.path.join(data, "staging", "color-management"))
-check("HAVE_WP_COLOR_MANAGER_V1",
-      deps      = "wayland",
-      desc      = "Wayland's color-management-v1",
-      fn        = lambda: have_wp_color_manager_v1(),
-      sources   = "generated/wayland/color-management-v1.c")
 
 check("-x11*",
       desc      = "X11 support",
