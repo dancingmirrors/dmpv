@@ -211,6 +211,13 @@ const struct m_sub_options vo_sub_opts = {
         .timing_offset = 0.050,
         .swapchain_depth = 3,
         .focus_on_open = true,
+        .autofit_larger = {
+            .w = 90,
+            .h = 90,
+            .wh_valid = true,
+            .w_per = true,
+            .h_per = true,
+        },
     },
 };
 
