@@ -34,7 +34,7 @@ check("-optimize",
       fn        = lambda: chain(add_cflags("-O3", "-march=native",
                                 "-pipe", "-fno-signed-zeros",
                                 "-fno-trapping-math"), True),
-      desc      = "whether to optimize")
+      desc      = "optimization")
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         "-Werror=implicit-function-declaration",
