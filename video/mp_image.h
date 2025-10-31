@@ -28,6 +28,37 @@
 #include "csputils.h"
 #include "video/img_format.h"
 
+#include "config.h"
+
+/* If libplacebo is available, it provides pl_hdr_metadata. Otherwise, provide
+ * a compact fallback here so the type is visible to all headers that include
+ * mp_image.h (and thus to every translation unit).
+ *
+ * This fallback is placed before any other definitions so the compiler won't
+ * emit a "declared inside parameter list" warning.
+ */
+#if !HAVE_LIBPLACEBO
+#define PL_HDR_METADATA_CIE_Y      (1u << 0)
+#define PL_HDR_METADATA_HDR10      (1u << 1)
+#define PL_HDR_METADATA_HDR10PLUS  (1u << 2)
+
+struct pl_hdr_metadata {
+    uint32_t flags;      /* bitfield describing which subfields are valid */
+    /* luminances in cd/m^2 (or 0 if unknown) */
+    float min_luma;      /* minimum luminance (cd/m^2), 0 = unknown */
+    float max_luma;      /* maximum luminance (cd/m^2), 0 = unknown */
+    /* HDR numeric fields (cd/m^2) */
+    float max_cll;       /* maximum content light level (cd/m^2), 0 = unknown */
+    float max_fall;      /* maximum frame-average light level (cd/m^2), 0 = unknown */
+    /* HDR10+ scene peaks (cd/m^2) */
+    float scene_max[3];  /* per-component scene max RGB, 0 = unknown */
+    float scene_avg;     /* scene average (cd/m^2), 0 = unknown */
+    /* CIE Y / PQ-derived values (0..1 range), 0 if unknown */
+    float max_pq_y;      /* maximum PQ luminance (0..1), 0 = unknown */
+    float avg_pq_y;      /* average PQ luminance (0..1), 0 = unknown */
+};
+#endif /* HAVE_LIBPLACEBO */
+
 // Assumed minimum align needed for image allocation. It's notable that FFmpeg's
 // libraries except libavcodec don't really know what alignment they want.
 // Things will randomly crash or get slower if the alignment is not satisfied.

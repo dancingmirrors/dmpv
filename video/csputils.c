@@ -32,6 +32,48 @@
 #include "options/m_config.h"
 #include "options/m_option.h"
 
+#if !HAVE_LIBPLACEBO
+void pl_hdr_metadata_merge(struct pl_hdr_metadata *dst, const struct pl_hdr_metadata *src)
+{
+    if (!dst || !src) return;
+    dst->flags |= src->flags;
+    if (src->min_luma)  dst->min_luma  = src->min_luma;
+    if (src->max_luma)  dst->max_luma  = src->max_luma;
+    if (src->max_cll)   dst->max_cll   = src->max_cll;
+    if (src->max_fall)  dst->max_fall  = src->max_fall;
+    if (src->scene_max[0]) dst->scene_max[0] = src->scene_max[0];
+    if (src->scene_max[1]) dst->scene_max[1] = src->scene_max[1];
+    if (src->scene_max[2]) dst->scene_max[2] = src->scene_max[2];
+    if (src->scene_avg)    dst->scene_avg    = src->scene_avg;
+    if (src->max_pq_y)     dst->max_pq_y     = src->max_pq_y;
+    if (src->avg_pq_y)     dst->avg_pq_y     = src->avg_pq_y;
+}
+
+int pl_hdr_metadata_equal(const struct pl_hdr_metadata *a, const struct pl_hdr_metadata *b)
+{
+    if (a == b) return 1;
+    if (!a || !b) return 0;
+    if (a->flags != b->flags) return 0;
+    if (a->min_luma  != b->min_luma)  return 0;
+    if (a->max_luma  != b->max_luma)  return 0;
+    if (a->max_cll   != b->max_cll)   return 0;
+    if (a->max_fall  != b->max_fall)  return 0;
+    if (a->scene_max[0] != b->scene_max[0]) return 0;
+    if (a->scene_max[1] != b->scene_max[1]) return 0;
+    if (a->scene_max[2] != b->scene_max[2]) return 0;
+    if (a->scene_avg     != b->scene_avg)     return 0;
+    if (a->max_pq_y      != b->max_pq_y)      return 0;
+    if (a->avg_pq_y      != b->avg_pq_y)      return 0;
+    return 1;
+}
+
+int pl_hdr_metadata_contains(const struct pl_hdr_metadata *hdr, uint32_t flag)
+{
+    if (!hdr) return 0;
+    return !!(hdr->flags & flag);
+}
+#endif /* HAVE_LIBPLACEBO */
+
 const struct m_opt_choice_alternatives mp_csp_names[] = {
     {"auto",        MP_CSP_AUTO},
     {"bt.601",      MP_CSP_BT_601},
