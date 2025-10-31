@@ -195,6 +195,7 @@ struct priv {
     bool allow_sw;
     bool switch_mode;
     bool vsync;
+    bool borderless;
 };
 
 static bool lock_texture(struct vo *vo, struct mp_image *texmpi)
@@ -836,11 +837,17 @@ static int preinit(struct vo *vo)
     }
 
     // then actually try
-    vc->window = SDL_CreateWindow("DMPV", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                  640, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+    vc->window = SDL_CreateWindow("DMPV",
+                                  SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                  640, 480,
+                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     if (!vc->window) {
         MP_ERR(vo, "SDL_CreateWindow failed\n");
         return -1;
+    }
+
+    if (vc->borderless) {
+        SDL_SetWindowBordered(vc->window, SDL_FALSE);
     }
 
     // try creating a renderer (this also gets the renderer_info data
@@ -992,11 +999,13 @@ const struct vo_driver video_out_sdl = {
         .renderer_index = -1,
         .vsync = true,
         .allow_sw = true,
+        .borderless = true,
     },
     .options = (const struct m_option []){
         {"sw", OPT_BOOL(allow_sw)},
         {"switch-mode", OPT_BOOL(switch_mode)},
         {"vsync", OPT_BOOL(vsync)},
+        {"borderless", OPT_BOOL(borderless)},
         {NULL}
     },
     .preinit = preinit,
