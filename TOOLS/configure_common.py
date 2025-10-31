@@ -20,9 +20,7 @@ programs_info = [
 install_paths_info = [
     # env/opt       default
     ("PREFIX",      "/usr/local"),
-    ("BINDIR",      "$(PREFIX)/bin"),
     ("CONFDIR",     "$(PREFIX)/etc/$(PROJNAME)"),
-    ("DATADIR",     "$(PREFIX)/share"),
     ("CONFLOADDIR", "$(CONFDIR)"),
 ]
 
