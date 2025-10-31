@@ -21,11 +21,8 @@ install_paths_info = [
     # env/opt       default
     ("PREFIX",      "/usr/local"),
     ("BINDIR",      "$(PREFIX)/bin"),
-    ("LIBDIR",      "$(PREFIX)/lib"),
     ("CONFDIR",     "$(PREFIX)/etc/$(PROJNAME)"),
-    ("INCDIR",      "$(PREFIX)/include"),
     ("DATADIR",     "$(PREFIX)/share"),
-    ("MANDIR",      "$(DATADIR)/man"),
     ("CONFLOADDIR", "$(CONFDIR)"),
 ]
 
