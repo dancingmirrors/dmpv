@@ -89,7 +89,7 @@ uninstall:
 	$(Q) rm -f -v ${PREFIX}/share/icons/hicolor/scalable/apps/dmpv.svg
 	$(Q) rm -f -v ${PREFIX}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg
 	$(Q) rm -f -v ${PREFIX}/share/applications/dmpv.desktop
-	$(Q) rm -f -v ${PREFIXX}/etc/dmpv.conf
+	$(Q) rm -f -v ${PREFIX}/etc/dmpv.conf
 
 # Generic pattern rules (used for most source files).
 
