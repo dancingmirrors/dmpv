@@ -15,7 +15,6 @@
  * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pthread.h>
 
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>

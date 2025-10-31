@@ -19,7 +19,6 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include "misc/mp_assert.h"
 #include "osdep/threads.h"
 

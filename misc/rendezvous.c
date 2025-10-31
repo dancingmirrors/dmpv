@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include "osdep/threads.h"
 
 #include "rendezvous.h"

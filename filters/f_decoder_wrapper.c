@@ -21,7 +21,6 @@
 #include <stdbool.h>
 #include <math.h>
 #include "misc/mp_assert.h"
-#include <pthread.h>
 
 #include <libavutil/buffer.h>
 #include <libavutil/common.h>

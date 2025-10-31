@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <math.h>
-#include <pthread.h>
 #include "misc/mp_assert.h"
 #include <unistd.h>
 

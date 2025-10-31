@@ -23,7 +23,6 @@
 #include "misc/mp_assert.h"
 #include "osdep/threads.h"
 #include <stdbool.h>
-#include <pthread.h>
 
 #include "m_config_core.h"
 #include "options/m_option.h"

@@ -21,7 +21,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
-#include <pthread.h>
 #include <stdint.h>
 
 #include <math.h>

@@ -22,7 +22,6 @@
 #include "misc/mp_assert.h"
 #include "osdep/threads.h"
 #include <string.h>
-#include <pthread.h>
 #include <locale.h>
 
 #include "config.h"

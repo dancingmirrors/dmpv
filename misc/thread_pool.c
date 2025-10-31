@@ -13,7 +13,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <pthread.h>
 
 #include "common/common.h"
 #include "misc/mp_assert.h"

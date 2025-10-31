@@ -23,7 +23,6 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <pthread.h>
 #include "misc/mp_assert.h"
 
 #include <termios.h>

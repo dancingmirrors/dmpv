@@ -15,7 +15,6 @@
  * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>

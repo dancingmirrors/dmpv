@@ -23,7 +23,6 @@
 #include <strings.h>
 #include "misc/mp_assert.h"
 #include <stdbool.h>
-#include <pthread.h>
 
 #include "misc/client.h"
 

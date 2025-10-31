@@ -18,7 +18,6 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include "misc/mp_assert.h"
 #include "osdep/threads.h"
 #include <stdbool.h>

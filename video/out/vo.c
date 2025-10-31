@@ -20,7 +20,6 @@
 #include <string.h>
 #include "misc/mp_assert.h"
 #include <stdbool.h>
-#include <pthread.h>
 #include <math.h>
 
 #include "misc/dmpv_talloc.h"

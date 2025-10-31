@@ -21,7 +21,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "misc/mp_assert.h"
-#include <pthread.h>
 #include <stdint.h>
 
 #include "misc/dmpv_talloc.h"

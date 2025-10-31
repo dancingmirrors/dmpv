@@ -16,7 +16,6 @@
  */
 
 #include <limits.h>
-#include <pthread.h>
 #include "misc/mp_assert.h"
 
 #include <libavutil/mem.h>

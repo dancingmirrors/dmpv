@@ -1,5 +1,4 @@
 #include <math.h>
-#include <pthread.h>
 
 #include <libavutil/hwcontext.h>
 

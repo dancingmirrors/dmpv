@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <pthread.h>
 
 #include "av_log.h"
 #include "config.h"

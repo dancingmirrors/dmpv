@@ -22,7 +22,6 @@
 #include <libavutil/random_seed.h>
 #include "common/common.h"
 #include "osdep/timer.h"
-#include <pthread.h>
 #include <string.h>
 #include "random.h"
 
