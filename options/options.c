@@ -221,9 +221,9 @@ const struct m_sub_options vo_sub_opts = {
        .geometry = {
             .x = 0,
             .y = 0,
-            .xy_valid = 1,
+            .xy_valid = 0,
        },
-       .force_window_position = true,
+       .force_window_position = false,
     },
 };
 
