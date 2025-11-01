@@ -820,54 +820,12 @@ error:
     uninit_avctx(vd);
 }
 
-/* Debugging helpers for tracing waits during reset */
-#include <time.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-/* helper: monotonic ms */
-static long dbg_now_ms(void)
-{
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
-        return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-    return 0;
-}
-
-/* helper: thread id (prefer kernel TID when available) */
-static long dbg_tid_now(void)
-{
-#ifdef SYS_gettid
-    return (long)syscall(SYS_gettid);
-#else
-    return (long)(unsigned long)pthread_self();
-#endif
-}
-
 static void reset_avctx(struct mp_filter *vd)
 {
     vd_ffmpeg_ctx *ctx = vd->priv;
 
-    if (ctx->avctx && avcodec_is_open(ctx->avctx)) {
-        /* Log before flushing to help correlate which cond/mutex the main
-         * thread is waiting on and when the flush was attempted.
-         */
-        fprintf(stderr,
-            "vd_lavc: T%ld %ldms: before avcodec_flush_buffers avctx=%p ctx=%p\n",
-            dbg_tid_now(), dbg_now_ms(), (void*)ctx->avctx, (void*)ctx);
-        fflush(stderr);
-
+    if (ctx->avctx && avcodec_is_open(ctx->avctx))
         avcodec_flush_buffers(ctx->avctx);
-
-        /* Log immediately after flush returns (if it returns). If flush
-         * blocks inside libavcodec (pthread_cond_wait), you will see the
-         * "before" log but not the "after" log — which is useful.
-         */
-        fprintf(stderr,
-            "vd_lavc: T%ld %ldms: after avcodec_flush_buffers avctx=%p ctx=%p\n",
-            dbg_tid_now(), dbg_now_ms(), (void*)ctx->avctx, (void*)ctx);
-        fflush(stderr);
-    }
     ctx->flushing = false;
     ctx->hwdec_request_reinit = false;
 }
