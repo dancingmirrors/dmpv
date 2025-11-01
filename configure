@@ -25,16 +25,15 @@ check(desc      = "pkg-config",
 
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
-           "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing",
-           "-g3")
+           "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
 check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
       required  = "Required.")
-check("-optimize",
-      fn        = lambda: chain(add_cflags("-O3", "-march=native",
-                                "-pipe", "-fno-signed-zeros",
-                                "-fno-trapping-math"), True),
-      desc      = "optimization")
+#check("-optimize",
+#      fn        = lambda: chain(add_cflags("-O3", "-march=native",
+#                                "-pipe", "-fno-signed-zeros",
+#                                "-fno-trapping-math"), True),
+#      desc      = "optimization")
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         "-Werror=implicit-function-declaration",
@@ -46,7 +45,9 @@ check(desc      = "warning CFLAGS",
                         "-Werror=format-security",
                         "-Wvla", "-Wundef",
                         "-Wno-pointer-sign",
-                        "-Wno-switch"]))
+                        "-Wno-switch",
+                        "-g", "-O0",
+                        "-fno-omit-frame-pointer"]))
 
 check("gnuc",
       desc      = "GNU C",

@@ -22,6 +22,12 @@
 #include "context.h"
 #include "utils.h"
 
+#include <stdio.h>
+#include <time.h>
+#include <pthread.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
 struct vulkan_opts {
     char *device; // force a specific GPU
     int swap_mode;
@@ -280,6 +286,24 @@ static int color_depth(struct ra_swapchain *sw)
     return 0; // TODO: implement this somehow?
 }
 
+/* helper: monotonic ms */
+static long now_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* helper: thread id */
+static long tid_now(void)
+{
+#ifdef SYS_gettid
+    return (long)syscall(SYS_gettid);
+#else
+    return (long)(unsigned long)pthread_self();
+#endif
+}
+
 static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
 {
     struct priv *p = sw->priv;
@@ -292,10 +316,21 @@ static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
     if (out_fbo == NULL || !visible)
         return visible;
 
-    if (!pl_swapchain_start_frame(p->vk->swapchain, &frame))
+    fprintf(stderr, "plswap: T%ld %ldms: start_frame ENTER\n", tid_now(), now_ms());
+    fflush(stderr);
+    if (!pl_swapchain_start_frame(p->vk->swapchain, &frame)) {
+        fprintf(stderr, "plswap: T%ld %ldms: start_frame RETURN false\n", tid_now(), now_ms());
+        fflush(stderr);
         return false;
-    if (!mppl_wrap_tex(sw->ctx->ra, frame.fbo, &p->proxy_tex))
+    }
+    fprintf(stderr, "plswap: T%ld %ldms: start_frame RETURN true\n", tid_now(), now_ms());
+    fflush(stderr);
+
+    if (!mppl_wrap_tex(sw->ctx->ra, frame.fbo, &p->proxy_tex)) {
+        fprintf(stderr, "plswap: T%ld %ldms: start_frame wrap_tex FAILED\n", tid_now(), now_ms());
+        fflush(stderr);
         return false;
+    }
 
     *out_fbo = (struct ra_fbo) {
         .tex = &p->proxy_tex,
@@ -308,13 +343,23 @@ static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
 static bool submit_frame(struct ra_swapchain *sw, const struct vo_frame *frame)
 {
     struct priv *p = sw->priv;
-    return pl_swapchain_submit_frame(p->vk->swapchain);
+    fprintf(stderr, "plswap: T%ld %ldms: submit_frame ENTER\n", tid_now(), now_ms());
+    fflush(stderr);
+    bool r = pl_swapchain_submit_frame(p->vk->swapchain);
+    fprintf(stderr, "plswap: T%ld %ldms: submit_frame RETURN %d\n", tid_now(), now_ms(), r);
+    fflush(stderr);
+    return r;
 }
 
 static void swap_buffers(struct ra_swapchain *sw)
 {
     struct priv *p = sw->priv;
+    fprintf(stderr, "plswap: T%ld %ldms: swap_buffers ENTER\n", tid_now(), now_ms());
+    fflush(stderr);
     pl_swapchain_swap_buffers(p->vk->swapchain);
+    fprintf(stderr, "plswap: T%ld %ldms: swap_buffers RETURN\n", tid_now(), now_ms());
+    fflush(stderr);
+
     if (p->params.swap_buffers)
         p->params.swap_buffers(sw->ctx);
 }
