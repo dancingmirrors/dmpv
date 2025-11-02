@@ -31,7 +31,6 @@
 
 #include "misc/dmpv_talloc.h"
 
-#include "config.h"
 #include "misc/random.h"
 #include "osdep/io.h"
 #include "osdep/terminal.h"

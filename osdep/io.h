@@ -20,7 +20,6 @@
 #ifndef MPLAYER_OSDEP_IO
 #define MPLAYER_OSDEP_IO
 
-#include "config.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <limits.h>
