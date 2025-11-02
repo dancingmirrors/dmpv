@@ -50,7 +50,6 @@
 #include "misc/ctype.h"
 #include "present_sync.h"
 #include "video/out/vo.h"
-#include "gpu/lcms.h"
 
 #define EVT_RELEASE 1
 #define EVT_ACQUIRE 2
@@ -1013,29 +1012,6 @@ int vo_drm_control(struct vo *vo, int *events, int request, void *arg)
         drm->vsync.ust = 0;
         drm->vsync.msc = 0;
         return VO_TRUE;
-    case VOCTRL_GET_ICC_PROFILE: {
-        bstr *out = (bstr *)arg;
-        if (!out)
-            return VO_NOTIMPL;
-        
-        MP_VERBOSE(drm, "Generating ICC profile for DRM output\n");
-        
-#if HAVE_LCMS2
-        // DRM doesn't easily expose EDID color info, fall back to sRGB/BT.709
-        // Future enhancement: Parse EDID blob from connector properties
-        *out = gl_lcms_generate_profile_from_csp(NULL, drm->log,
-                                                  MP_CSP_PRIM_BT_709,
-                                                  MP_CSP_TRC_SRGB);
-        if (out->len > 0) {
-            MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
-            return VO_TRUE;
-        }
-        MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: failed to generate ICC profile\n");
-#else
-        MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: LCMS2 not available\n");
-#endif
-        return VO_FALSE;
-    }
     }
     return VO_NOTIMPL;
 }
