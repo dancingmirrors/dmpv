@@ -992,15 +992,20 @@ static int control(struct vo *vo, uint32_t request, void *data)
         if (!out)
             return VO_NOTIMPL;
         
+        MP_VERBOSE(vo, "Generating ICC profile for SDL output\n");
+        
 #if HAVE_LCMS2
         // SDL doesn't provide display color space info, fall back to sRGB/BT.709
         *out = gl_lcms_generate_profile_from_csp(NULL, vo->log,
                                                   MP_CSP_PRIM_BT_709,
                                                   MP_CSP_TRC_SRGB);
         if (out->len > 0) {
-            MP_VERBOSE(vo, "ICC profile auto-generated for SDL (%zu bytes)\n", out->len);
+            MP_VERBOSE(vo, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
             return VO_TRUE;
         }
+        MP_VERBOSE(vo, "VOCTRL_GET_ICC_PROFILE: failed to generate ICC profile\n");
+#else
+        MP_VERBOSE(vo, "VOCTRL_GET_ICC_PROFILE: LCMS2 not available\n");
 #endif
         return VO_FALSE;
     }
