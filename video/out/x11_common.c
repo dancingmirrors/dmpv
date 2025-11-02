@@ -64,6 +64,7 @@
 
 #include "input/input.h"
 #include "input/keycodes.h"
+#include "config.h"
 #include "gpu/lcms.h"
 
 #define vo_wm_LAYER 1
