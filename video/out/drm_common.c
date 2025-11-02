@@ -1018,6 +1018,8 @@ int vo_drm_control(struct vo *vo, int *events, int request, void *arg)
         if (!out)
             return VO_NOTIMPL;
         
+        MP_VERBOSE(drm, "Generating ICC profile for DRM output\n");
+        
 #if HAVE_LCMS2
         // DRM doesn't easily expose EDID color info, fall back to sRGB/BT.709
         // Future enhancement: Parse EDID blob from connector properties
@@ -1025,9 +1027,12 @@ int vo_drm_control(struct vo *vo, int *events, int request, void *arg)
                                                   MP_CSP_PRIM_BT_709,
                                                   MP_CSP_TRC_SRGB);
         if (out->len > 0) {
-            MP_VERBOSE(drm, "ICC profile auto-generated for DRM (%zu bytes)\n", out->len);
+            MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
             return VO_TRUE;
         }
+        MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: failed to generate ICC profile\n");
+#else
+        MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: LCMS2 not available\n");
 #endif
         return VO_FALSE;
     }
