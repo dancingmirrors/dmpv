@@ -31,10 +31,16 @@
 #include "osdep/io.h"
 #include "osdep/timer.h"
 #include "present_sync.h"
+#include "video/csputils.h"
+#include "misc/bstr.h"
 #include "wayland_common.h"
 #include "win_state.h"
 
 #include "config.h"
+
+#if HAVE_LCMS2
+#include <lcms2.h>
+#endif
 
 // Generated from wayland-protocols
 #include "generated/wayland/idle-inhibit-unstable-v1.h"
@@ -2197,6 +2203,149 @@ bool vo_wayland_check_visible(struct vo *vo)
     return render;
 }
 
+#if HAVE_LCMS2
+// Generate ICC profile from parametric color space information
+static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
+{
+    struct mp_colorspace *csp = &wl->target_params.color;
+    
+    // Check if we have valid parametric data
+    if (csp->primaries == MP_CSP_PRIM_AUTO || csp->gamma == MP_CSP_TRC_AUTO) {
+        MP_VERBOSE(wl, "generate_icc_profile: no valid parametric color space data\n");
+        return (bstr){0};
+    }
+    
+    // Map mpv color primaries to CIE xy chromaticities
+    // Using sRGB/BT.709 primaries as fallback/example
+    cmsCIExyY white_point;
+    cmsCIExyYTRIPLE primaries;
+    
+    // D65 white point (standard for most content)
+    white_point.x = 0.3127;
+    white_point.y = 0.3290;
+    white_point.Y = 1.0;
+    
+    // Map primaries based on compositor data
+    switch (csp->primaries) {
+    case MP_CSP_PRIM_BT_709:
+    case MP_CSP_PRIM_AUTO:
+        // BT.709 / sRGB primaries
+        primaries.Red.x = 0.64;
+        primaries.Red.y = 0.33;
+        primaries.Green.x = 0.30;
+        primaries.Green.y = 0.60;
+        primaries.Blue.x = 0.15;
+        primaries.Blue.y = 0.06;
+        break;
+    case MP_CSP_PRIM_BT_2020:
+        // BT.2020 primaries
+        primaries.Red.x = 0.708;
+        primaries.Red.y = 0.292;
+        primaries.Green.x = 0.170;
+        primaries.Green.y = 0.797;
+        primaries.Blue.x = 0.131;
+        primaries.Blue.y = 0.046;
+        break;
+    case MP_CSP_PRIM_DCI_P3:
+    case MP_CSP_PRIM_DISPLAY_P3:
+        // DCI-P3/Display P3 primaries
+        primaries.Red.x = 0.680;
+        primaries.Red.y = 0.320;
+        primaries.Green.x = 0.265;
+        primaries.Green.y = 0.690;
+        primaries.Blue.x = 0.150;
+        primaries.Blue.y = 0.060;
+        break;
+    default:
+        // Fallback to sRGB
+        MP_VERBOSE(wl, "generate_icc_profile: unknown primaries %d, using sRGB\n", csp->primaries);
+        primaries.Red.x = 0.64;
+        primaries.Red.y = 0.33;
+        primaries.Green.x = 0.30;
+        primaries.Green.y = 0.60;
+        primaries.Blue.x = 0.15;
+        primaries.Blue.y = 0.06;
+        break;
+    }
+    
+    primaries.Red.Y = 1.0;
+    primaries.Green.Y = 1.0;
+    primaries.Blue.Y = 1.0;
+    
+    // Map transfer function
+    cmsToneCurve *curves[3];
+    switch (csp->gamma) {
+    case MP_CSP_TRC_SRGB:
+        // sRGB gamma
+        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        break;
+    case MP_CSP_TRC_LINEAR:
+        // Linear
+        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 1.0);
+        break;
+    case MP_CSP_TRC_GAMMA22:
+        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        break;
+    case MP_CSP_TRC_GAMMA28:
+        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.8);
+        break;
+    case MP_CSP_TRC_PQ:
+    case MP_CSP_TRC_HLG:
+        // For HDR transfer functions, use gamma 2.2 as approximation
+        MP_VERBOSE(wl, "generate_icc_profile: HDR transfer function %d, using gamma 2.2\n", csp->gamma);
+        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        break;
+    default:
+        // Fallback to sRGB gamma
+        MP_VERBOSE(wl, "generate_icc_profile: unknown gamma %d, using 2.2\n", csp->gamma);
+        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        break;
+    }
+    
+    if (!curves[0]) {
+        MP_ERR(wl, "generate_icc_profile: failed to create tone curve\n");
+        return (bstr){0};
+    }
+    
+    // Create RGB profile
+    cmsHPROFILE profile = cmsCreateRGBProfile(&white_point, &primaries, curves);
+    cmsFreeToneCurve(curves[0]);
+    
+    if (!profile) {
+        MP_ERR(wl, "generate_icc_profile: failed to create ICC profile\n");
+        return (bstr){0};
+    }
+    
+    // Save profile to memory
+    cmsUInt32Number profile_size = 0;
+    cmsSaveProfileToMem(profile, NULL, &profile_size);
+    if (profile_size == 0) {
+        cmsCloseProfile(profile);
+        MP_ERR(wl, "generate_icc_profile: failed to get profile size\n");
+        return (bstr){0};
+    }
+    
+    void *profile_data = talloc_size(NULL, profile_size);
+    if (!profile_data) {
+        cmsCloseProfile(profile);
+        MP_ERR(wl, "generate_icc_profile: failed to allocate memory\n");
+        return (bstr){0};
+    }
+    
+    if (!cmsSaveProfileToMem(profile, profile_data, &profile_size)) {
+        cmsCloseProfile(profile);
+        talloc_free(profile_data);
+        MP_ERR(wl, "generate_icc_profile: failed to save profile to memory\n");
+        return (bstr){0};
+    }
+    
+    cmsCloseProfile(profile);
+    
+    MP_VERBOSE(wl, "generate_icc_profile: generated ICC profile from parametric data (%u bytes)\n", profile_size);
+    return (bstr){ .start = profile_data, .len = profile_size };
+}
+#endif
+
 int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
 {
     struct vo_wayland_state *wl = vo->wl;
@@ -2219,11 +2368,19 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
             }
             *out = (bstr){ .start = copy, .len = wl->icc_size };
             return VO_TRUE;
-        } else {
-            MP_VERBOSE(wl, "VOCTRL_GET_ICC_PROFILE: no compositor ICC available\n");
-            *out = (bstr){0};
-            return VO_FALSE;
         }
+        
+#if HAVE_LCMS2
+        // Try to generate ICC profile from parametric color space data
+        *out = generate_icc_profile_from_params(wl);
+        if (out->len > 0) {
+            return VO_TRUE;
+        }
+#endif
+        
+        MP_VERBOSE(wl, "VOCTRL_GET_ICC_PROFILE: no compositor ICC available\n");
+        *out = (bstr){0};
+        return VO_FALSE;
     }
     case VOCTRL_CHECK_EVENTS: {
         wayland_dispatch_events(wl, 1, 0);
