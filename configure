@@ -40,6 +40,7 @@ check("-debug-build",
 check("-debug-build-extensive",
       fn        = lambda: chain(add_cflags("-O0", "-g", "-fno-omit-frame-pointer"), True),
       desc      = "-O0, -g, -fno-omit-frame-pointer",
+      deps_neg  = "optimize",
       default   = False)
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
