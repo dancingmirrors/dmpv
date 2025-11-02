@@ -38,7 +38,7 @@ static void wayland_vk_swap_buffers(struct ra_ctx *ctx)
     struct vo_wayland_state *wl = ctx->vo->wl;
     struct priv *p = ctx->priv;
 
-    // Defensive check: ensure wayland state is valid
+    /* Defensive check: ensure wayland state is valid */
     if (!wl || !wl->opts) {
         MP_WARN(ctx, "Wayland state invalid during swap_buffers\n");
         return;
@@ -79,7 +79,7 @@ static bool wayland_vk_init(struct ra_ctx *ctx)
     if (!vo_wayland_init(ctx->vo))
         goto error;
 
-    // Defensive check: ensure Wayland display and surface are valid
+    /* Defensive check: ensure Wayland display and surface are valid */
     if (!ctx->vo->wl || !ctx->vo->wl->display || !ctx->vo->wl->surface) {
         MP_MSG(ctx, msgl, "Wayland display or surface is NULL, cannot create Vulkan surface\n");
         goto error;
@@ -127,7 +127,7 @@ static bool resize(struct ra_ctx *ctx)
 {
     struct vo_wayland_state *wl = ctx->vo->wl;
 
-    // Defensive check: ensure wayland state is valid
+    /* Defensive check: ensure wayland state is valid */
     if (!wl) {
         MP_ERR(ctx, "Wayland state is NULL during resize\n");
         return false;
@@ -138,7 +138,7 @@ static bool resize(struct ra_ctx *ctx)
     const int32_t width = mp_rect_w(wl->geometry);
     const int32_t height = mp_rect_h(wl->geometry);
 
-    // Defensive check: ensure dimensions are reasonable
+    /* Defensive check: ensure dimensions are reasonable */
     if (width <= 0 || height <= 0) {
         MP_WARN(wl, "Invalid resize dimensions: %dx%d, skipping resize\n", width, height);
         return false;
@@ -178,7 +178,7 @@ static void wayland_vk_update_render_opts(struct ra_ctx *ctx)
 {
     struct vo_wayland_state *wl = ctx->vo->wl;
     
-    // Defensive check: ensure wayland state and surface are valid
+    /* Defensive check: ensure wayland state and surface are valid */
     if (!wl || !wl->surface) {
         MP_WARN(ctx, "Wayland state or surface invalid during update_render_opts\n");
         return;
