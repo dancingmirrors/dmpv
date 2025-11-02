@@ -1596,14 +1596,16 @@ static void cache_save_obj(void *p, pl_cache_obj obj)
 
     int64_t save_start = mp_time_ns();
     FILE *file = fopen(filepath, "wb");
-    if (file) {
-        size_t written = fwrite(obj.data, 1, obj.size, file);
-        fclose(file);
-        if (written != obj.size) {
-            MP_WARN(c, "Failed to write cache file %s\n", filepath);
-            unlink(filepath);
-            goto done;
-        }
+    if (!file) {
+        MP_WARN(c, "Failed to open cache file %s for writing\n", filepath);
+        goto done;
+    }
+    size_t written = fwrite(obj.data, 1, obj.size, file);
+    fclose(file);
+    if (written != obj.size) {
+        MP_WARN(c, "Failed to write cache file %s\n", filepath);
+        unlink(filepath);
+        goto done;
     }
     int64_t save_end = mp_time_ns();
     MP_DBG(c, "%s: key(%" PRIx64 "), size(%zu), save time(%.3f ms)\n",
@@ -1670,8 +1672,8 @@ static int compare_atime(const void *a, const void *b)
     time_t ta = ((struct file_entry *)a)->atime;
     time_t tb = ((struct file_entry *)b)->atime;
     // Sort in descending order (most recent first)
-    if (tb > ta) return 1;
-    if (tb < ta) return -1;
+    if (tb > ta) return -1;
+    if (tb < ta) return 1;
     return 0;
 }
 
@@ -1734,8 +1736,8 @@ static void cache_uninit(struct priv *p, struct cache *cache)
         cache_size += files[i].size;
         double rel_use = difftime(t, files[i].atime);
         if (cache_size > cache_limit && rel_use > 60 * 60 * 24) {
-            MP_VERBOSE(p, "Removing %s | size: %9zu bytes | last used: %9d seconds ago\n",
-                       files[i].filepath, files[i].size, (int)rel_use);
+            MP_VERBOSE(p, "Removing %s | size: %9zu bytes | last used: %9.0f seconds ago\n",
+                       files[i].filepath, files[i].size, rel_use);
             unlink(files[i].filepath);
         }
     }
