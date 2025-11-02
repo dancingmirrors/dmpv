@@ -96,6 +96,9 @@ uninstall:
 
 # Generic pattern rules (used for most source files).
 
+# Enable secondary expansion for order-only directory prerequisites
+.SECONDEXPANSION:
+
 # Use order-only prerequisites for directories to avoid redundant mkdir calls
 $(BUILD)/%.o: %.c | $$(@D)/.
 	$(LOG) "CC" "$@"
@@ -109,10 +112,9 @@ $(BUILD_TARGET): $(BUILD_OBJECTS) | $$(@D)/.
 	$(LOG) "LINK" "$@"
 	$(Q) $(CC) $(BUILD_OBJECTS) $(CFLAGS) $(LDFLAGS) -o $@
 
-# Create directories as needed (using secondary expansion)
-.SECONDEXPANSION:
+# Create directories as needed
 %/.:
-	$(Q) mkdir -p $(@D)
+	$(Q) mkdir -p $(dir $@)
 
 .PHONY: all clean .pregen
 

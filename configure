@@ -17,10 +17,10 @@ check("gpl*",
       deps_neg  = "lgpl")
 
 check(desc      = "whether the compiler works",
-      required  = "Required.",
+      required  = "C compiler: missing or broken",
       fn        = lambda: check_program("CC") and check_cc(link = []))
 check(desc      = "pkg-config",
-      required  = "Required.",
+      required  = "pkg-config: missing or not in PATH",
       fn        = lambda: check_program("PKG_CONFIG"))
 
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
@@ -32,7 +32,7 @@ check("-debug-build",
       default   = True)
 check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
-      required  = "Required.")
+      required  = "C11 or C99 compiler: missing, broken, or too old")
 check("-optimize",
       fn        = lambda: chain(add_cflags("-O3", "-march=native",
                                 "-pipe", "-fno-signed-zeros",
@@ -88,7 +88,7 @@ check("-usan",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []))
 
 check("-git*",
-      required  = "Required.",
+      required  = "git: missing or not in PATH",
       fn        = lambda: check_program("GIT"))
 
 check(desc      = "-fstack-protector-strong",
@@ -96,7 +96,7 @@ check(desc      = "-fstack-protector-strong",
 
 check(fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
-      required  = "Required.",
+      required  = "POSIX system: required (must define _POSIX_VERSION)",
       sources   = ["osdep/language-posix.c",
                    "osdep/polldev.c",
                    "sub/filter_regex.c",
@@ -105,7 +105,7 @@ check(fn        = lambda: check_cc(include = "unistd.h",
 check(fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
                                    include = "pthread.h",
                                    expr = "pthread_self();"),
-      required  = "Required.")
+      required  = "pthreads: missing or broken")
 
 check("stdatomic*",
       desc      = "stdatomic.h or slow emulation",
@@ -114,7 +114,7 @@ check("stdatomic*",
                         "atomic_int_least64_t test = ATOMIC_VAR_INIT(123);"
                         "atomic_fetch_add(&test, 1);"))
 check(deps_any  = ["stdatomic", "gnuc"],
-      required  = "Required.")
+      required  = "stdatomic.h or GCC: missing (need C11 atomics support)")
 
 check("-libiconv-plug*",
       desc      = "-DLIBICONV_PLUG",
@@ -130,9 +130,9 @@ check("-uchardet*",
 
 check(fn        = lambda: check_cc(include = "glob.h",
                                    expr = 'glob("filename", 0, 0, 0);'),
-      required  = "Required.")
+      required  = "glob.h: missing or broken")
 check(fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"),
-      required  = "Required.")
+      required  = "fchmod: missing or broken")
 
 check("glibc-thread-name*",
       fn        = lambda: check_cc(include = "pthread.h",
@@ -162,14 +162,14 @@ check("-lua*",
 check("-libass*",
       desc      = "libass subtitle/OSD renderer",
       fn        = lambda: check_pkg_config("libass >= 0.17.0"),
-      required  = "Required.",
+      required  = "libass >= 0.17.0: missing, broken, or too old",
       sources   = ["sub/ass_mp.c",
                    "sub/osd_libass.c",
                    "sub/sd_ass.c"])
 
 check(fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
                                    expr = "inflate(0, Z_NO_FLUSH);"),
-      required  = "Required.")
+      required  = "zlib: missing or broken")
 
 check("-lcms2*",
       desc      = "Little Color Management System 2",
@@ -182,15 +182,15 @@ check("-libarchive*",
 
 check(desc      = "FFmpeg",
       fn        = lambda: check_pkg_config(
-                    "libavutil      >= 58.12.100",
-                    "libavcodec     >= 60.15.100",
-                    "libavformat    >= 60.6.100",
-                    "libswscale     >= 7.2.100",
-                    "libavfilter    >= 9.12.100",
-                    "libswresample  >= 4.10.100"),
-      required  = "Required.")
+                    "libavutil      >= 56.0.0",
+                    "libavcodec     >= 58.0.0",
+                    "libavformat    >= 58.0.0",
+                    "libswscale     >= 5.0.0",
+                    "libavfilter    >= 7.0.0",
+                    "libswresample  >= 3.0.0"),
+      required  = "FFmpeg libraries: missing, broken, or too old (need libavutil >= 56.0.0, libavcodec >= 58.0.0, libavformat >= 58.0.0, libswscale >= 5.0.0, libavfilter >= 7.0.0, libswresample >= 3.0.0)")
 check("-libavdevice*",
-      fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
+      fn        = lambda: check_pkg_config("libavdevice >= 58.0.0"))
 
 check("-pipewire*",
       desc      = "PipeWire audio output",
@@ -225,7 +225,7 @@ check("-drm*",
       desc      = "Direct Rendering Manager",
       deps_any  = ["wsdisplay-usl-io-h", "vt_h", "consio_h"],
       fn        = lambda: check_pkg_config("libdrm >= 2.4.105"),
-      required  = "Required.",
+      required  = "libdrm >= 2.4.105: missing, broken, or too old",
       sources   = ["video/out/drm_atomic.c",
                    "video/out/drm_common.c",
                    "video/out/vo_drm.c"])
@@ -265,9 +265,9 @@ check("-wayland*",
           check_cc(include="linux/input-event-codes.h", link=[]) and
           check_program("WAYSCAN") and
           check_pkg_config(
-              "wayland-client    >= 1.21.0",
-              "wayland-cursor    >= 1.21.0",
-              "wayland-protocols >= 1.41",
+              "wayland-client    >= 1.15.0",
+              "wayland-cursor    >= 1.15.0",
+              "wayland-protocols >= 1.15",
               "xkbcommon         >= 0.3.0"
           )
       ),
@@ -317,7 +317,7 @@ check("-hwdec-vulkan*",
 check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl"),
-      required  = "Required.")
+      required  = "EGL 1.4: missing or broken")
 check("-gl-x11*",
       desc      = "OpenGL X11 Backend",
       deps      = ["egl", "x11"],
@@ -407,7 +407,7 @@ check("spirv-cross*",
 check("-gl*",
       desc      = "OpenGL context support",
       deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-wayland"],
-      required  = "Required.",
+      required  = "OpenGL context: need at least one of gl-x11, egl-x11, egl-drm, or gl-wayland",
       sources   = ["video/out/opengl/common.c",
                    "video/out/opengl/context.c",
                    "video/out/opengl/formats.c",

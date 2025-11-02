@@ -10,6 +10,9 @@ include $(ROOT)/TOOLS/makefile_common.mak
 
 PROJNAME = dmpv
 
+# Enable secondary expansion for order-only directory prerequisites
+.SECONDEXPANSION:
+
 .PHONY: .force
 
 $(BUILD)/generated/version.h: $(ROOT)/version.sh .force | $$(@D)/.
