@@ -422,7 +422,7 @@ check(deps      = ["drm", "egl", "gbm", "gl"],
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps_any  = ["egl-x11", "gl-wayland"],
+      deps      = "egl",
       sources   = "video/out/opengl/egl_helpers.c"),
 
 check(deps_any   = ["drm", "x11", "wayland"],
