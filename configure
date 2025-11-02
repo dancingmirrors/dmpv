@@ -301,8 +301,7 @@ check("-vulkan*",
       deps      = "libplacebo",
       fn        = lambda: check_pkg_config("vulkan"),
       sources   = ["video/out/vulkan/context.c",
-                   "video/out/vulkan/utils.c",
-                   "video/out/vulkan/context_display.c"])
+                   "video/out/vulkan/utils.c"])
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 check(deps      = ["vulkan", "wayland"],
