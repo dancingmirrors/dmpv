@@ -41,6 +41,9 @@ bool gl_lcms_get_lut3d(struct gl_lcms *p, struct lut3d **,
                        struct AVBufferRef *vid_profile);
 bool gl_lcms_has_changed(struct gl_lcms *p, enum mp_csp_prim prim,
                          enum mp_csp_trc trc, struct AVBufferRef *vid_profile);
+bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
+                                       enum mp_csp_prim primaries,
+                                       enum mp_csp_trc gamma);
 
 static inline bool gl_parse_3dlut_size(const char *arg, int *p1, int *p2, int *p3)
 {

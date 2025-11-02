@@ -64,6 +64,7 @@
 
 #include "input/input.h"
 #include "input/keycodes.h"
+#include "gpu/lcms.h"
 
 #define vo_wm_LAYER 1
 #define vo_wm_FULLSCREEN 2
@@ -2168,8 +2169,13 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
         return VO_TRUE;
     }
     case VOCTRL_GET_ICC_PROFILE: {
+        bstr *out = (bstr *)arg;
+        if (!out)
+            return VO_NOTAVAIL;
         if (!x11->pseudo_mapped)
             return VO_NOTAVAIL;
+        
+        // Try to get ICC profile from X11 property
         int atom_id = x11->displays[x11->current_screen].atom_id;
         char prop[80];
         snprintf(prop, sizeof(prop), "_ICC_PROFILE");
@@ -2180,13 +2186,30 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
         MP_VERBOSE(x11, "Retrieving ICC profile for display: %d\n", x11->current_screen);
         void *icc = x11_get_property(x11, x11->rootwin, x11->icc_profile_property,
                                      XA_CARDINAL, 8, &len);
-        if (!icc)
-            return VO_FALSE;
-        *(bstr *)arg = bstrdup(NULL, (bstr){icc, len});
-        XFree(icc);
-        // Watch x11->icc_profile_property
-        XSelectInput(x11->display, x11->rootwin, PropertyChangeMask);
-        return VO_TRUE;
+        if (icc) {
+            MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: returning X11 ICC (%d bytes)\n", len);
+            *out = bstrdup(NULL, (bstr){icc, len});
+            XFree(icc);
+            // Watch x11->icc_profile_property
+            XSelectInput(x11->display, x11->rootwin, PropertyChangeMask);
+            return VO_TRUE;
+        }
+        
+#if HAVE_LCMS2
+        // Try to generate ICC profile from default color space parameters
+        // X11 doesn't provide parametric color space info, so we use sRGB/BT.709 as fallback
+        *out = gl_lcms_generate_profile_from_csp(NULL, x11->log, 
+                                                  MP_CSP_PRIM_BT_709, 
+                                                  MP_CSP_TRC_SRGB);
+        if (out->len > 0) {
+            MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
+            return VO_TRUE;
+        }
+#endif
+        
+        MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: no ICC profile available\n");
+        *out = (bstr){0};
+        return VO_FALSE;
     }
     case VOCTRL_SET_CURSOR_VISIBILITY:
         x11->mouse_cursor_visible = *(bool *)arg;
