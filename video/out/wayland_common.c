@@ -1486,7 +1486,7 @@ static void registry_handle_add(void *data, struct wl_registry *reg, uint32_t id
     int found = 1;
     struct vo_wayland_state *wl = data;
 
-    if (!strcmp(interface, wp_color_manager_v1_interface.name) && found++) {
+    if (!strcmp(interface, wp_color_manager_v1_interface.name) && !wl->color_manager && found++) {
         ver = MPMIN(ver, 1);
         wl->color_manager = wl_registry_bind(reg, id, &wp_color_manager_v1_interface, ver);
     }
@@ -2548,7 +2548,8 @@ bool vo_wayland_init(struct vo *vo)
                    wp_color_manager_v1_interface.name);
     }
 
-    if (wl->color_manager) {
+    if (wl->color_manager && !wl->color_surface && !wl->color_surface_feedback) {
+        MP_VERBOSE(wl, "Setting up color management for surface\n");
         wl->color_surface = wp_color_manager_v1_get_surface(wl->color_manager, wl->surface);
         if (wl->color_surface) {
             wl->color_surface_feedback = wp_color_manager_v1_get_surface_feedback(wl->color_manager, wl->surface);
@@ -2560,8 +2561,14 @@ bool vo_wayland_init(struct vo *vo)
                 if (desc) {
                     wp_image_description_v1_add_listener(desc, &image_description_listener, wl);
                 }
+            } else {
+                MP_WARN(wl, "Failed to get color management surface feedback\n");
             }
+        } else {
+            MP_WARN(wl, "Failed to get color management surface\n");
         }
+    } else if (wl->color_manager && (wl->color_surface || wl->color_surface_feedback)) {
+        MP_VERBOSE(wl, "Color management surfaces already requested, skipping\n");
     }
 
     /* Do another roundtrip to ensure all of the above is initialized
@@ -2714,12 +2721,18 @@ void vo_wayland_uninit(struct vo *vo)
     if (wl->dmabuf_feedback)
         zwp_linux_dmabuf_feedback_v1_destroy(wl->dmabuf_feedback);
 
-    if (wl->color_surface_feedback)
+    if (wl->color_surface_feedback) {
         wp_color_management_surface_feedback_v1_destroy(wl->color_surface_feedback);
-    if (wl->color_surface)
+        wl->color_surface_feedback = NULL;
+    }
+    if (wl->color_surface) {
         wp_color_management_surface_v1_destroy(wl->color_surface);
-    if (wl->color_manager)
+        wl->color_surface = NULL;
+    }
+    if (wl->color_manager) {
         wp_color_manager_v1_destroy(wl->color_manager);
+        wl->color_manager = NULL;
+    }
 
     if (wl->seat)
         wl_seat_destroy(wl->seat);
