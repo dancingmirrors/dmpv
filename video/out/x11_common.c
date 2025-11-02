@@ -2171,9 +2171,7 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
     }
     case VOCTRL_GET_ICC_PROFILE: {
         bstr *out = (bstr *)arg;
-        if (!out)
-            return VO_NOTAVAIL;
-        if (!x11->pseudo_mapped)
+        if (!out || !x11->pseudo_mapped)
             return VO_NOTAVAIL;
         
         // Try to get ICC profile from X11 property
@@ -2209,7 +2207,6 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
 #endif
         
         MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: no ICC profile available\n");
-        *out = (bstr){0};
         return VO_FALSE;
     }
     case VOCTRL_SET_CURSOR_VISIBILITY:
