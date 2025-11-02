@@ -1,3 +1,8 @@
+# Build performance tips:
+# - Use parallel builds: make -j$(nproc)
+# - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && make -j$(nproc)
+# - Disable debug symbols for faster compilation: ./configure --disable-optimize && make -j$(nproc)
+
 BUILDDIR = build
 
 include $(BUILDDIR)/config.mak
@@ -7,14 +12,12 @@ PROJNAME = dmpv
 
 .PHONY: .force
 
-$(BUILD)/generated/version.h: $(ROOT)/version.sh .force
+$(BUILD)/generated/version.h: $(ROOT)/version.sh .force | $$(@D)/.
 	$(LOG) "VERSION" $@
-	$(Q) mkdir -p $(@D)
 	$(Q) $(ROOT)/version.sh --versionh=$@
 
-$(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c: $(ROOT)/TOOLS/matroska.py
+$(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c: $(ROOT)/TOOLS/matroska.py | $$(@D)/.
 	$(LOG) "EBML" "$(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c"
-	$(Q) mkdir -p $(@D)
 	$(Q) $< --generate-header > $(BUILD)/generated/ebml_types.h
 	$(Q) $< --generate-definitions > $(BUILD)/generated/ebml_defs.c
 
@@ -23,9 +26,8 @@ $(BUILD)/video/out/x11_common.o: $(BUILD)/generated/etc/dmpv-icon-8bit-16x16.png
                                  $(BUILD)/generated/etc/dmpv-icon-8bit-64x64.png.inc \
                                  $(BUILD)/generated/etc/dmpv-icon-8bit-128x128.png.inc
 
-$(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/%
+$(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/% | $$(@D)/.
 	$(LOG) "INC" $@
-	$(Q) mkdir -p $(@D)
 	$(Q) $^ > $@
 
 # Dependencies for generated files unfortunately need to be declared manually.
@@ -60,13 +62,11 @@ define generate_wayland =
 $$(BUILD)/video/out/wayland_common.o \
 $$(BUILD)/video/out/opengl/context_wayland.o \
 : $$(BUILD)/generated/wayland/$(2).c $$(BUILD)/generated/wayland/$(2).h
-$$(BUILD)/generated/wayland/$(2).c: $(1)/$(2).xml
+$$(BUILD)/generated/wayland/$(2).c: $(1)/$(2).xml | $$$$(@D)/.
 	$$(LOG) "WAYSHC" $$@
-	$$(Q) mkdir -p $$(@D)
 	$$(Q) $$(WAYSCAN) private-code $$< $$@
-$$(BUILD)/generated/wayland/$(2).h: $(1)/$(2).xml
+$$(BUILD)/generated/wayland/$(2).h: $(1)/$(2).xml | $$$$(@D)/.
 	$$(LOG) "WAYSHH" $$@
-	$$(Q) mkdir -p $$(@D)
 	$$(Q) $$(WAYSCAN) client-header $$< $$@
 endef
 
