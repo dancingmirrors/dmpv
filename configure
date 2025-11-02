@@ -25,8 +25,11 @@ check(desc      = "pkg-config",
 
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
-           "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing",
-           "-g3")
+           "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
+check("-debug-build",
+      fn        = lambda: chain(add_cflags("-g3"), True),
+      desc      = "debug symbols (use -g3)",
+      default   = True)
 check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
       required  = "Required.")
