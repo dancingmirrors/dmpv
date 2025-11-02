@@ -1597,8 +1597,13 @@ static void cache_save_obj(void *p, pl_cache_obj obj)
     int64_t save_start = mp_time_ns();
     FILE *file = fopen(filepath, "wb");
     if (file) {
-        fwrite(obj.data, obj.size, 1, file);
+        size_t written = fwrite(obj.data, 1, obj.size, file);
         fclose(file);
+        if (written != obj.size) {
+            MP_WARN(c, "Failed to write cache file %s\n", filepath);
+            unlink(filepath);
+            goto done;
+        }
     }
     int64_t save_end = mp_time_ns();
     MP_DBG(c, "%s: key(%" PRIx64 "), size(%zu), save time(%.3f ms)\n",
@@ -1623,8 +1628,7 @@ static inline uint64_t pl_cache_signature(pl_cache cache)
 }
 #endif
 
-static void cache_init(struct vo *vo, struct cache *cache, size_t max_size,
-                       const char *dir_opt)
+static void cache_init(struct vo *vo, struct cache *cache, const char *dir_opt)
 {
     struct priv *p = vo->priv;
     const char *name = cache == &p->shader_cache ? "shader" : "icc";
@@ -1663,7 +1667,12 @@ struct file_entry {
 
 static int compare_atime(const void *a, const void *b)
 {
-    return (((struct file_entry *)b)->atime - ((struct file_entry *)a)->atime);
+    time_t ta = ((struct file_entry *)a)->atime;
+    time_t tb = ((struct file_entry *)b)->atime;
+    // Sort in descending order (most recent first)
+    if (tb > ta) return 1;
+    if (tb < ta) return -1;
+    return 0;
 }
 
 static void cache_uninit(struct priv *p, struct cache *cache)
@@ -1811,9 +1820,9 @@ static int preinit(struct vo *vo)
     mp_mutex_init(&p->dr_lock);
 
     if (gl_opts->shader_cache)
-        cache_init(vo, &p->shader_cache, 10 << 20, gl_opts->shader_cache_dir);
+        cache_init(vo, &p->shader_cache, gl_opts->shader_cache_dir);
     if (gl_opts->icc_opts->cache)
-        cache_init(vo, &p->icc_cache, 20 << 20, gl_opts->icc_opts->cache_dir);
+        cache_init(vo, &p->icc_cache, gl_opts->icc_opts->cache_dir);
 
     pl_gpu_set_cache(p->gpu, p->shader_cache.cache);
     p->rr = pl_renderer_create(p->pllog, p->gpu);
