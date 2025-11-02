@@ -34,6 +34,12 @@ static bool xlib_check_visible(struct ra_ctx *ctx)
 
 static void xlib_vk_swap_buffers(struct ra_ctx *ctx)
 {
+    // Defensive check: ensure X11 state is valid
+    if (!ctx->vo->x11) {
+        MP_WARN(ctx, "X11 state invalid during swap_buffers\n");
+        return;
+    }
+    
     if (ctx->vo->x11->use_present)
         present_sync_swap(ctx->vo->x11->present);
 }
@@ -69,6 +75,12 @@ static bool xlib_init(struct ra_ctx *ctx)
     if (!vo_x11_create_vo_window(ctx->vo, NULL, "dmpvk"))
         goto error;
 
+    // Defensive check: ensure X11 display and window are valid
+    if (!ctx->vo->x11 || !ctx->vo->x11->display || !ctx->vo->x11->window) {
+        MP_MSG(ctx, msgl, "X11 display or window is NULL, cannot create Vulkan surface\n");
+        goto error;
+    }
+
     VkXlibSurfaceCreateInfoKHR xinfo = {
          .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
          .dpy = ctx->vo->x11->display,
@@ -84,7 +96,7 @@ static bool xlib_init(struct ra_ctx *ctx)
     VkInstance inst = vk->vkinst->instance;
     VkResult res = vkCreateXlibSurfaceKHR(inst, &xinfo, NULL, &vk->surface);
     if (res != VK_SUCCESS) {
-        MP_MSG(ctx, msgl, "Failed creating Xlib surface\n");
+        MP_MSG(ctx, msgl, "Failed creating Xlib surface (VkResult: %d)\n", res);
         goto error;
     }
 
@@ -102,6 +114,13 @@ error:
 
 static bool resize(struct ra_ctx *ctx)
 {
+    // Defensive check: ensure dimensions are reasonable
+    if (ctx->vo->dwidth <= 0 || ctx->vo->dheight <= 0) {
+        MP_WARN(ctx, "Invalid resize dimensions: %dx%d, skipping resize\n", 
+                ctx->vo->dwidth, ctx->vo->dheight);
+        return false;
+    }
+    
     return ra_vk_ctx_resize(ctx, ctx->vo->dwidth, ctx->vo->dheight);
 }
 
