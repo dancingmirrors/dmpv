@@ -25,7 +25,6 @@
 
 #include "misc/dmpv_talloc.h"
 
-#include "config.h"
 #include "options/m_config.h"
 #include "options/options.h"
 #include "common/common.h"
