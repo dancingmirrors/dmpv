@@ -456,6 +456,167 @@ error_exit:
     return result;
 }
 
+// Generate ICC profile from color space parameters (primaries and gamma)
+// Useful when no ICC profile is provided but color space metadata is available
+bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
+                                       enum mp_csp_prim primaries,
+                                       enum mp_csp_trc gamma)
+{
+    // Check if we have valid parametric data
+    if (primaries == MP_CSP_PRIM_AUTO || gamma == MP_CSP_TRC_AUTO) {
+        mp_verbose(log, "gl_lcms_generate_profile_from_csp: no valid parametric "
+                   "color space data (primaries=%d, gamma=%d)\n", primaries, gamma);
+        return (bstr){0};
+    }
+    
+    // Map mpv color primaries to CIE xy chromaticities
+    cmsCIExyY white_point;
+    cmsCIExyYTRIPLE prim_xyY;
+    
+    // D65 white point (standard for most content)
+    white_point.x = 0.3127;
+    white_point.y = 0.3290;
+    white_point.Y = 1.0;
+    
+    // Map primaries based on color space data
+    switch (primaries) {
+    case MP_CSP_PRIM_BT_601_525:
+        // BT.601 NTSC primaries
+        prim_xyY.Red.x = 0.630;
+        prim_xyY.Red.y = 0.340;
+        prim_xyY.Green.x = 0.310;
+        prim_xyY.Green.y = 0.595;
+        prim_xyY.Blue.x = 0.155;
+        prim_xyY.Blue.y = 0.070;
+        break;
+    case MP_CSP_PRIM_BT_601_625:
+        // BT.601 PAL primaries
+        prim_xyY.Red.x = 0.640;
+        prim_xyY.Red.y = 0.330;
+        prim_xyY.Green.x = 0.290;
+        prim_xyY.Green.y = 0.600;
+        prim_xyY.Blue.x = 0.150;
+        prim_xyY.Blue.y = 0.060;
+        break;
+    case MP_CSP_PRIM_BT_709:
+        // BT.709 / sRGB primaries
+        prim_xyY.Red.x = 0.64;
+        prim_xyY.Red.y = 0.33;
+        prim_xyY.Green.x = 0.30;
+        prim_xyY.Green.y = 0.60;
+        prim_xyY.Blue.x = 0.15;
+        prim_xyY.Blue.y = 0.06;
+        break;
+    case MP_CSP_PRIM_BT_2020:
+        // BT.2020 primaries
+        prim_xyY.Red.x = 0.708;
+        prim_xyY.Red.y = 0.292;
+        prim_xyY.Green.x = 0.170;
+        prim_xyY.Green.y = 0.797;
+        prim_xyY.Blue.x = 0.131;
+        prim_xyY.Blue.y = 0.046;
+        break;
+    case MP_CSP_PRIM_DCI_P3:
+    case MP_CSP_PRIM_DISPLAY_P3:
+        // DCI-P3/Display P3 primaries
+        prim_xyY.Red.x = 0.680;
+        prim_xyY.Red.y = 0.320;
+        prim_xyY.Green.x = 0.265;
+        prim_xyY.Green.y = 0.690;
+        prim_xyY.Blue.x = 0.150;
+        prim_xyY.Blue.y = 0.060;
+        break;
+    default:
+        mp_verbose(log, "gl_lcms_generate_profile_from_csp: unsupported primaries %d\n", primaries);
+        return (bstr){0};
+    }
+    
+    prim_xyY.Red.Y = 1.0;
+    prim_xyY.Green.Y = 1.0;
+    prim_xyY.Blue.Y = 1.0;
+    
+    // Map transfer function
+    cmsToneCurve *curve = NULL;
+    switch (gamma) {
+    case MP_CSP_TRC_SRGB:
+        // sRGB transfer function with proper parameters
+        // Parameters: gamma, a, b, c, d for: (a*x+b)^gamma if x >= d, else c*x
+        curve = cmsBuildParametricToneCurve(NULL, 4, 
+            (double[5]){2.40, 1.0/1.055, 0.055/1.055, 1.0/12.92, 0.04045});
+        break;
+    case MP_CSP_TRC_LINEAR:
+        // Linear transfer function
+        curve = cmsBuildGamma(NULL, 1.0);
+        break;
+    case MP_CSP_TRC_GAMMA22:
+        curve = cmsBuildGamma(NULL, 2.2);
+        break;
+    case MP_CSP_TRC_GAMMA28:
+        curve = cmsBuildGamma(NULL, 2.8);
+        break;
+    case MP_CSP_TRC_PQ:
+    case MP_CSP_TRC_HLG:
+        // For HDR transfer functions, use gamma 2.2 as approximation
+        // Full PQ/HLG support would require more complex tone curves
+        mp_verbose(log, "gl_lcms_generate_profile_from_csp: HDR transfer function %d, "
+                   "using gamma 2.2 approximation\n", gamma);
+        curve = cmsBuildGamma(NULL, 2.2);
+        break;
+    default:
+        mp_verbose(log, "gl_lcms_generate_profile_from_csp: unsupported gamma %d\n", gamma);
+        return (bstr){0};
+    }
+    
+    if (!curve) {
+        mp_err(log, "gl_lcms_generate_profile_from_csp: failed to create tone curve\n");
+        return (bstr){0};
+    }
+    
+    // Create array with the same curve for all channels
+    cmsToneCurve *curves[3] = { curve, curve, curve };
+    
+    // Create RGB profile
+    cmsHPROFILE profile = cmsCreateRGBProfile(&white_point, &prim_xyY, curves);
+    
+    // Free the tone curve (only once since all three pointers reference the same curve)
+    cmsFreeToneCurve(curve);
+    
+    if (!profile) {
+        mp_err(log, "gl_lcms_generate_profile_from_csp: failed to create ICC profile\n");
+        return (bstr){0};
+    }
+    
+    // Save profile to memory
+    cmsUInt32Number profile_size = 0;
+    cmsSaveProfileToMem(profile, NULL, &profile_size);
+    if (profile_size == 0) {
+        cmsCloseProfile(profile);
+        mp_err(log, "gl_lcms_generate_profile_from_csp: failed to get profile size\n");
+        return (bstr){0};
+    }
+    
+    void *profile_data = talloc_size(talloc_ctx, profile_size);
+    if (!profile_data) {
+        cmsCloseProfile(profile);
+        mp_err(log, "gl_lcms_generate_profile_from_csp: failed to allocate memory\n");
+        return (bstr){0};
+    }
+    
+    if (!cmsSaveProfileToMem(profile, profile_data, &profile_size)) {
+        cmsCloseProfile(profile);
+        talloc_free(profile_data);
+        mp_err(log, "gl_lcms_generate_profile_from_csp: failed to save profile to memory\n");
+        return (bstr){0};
+    }
+    
+    cmsCloseProfile(profile);
+    
+    mp_verbose(log, "gl_lcms_generate_profile_from_csp: generated ICC profile from "
+               "parametric data (%u bytes, primaries=%d, gamma=%d)\n", 
+               profile_size, primaries, gamma);
+    return (bstr){ .start = profile_data, .len = profile_size };
+}
+
 #else /* HAVE_LCMS2 */
 
 struct gl_lcms *gl_lcms_init(void *talloc_ctx, struct mp_log *log,
@@ -484,6 +645,13 @@ bool gl_lcms_get_lut3d(struct gl_lcms *p, struct lut3d **result_lut3d,
                        struct AVBufferRef *vid_profile)
 {
     return false;
+}
+
+bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
+                                       enum mp_csp_prim primaries,
+                                       enum mp_csp_trc gamma)
+{
+    return (bstr){0};
 }
 
 #endif
