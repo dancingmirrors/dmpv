@@ -18,6 +18,10 @@
  */
 
 #include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include <libplacebo/colorspace.h>
 #include <libplacebo/options.h>
@@ -29,6 +33,7 @@
 
 #include "config.h"
 #include "common/common.h"
+#include "misc/bstr.h"
 #include "options/m_config.h"
 #include "options/path.h"
 #include "osdep/io.h"
@@ -88,9 +93,12 @@ struct frame_info {
 };
 
 struct cache {
-    char *path;
+    struct mp_log *log;
+    struct dmpv_global *global;
+    char *dir;
+    const char *name;
+    size_t size_limit;
     pl_cache cache;
-    uint64_t sig;
 };
 
 struct priv {
@@ -1520,6 +1528,87 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
     }
 }
 
+static char *cache_filepath(void *ta_ctx, char *dir, const char *prefix, uint64_t key)
+{
+    bstr filename = {0};
+    bstr_xappend_asprintf(ta_ctx, &filename, "%s_%016" PRIx64, prefix, key);
+    return mp_path_join_bstr(ta_ctx, bstr0(dir), filename);
+}
+
+static pl_cache_obj cache_load_obj(void *p, uint64_t key)
+{
+    struct cache *c = p;
+    void *ta_ctx = talloc_new(NULL);
+    pl_cache_obj obj = {0};
+
+    if (!c->dir)
+        goto done;
+
+    char *filepath = cache_filepath(ta_ctx, c->dir, c->name, key);
+    if (!filepath)
+        goto done;
+
+    if (stat(filepath, &(struct stat){0}))
+        goto done;
+
+    int64_t load_start = mp_time_ns();
+    struct bstr data = stream_read_file(filepath, ta_ctx, c->global, STREAM_MAX_READ_SIZE);
+    int64_t load_end = mp_time_ns();
+    MP_DBG(c, "%s: key(%" PRIx64 "), size(%zu), load time(%.3f ms)\n",
+           __func__, key, data.len,
+           MP_TIME_NS_TO_MS(load_end - load_start));
+
+    obj = (pl_cache_obj){
+        .key = key,
+        .data = talloc_steal(NULL, data.start),
+        .size = data.len,
+        .free = talloc_free,
+    };
+
+done:
+    talloc_free(ta_ctx);
+    return obj;
+}
+
+static void cache_save_obj(void *p, pl_cache_obj obj)
+{
+    const struct cache *c = p;
+    void *ta_ctx = talloc_new(NULL);
+
+    if (!c->dir)
+        goto done;
+
+    char *filepath = cache_filepath(ta_ctx, c->dir, c->name, obj.key);
+    if (!filepath)
+        goto done;
+
+    if (!obj.data || !obj.size) {
+        unlink(filepath);
+        goto done;
+    }
+
+    // Don't save if already exists
+    struct stat st;
+    if (!stat(filepath, &st) && st.st_size == obj.size) {
+        MP_DBG(c, "%s: key(%"PRIx64"), size(%zu)\n", __func__, obj.key, obj.size);
+        goto done;
+    }
+
+    int64_t save_start = mp_time_ns();
+    FILE *file = fopen(filepath, "wb");
+    if (file) {
+        fwrite(obj.data, obj.size, 1, file);
+        fclose(file);
+    }
+    int64_t save_end = mp_time_ns();
+    MP_DBG(c, "%s: key(%" PRIx64 "), size(%zu), save time(%.3f ms)\n",
+           __func__, obj.key, obj.size,
+           MP_TIME_NS_TO_MS(save_end - save_start));
+
+done:
+    talloc_free(ta_ctx);
+}
+
 #if PL_API_VER < 342
 static inline void xor_hash(void *hash, pl_cache_obj obj)
 {
@@ -1538,66 +1627,112 @@ static void cache_init(struct vo *vo, struct cache *cache, size_t max_size,
                        const char *dir_opt)
 {
     struct priv *p = vo->priv;
-    const char *name = cache == &p->shader_cache ? "shader.cache" : "icc.cache";
+    const char *name = cache == &p->shader_cache ? "shader" : "icc";
+    const size_t limit = cache == &p->shader_cache ? 128 << 20 : 1536 << 20;
 
     char *dir;
     if (dir_opt && dir_opt[0]) {
-        dir = mp_get_user_path(NULL, p->global, dir_opt);
+        dir = mp_get_user_path(vo, p->global, dir_opt);
     } else {
-        dir = mp_find_user_file(NULL, p->global, "cache", "");
+        dir = mp_find_user_file(vo, p->global, "cache", "");
     }
     if (!dir || !dir[0])
-        goto done;
+        return;
 
     mp_mkdirp(dir);
-    cache->path = mp_path_join(vo, dir, name);
-    cache->cache = pl_cache_create(pl_cache_params(
-        .log = p->pllog,
-        .max_total_size = max_size,
-    ));
+    *cache = (struct cache){
+        .log        = p->log,
+        .global     = p->global,
+        .dir        = dir,
+        .name       = name,
+        .size_limit = limit,
+        .cache = pl_cache_create(pl_cache_params(
+            .log = p->pllog,
+            .get = cache_load_obj,
+            .set = cache_save_obj,
+            .priv = cache
+        )),
+    };
+}
 
-    FILE *file = fopen(cache->path, "rb");
-    if (file) {
-        int ret = pl_cache_load_file(cache->cache, file);
-        fclose(file);
-        if (ret < 0)
-            MP_WARN(p, "Failed loading cache from %s\n", cache->path);
-    }
+struct file_entry {
+    char *filepath;
+    size_t size;
+    time_t atime;
+};
 
-    cache->sig = pl_cache_signature(cache->cache);
-done:
-    talloc_free(dir);
+static int compare_atime(const void *a, const void *b)
+{
+    return (((struct file_entry *)b)->atime - ((struct file_entry *)a)->atime);
 }
 
 static void cache_uninit(struct priv *p, struct cache *cache)
 {
     if (!cache->cache)
-        goto done;
-    if (pl_cache_signature(cache->cache) == cache->sig)
-        goto done; // skip re-saving identical cache
+        return;
 
-    assert(cache->path);
-    char *tmp = talloc_asprintf(cache->path, "%sXXXXXX", cache->path);
-    int fd = mkstemp(tmp);
-    if (fd < 0)
+    void *ta_ctx = talloc_new(NULL);
+    struct file_entry *files = NULL;
+    size_t num_files = 0;
+    mp_assert(cache->dir);
+    mp_assert(cache->name);
+
+    DIR *d = opendir(cache->dir);
+    if (!d)
         goto done;
-    FILE *file = fdopen(fd, "wb");
-    if (!file) {
-        close(fd);
-        unlink(tmp);
-        goto done;
+
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        char *filepath = mp_path_join(ta_ctx, cache->dir, dir->d_name);
+        if (!filepath)
+            continue;
+        struct stat filestat;
+        if (stat(filepath, &filestat))
+            continue;
+        if (!S_ISREG(filestat.st_mode))
+            continue;
+        bstr fname = bstr0(dir->d_name);
+        if (!bstr_eatstart0(&fname, cache->name))
+            continue;
+        if (!bstr_eatstart0(&fname, "_"))
+            continue;
+        if (fname.len != 16) // %016x
+            continue;
+        MP_TARRAY_APPEND(ta_ctx, files, num_files,
+                         (struct file_entry){
+                             .filepath = filepath,
+                             .size     = filestat.st_size,
+                             .atime    = filestat.st_atime,
+                         });
     }
-    int ret = pl_cache_save_file(cache->cache, file);
-    fclose(file);
-    if (ret >= 0)
-        ret = rename(tmp, cache->path);
-    if (ret < 0) {
-        MP_WARN(p, "Failed saving cache to %s\n", cache->path);
-        unlink(tmp);
+    closedir(d);
+
+    if (!num_files)
+        goto done;
+
+    qsort(files, num_files, sizeof(struct file_entry), compare_atime);
+
+    time_t t = time(NULL);
+    size_t cache_size = 0;
+    size_t cache_limit = cache->size_limit ? cache->size_limit : SIZE_MAX;
+    for (int i = 0; i < num_files; i++) {
+        // Remove files that exceed the size limit but are older than one day.
+        // This allows for temporary maintaining a larger cache size while
+        // adjusting the configuration. The cache will be cleared the next day
+        // for unused entries. We don't need to be overly aggressive with cache
+        // cleaning; in most cases, it will not grow much, and in others, it may
+        // actually be useful to cache more.
+        cache_size += files[i].size;
+        double rel_use = difftime(t, files[i].atime);
+        if (cache_size > cache_limit && rel_use > 60 * 60 * 24) {
+            MP_VERBOSE(p, "Removing %s | size: %9zu bytes | last used: %9d seconds ago\n",
+                       files[i].filepath, files[i].size, (int)rel_use);
+            unlink(files[i].filepath);
+        }
     }
 
-    // fall through
 done:
+    talloc_free(ta_ctx);
     pl_cache_destroy(&cache->cache);
 }
 
