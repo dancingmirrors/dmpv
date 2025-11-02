@@ -38,6 +38,12 @@ static void wayland_vk_swap_buffers(struct ra_ctx *ctx)
     struct vo_wayland_state *wl = ctx->vo->wl;
     struct priv *p = ctx->priv;
 
+    // Defensive check: ensure wayland state is valid
+    if (!wl || !wl->opts) {
+        MP_WARN(ctx, "Wayland state invalid during swap_buffers\n");
+        return;
+    }
+
     if ((!p->use_fifo && wl->opts->wl_internal_vsync == 1) || wl->opts->wl_internal_vsync == 2)
         vo_wayland_wait_frame(wl);
 
@@ -73,6 +79,12 @@ static bool wayland_vk_init(struct ra_ctx *ctx)
     if (!vo_wayland_init(ctx->vo))
         goto error;
 
+    // Defensive check: ensure Wayland display and surface are valid
+    if (!ctx->vo->wl || !ctx->vo->wl->display || !ctx->vo->wl->surface) {
+        MP_MSG(ctx, msgl, "Wayland display or surface is NULL, cannot create Vulkan surface\n");
+        goto error;
+    }
+
     VkWaylandSurfaceCreateInfoKHR wlinfo = {
          .sType   = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
          .display = ctx->vo->wl->display,
@@ -88,7 +100,7 @@ static bool wayland_vk_init(struct ra_ctx *ctx)
     VkInstance inst = vk->vkinst->instance;
     VkResult res = vkCreateWaylandSurfaceKHR(inst, &wlinfo, NULL, &vk->surface);
     if (res != VK_SUCCESS) {
-        MP_MSG(ctx, msgl, "Failed creating Wayland surface\n");
+        MP_MSG(ctx, msgl, "Failed creating Wayland surface (VkResult: %d)\n", res);
         goto error;
     }
 
@@ -115,10 +127,22 @@ static bool resize(struct ra_ctx *ctx)
 {
     struct vo_wayland_state *wl = ctx->vo->wl;
 
+    // Defensive check: ensure wayland state is valid
+    if (!wl) {
+        MP_ERR(ctx, "Wayland state is NULL during resize\n");
+        return false;
+    }
+
     MP_VERBOSE(wl, "Handling resize on the vk side\n");
 
     const int32_t width = mp_rect_w(wl->geometry);
     const int32_t height = mp_rect_h(wl->geometry);
+
+    // Defensive check: ensure dimensions are reasonable
+    if (width <= 0 || height <= 0) {
+        MP_WARN(wl, "Invalid resize dimensions: %dx%d, skipping resize\n", width, height);
+        return false;
+    }
 
     vo_wayland_set_opaque_region(wl, ctx->opts.want_alpha);
     vo_wayland_handle_scale(wl);
@@ -153,6 +177,13 @@ static void wayland_vk_wait_events(struct ra_ctx *ctx, int64_t until_time_ns)
 static void wayland_vk_update_render_opts(struct ra_ctx *ctx)
 {
     struct vo_wayland_state *wl = ctx->vo->wl;
+    
+    // Defensive check: ensure wayland state and surface are valid
+    if (!wl || !wl->surface) {
+        MP_WARN(ctx, "Wayland state or surface invalid during update_render_opts\n");
+        return;
+    }
+    
     vo_wayland_set_opaque_region(wl, ctx->opts.want_alpha);
     wl_surface_commit(wl->surface);
 }
