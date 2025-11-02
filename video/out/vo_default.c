@@ -1552,7 +1552,7 @@ static pl_cache_obj cache_load_obj(void *p, uint64_t key)
         goto done;
 
     int64_t load_start = mp_time_ns();
-    struct bstr data = stream_read_file(filepath, ta_ctx, c->global, STREAM_MAX_READ_SIZE);
+    struct bstr data = stream_read_file(filepath, ta_ctx, c->global, 100 << 20); // 100MB max
     int64_t load_end = mp_time_ns();
     MP_DBG(c, "%s: key(%" PRIx64 "), size(%zu), load time(%.3f ms)\n",
            __func__, key, data.len,
