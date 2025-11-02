@@ -28,8 +28,7 @@ add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
 check("-debug-build",
       fn        = lambda: chain(add_cflags("-g3"), True),
-      desc      = "debug symbols (use -g3)",
-      default   = True)
+      desc      = "debug symbols (use -g3)")
 check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
       required  = "C11 or C99 compiler: missing, broken, or too old")
