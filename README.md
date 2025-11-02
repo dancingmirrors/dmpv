@@ -34,7 +34,7 @@ For faster compilation (especially during development iterations):
 make -j$(nproc)
 ```
 
-This reduces compilation time significantly by using `-g0` instead of `-g3`.
+This reduces compilation time significantly by omitting debug symbols (no `-g3` flag).
 
 #### 4. Combined Optimizations
 For maximum build speed:

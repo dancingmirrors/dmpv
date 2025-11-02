@@ -1,7 +1,7 @@
 # Build performance tips:
 # - Use parallel builds: make -j$(nproc)
 # - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && make -j$(nproc)
-# - Disable debug symbols for faster compilation: ./configure --disable-optimize && make -j$(nproc)
+# - Disable debug symbols for faster compilation: ./configure --disable-debug-build && make -j$(nproc)
 
 BUILDDIR = build
 
