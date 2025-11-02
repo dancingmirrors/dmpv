@@ -34,7 +34,7 @@ static bool xlib_check_visible(struct ra_ctx *ctx)
 
 static void xlib_vk_swap_buffers(struct ra_ctx *ctx)
 {
-    // Defensive check: ensure X11 state is valid
+    /* Defensive check: ensure X11 state is valid */
     if (!ctx->vo->x11) {
         MP_WARN(ctx, "X11 state invalid during swap_buffers\n");
         return;
@@ -75,7 +75,7 @@ static bool xlib_init(struct ra_ctx *ctx)
     if (!vo_x11_create_vo_window(ctx->vo, NULL, "dmpvk"))
         goto error;
 
-    // Defensive check: ensure X11 display and window are valid
+    /* Defensive check: ensure X11 display and window are valid */
     if (!ctx->vo->x11 || !ctx->vo->x11->display || !ctx->vo->x11->window) {
         MP_MSG(ctx, msgl, "X11 display or window is NULL, cannot create Vulkan surface\n");
         goto error;
@@ -114,7 +114,7 @@ error:
 
 static bool resize(struct ra_ctx *ctx)
 {
-    // Defensive check: ensure dimensions are reasonable
+    /* Defensive check: ensure dimensions are reasonable */
     if (ctx->vo->dwidth <= 0 || ctx->vo->dheight <= 0) {
         MP_WARN(ctx, "Invalid resize dimensions: %dx%d, skipping resize\n", 
                 ctx->vo->dwidth, ctx->vo->dheight);
