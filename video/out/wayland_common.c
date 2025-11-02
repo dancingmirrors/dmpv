@@ -2237,6 +2237,24 @@ static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
     
     // Map primaries based on compositor data
     switch (csp->primaries) {
+    case MP_CSP_PRIM_BT_601_525:
+        // BT.601 NTSC primaries
+        primaries.Red.x = 0.630;
+        primaries.Red.y = 0.340;
+        primaries.Green.x = 0.310;
+        primaries.Green.y = 0.595;
+        primaries.Blue.x = 0.155;
+        primaries.Blue.y = 0.070;
+        break;
+    case MP_CSP_PRIM_BT_601_625:
+        // BT.601 PAL primaries
+        primaries.Red.x = 0.640;
+        primaries.Red.y = 0.330;
+        primaries.Green.x = 0.290;
+        primaries.Green.y = 0.600;
+        primaries.Blue.x = 0.150;
+        primaries.Blue.y = 0.060;
+        break;
     case MP_CSP_PRIM_BT_709:
         // BT.709 / sRGB primaries
         primaries.Red.x = 0.64;
