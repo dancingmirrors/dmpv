@@ -26,9 +26,6 @@ check(desc      = "pkg-config",
 add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
            "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
            "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
-check("-debug-build",
-      fn        = lambda: chain(add_cflags("-g3"), True),
-      desc      = "debug symbols (use -g3)")
 check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
       required  = "C11 or C99 compiler: missing, broken, or too old")
@@ -37,6 +34,13 @@ check("-optimize",
                                 "-pipe", "-fno-signed-zeros",
                                 "-fno-trapping-math"), True),
       desc      = "optimization")
+check("-debug-build",
+      fn        = lambda: chain(add_cflags("-g3"), True),
+      desc      = "-g3")
+check("-debug-build-extensive",
+      fn        = lambda: chain(add_cflags("-O0", "-g", "-fno-omit-frame-pointer"), True),
+      desc      = "-O0, -g, -fno-omit-frame-pointer",
+      default   = False)
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         "-Werror=implicit-function-declaration",
