@@ -2204,7 +2204,17 @@ bool vo_wayland_check_visible(struct vo *vo)
 }
 
 #if HAVE_LCMS2
-// Generate ICC profile from parametric color space information
+/**
+ * Generate an ICC profile from Wayland parametric color space information.
+ * 
+ * When the Wayland compositor provides color space information via the
+ * color-management-v1 protocol using parametric data (primaries and transfer
+ * function) instead of a full ICC profile, this function synthesizes a
+ * minimal ICC profile that can be used by libplacebo for color management.
+ * 
+ * @param wl Wayland state containing target color space parameters
+ * @return   Binary ICC profile data, or empty bstr on error
+ */
 static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
 {
     struct mp_colorspace *csp = &wl->target_params.color;
