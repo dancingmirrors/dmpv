@@ -1672,8 +1672,9 @@ static int compare_atime(const void *a, const void *b)
     time_t ta = ((struct file_entry *)a)->atime;
     time_t tb = ((struct file_entry *)b)->atime;
     // Sort in descending order (most recent first)
-    if (tb > ta) return -1;
-    if (tb < ta) return 1;
+    // If a is newer (ta > tb), a should come first, so return negative
+    if (ta > tb) return -1;
+    if (ta < tb) return 1;
     return 0;
 }
 
@@ -1726,7 +1727,7 @@ static void cache_uninit(struct priv *p, struct cache *cache)
     time_t t = time(NULL);
     size_t cache_size = 0;
     size_t cache_limit = cache->size_limit ? cache->size_limit : SIZE_MAX;
-    for (int i = 0; i < num_files; i++) {
+    for (size_t i = 0; i < num_files; i++) {
         // Remove files that exceed the size limit but are older than one day.
         // This allows for temporary maintaining a larger cache size while
         // adjusting the configuration. The cache will be cleared the next day
