@@ -2211,12 +2211,12 @@ static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
     
     // Check if we have valid parametric data
     if (csp->primaries == MP_CSP_PRIM_AUTO || csp->gamma == MP_CSP_TRC_AUTO) {
-        MP_VERBOSE(wl, "generate_icc_profile: no valid parametric color space data\n");
+        MP_VERBOSE(wl, "generate_icc_profile: no valid parametric color space data (primaries=%d, gamma=%d)\n", 
+                   csp->primaries, csp->gamma);
         return (bstr){0};
     }
     
     // Map mpv color primaries to CIE xy chromaticities
-    // Using sRGB/BT.709 primaries as fallback/example
     cmsCIExyY white_point;
     cmsCIExyYTRIPLE primaries;
     
@@ -2228,7 +2228,6 @@ static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
     // Map primaries based on compositor data
     switch (csp->primaries) {
     case MP_CSP_PRIM_BT_709:
-    case MP_CSP_PRIM_AUTO:
         // BT.709 / sRGB primaries
         primaries.Red.x = 0.64;
         primaries.Red.y = 0.33;
@@ -2257,15 +2256,8 @@ static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
         primaries.Blue.y = 0.060;
         break;
     default:
-        // Fallback to sRGB
-        MP_VERBOSE(wl, "generate_icc_profile: unknown primaries %d, using sRGB\n", csp->primaries);
-        primaries.Red.x = 0.64;
-        primaries.Red.y = 0.33;
-        primaries.Green.x = 0.30;
-        primaries.Green.y = 0.60;
-        primaries.Blue.x = 0.15;
-        primaries.Blue.y = 0.06;
-        break;
+        MP_VERBOSE(wl, "generate_icc_profile: unsupported primaries %d\n", csp->primaries);
+        return (bstr){0};
     }
     
     primaries.Red.Y = 1.0;
@@ -2273,43 +2265,49 @@ static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
     primaries.Blue.Y = 1.0;
     
     // Map transfer function
-    cmsToneCurve *curves[3];
+    cmsToneCurve *curve = NULL;
     switch (csp->gamma) {
     case MP_CSP_TRC_SRGB:
-        // sRGB gamma
-        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        // sRGB transfer function with proper parameters
+        // Parameters: gamma, a, b, c, d for: (a*x+b)^gamma if x >= d, else c*x
+        curve = cmsBuildParametricToneCurve(NULL, 4, 
+            (double[5]){2.40, 1.0/1.055, 0.055/1.055, 1.0/12.92, 0.04045});
         break;
     case MP_CSP_TRC_LINEAR:
-        // Linear
-        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 1.0);
+        // Linear transfer function
+        curve = cmsBuildGamma(NULL, 1.0);
         break;
     case MP_CSP_TRC_GAMMA22:
-        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        curve = cmsBuildGamma(NULL, 2.2);
         break;
     case MP_CSP_TRC_GAMMA28:
-        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.8);
+        curve = cmsBuildGamma(NULL, 2.8);
         break;
     case MP_CSP_TRC_PQ:
     case MP_CSP_TRC_HLG:
         // For HDR transfer functions, use gamma 2.2 as approximation
-        MP_VERBOSE(wl, "generate_icc_profile: HDR transfer function %d, using gamma 2.2\n", csp->gamma);
-        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
+        // Full PQ/HLG support would require more complex tone curves
+        MP_VERBOSE(wl, "generate_icc_profile: HDR transfer function %d, using gamma 2.2 approximation\n", csp->gamma);
+        curve = cmsBuildGamma(NULL, 2.2);
         break;
     default:
-        // Fallback to sRGB gamma
-        MP_VERBOSE(wl, "generate_icc_profile: unknown gamma %d, using 2.2\n", csp->gamma);
-        curves[0] = curves[1] = curves[2] = cmsBuildGamma(NULL, 2.2);
-        break;
+        MP_VERBOSE(wl, "generate_icc_profile: unsupported gamma %d\n", csp->gamma);
+        return (bstr){0};
     }
     
-    if (!curves[0]) {
+    if (!curve) {
         MP_ERR(wl, "generate_icc_profile: failed to create tone curve\n");
         return (bstr){0};
     }
     
+    // Create array with the same curve for all channels
+    cmsToneCurve *curves[3] = { curve, curve, curve };
+    
     // Create RGB profile
     cmsHPROFILE profile = cmsCreateRGBProfile(&white_point, &primaries, curves);
-    cmsFreeToneCurve(curves[0]);
+    
+    // Free the tone curve (only once since all three pointers reference the same curve)
+    cmsFreeToneCurve(curve);
     
     if (!profile) {
         MP_ERR(wl, "generate_icc_profile: failed to create ICC profile\n");
@@ -2341,7 +2339,8 @@ static bstr generate_icc_profile_from_params(struct vo_wayland_state *wl)
     
     cmsCloseProfile(profile);
     
-    MP_VERBOSE(wl, "generate_icc_profile: generated ICC profile from parametric data (%u bytes)\n", profile_size);
+    MP_VERBOSE(wl, "generate_icc_profile: generated ICC profile from parametric data (%u bytes, primaries=%d, gamma=%d)\n", 
+               profile_size, csp->primaries, csp->gamma);
     return (bstr){ .start = profile_data, .len = profile_size };
 }
 #endif
