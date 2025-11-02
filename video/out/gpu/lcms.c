@@ -456,8 +456,22 @@ error_exit:
     return result;
 }
 
-// Generate ICC profile from color space parameters (primaries and gamma)
-// Useful when no ICC profile is provided but color space metadata is available
+/**
+ * Generate an ICC profile from color space parameters.
+ *
+ * This function creates a synthetic ICC profile based on specified color primaries
+ * and gamma/transfer function. It's useful when no ICC profile is embedded or available,
+ * but color space metadata is known.
+ *
+ * @param talloc_ctx Talloc context for memory allocation (can be NULL)
+ * @param log        Logger for diagnostic messages
+ * @param primaries  Color primaries (e.g., BT.709, BT.2020, DCI-P3)
+ * @param gamma      Transfer function (e.g., sRGB, linear, gamma 2.2)
+ * @return           Binary ICC profile data as bstr, or empty bstr on error
+ *
+ * Supported primaries: BT.601 (NTSC/PAL), BT.709, BT.2020, DCI-P3/Display P3
+ * Supported transfer functions: sRGB, Linear, Gamma 2.2, Gamma 2.8, PQ/HLG (approximated)
+ */
 bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
                                        enum mp_csp_prim primaries,
                                        enum mp_csp_trc gamma)
