@@ -832,7 +832,8 @@ static void apply_target_options(struct priv *p, struct pl_frame *target,
     // Check if source content is HDR - ICC profiles don't support HDR
     bool src_is_hdr = src && mp_trc_is_hdr(src->params.color.gamma);
     if (src_is_hdr && p->icc_profile) {
-        const char *trc_name = m_opt_choice_str(mp_csp_trc_names, src->params.color.gamma);
+        const char *trc_name = m_opt_choice_str_def(mp_csp_trc_names, 
+                                                     src->params.color.gamma, "unknown");
         MP_VERBOSE(p, "Skipping ICC profile for HDR content (transfer: %s)\n",
                    trc_name);
         target->icc = NULL;
