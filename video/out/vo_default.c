@@ -39,6 +39,7 @@
 #include "osdep/io.h"
 #include "osdep/threads.h"
 #include "stream/stream.h"
+#include "video/csputils.h"
 #include "video/fmt-conversion.h"
 #include "video/mp_image.h"
 #include "video/out/placebo/ra_pl.h"
@@ -783,7 +784,8 @@ static void apply_target_contrast(struct priv *p, struct pl_color_space *color)
     color->hdr.min_luma = color->hdr.max_luma / opts->target_contrast;
 }
 
-static void apply_target_options(struct priv *p, struct pl_frame *target)
+static void apply_target_options(struct priv *p, struct pl_frame *target,
+                                 struct mp_image *src)
 {
     update_lut(p, &p->target_lut);
     target->lut = p->target_lut.lut;
@@ -826,8 +828,16 @@ static void apply_target_options(struct priv *p, struct pl_frame *target)
         ));
     }
 
-    pl_icc_update(p->pllog, &p->icc_profile, NULL, &p->icc_params);
-    target->icc = p->icc_profile;
+    // Check if source content is HDR - ICC profiles don't support HDR
+    bool src_is_hdr = src && mp_trc_is_hdr(src->params.color.gamma);
+    if (src_is_hdr && p->icc_profile) {
+        MP_VERBOSE(p, "Skipping ICC profile for HDR content (transfer function: %d)\n",
+                   src->params.color.gamma);
+        target->icc = NULL;
+    } else {
+        pl_icc_update(p->pllog, &p->icc_profile, NULL, &p->icc_params);
+        target->icc = p->icc_profile;
+    }
 }
 
 static void apply_crop(struct pl_frame *frame, struct mp_rect crop,
@@ -986,7 +996,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     // Calculate target
     struct pl_frame target;
     pl_frame_from_swapchain(&target, &swframe);
-    apply_target_options(p, &target);
+    apply_target_options(p, &target, frame->current);
     update_overlays(vo, p->osd_res,
                     (frame->current && opts->blend_subs) ? OSD_DRAW_OSD_ONLY : 0,
                     PL_OVERLAY_COORDS_DST_FRAME, &p->osd_state, &target, frame->current);
@@ -1341,7 +1351,7 @@ static void video_screenshot(struct vo *vo, struct voctrl_screenshot *args)
 
     if (args->scaled) {
         // Apply target LUT, ICC profile and CSP override only in window mode
-        apply_target_options(p, &target);
+        apply_target_options(p, &target, mpi);
     } else if (args->native_csp) {
         target.color = image.color;
     } else {
