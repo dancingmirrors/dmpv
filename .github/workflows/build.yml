@@ -55,6 +55,8 @@ jobs:
 
       - name: configure, build, install, test (GCC and clang)
         run: |
+          set -x
+
           ./configure --enable-lgpl
           make -j4
           sudo make install
