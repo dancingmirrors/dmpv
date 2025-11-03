@@ -35,6 +35,7 @@
 #include "common/common.h"
 #include "misc/bstr.h"
 #include "options/m_config.h"
+#include "options/m_option.h"
 #include "options/path.h"
 #include "osdep/io.h"
 #include "osdep/threads.h"
@@ -831,8 +832,9 @@ static void apply_target_options(struct priv *p, struct pl_frame *target,
     // Check if source content is HDR - ICC profiles don't support HDR
     bool src_is_hdr = src && mp_trc_is_hdr(src->params.color.gamma);
     if (src_is_hdr && p->icc_profile) {
-        MP_VERBOSE(p, "Skipping ICC profile for HDR content (transfer function: %d)\n",
-                   src->params.color.gamma);
+        const char *trc_name = m_opt_choice_str(mp_csp_trc_names, src->params.color.gamma);
+        MP_VERBOSE(p, "Skipping ICC profile for HDR content (transfer: %s)\n",
+                   trc_name);
         target->icc = NULL;
     } else {
         pl_icc_update(p->pllog, &p->icc_profile, NULL, &p->icc_params);
