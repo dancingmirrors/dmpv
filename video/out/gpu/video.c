@@ -2303,6 +2303,9 @@ static void pass_read_video(struct gl_video *p)
         case PLANE_ALPHA:
             // alpha always uses bilinear
             name = "ALPHA_SCALED";
+            break;
+        case PLANE_NONE:
+            break;
         }
 
         if (scaler_id < 0)

@@ -52,6 +52,14 @@ int va_get_colorspace_flag(enum mp_csp csp)
     case MP_CSP_BT_601:         return VA_SRC_BT601;
     case MP_CSP_BT_709:         return VA_SRC_BT709;
     case MP_CSP_SMPTE_240M:     return VA_SRC_SMPTE_240;
+    case MP_CSP_AUTO:
+    case MP_CSP_BT_2020_NC:
+    case MP_CSP_BT_2020_C:
+    case MP_CSP_RGB:
+    case MP_CSP_XYZ:
+    case MP_CSP_YCGCO:
+    case MP_CSP_COUNT:
+        break;
     }
     return 0;
 }
