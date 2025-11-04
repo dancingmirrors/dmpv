@@ -1476,7 +1476,7 @@ static void vo_x11_set_property_utf8(struct vo *vo, Atom name, const char *t)
     struct vo_x11_state *x11 = vo->x11;
 
     XChangeProperty(x11->display, x11->window, name, XA(x11, UTF8_STRING), 8,
-                    PropModeReplace, t, strlen(t));
+                    PropModeReplace, (unsigned char *)t, strlen(t));
 }
 
 // set a X text property that expects a STRING or COMPOUND_TEXT type
@@ -1912,7 +1912,7 @@ static void vo_x11_update_geometry(struct vo *vo)
     x11->winrc = (struct mp_rect){0, 0, 0, 0};
     if (win) {
         XGetGeometry(x11->display, win, &dummy_win, &dummy_int, &dummy_int,
-                     &w, &h, &dummy_int, &dummy_uint);
+                     &w, &h, (unsigned int *)&dummy_int, &dummy_uint);
         if (w > INT_MAX || h > INT_MAX)
             w = h = 0;
         XTranslateCoordinates(x11->display, win, x11->rootwin, 0, 0,

@@ -103,7 +103,7 @@ struct lavc_conv *lavc_conv_create(struct mp_log *log,
     avctx->pkt_timebase = avctx->time_base;
     avctx->sub_charenc_mode = FF_SUB_CHARENC_MODE_IGNORE;
     priv->avctx = avctx;
-    priv->extradata = talloc_strndup(priv, avctx->subtitle_header,
+    priv->extradata = talloc_strndup(priv, (char *)avctx->subtitle_header,
                                      avctx->subtitle_header_size);
     disable_styles(bstr0(priv->extradata));
     return priv;

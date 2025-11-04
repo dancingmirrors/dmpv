@@ -37,7 +37,7 @@ static bool shaderc_init(struct ra_ctx *ctx)
         shaderc_compile_options_set_generate_debug_info(p->opts);
 
     int ver, rev;
-    shaderc_get_spv_version(&ver, &rev);
+    shaderc_get_spv_version((unsigned int *)&ver, (unsigned int *)&rev);
     ctx->spirv->compiler_version = ver * 100 + rev; // forwards compatibility
     ctx->spirv->glsl_version = 450; // impossible to query?
     return true;

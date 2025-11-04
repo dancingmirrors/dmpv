@@ -500,7 +500,7 @@ struct mp_image *mp_vdpau_upload_video_surface(struct mp_vdpau_ctx *ctx,
         if (src->imgfmt == IMGFMT_NV12)
             destdata[1] = destdata[2];
         vdp_st = vdp->video_surface_put_bits_y_cb_cr(surface,
-            ycbcr, destdata, src->stride);
+            ycbcr, (const void * const *)destdata, src->stride);
     } else {
         VdpOutputSurface rgb_surface = (intptr_t)hwmpi->planes[3];
         vdp_st = vdp->output_surface_put_bits_native(rgb_surface,

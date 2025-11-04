@@ -89,7 +89,7 @@ static struct cookie_list_type *load_cookies_from(void *ctx,
         return NULL;
     }
 
-    bstr_xappend(ctx, &data, (struct bstr){"", 1}); // null-terminate
+    bstr_xappend(ctx, &data, (struct bstr){(unsigned char *)"", 1}); // null-terminate
     char *ptr = (char *)data.start;
 
     struct cookie_list_type *list = NULL;
