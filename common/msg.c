@@ -426,7 +426,7 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
         bstr_xappend(root, &root->buffer, bstr0(format));
     }
 
-    char *text = root->buffer.start;
+    char *text = (char *)root->buffer.start;
 
     if (lev == MSGL_STATS) {
         dump_stats(log, lev, text);

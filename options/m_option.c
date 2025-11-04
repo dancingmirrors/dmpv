@@ -1530,7 +1530,7 @@ static int parse_str_list_impl(struct mp_log *log, const m_option_t *opt,
 
     res = talloc_array(NULL, char *, n + 2);
     str = bstrdup(NULL, param);
-    char *ptr = str.start;
+    char *ptr = (char *)str.start;
     n = 0;
 
     while (1) {
