@@ -68,7 +68,7 @@ static const char *mp_uchardet(void *talloc_ctx, struct mp_log *log, bstr buf)
     uchardet_t det = uchardet_new();
     if (!det)
         return NULL;
-    if (uchardet_handle_data(det, buf.start, buf.len) != 0) {
+    if (uchardet_handle_data(det, (const char *)buf.start, buf.len) != 0) {
         uchardet_delete(det);
         return NULL;
     }

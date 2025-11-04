@@ -249,7 +249,7 @@ char *mp_splitext(const char *path, bstr *root)
     if (!split || !split[1] || strchr(split, '/'))
         return NULL;
     if (root)
-        *root = (bstr){(char *)path, split - path};
+        *root = (bstr){(unsigned char *)path, split - path};
     return (char *)split + 1;
 }
 

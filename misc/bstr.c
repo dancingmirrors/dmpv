@@ -396,7 +396,7 @@ int bstr_xappend_vasprintf(void *talloc_ctx, bstr *s, const char *fmt,
 
     if (avail < 1 || size + 1 > avail) {
         resize_append(talloc_ctx, s, size + 1);
-        vsnprintf(s->start + s->len, size + 1, fmt, ap);
+        vsnprintf((char *)s->start + s->len, size + 1, fmt, ap);
     }
     s->len += size;
     return size;

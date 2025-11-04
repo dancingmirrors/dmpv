@@ -297,7 +297,7 @@ static char *mp_get_playback_resume_config_filename(struct MPContext *mpctx,
         }
     }
     uint8_t md5[16];
-    av_md5_sum(md5, realpath, strlen(realpath));
+    av_md5_sum(md5, (const uint8_t *)realpath, strlen(realpath));
     char *conf = talloc_strdup(tmp, "");
     for (int i = 0; i < 16; i++)
         conf = talloc_asprintf_append(conf, "%02X", md5[i]);
