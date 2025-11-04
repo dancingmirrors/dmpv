@@ -178,7 +178,7 @@ static ASS_Event *add_osd_ass_event(ASS_Track *track, const char *style,
     if (text.start) {
         event->Text = malloc(text.len + 1);
         MP_HANDLE_OOM(event->Text);
-        memcpy(event->Text, text.start, text.len);
+        memcpy(event->Text, (char *)text.start, text.len);
         event->Text[text.len] = '\0';
     }
     return event;
