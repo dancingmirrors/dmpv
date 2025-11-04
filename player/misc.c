@@ -74,8 +74,9 @@ double rel_time_to_abs(struct MPContext *mpctx, struct m_rel_time t)
         break;
     case REL_TIME_CHAPTER:
         return chapter_start_time(mpctx, t.pos); // already absolute time
+    case REL_TIME_NONE:
+        break;
     }
-
     return MP_NOPTS_VALUE;
 }
 

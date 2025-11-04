@@ -469,6 +469,8 @@ static bool render_sb(struct mp_draw_sub_cache *p, struct sub_bitmaps *sb)
         return true;
     case SUBBITMAP_BGRA:
         return render_rgba(p, part, sb);
+    default:
+        break;
     }
 
     return false;

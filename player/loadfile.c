@@ -865,6 +865,8 @@ int mp_add_external_file(struct MPContext *mpctx, char *filename,
     case STREAM_AUDIO:
         params.force_format = opts->audio_demuxer_name;
         break;
+    default:
+        break;
     }
 
     mp_core_unlock(mpctx);
@@ -1875,6 +1877,7 @@ terminate_playback:
                 playback_start < 0 || mp_time_sec() - playback_start < 1.0;
             mpctx->playing->init_failed = nothing_played;
         }
+    default:
         break;
     }
     // Note that error_playing is meaningless in these cases.

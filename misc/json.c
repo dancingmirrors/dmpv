@@ -331,6 +331,8 @@ static int json_append(bstr *b, const struct dmpv_node *src, int indent)
         APPEND(b, is_obj ? "}" : "]");
         return 0;
     }
+    default:
+        break;
     }
     return -1; // unknown format
 }

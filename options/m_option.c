@@ -2848,6 +2848,8 @@ static char *print_rel_time(const m_option_t *opt, const void *val)
         return talloc_asprintf(NULL, "#%g", t->pos);
     case REL_TIME_PERCENT:
         return talloc_asprintf(NULL, "%g%%", t->pos);
+    default:
+        break;
     }
     return talloc_strdup(NULL, "none");
 }

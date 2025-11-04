@@ -943,6 +943,8 @@ static void enqueue_backward_frame(struct priv *p, struct mp_frame frame)
         switch (p->header->type) {
         case STREAM_VIDEO: queue_size = opts->video_reverse_size; break;
         case STREAM_AUDIO: queue_size = opts->audio_reverse_size; break;
+        default:
+            break;
         }
 
         if (p->reverse_queue_byte_size >= queue_size) {
@@ -1096,6 +1098,8 @@ static void *dec_thread(void *ptr)
     switch (p->header->type) {
     case STREAM_VIDEO: t_name = "vdec"; break;
     case STREAM_AUDIO: t_name = "adec"; break;
+    default:
+        break;
     }
     mpthread_set_name(t_name);
 
