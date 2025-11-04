@@ -16,6 +16,7 @@ programs_info = [
     ("WINDRES",     "windres"),
     ("WAYSCAN",     "wayland-scanner"),
     ("GIT",         "git"),
+    ("NINJA",       "ninja"),
 ]
 
 install_paths_info = [
