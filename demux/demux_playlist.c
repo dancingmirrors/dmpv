@@ -142,7 +142,7 @@ static char *read_line(stream_t *s, char *mem, int max, int utf16)
     int read = 0;
     while (1) {
         // Reserve 1 byte of ptr for terminating \0.
-        int l = read_characters(s, &mem[read], max - read - 1, utf16);
+        int l = read_characters(s, (uint8_t *)&mem[read], max - read - 1, utf16);
         if (l < 0 || memchr(&mem[read], '\0', l)) {
             MP_WARN(s, "error reading line\n");
             return NULL;
@@ -206,7 +206,7 @@ static int parse_m3u(struct pl_parser *p)
             char *ext = mp_splitext(p->real_stream->url, NULL);
             char probe[PROBE_SIZE];
             int len = stream_read_peek(p->real_stream, probe, sizeof(probe));
-            bstr data = {probe, len};
+            bstr data = {(unsigned char *)probe, len};
             if (ext && data.len >= 2 && maybe_text(data)) {
                 const char *exts[] = {"m3u", "m3u8", NULL};
                 for (int n = 0; exts[n]; n++) {
