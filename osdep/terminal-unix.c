@@ -329,7 +329,8 @@ static void enable_kx(bool enable)
     // shouldn't be relied on here either.
     if (isatty(tty_out)) {
         char *cmd = enable ? "\033=" : "\033>";
-        (void)write(tty_out, cmd, strlen(cmd));
+        ssize_t ignored = write(tty_out, cmd, strlen(cmd));
+        (void)ignored;
     }
 }
 
@@ -402,7 +403,8 @@ static int stop_cont_pipe[2] = {-1, -1};
 static void stop_sighandler(int signum)
 {
     int saved_errno = errno;
-    (void)write(stop_cont_pipe[1], &(char){PIPE_STOP}, 1);
+    ssize_t ignored = write(stop_cont_pipe[1], &(char){PIPE_STOP}, 1);
+    (void)ignored;
     errno = saved_errno;
 
     // note: for this signal, we use SA_RESETHAND but do NOT mask signals
@@ -416,7 +418,8 @@ static void continue_sighandler(int signum)
     // SA_RESETHAND has reset SIGTSTP, so we need to restore it here
     setsigaction(SIGTSTP, stop_sighandler, SA_RESETHAND, false);
 
-    (void)write(stop_cont_pipe[1], &(char){PIPE_CONT}, 1);
+    ssize_t ignored = write(stop_cont_pipe[1], &(char){PIPE_CONT}, 1);
+    (void)ignored;
     errno = saved_errno;
 }
 
@@ -446,7 +449,8 @@ static void close_tty(void)
 static void quit_request_sighandler(int signum)
 {
     int saved_errno = errno;
-    (void)write(death_pipe[1], &(char){1}, 1);
+    ssize_t ignored = write(death_pipe[1], &(char){1}, 1);
+    (void)ignored;
     errno = saved_errno;
 }
 
@@ -470,7 +474,8 @@ static void *terminal_thread(void *ptr)
         }
         if (fds[1].revents & POLLIN) {
             int8_t c = -1;
-            (void)read(stop_cont_pipe[0], &c, 1);
+            ssize_t ignored = read(stop_cont_pipe[0], &c, 1);
+            (void)ignored;
             if (c == PIPE_STOP)
                 do_deactivate_getch2();
             else if (c == PIPE_CONT)
@@ -545,7 +550,8 @@ void terminal_uninit(void)
     setsigaction(SIGTTOU, SIG_DFL, 0, false);
 
     if (input_ctx) {
-        (void)write(death_pipe[1], &(char){0}, 1);
+        ssize_t ignored = write(death_pipe[1], &(char){0}, 1);
+        (void)ignored;
         pthread_join(input_thread, NULL);
         close_sig_pipes();
         input_ctx = NULL;
