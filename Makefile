@@ -1,7 +1,16 @@
+# Build system:
+# This project uses Ninja as the build backend for faster builds.
+# 
+# Quick start:
+# ./configure
+# ninja -C build
+#
 # Build performance tips:
-# - Use parallel builds: make -j$(nproc)
-# - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && make -j$(nproc)
-# - Disable debug symbols for faster compilation: ./configure --disable-debug-build && make -j$(nproc)
+# - Ninja automatically uses parallel builds
+# - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && ninja -C build
+# - Disable debug symbols for faster compilation: ./configure --disable-debug-build && ninja -C build
+#
+# Legacy Make support is maintained for compatibility but Ninja is recommended
 
 BUILDDIR = build
 

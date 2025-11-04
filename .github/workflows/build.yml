@@ -58,51 +58,51 @@ jobs:
           set -x
 
           ./configure --enable-lgpl
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
-          sudo make uninstall
+          sudo ninja -C build uninstall
 
-          make dist-clean
+          rm -rf build
           ./configure
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
-          make dist-clean
+          rm -rf build
           CC=clang ./configure
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
           sudo rm -rf /usr/local/*
-          make dist-clean
+          rm -rf build
           ./configure
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
-          make dist-clean
+          rm -rf build
           CC=clang ./configure
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          make dist-clean
+          rm -rf build
           ./configure --disable-libplacebo
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          make dist-clean
+          rm -rf build
           CC=clang ./configure --disable-libplacebo
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
@@ -116,16 +116,16 @@ jobs:
 
           sudo ldconfig
 
-          make dist-clean
+          rm -rf build
           ./configure
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          make dist-clean
+          rm -rf build
           CC=clang ./configure
-          make -j4
-          sudo make install
+          ninja -C build
+          sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
