@@ -899,7 +899,7 @@ void mp_get_csp_matrix(struct mp_csp_params *params, struct mp_cmat *m)
         yuvfull = {  0*s, 255*s, 255*s, 128*s },
         anyfull = {  0*s, 255*s, 255*s/2, 0 }, // cmax picked to make cmul=ymul
         yuvlev;
-    switch (levels_in) {
+    switch ((int)levels_in) {
     case MP_CSP_LEVELS_TV: yuvlev = yuvlim; break;
     case MP_CSP_LEVELS_PC: yuvlev = yuvfull; break;
     case -1: yuvlev = anyfull; break;
