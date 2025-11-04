@@ -419,8 +419,8 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
                                                           num_elems[i]);
                 break;
             case EBML_TYPE_EBML_ID:
-                *(int32_t **) ptr = talloc_zero_array(ctx->talloc_ctx,
-                                                      uint32_t, num_elems[i]);
+                *(uint32_t **) ptr = talloc_zero_array(ctx->talloc_ctx,
+                                                       uint32_t, num_elems[i]);
                 break;
             default:
                 MP_ASSERT_UNREACHABLE();
@@ -549,7 +549,7 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
             }
             char **strptr;
             GETPTR(strptr, char *);
-            *strptr = talloc_strndup(ctx->talloc_ctx, data, length);
+            *strptr = talloc_strndup(ctx->talloc_ctx, (char *)data, length);
             MP_TRACE(ctx, "string \"%s\"\n", *strptr);
             break;
 
