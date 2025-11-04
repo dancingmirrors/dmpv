@@ -1864,7 +1864,7 @@ static int demux_mkv_open_audio(demuxer_t *demuxer, mkv_track_t *track)
         if (track->private_size) {
             extradata_len = track->private_size + 12;
             extradata = talloc_size(sh_a, extradata_len);
-            char *data = extradata;
+            char *data = (char *)extradata;
             AV_WB32(data + 0, extradata_len);
             memcpy(data + 4, "alac", 4);
             AV_WB32(data + 8, 0);
@@ -1875,7 +1875,7 @@ static int demux_mkv_open_audio(demuxer_t *demuxer, mkv_track_t *track)
         extradata = talloc_zero_size(sh_a, extradata_len);
         if (!extradata)
             goto error;
-        char *data = extradata;
+        char *data = (char *)extradata;
         memcpy(data + 0, "TTA1", 4);
         AV_WL16(data + 4, 1);
         AV_WL16(data + 6, sh_a->channels.num);

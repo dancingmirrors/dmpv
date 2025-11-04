@@ -3610,7 +3610,7 @@ static void frame_perf_data(struct pass_info pass[], struct mp_frame_perf *out)
         if (!pass[i].desc.len)
             break;
         out->perf[out->count] = pass[i].perf;
-        strncpy(out->desc[out->count], pass[i].desc.start,
+        strncpy(out->desc[out->count], (char *)pass[i].desc.start,
                 sizeof(out->desc[out->count]) - 1);
         out->desc[out->count][sizeof(out->desc[out->count]) - 1] = '\0';
         out->count++;
