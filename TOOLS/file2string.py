@@ -22,27 +22,24 @@
 # License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
+import os
 import sys
 
-# Indexing a byte string yields int on Python 3.x, and a str on Python 2.x
-def pord(c):
-    return ord(c) if type(c) == str else c
 
 def file2string(infilename, infile, outfile):
-    outfile.write("// Generated from %s\n\n" % infilename)
+    outfile.write(f"// Generated from {infilename}\n\n")
 
-    conv = ['\\' + ("%03o" % c) for c in range(256)]
+    conv = [f"\\{c:03o}" for c in range(256)]
     safe_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" \
-                 "0123456789!#%&'()*+,-./:;<=>?[]^_{|}~ "
+                 "0123456789!#%&'()*+,-./:;<=>[]^_{|}~ "
 
     for c in safe_chars:
         conv[ord(c)] = c
-    for c, esc in ("\nn", "\tt", r"\\", '""'):
-        conv[ord(c)] = '\\' + esc
+    for c, esc in [("\n", "n"), ("\t", "t"), ("\\", "\\"), ('"', '"')]:
+        conv[ord(c)] = "\\" + esc
     for line in infile:
-        outfile.write('"' + ''.join(conv[pord(c)] for c in line) + '"\n')
+        outfile.write('"' + "".join(conv[c] for c in line) + '"\n')
 
 if __name__ == "__main__":
-    with open(sys.argv[1], 'rb') as infile:
-        file2string(sys.argv[1], infile, sys.stdout)
+    with open(sys.argv[1], "rb") as infile, open(sys.argv[2], "w") as outfile:
+        file2string(os.path.relpath(sys.argv[1], sys.argv[3]), infile, outfile)
