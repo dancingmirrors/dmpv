@@ -1658,7 +1658,7 @@ void mp_input_src_feed_cmd_text(struct mp_input_src *src, char *buf, size_t len)
             buf += copy;
             len -= copy;
             if (term) {
-                bstr s = {in->cmd_buffer, in->cmd_buffer_size};
+                bstr s = {(unsigned char *)in->cmd_buffer, in->cmd_buffer_size};
                 s = bstr_strip(s);
                 struct mp_cmd *cmd = mp_input_parse_cmd_str(src->log, s, "<>");
                 if (cmd)

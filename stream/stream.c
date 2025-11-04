@@ -770,7 +770,7 @@ int stream_skip_bom(struct stream *s)
 {
     char buf[4];
     int len = stream_read_peek(s, buf, sizeof(buf));
-    bstr data = {buf, len};
+    bstr data = {(unsigned char *)buf, len};
     for (int n = 0; n < 3; n++) {
         if (bstr_startswith0(data, bom[n])) {
             stream_seek_skip(s, stream_tell(s) + strlen(bom[n]));

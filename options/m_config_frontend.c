@@ -112,7 +112,7 @@ static int show_profile(struct m_config *config, bstr param)
                 int l = e - list;
                 if (!l)
                     continue;
-                show_profile(config, (bstr){list, e - list});
+                show_profile(config, (bstr){(unsigned char *)list, e - list});
                 list = e + 1;
             }
             if (list[0] != '\0')

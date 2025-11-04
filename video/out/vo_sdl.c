@@ -568,7 +568,7 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
             if (sdl_mod & (KMOD_LGUI | KMOD_RGUI))
                 dmpv_mod |= MP_KEY_MODIFIER_META;
             struct bstr t = {
-                ev.text.text, strlen(ev.text.text)
+                (unsigned char *)ev.text.text, strlen(ev.text.text)
             };
             mp_input_put_key_utf8(vo->input_ctx, dmpv_mod, t);
             break;
