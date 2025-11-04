@@ -1552,6 +1552,10 @@ static char *cache_filepath(void *ta_ctx, char *dir, const char *prefix, uint64_
     return mp_path_join_bstr(ta_ctx, bstr0(dir), filename);
 }
 
+// Forward declarations for cache management functions
+static size_t cache_get_size(struct cache *cache);
+static void cache_prune(struct mp_log *log, struct cache *cache, bool aggressive);
+
 static pl_cache_obj cache_load_obj(void *p, uint64_t key)
 {
     struct cache *c = p;
