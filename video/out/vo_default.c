@@ -94,6 +94,9 @@ struct frame_info {
     struct pl_dispatch_info info[VO_PASS_PERF_MAX];
 };
 
+// Threshold for triggering aggressive cache pruning (90% of limit)
+#define CACHE_PRUNE_THRESHOLD 0.9
+
 struct cache {
     struct mp_log *log;
     struct dmpv_global *global;
@@ -1612,8 +1615,8 @@ static void cache_save_obj(void *p, pl_cache_obj obj)
     // If so, prune aggressively to make room
     if (c->size_limit) {
         size_t current_size = cache_get_size(c);
-        // Prune if we're already over 90% of the limit
-        if (current_size + obj.size > c->size_limit * 9 / 10) {
+        size_t threshold = (size_t)(c->size_limit * CACHE_PRUNE_THRESHOLD);
+        if (current_size + obj.size > threshold) {
             cache_prune(c->log, c, true);
         }
     }
@@ -1802,7 +1805,10 @@ static void cache_prune(struct mp_log *log, struct cache *cache, bool aggressive
         bool should_remove = false;
         if (aggressive) {
             // Aggressive mode: remove files when over limit, regardless of age
-            should_remove = cache_size > cache_limit;
+            // Stop removing once we're back under the limit
+            if (cache_size > cache_limit) {
+                should_remove = true;
+            }
         } else {
             // Lenient mode: only remove files older than one day when over limit
             // This allows for temporary maintaining a larger cache size while
