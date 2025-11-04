@@ -1641,7 +1641,7 @@ found: ;
     finish_pass_tex(p, tex, p->texture_w, p->texture_h);
     struct image img = image_wrap(*tex, PLANE_RGB, p->components);
     img = pass_hook(p, name, img, tex_trans);
-    copy_image(p, &(int){0}, img);
+    copy_image(p, &(unsigned int){0}, img);
     p->texture_w = img.w;
     p->texture_h = img.h;
     p->components = img.components;
@@ -2148,7 +2148,7 @@ static void pass_read_video(struct gl_video *p)
                 gl_transform_eq(offsets[n], offsets[i]))
             {
                 GLSLF("// merging plane %d ...\n", i);
-                copy_image(p, &num, img[i]);
+                copy_image(p, (unsigned int *)&num, img[i]);
                 first = MPMIN(first, i);
                 img[i] = (struct image){0};
             }
@@ -2156,7 +2156,7 @@ static void pass_read_video(struct gl_video *p)
 
         if (num > 0) {
             GLSLF("// merging plane %d ... into %d\n", n, first);
-            copy_image(p, &num, img[n]);
+            copy_image(p, (unsigned int *)&num, img[n]);
             pass_describe(p, "merging planes");
             finish_pass_tex(p, &p->merge_tex[n], img[n].w, img[n].h);
             img[first] = image_wrap(p->merge_tex[n], img[n].type, num);
@@ -2169,7 +2169,7 @@ static void pass_read_video(struct gl_video *p)
     for (int n = 0; n < 4; n++) {
         if (img[n].tex && img[n].tex->params.format->ctype == RA_CTYPE_UINT) {
             GLSLF("// use_integer fix for plane %d\n", n);
-            copy_image(p, &(int){0}, img[n]);
+            copy_image(p, &(unsigned int){0}, img[n]);
             pass_describe(p, "use_integer fix");
             finish_pass_tex(p, &p->integer_tex[n], img[n].w, img[n].h);
             img[n] = image_wrap(p->integer_tex[n], img[n].type,
@@ -2339,7 +2339,7 @@ static void pass_read_video(struct gl_video *p)
     int coord = 0;
     for (int i = 0; i < 4; i++) {
         if (img[i].type != PLANE_NONE)
-            copy_image(p, &coord, img[i]);
+            copy_image(p, (unsigned int *)&coord, img[i]);
     }
     p->components = coord;
 }
@@ -2349,7 +2349,7 @@ static void pass_read_video(struct gl_video *p)
 static void pass_read_tex(struct gl_video *p, struct ra_tex *tex)
 {
     struct image img = image_wrap(tex, PLANE_RGB, p->components);
-    copy_image(p, &(int){0}, img);
+    copy_image(p, &(unsigned int){0}, img);
 }
 
 // yuv conversion, and any other conversions before main up/down-scaling
@@ -2818,7 +2818,7 @@ static void pass_dither(struct gl_video *p)
             finish_pass_tex(p, &p->error_diffusion_tex[1], o_w, o_h);
 
             img = image_wrap(p->error_diffusion_tex[1], PLANE_RGB, p->components);
-            copy_image(p, &(int){0}, img);
+            copy_image(p, &(unsigned int){0}, img);
 
             return;
         }
@@ -2995,7 +2995,7 @@ static void pass_render_frame_dumb(struct gl_video *p)
         gl_transform_trans(img[i].transform, &t);
         img[i].transform = t;
 
-        copy_image(p, &index, img[i]);
+        copy_image(p, (unsigned int *)&index, img[i]);
     }
 
     pass_convert_yuv(p);
@@ -3111,7 +3111,7 @@ static void pass_draw_to_screen(struct gl_video *p, struct ra_fbo fbo)
             o_h = p->dst_rect.y1 - p->dst_rect.y0;
         finish_pass_tex(p, &p->screen_tex, o_w, o_h);
         struct image tmp = image_wrap(p->screen_tex, PLANE_RGB, p->components);
-        copy_image(p, &(int){0}, tmp);
+        copy_image(p, &(unsigned int){0}, tmp);
     }
 
     if (p->has_alpha){

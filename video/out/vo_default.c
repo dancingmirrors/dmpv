@@ -2037,7 +2037,7 @@ static const struct pl_hook *load_hook(struct priv *p, const char *path)
 
     const struct pl_hook *hook = NULL;
     if (shader.len)
-        hook = pl_mpv_user_shader_parse(p->gpu, shader.start, shader.len);
+        hook = pl_mpv_user_shader_parse(p->gpu, (const char *)shader.start, shader.len);
 
     MP_TARRAY_APPEND(p, p->user_hooks, p->num_user_hooks, (struct user_hook) {
         .path = talloc_strdup(p, path),
@@ -2107,7 +2107,7 @@ static void update_lut(struct priv *p, struct user_lut *lut)
     char *fname = mp_get_user_path(NULL, p->global, lut->path);
     MP_VERBOSE(p, "Loading custom LUT '%s'\n", fname);
     struct bstr lutdata = stream_read_file(fname, p, p->global, 100000000); // 100 MB
-    lut->lut = pl_lut_parse_cube(p->pllog, lutdata.start, lutdata.len);
+    lut->lut = pl_lut_parse_cube(p->pllog, (const char *)lutdata.start, lutdata.len);
     talloc_free(lutdata.start);
 }
 
