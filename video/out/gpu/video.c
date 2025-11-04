@@ -2226,7 +2226,7 @@ static void pass_read_video(struct gl_video *p)
             p->ra_format.chroma_w != 1)
         {
             GLSLF("// chroma fix for rotated plane %d\n", n);
-            copy_image(p, &(int){0}, img[n]);
+            copy_image(p, &(unsigned int){0}, img[n]);
             pass_describe(p, "chroma fix for rotated plane");
             finish_pass_tex(p, &p->chroma_tex[n], img[n].w, img[n].h);
             img[n] = image_wrap(p->chroma_tex[n], img[n].type,
