@@ -795,7 +795,7 @@ static void fill_plaintext(struct sd *sd, double pts)
     event->Start = 0;
     event->Duration = INT_MAX;
     event->Style = track->default_style;
-    event->Text = strdup(dst.start);
+    event->Text = strdup((char *)dst.start);
 
     talloc_free(dst.start);
 }

@@ -365,7 +365,7 @@ static bool initialize(struct mp_filter *vf)
 
     VAProcFilterType filters[VAProcFilterCount];
     int num_filters = VAProcFilterCount;
-    status = vaQueryVideoProcFilters(p->display, p->context, (unsigned int *)filters, &num_filters);
+    status = vaQueryVideoProcFilters(p->display, p->context, filters, (unsigned int *)&num_filters);
     if (!CHECK_VA_STATUS(vf, "vaQueryVideoProcFilters()"))
         return false;
 
