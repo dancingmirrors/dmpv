@@ -692,7 +692,11 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     root_dir = os.path.abspath(_G.root_dir)
     
     # Get wayland proto dir if available
-    wl_proto_dir = _G.config_mak.split("WL_PROTO_DIR = ")[1].split("\n")[0] if "WL_PROTO_DIR = " in _G.config_mak else ""
+    wl_proto_dir = ""
+    import re
+    wl_match = re.search(r'^WL_PROTO_DIR\s*=\s*(.+)$', _G.config_mak, re.MULTILINE)
+    if wl_match:
+        wl_proto_dir = wl_match.group(1).strip()
     
     # Define variables
     ninja_content += f"builddir = {build_dir}\n"
@@ -816,7 +820,10 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         else:
             continue
             
-        obj_path = obj.replace("$(BUILD)", "$builddir").replace("$(ROOT)", "$builddir")
+        # All object files go to build directory
+        # For $(BUILD)/foo.o -> $builddir/foo.o
+        # For $(ROOT)/bar.o -> $builddir/bar.o  
+        obj_path = obj.replace("$(BUILD)/", "$builddir/").replace("$(ROOT)/", "$builddir/")
         objects.append(obj_path)
         
         # Determine dependencies for generated files
