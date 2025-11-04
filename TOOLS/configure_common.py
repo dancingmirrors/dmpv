@@ -71,8 +71,6 @@ class _G:
     dep_enabled = {}    # keyed by dependency identifier; value is a bool
                         # missing key means the check was not run yet
 
-    backend = "ninja"   # build backend: "ninja" or "make"
-
 
 # Convert a string to a C string literal. Adds the required "".
 def _c_quote_string(s):
@@ -157,11 +155,6 @@ def begin():
                         % name)
                 _G.feature_opts[name[5:]] = val
                 continue
-            if name == "backend":
-                if val not in ["ninja", "make"]:
-                    die("Option --backend requires 'ninja' or 'make'.")
-                _G.backend = val
-                continue
             uname = name.upper()
             setval = None
             if uname in _G.install_paths:
@@ -197,8 +190,6 @@ def begin():
         print("")
         print("General build options:")
         print("  %-30s %s" % ("--builddir=PATH", "Build directory (default: build)"))
-        print("  %-30s %s" % ("", "(Requires using 'make BUILDDIR=PATH')"))
-        print("  %-30s %s" % ("--backend=BACKEND", "Build backend: 'ninja' (default) or 'make'"))
         print("")
         print("Specific build configuration:")
         # check() invocations will print the options they understand.
@@ -696,9 +687,9 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     windres = _G.programs.get("WINDRES", "windres")
     wayscan = _G.programs.get("WAYSCAN", "wayland-scanner")
     
-    # Resolve build and root directories
-    build_dir = _G.build_dir
-    root_dir = _G.root_dir
+    # Resolve build and root directories (use absolute paths for Ninja)
+    build_dir = os.path.abspath(_G.build_dir)
+    root_dir = os.path.abspath(_G.root_dir)
     
     # Get wayland proto dir if available
     wl_proto_dir = _G.config_mak.split("WL_PROTO_DIR = ")[1].split("\n")[0] if "WL_PROTO_DIR = " in _G.config_mak else ""
@@ -736,33 +727,33 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += "\n"
     
     ninja_content += "rule version\n"
-    ninja_content += "  command = $root/version.sh --versionh=$out\n"
+    ninja_content += "  command = mkdir -p $$(dirname $out) && cd $root && ./version.sh --versionh=build/generated/version.h\n"
     ninja_content += "  description = VERSION $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule ebml_header\n"
-    ninja_content += "  command = $root/TOOLS/matroska.py --generate-header > $out\n"
+    ninja_content += "  command = mkdir -p $$(dirname $out) && $root/TOOLS/matroska.py --generate-header > $out\n"
     ninja_content += "  description = EBML $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule ebml_defs\n"
-    ninja_content += "  command = $root/TOOLS/matroska.py --generate-definitions > $out\n"
+    ninja_content += "  command = mkdir -p $$(dirname $out) && $root/TOOLS/matroska.py --generate-definitions > $out\n"
     ninja_content += "  description = EBML $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule file2string\n"
-    ninja_content += "  command = $root/TOOLS/file2string.py $in > $out\n"
+    ninja_content += "  command = mkdir -p $$(dirname $out) && $root/TOOLS/file2string.py $in > $out\n"
     ninja_content += "  description = INC $out\n"
     ninja_content += "\n"
     
     if wl_proto_dir:
         ninja_content += "rule wayland_code\n"
-        ninja_content += "  command = $wayscan private-code $in $out\n"
+        ninja_content += "  command = mkdir -p $$(dirname $out) && $wayscan private-code $in $out\n"
         ninja_content += "  description = WAYSHC $out\n"
         ninja_content += "\n"
         
         ninja_content += "rule wayland_header\n"
-        ninja_content += "  command = $wayscan client-header $in $out\n"
+        ninja_content += "  command = mkdir -p $$(dirname $out) && $wayscan client-header $in $out\n"
         ninja_content += "  description = WAYSHH $out\n"
         ninja_content += "\n"
     
@@ -783,6 +774,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         ("etc/dmpv-icon-8bit-32x32.png", "$builddir/generated/etc/dmpv-icon-8bit-32x32.png.inc"),
         ("etc/dmpv-icon-8bit-64x64.png", "$builddir/generated/etc/dmpv-icon-8bit-64x64.png.inc"),
         ("etc/dmpv-icon-8bit-128x128.png", "$builddir/generated/etc/dmpv-icon-8bit-128x128.png.inc"),
+        ("sub/osd_font.otf", "$builddir/generated/sub/osd_font.otf.inc"),
     ]
     for src, dst in inc_files:
         ninja_content += f"build {dst}: file2string $root/{src}\n"
@@ -838,6 +830,8 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
             implicit_deps.append("$builddir/generated/etc/input.conf.inc")
         if "player/main.c" in src:
             implicit_deps.append("$builddir/generated/etc/builtin.conf.inc")
+        if "sub/osd_libass.c" in src:
+            implicit_deps.append("$builddir/generated/sub/osd_font.otf.inc")
         if "video/out/x11_common.c" in src:
             implicit_deps.extend([
                 "$builddir/generated/etc/dmpv-icon-8bit-16x16.png.inc",
@@ -998,13 +992,12 @@ def finish():
     with open(os.path.join(_G.build_dir, "config.mak"), "w") as f:
         f.write("# Generated by configure.\n\n" + _G.config_mak)
 
-    # Generate build.ninja if using Ninja backend
-    if _G.backend == "ninja":
-        cflags_str = " ".join(_G.cflags) + " " + os.environ.get("CPPFLAGS", "") + " " + os.environ.get("CFLAGS", "")
-        ldflags_str = " ".join(_G.ldflags) + " " + os.environ.get("LDFLAGS", "")
-        ninja_content = _generate_ninja_file(sources, cflags_str.strip(), ldflags_str.strip())
-        with open(os.path.join(_G.build_dir, "build.ninja"), "w") as f:
-            f.write(ninja_content)
+    # Generate build.ninja for Ninja backend
+    cflags_str = " ".join(_G.cflags) + " " + os.environ.get("CPPFLAGS", "") + " " + os.environ.get("CFLAGS", "")
+    ldflags_str = " ".join(_G.ldflags) + " " + os.environ.get("LDFLAGS", "")
+    ninja_content = _generate_ninja_file(sources, cflags_str.strip(), ldflags_str.strip())
+    with open(os.path.join(_G.build_dir, "build.ninja"), "w") as f:
+        f.write(ninja_content)
 
     if _G.out_of_tree:
         try:
@@ -1013,10 +1006,7 @@ def finish():
             print("Not overwriting existing Makefile.")
 
     _G.log_file.write("--- Finishing successfully.\n")
-    if _G.backend == "ninja":
-        print("Done. You can run 'ninja -C %s' now." % _G.build_dir)
-    else:
-        print("Done. You can run 'make' or 'gmake' now.")
+    print("Done. You can run 'ninja -C %s' now." % _G.build_dir)
 
 # Return whether to actually run configure tests, and whether results of those
 # tests are available.
