@@ -345,7 +345,7 @@ bool gl_lcms_get_lut3d(struct gl_lcms *p, struct lut3d **result_lut3d,
         struct AVSHA *sha = av_sha_alloc();
         MP_HANDLE_OOM(sha);
         av_sha_init(sha, 256);
-        av_sha_update(sha, cache_info, strlen(cache_info));
+        av_sha_update(sha, (const uint8_t *)cache_info, strlen(cache_info));
         if (vid_profile)
             av_sha_update(sha, vid_profile->data, vid_profile->size);
         av_sha_update(sha, p->icc_data, p->icc_size);
