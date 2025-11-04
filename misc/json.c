@@ -309,7 +309,7 @@ static int json_append(bstr *b, const struct dmpv_node *src, int indent)
         if (indent == 0)
             APPEND(b, src->u.string);
         else
-            write_json_str(b, src->u.string);
+            write_json_str(b, (unsigned char *)src->u.string);
         return 0;
     case DMPV_FORMAT_NODE_ARRAY:
     case DMPV_FORMAT_NODE_MAP: {
@@ -322,7 +322,7 @@ static int json_append(bstr *b, const struct dmpv_node *src, int indent)
                 APPEND(b, ",");
             add_indent(b, next_indent);
             if (is_obj) {
-                write_json_str(b, list->keys[n]);
+                write_json_str(b, (unsigned char *)list->keys[n]);
                 APPEND(b, ":");
             }
             json_append(b, &list->values[n], next_indent);
@@ -341,7 +341,7 @@ static int json_append_str(char **dst, struct dmpv_node *src, int indent)
 {
     bstr buffer = bstr0(*dst);
     int r = json_append(&buffer, src, indent);
-    *dst = buffer.start;
+    *dst = (char *)buffer.start;
     return r;
 }
 
