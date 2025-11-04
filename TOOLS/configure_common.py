@@ -699,6 +699,27 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     if wl_match:
         wl_proto_dir = wl_match.group(1).strip()
     
+    # Pre-create all necessary directories to avoid per-file mkdir overhead
+    dirs_to_create = set()
+    dirs_to_create.add(os.path.join(build_dir, "generated"))
+    dirs_to_create.add(os.path.join(build_dir, "generated/etc"))
+    dirs_to_create.add(os.path.join(build_dir, "generated/sub"))
+    dirs_to_create.add(os.path.join(build_dir, "generated/player"))
+    dirs_to_create.add(os.path.join(build_dir, "generated/player/lua"))
+    if wl_proto_dir:
+        dirs_to_create.add(os.path.join(build_dir, "generated/wayland"))
+    
+    # Create directories for object files based on sources
+    for src in sources:
+        src_path = src.replace("$(BUILD)/", "").replace("$(ROOT)/", "")
+        if src_path.endswith(".c") or src_path.endswith(".rc"):
+            obj_dir = os.path.dirname(os.path.join(build_dir, src_path))
+            dirs_to_create.add(obj_dir)
+    
+    # Create all directories upfront
+    for d in dirs_to_create:
+        os.makedirs(d, exist_ok=True)
+    
     # Define variables
     ninja_content += f"builddir = {build_dir}\n"
     ninja_content += f"root = {root_dir}\n"
@@ -715,7 +736,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     
     # Define rules
     ninja_content += "rule cc\n"
-    ninja_content += "  command = $cc $cflags -I$root -I$builddir $in -c -o $out -MD -MF $out.d\n"
+    ninja_content += "  command = $cc $cflags -I$root -I$builddir $in -c -o $out -MF $out.d\n"
     ninja_content += "  description = CC $out\n"
     ninja_content += "  depfile = $out.d\n"
     ninja_content += "  deps = gcc\n"
@@ -727,38 +748,40 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += "\n"
     
     ninja_content += "rule link\n"
-    ninja_content += "  command = $cc $in $cflags $ldflags -o $out\n"
+    ninja_content += "  command = $cc @$out.rsp $cflags $ldflags -o $out\n"
     ninja_content += "  description = LINK $out\n"
+    ninja_content += "  rspfile = $out.rsp\n"
+    ninja_content += "  rspfile_content = $in\n"
     ninja_content += "\n"
     
     ninja_content += "rule version\n"
-    ninja_content += "  command = mkdir -p $$(dirname $out) && cd $root && ./version.sh --versionh=build/generated/version.h\n"
+    ninja_content += "  command = cd $root && ./version.sh --versionh=build/generated/version.h\n"
     ninja_content += "  description = VERSION $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule ebml_header\n"
-    ninja_content += "  command = mkdir -p $$(dirname $out) && $root/TOOLS/matroska.py --generate-header > $out\n"
+    ninja_content += "  command = $root/TOOLS/matroska.py --generate-header > $out\n"
     ninja_content += "  description = EBML $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule ebml_defs\n"
-    ninja_content += "  command = mkdir -p $$(dirname $out) && $root/TOOLS/matroska.py --generate-definitions > $out\n"
+    ninja_content += "  command = $root/TOOLS/matroska.py --generate-definitions > $out\n"
     ninja_content += "  description = EBML $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule file2string\n"
-    ninja_content += "  command = mkdir -p $$(dirname $out) && $root/TOOLS/file2string.py $in > $out\n"
+    ninja_content += "  command = $root/TOOLS/file2string.py $in > $out\n"
     ninja_content += "  description = INC $out\n"
     ninja_content += "\n"
     
     if wl_proto_dir:
         ninja_content += "rule wayland_code\n"
-        ninja_content += "  command = mkdir -p $$(dirname $out) && $wayscan private-code $in $out\n"
+        ninja_content += "  command = $wayscan private-code $in $out\n"
         ninja_content += "  description = WAYSHC $out\n"
         ninja_content += "\n"
         
         ninja_content += "rule wayland_header\n"
-        ninja_content += "  command = mkdir -p $$(dirname $out) && $wayscan client-header $in $out\n"
+        ninja_content += "  command = $wayscan client-header $in $out\n"
         ninja_content += "  description = WAYSHH $out\n"
         ninja_content += "\n"
     
