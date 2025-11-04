@@ -95,6 +95,10 @@ check("-git*",
       required  = "git: missing or not in PATH",
       fn        = lambda: check_program("GIT"))
 
+check("-ninja*",
+      required  = "ninja: missing or not in PATH.",
+      fn        = lambda: check_program("NINJA"))
+
 check(desc      = "-fstack-protector-strong",
       fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
 
