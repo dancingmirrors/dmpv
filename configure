@@ -45,12 +45,12 @@ check("-debug-build-extensive",
 check(desc      = "warning CFLAGS",
       fn        = lambda: check_cc(flags = [
                         "-Werror=implicit-function-declaration",
-                        "-Wno-error=deprecated-declarations",
-                        "-Wno-error=unused-function",
+                        "-Werror=deprecated-declarations",
+                        "-Werror=unused-function",
+                        "-Werror=format-security",
                         "-Wempty-body",
                         "-Wdisabled-optimization",
                         "-Wstrict-prototypes",
-                        "-Werror=format-security",
                         "-Wvla", "-Wundef",
                         "-Wno-pointer-sign"]))
 
