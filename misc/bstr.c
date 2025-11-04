@@ -168,7 +168,7 @@ long long bstrtoll(struct bstr str, struct bstr *rest, int base)
     str = bstr_lstrip(str);
     char buf[51];
     int len = MPMIN(str.len, 50);
-    memcpy(buf, str.start, len);
+    memcpy(buf, (char *)str.start, len);
     buf[len] = 0;
     char *endptr;
     long long r = strtoll(buf, &endptr, base);
@@ -182,7 +182,7 @@ double bstrtod(struct bstr str, struct bstr *rest)
     str = bstr_lstrip(str);
     char buf[101];
     int len = MPMIN(str.len, 100);
-    memcpy(buf, str.start, len);
+    memcpy(buf, (char *)str.start, len);
     buf[len] = 0;
     char *endptr;
     double r = strtod(buf, &endptr);

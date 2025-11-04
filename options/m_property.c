@@ -247,7 +247,7 @@ static void append_str(char **s, int *len, bstr append)
 {
     MP_TARRAY_GROW(NULL, *s, *len + append.len);
     if (append.len)
-        memcpy(*s + *len, append.start, append.len);
+        memcpy(*s + *len, (char *)append.start, append.len);
     *len = *len + append.len;
 }
 
