@@ -1523,7 +1523,7 @@ static void vo_x11_xembed_update(struct vo_x11_state *x11, int flags)
     long xembed_info[] = {XEMBED_VERSION, flags};
     Atom name = XA(x11, _XEMBED_INFO);
     XChangeProperty(x11->display, x11->window, name, name, 32,
-                    PropModeReplace, (char *)xembed_info, 2);
+                    PropModeReplace, (unsigned char *)xembed_info, 2);
 }
 
 static void vo_x11_xembed_handle_message(struct vo *vo, XClientMessageEvent *ce)
