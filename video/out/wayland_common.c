@@ -648,7 +648,7 @@ static void keyboard_handle_key(void *data, struct wl_keyboard *wl_keyboard,
     int mpkey = lookupkey(sym);
 
     // Assume a modifier was pressed and handle it in the mod event instead.
-    if (!mpkey && MP_KEY_STATE_DOWN)
+    if (!mpkey && state == WL_KEYBOARD_KEY_STATE_PRESSED)
         return;
 
     state = state == WL_KEYBOARD_KEY_STATE_PRESSED ? MP_KEY_STATE_DOWN
