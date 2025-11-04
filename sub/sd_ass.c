@@ -218,7 +218,7 @@ static void assobjects_init(struct sd *sd)
     ctx->shadow_track->PlayResY = 288;
     mp_ass_add_default_styles(ctx->shadow_track, opts);
 
-    char *extradata = sd->codec->extradata;
+    char *extradata = (char *)sd->codec->extradata;
     int extradata_size = sd->codec->extradata_size;
     if (ctx->converter) {
         extradata = lavc_conv_get_extradata(ctx->converter);
@@ -1002,7 +1002,7 @@ int sd_ass_fmt_offset(const char *evt_fmt)
 bstr sd_ass_pkt_text(struct sd_filter *ft, struct demux_packet *pkt, int offset)
 {
     // e.g. pkt->buffer ("4" is ReadOrder): "4,0,Default,,0,0,0,,fifth line"
-    bstr txt = {(char *)pkt->buffer, pkt->len}, t0 = txt;
+    bstr txt = {pkt->buffer, pkt->len}, t0 = txt;
     while (offset-- > 0) {
         int n = bstrchr(txt, ',');
         if (n < 0) {  // shouldn't happen
