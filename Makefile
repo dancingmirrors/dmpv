@@ -10,87 +10,81 @@
 # - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && ninja -C build
 # - Disable debug symbols for faster compilation: ./configure --disable-debug-build && ninja -C build
 #
-# Legacy Make support is maintained for compatibility but Ninja is recommended
+# Note: Direct 'make' usage is no longer supported. All make commands now redirect to ninja.
 
 BUILDDIR = build
 
-include $(BUILDDIR)/config.mak
-include $(ROOT)/TOOLS/makefile_common.mak
+# Check if ninja is available
+NINJA := $(shell command -v ninja 2> /dev/null)
 
-PROJNAME = dmpv
+# Check if build directory exists
+BUILD_EXISTS := $(shell test -d $(BUILDDIR) && echo yes)
 
-# Enable secondary expansion for order-only directory prerequisites
-.SECONDEXPANSION:
+.DEFAULT_GOAL := all
 
-.PHONY: .force
+# Redirect all common targets to ninja
+.PHONY: all clean install uninstall
 
-$(BUILD)/generated/version.h: $(ROOT)/version.sh .force | $$(@D)/.
-	$(LOG) "VERSION" $@
-	$(Q) $(ROOT)/version.sh --versionh=$@
+all:
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: ninja not found. Please install ninja build system."; \
+		echo "On Ubuntu/Debian: sudo apt-get install ninja-build"; \
+		echo "On Fedora: sudo dnf install ninja-build"; \
+		echo "On macOS: brew install ninja"; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -C $(BUILDDIR)"
+	@$(NINJA) -C $(BUILDDIR)
 
-$(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c: $(ROOT)/TOOLS/matroska.py | $$(@D)/.
-	$(LOG) "EBML" "$(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c"
-	$(Q) $< --generate-header > $(BUILD)/generated/ebml_types.h
-	$(Q) $< --generate-definitions > $(BUILD)/generated/ebml_defs.c
+clean:
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: ninja not found. Please install ninja build system."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -C $(BUILDDIR) clean"
+	@$(NINJA) -C $(BUILDDIR) clean
 
-$(BUILD)/video/out/x11_common.o: $(BUILD)/generated/etc/dmpv-icon-8bit-16x16.png.inc \
-                                 $(BUILD)/generated/etc/dmpv-icon-8bit-32x32.png.inc \
-                                 $(BUILD)/generated/etc/dmpv-icon-8bit-64x64.png.inc \
-                                 $(BUILD)/generated/etc/dmpv-icon-8bit-128x128.png.inc
+install:
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: ninja not found. Please install ninja build system."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -C $(BUILDDIR) install"
+	@$(NINJA) -C $(BUILDDIR) install
 
-$(BUILD)/generated/%.inc: $(ROOT)/TOOLS/file2string.py $(ROOT)/% | $$(@D)/.
-	$(LOG) "INC" $@
-	$(Q) $^ > $@
+uninstall:
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: ninja not found. Please install ninja build system."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -C $(BUILDDIR) uninstall"
+	@$(NINJA) -C $(BUILDDIR) uninstall
 
-# Dependencies for generated files unfortunately need to be declared manually.
-# This is because dependency scanning requires that the compiler successfully
-# compiles a file to get its dependencies. This results in a
-# chicken-and-egg problem, and thus works for static header files only.
-
-$(BUILD)/common/version.o: $(BUILD)/generated/version.h
-
-$(BUILD)/osdep/dmpv.o: $(BUILD)/generated/version.h
-
-$(BUILD)/demux/demux_mkv.o $(BUILD)/demux/ebml.o: \
-    $(BUILD)/generated/ebml_types.h $(BUILD)/generated/ebml_defs.c
-
-$(BUILD)/input/input.o: $(BUILD)/generated/etc/input.conf.inc
-
-$(BUILD)/player/main.o: $(BUILD)/generated/etc/builtin.conf.inc
-
-$(BUILD)/sub/osd_libass.o: $(BUILD)/generated/sub/osd_font.otf.inc
-
-$(BUILD)/player/lua.o: $(BUILD)/generated/player/lua/defaults.lua.inc \
-                       $(BUILD)/generated/player/lua/assdraw.lua.inc \
-                       $(BUILD)/generated/player/lua/options.lua.inc \
-                       $(BUILD)/generated/player/lua/stats.lua.inc \
-                       $(BUILD)/generated/player/lua/360-sbs.lua.inc \
-                       $(BUILD)/generated/player/lua/360-sg.lua.inc \
-                       $(BUILD)/generated/player/lua/positioning.lua.inc \
-
-# $(1): path prefix to the protocol, $(1)/$(2).xml is the full path
-# $(2): the name of the protocol, without path or extension
-define generate_wayland =
-$$(BUILD)/video/out/wayland_common.o \
-$$(BUILD)/video/out/opengl/context_wayland.o \
-: $$(BUILD)/generated/wayland/$(2).c $$(BUILD)/generated/wayland/$(2).h
-$$(BUILD)/generated/wayland/$(2).c: $(1)/$(2).xml | $$$$(@D)/.
-	$$(LOG) "WAYSHC" $$@
-	$$(Q) $$(WAYSCAN) private-code $$< $$@
-$$(BUILD)/generated/wayland/$(2).h: $(1)/$(2).xml | $$$$(@D)/.
-	$$(LOG) "WAYSHH" $$@
-	$$(Q) $$(WAYSCAN) client-header $$< $$@
-endef
-
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/idle-inhibit/,idle-inhibit-unstable-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/presentation-time/,presentation-time))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/xdg-shell/,xdg-shell))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/xdg-decoration/,xdg-decoration-unstable-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/viewporter/,viewporter))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/unstable/linux-dmabuf/,linux-dmabuf-unstable-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/fractional-scale/,fractional-scale-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/cursor-shape/,cursor-shape-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/stable/tablet/,tablet-v2))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/xdg-activation/,xdg-activation-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/fifo/,fifo-v1))
-$(eval $(call generate_wayland,$(WL_PROTO_DIR)/staging/color-management/,color-management-v1))
+# Catch-all target to redirect any other make target to ninja
+%:
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: ninja not found. Please install ninja build system."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -C $(BUILDDIR) $@"
+	@$(NINJA) -C $(BUILDDIR) $@
