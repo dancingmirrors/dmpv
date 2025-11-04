@@ -287,7 +287,7 @@ static void filter_and_add(struct sd *sd, struct demux_packet *pkt)
             return;
     }
 
-    ass_process_chunk(ctx->ass_track, pkt->buffer, pkt->len,
+    ass_process_chunk(ctx->ass_track, (char *)pkt->buffer, pkt->len,
                       llrint(pkt->pts * 1000),
                       llrint(pkt->duration * 1000));
 
@@ -345,7 +345,7 @@ static void decode(struct sd *sd, struct demux_packet *packet)
             struct demux_packet pkt2 = {
                 .pts = sub_pts,
                 .duration = sub_duration,
-                .buffer = r[n],
+                .buffer = (unsigned char *)r[n],
                 .len = strlen(r[n]),
             };
             filter_and_add(sd, &pkt2);
@@ -780,7 +780,7 @@ static void fill_plaintext(struct sd *sd, double pts)
     while (*text) {
         if (*text == '{')
             bstr_xappend(NULL, &dst, bstr0("\\"));
-        bstr_xappend(NULL, &dst, (bstr){text, 1});
+        bstr_xappend(NULL, &dst, (bstr){(unsigned char *)text, 1});
         // Break ASS escapes with U+2060 WORD JOINER
         if (*text == '\\')
             mp_append_utf8_bstr(NULL, &dst, 0x2060);

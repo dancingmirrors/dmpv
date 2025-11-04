@@ -332,7 +332,7 @@ static int open_f(stream_t *stream)
     if (avio->av_class) {
         uint8_t *mt = NULL;
         if (av_opt_get(avio, "mime_type", AV_OPT_SEARCH_CHILDREN, &mt) >= 0) {
-            stream->mime_type = talloc_strdup(stream, mt);
+            stream->mime_type = talloc_strdup(stream, (char *)mt);
             av_free(mt);
         }
     }
@@ -382,13 +382,13 @@ static struct mp_tags *read_icy(stream_t *s)
     if ((!icy_header || !icy_header[0]) && (!icy_packet || !icy_packet[0]))
         goto done;
 
-    bstr packet = bstr0(icy_packet);
+    bstr packet = bstr0((char *)icy_packet);
     if (bstr_equals0(packet, "-"))
         goto done;
 
     res = talloc_zero(NULL, struct mp_tags);
 
-    bstr header = bstr0(icy_header);
+    bstr header = bstr0((char *)icy_header);
     while (header.len) {
         bstr line = bstr_strip_linebreaks(bstr_getline(header, &header));
         bstr name, val;

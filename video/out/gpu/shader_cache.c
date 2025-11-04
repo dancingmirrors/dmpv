@@ -911,7 +911,7 @@ static void gl_sc_generate(struct gl_shader_cache *sc,
     ADD(hash_total, "\n");
     if (comp) {
         ADD_BSTR(hash_total, *comp);
-        sc->params.compute_shader = comp->start;
+        sc->params.compute_shader = (const char *)comp->start;
     }
     ADD(hash_total, "\n");
 
