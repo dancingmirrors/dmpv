@@ -862,6 +862,31 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     
     # Default target
     ninja_content += f"default {target}\n"
+    ninja_content += "\n"
+    
+    # Install/uninstall/clean rules
+    prefix = _G.install_paths.get("PREFIX", "/usr/local")
+    
+    ninja_content += "rule install\n"
+    ninja_content += f"  command = mkdir -p {prefix}/bin {prefix}/share/icons/hicolor/16x16/apps {prefix}/share/icons/hicolor/32x32/apps {prefix}/share/icons/hicolor/64x64/apps {prefix}/share/icons/hicolor/128x128/apps {prefix}/share/icons/hicolor/scalable/apps {prefix}/share/icons/hicolor/symbolic/apps {prefix}/share/applications {prefix}/etc && cp -v $builddir/dmpv{exesuf} {prefix}/bin/ && cp -v $root/etc/dmpv-icon-8bit-16x16.png {prefix}/share/icons/hicolor/16x16/apps/dmpv.png && cp -v $root/etc/dmpv-icon-8bit-32x32.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png && cp -v $root/etc/dmpv-icon-8bit-64x64.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png && cp -v $root/etc/dmpv-icon-8bit-128x128.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png && cp -v $root/etc/dmpv.svg {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg && cp -v $root/etc/dmpv-symbolic.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg && cp -v $root/etc/dmpv.desktop {prefix}/share/applications/ && cp -v $root/etc/dmpv.conf {prefix}/etc/\n"
+    ninja_content += "  description = INSTALL\n"
+    ninja_content += "\n"
+    
+    ninja_content += "rule uninstall\n"
+    ninja_content += f"  command = rm -fv {prefix}/bin/dmpv{exesuf} {prefix}/share/icons/hicolor/16x16/apps/dmpv.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg {prefix}/share/applications/dmpv.desktop {prefix}/etc/dmpv.conf\n"
+    ninja_content += "  description = UNINSTALL\n"
+    ninja_content += "\n"
+    
+    ninja_content += "rule clean\n"
+    ninja_content += f"  command = rm -rf $builddir\n"
+    ninja_content += "  description = CLEAN\n"
+    ninja_content += "\n"
+    
+    # Phony targets
+    ninja_content += f"build install: install {target}\n"
+    ninja_content += "build uninstall: uninstall\n"
+    ninja_content += "build clean: clean\n"
+    ninja_content += "\n"
     
     return ninja_content
 
