@@ -2303,6 +2303,7 @@ static void pass_read_video(struct gl_video *p)
         case PLANE_ALPHA:
             // alpha always uses bilinear
             name = "ALPHA_SCALED";
+            // scaler_id stays -1, which causes the loop to continue below
             break;
         case PLANE_NONE:
             break;
