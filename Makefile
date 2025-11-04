@@ -28,7 +28,7 @@ define REDIRECT_TO_NINJA
 		echo "Error: ninja not found. Please install ninja build system."; \
 		echo "On Ubuntu/Debian: sudo apt-get install ninja-build"; \
 		echo "On Fedora: sudo dnf install ninja-build"; \
-		echo "On macOS: brew install ninja"; \
+		echo "On BSD: pkg install ninja"; \
 		exit 1; \
 	fi
 	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
