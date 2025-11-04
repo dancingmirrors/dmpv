@@ -345,6 +345,9 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             ol->mode = PL_OVERLAY_MONOCHROME;
             ol->repr.alpha = PL_ALPHA_INDEPENDENT;
             break;
+        case SUBBITMAP_EMPTY:
+        case SUBBITMAP_COUNT:
+            break;
         }
     }
 
@@ -2079,6 +2082,9 @@ static void update_hook_opts(struct priv *p, char **opts, const char *shaderpath
                 opt.type = &m_option_type_int;
                 opt.min = MPMIN(hp->minimum.u, INT_MAX);
                 opt.max = MPMIN(hp->maximum.u, INT_MAX);
+                break;
+            case PL_VAR_INVALID:
+            case PL_VAR_TYPE_COUNT:
                 break;
             }
 
