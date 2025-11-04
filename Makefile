@@ -22,10 +22,8 @@ BUILD_EXISTS := $(shell test -d $(BUILDDIR) && echo yes)
 
 .DEFAULT_GOAL := all
 
-# Redirect all common targets to ninja
-.PHONY: all clean install uninstall
-
-all:
+# Helper function to validate environment and redirect to ninja
+define REDIRECT_TO_NINJA
 	@if [ -z "$(NINJA)" ]; then \
 		echo "Error: ninja not found. Please install ninja build system."; \
 		echo "On Ubuntu/Debian: sudo apt-get install ninja-build"; \
@@ -37,54 +35,25 @@ all:
 		echo "Error: build directory not found. Please run ./configure first."; \
 		exit 1; \
 	fi
-	@echo "Redirecting to: ninja -C $(BUILDDIR)"
-	@$(NINJA) -C $(BUILDDIR)
+	@echo "Redirecting to: ninja -C $(BUILDDIR) $(1)"
+	@$(NINJA) -C $(BUILDDIR) $(1)
+endef
+
+# Redirect all common targets to ninja
+.PHONY: all clean install uninstall
+
+all:
+	$(call REDIRECT_TO_NINJA,)
 
 clean:
-	@if [ -z "$(NINJA)" ]; then \
-		echo "Error: ninja not found. Please install ninja build system."; \
-		exit 1; \
-	fi
-	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
-		echo "Error: build directory not found. Please run ./configure first."; \
-		exit 1; \
-	fi
-	@echo "Redirecting to: ninja -C $(BUILDDIR) clean"
-	@$(NINJA) -C $(BUILDDIR) clean
+	$(call REDIRECT_TO_NINJA,clean)
 
 install:
-	@if [ -z "$(NINJA)" ]; then \
-		echo "Error: ninja not found. Please install ninja build system."; \
-		exit 1; \
-	fi
-	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
-		echo "Error: build directory not found. Please run ./configure first."; \
-		exit 1; \
-	fi
-	@echo "Redirecting to: ninja -C $(BUILDDIR) install"
-	@$(NINJA) -C $(BUILDDIR) install
+	$(call REDIRECT_TO_NINJA,install)
 
 uninstall:
-	@if [ -z "$(NINJA)" ]; then \
-		echo "Error: ninja not found. Please install ninja build system."; \
-		exit 1; \
-	fi
-	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
-		echo "Error: build directory not found. Please run ./configure first."; \
-		exit 1; \
-	fi
-	@echo "Redirecting to: ninja -C $(BUILDDIR) uninstall"
-	@$(NINJA) -C $(BUILDDIR) uninstall
+	$(call REDIRECT_TO_NINJA,uninstall)
 
 # Catch-all target to redirect any other make target to ninja
 %:
-	@if [ -z "$(NINJA)" ]; then \
-		echo "Error: ninja not found. Please install ninja build system."; \
-		exit 1; \
-	fi
-	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
-		echo "Error: build directory not found. Please run ./configure first."; \
-		exit 1; \
-	fi
-	@echo "Redirecting to: ninja -C $(BUILDDIR) $@"
-	@$(NINJA) -C $(BUILDDIR) $@
+	$(call REDIRECT_TO_NINJA,$@)
