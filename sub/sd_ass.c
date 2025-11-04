@@ -1020,5 +1020,5 @@ bstr sd_ass_to_plaintext(char *out, size_t out_siz, const char *in)
     ass_to_plaintext(&b, in);
     if (b.len < out_siz)
         out[b.len] = 0;
-    return (bstr){out, b.len};
+    return (bstr){(unsigned char *)out, b.len};
 }

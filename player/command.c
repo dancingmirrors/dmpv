@@ -5919,7 +5919,7 @@ static void subprocess_read(void *p, char *data, size_t size)
     struct subprocess_fd_ctx *ctx = p;
     if (ctx->capture) {
         if (ctx->output.len < ctx->max_size)
-            bstr_xappend(ctx->talloc_ctx, &ctx->output, (bstr){data, size});
+            bstr_xappend(ctx->talloc_ctx, &ctx->output, (bstr){(unsigned char *)data, size});
     } else {
         mp_msg(ctx->log, ctx->msgl, "%.*s", (int)size, data);
     }

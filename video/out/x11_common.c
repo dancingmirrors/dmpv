@@ -130,7 +130,7 @@ static const char x11_icon_128[] =
 #include "generated/etc/dmpv-icon-8bit-128x128.png.inc"
 ;
 
-#define ICON_ENTRY(var) { (char *)var, sizeof(var) }
+#define ICON_ENTRY(var) { (unsigned char *)var, sizeof(var) }
 static const struct bstr x11_icons[] = {
     ICON_ENTRY(x11_icon_16),
     ICON_ENTRY(x11_icon_32),
@@ -1267,7 +1267,7 @@ void vo_x11_check_events(struct vo *vo)
                 if (mpkey) {
                     mp_input_put_key(x11->input_ctx, mpkey | modifiers);
                 } else if (status == XLookupChars || status == XLookupBoth) {
-                    struct bstr t = { buf, len };
+                    struct bstr t = { (unsigned char *)buf, len };
                     mp_input_put_key_utf8(x11->input_ctx, modifiers, t);
                 }
             } else {

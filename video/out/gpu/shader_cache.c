@@ -901,12 +901,12 @@ static void gl_sc_generate(struct gl_shader_cache *sc,
 
     if (frag) {
         ADD_BSTR(hash_total, *frag);
-        sc->params.frag_shader = frag->start;
+        sc->params.frag_shader = (const char *)frag->start;
     }
     ADD(hash_total, "\n");
     if (vert) {
         ADD_BSTR(hash_total, *vert);
-        sc->params.vertex_shader = vert->start;
+        sc->params.vertex_shader = (const char *)vert->start;
     }
     ADD(hash_total, "\n");
     if (comp) {
