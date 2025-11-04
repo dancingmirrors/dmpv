@@ -52,7 +52,6 @@ check(desc      = "warning CFLAGS",
                         "-Wstrict-prototypes",
                         "-Werror=format-security",
                         "-Wvla", "-Wundef",
-                        "-Wno-pointer-sign",
                         "-Wno-switch"]))
 
 check("gnuc",
