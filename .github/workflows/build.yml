@@ -107,6 +107,7 @@ jobs:
           /usr/local/bin/dmpv
 
           sudo apt-get purge -y libplacebo-dev
+          sudo apt-get install -y meson ninja-build
           git clone --depth 1 --recursive --branch v6.338.2 https://github.com/haasn/libplacebo.git
           cd libplacebo
           meson setup build
