@@ -137,8 +137,10 @@ static void trigger_locked(struct mp_cancel *c)
     for (struct mp_cancel *sub = c->slaves.head; sub; sub = sub->siblings.next)
         mp_cancel_trigger(sub);
 
-    if (c->wakeup_pipe[1] >= 0)
-        (void)write(c->wakeup_pipe[1], &(char){0}, 1);
+    if (c->wakeup_pipe[1] >= 0) {
+        ssize_t ignored = write(c->wakeup_pipe[1], &(char){0}, 1);
+        (void)ignored;
+    }
 }
 
 void mp_cancel_trigger(struct mp_cancel *c)

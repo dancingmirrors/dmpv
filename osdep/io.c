@@ -79,7 +79,8 @@ int mp_make_wakeup_pipe(int pipes[2])
 void mp_flush_wakeup_pipe(int pipe_end)
 {
     char buf[100];
-    (void)read(pipe_end, buf, sizeof(buf));
+    ssize_t ignored = read(pipe_end, buf, sizeof(buf));
+    (void)ignored;
 }
 
 int mp_mkostemps(char *template, int suffixlen, int flags)
