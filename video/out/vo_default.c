@@ -1665,7 +1665,7 @@ static void cache_init(struct vo *vo, struct cache *cache, const char *dir_opt)
 {
     struct priv *p = vo->priv;
     const char *name = cache == &p->shader_cache ? "shader" : "icc";
-    const size_t limit = cache == &p->shader_cache ? 128 << 20 : 1536 << 20;
+    const size_t limit = cache == &p->shader_cache ? 128 << 20 : 128 << 20;
 
     char *dir;
     if (dir_opt && dir_opt[0]) {
