@@ -25,10 +25,7 @@ BUILD_EXISTS := $(shell test -d $(BUILDDIR) && echo yes)
 # Helper function to validate environment and redirect to ninja
 define REDIRECT_TO_NINJA
 	@if [ -z "$(NINJA)" ]; then \
-		echo "Error: ninja not found. Please install ninja build system."; \
-		echo "On Ubuntu/Debian: sudo apt-get install ninja-build"; \
-		echo "On Fedora: sudo dnf install ninja-build"; \
-		echo "On BSD: pkg install ninja"; \
+		echo "Error: 'ninja' not found. Please install Ninja."; \
 		exit 1; \
 	fi
 	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
