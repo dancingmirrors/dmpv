@@ -1586,7 +1586,7 @@ done:
 
 static void cache_save_obj(void *p, pl_cache_obj obj)
 {
-    const struct cache *c = p;
+    struct cache *c = p;
     void *ta_ctx = talloc_new(NULL);
 
     if (!c->dir)
@@ -1606,6 +1606,16 @@ static void cache_save_obj(void *p, pl_cache_obj obj)
     if (!stat(filepath, &st) && st.st_size == obj.size) {
         MP_DBG(c, "%s: key(%"PRIx64"), size(%zu)\n", __func__, obj.key, obj.size);
         goto done;
+    }
+
+    // Check if adding this file would significantly exceed the cache limit
+    // If so, prune aggressively to make room
+    if (c->size_limit) {
+        size_t current_size = cache_get_size(c);
+        // Prune if we're already over 90% of the limit
+        if (current_size + obj.size > c->size_limit * 9 / 10) {
+            cache_prune(c->log, c, true);
+        }
     }
 
     int64_t save_start = mp_time_ns();
@@ -1670,7 +1680,10 @@ static void cache_init(struct vo *vo, struct cache *cache, const char *dir_opt)
             .log = p->pllog,
             .get = cache_load_obj,
             .set = cache_save_obj,
-            .priv = cache
+            .priv = cache,
+            // Set max_total_size to enable libplacebo's internal cache limiting
+            // This was added in a recent libplacebo version
+            .max_total_size = limit,
         )),
     };
 }
@@ -1692,16 +1705,56 @@ static int compare_atime(const void *a, const void *b)
     return 0;
 }
 
-static void cache_uninit(struct priv *p, struct cache *cache)
+// Calculate current cache size
+static size_t cache_get_size(struct cache *cache)
 {
-    if (!cache->cache)
+    if (!cache->dir || !cache->name)
+        return 0;
+
+    void *ta_ctx = talloc_new(NULL);
+    size_t total_size = 0;
+
+    DIR *d = opendir(cache->dir);
+    if (!d)
+        goto done;
+
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        bstr fname = bstr0(dir->d_name);
+        if (!bstr_eatstart0(&fname, cache->name))
+            continue;
+        if (!bstr_eatstart0(&fname, "_"))
+            continue;
+        if (fname.len != 16) // %016x
+            continue;
+
+        char *filepath = mp_path_join(ta_ctx, cache->dir, dir->d_name);
+        if (!filepath)
+            continue;
+        struct stat filestat;
+        if (stat(filepath, &filestat))
+            continue;
+        if (!S_ISREG(filestat.st_mode))
+            continue;
+        total_size += filestat.st_size;
+    }
+    closedir(d);
+
+done:
+    talloc_free(ta_ctx);
+    return total_size;
+}
+
+// Prune cache files when size exceeds limit
+// If aggressive is true, prune even recent files to enforce size limit strictly
+static void cache_prune(struct mp_log *log, struct cache *cache, bool aggressive)
+{
+    if (!cache->dir || !cache->name)
         return;
 
     void *ta_ctx = talloc_new(NULL);
     struct file_entry *files = NULL;
     size_t num_files = 0;
-    mp_assert(cache->dir);
-    mp_assert(cache->name);
 
     DIR *d = opendir(cache->dir);
     if (!d)
@@ -1742,23 +1795,42 @@ static void cache_uninit(struct priv *p, struct cache *cache)
     size_t cache_size = 0;
     size_t cache_limit = cache->size_limit ? cache->size_limit : SIZE_MAX;
     for (size_t i = 0; i < num_files; i++) {
-        // Remove files that exceed the size limit but are older than one day.
-        // This allows for temporary maintaining a larger cache size while
-        // adjusting the configuration. The cache will be cleared the next day
-        // for unused entries. We don't need to be overly aggressive with cache
-        // cleaning; in most cases, it will not grow much, and in others, it may
-        // actually be useful to cache more.
         cache_size += files[i].size;
         double rel_use = difftime(t, files[i].atime);
-        if (cache_size > cache_limit && rel_use > 60 * 60 * 24) {
-            MP_VERBOSE(p, "Removing %s | size: %9zu bytes | last used: %9.0f seconds ago\n",
+
+        bool should_remove = false;
+        if (aggressive) {
+            // Aggressive mode: remove files when over limit, regardless of age
+            should_remove = cache_size > cache_limit;
+        } else {
+            // Lenient mode: only remove files older than one day when over limit
+            // This allows for temporary maintaining a larger cache size while
+            // adjusting the configuration. The cache will be cleared the next day
+            // for unused entries. We don't need to be overly aggressive with cache
+            // cleaning; in most cases, it will not grow much, and in others, it may
+            // actually be useful to cache more.
+            should_remove = cache_size > cache_limit && rel_use > 60 * 60 * 24;
+        }
+
+        if (should_remove) {
+            mp_verbose(log, "Removing %s | size: %9zu bytes | last used: %9.0f seconds ago\n",
                        files[i].filepath, files[i].size, rel_use);
             unlink(files[i].filepath);
+            cache_size -= files[i].size; // Update cache_size after removal
         }
     }
 
 done:
     talloc_free(ta_ctx);
+}
+
+static void cache_uninit(struct priv *p, struct cache *cache)
+{
+    if (!cache->cache)
+        return;
+
+    // Use lenient pruning on uninit
+    cache_prune(p->log, cache, false);
     pl_cache_destroy(&cache->cache);
 }
 
