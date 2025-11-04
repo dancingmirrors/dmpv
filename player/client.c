@@ -353,8 +353,10 @@ static void wakeup_client(struct dmpv_handle *ctx)
         pthread_cond_broadcast(&ctx->wakeup);
         if (ctx->wakeup_cb)
             ctx->wakeup_cb(ctx->wakeup_cb_ctx);
-        if (ctx->wakeup_pipe[0] != -1)
-            (void)write(ctx->wakeup_pipe[1], &(char){0}, 1);
+        if (ctx->wakeup_pipe[0] != -1) {
+            ssize_t ignored = write(ctx->wakeup_pipe[1], &(char){0}, 1);
+            (void)ignored;
+        }
     }
     mp_mutex_unlock(&ctx->wakeup_lock);
 }
@@ -1936,8 +1938,10 @@ int dmpv_get_wakeup_pipe(dmpv_handle *ctx)
 {
     mp_mutex_lock(&ctx->wakeup_lock);
     if (ctx->wakeup_pipe[0] == -1) {
-        if (mp_make_wakeup_pipe(ctx->wakeup_pipe) >= 0)
-            (void)write(ctx->wakeup_pipe[1], &(char){0}, 1);
+        if (mp_make_wakeup_pipe(ctx->wakeup_pipe) >= 0) {
+            ssize_t ignored = write(ctx->wakeup_pipe[1], &(char){0}, 1);
+            (void)ignored;
+        }
     }
     int fd = ctx->wakeup_pipe[0];
     mp_mutex_unlock(&ctx->wakeup_lock);

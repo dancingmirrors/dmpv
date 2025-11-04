@@ -434,7 +434,8 @@ void mp_uninit_ipc(struct mp_ipc_ctx *arg)
     if (!arg)
         return;
 
-    (void)write(arg->death_pipe[1], &(char){0}, 1);
+    ssize_t ignored = write(arg->death_pipe[1], &(char){0}, 1);
+    (void)ignored;
     pthread_join(arg->thread, NULL);
 
     close(arg->death_pipe[0]);
