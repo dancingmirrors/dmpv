@@ -220,7 +220,7 @@ bstr mp_iconv_to_utf8(struct mp_log *log, bstr buf, const char *cp, int flags)
     iconv_close(icdsc);
 
     outbuf[osize - oleft - 1] = 0;
-    return (bstr){outbuf, osize - oleft - 1};
+    return (bstr){(unsigned char *)outbuf, osize - oleft - 1};
 
 failure:
 #endif

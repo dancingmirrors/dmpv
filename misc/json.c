@@ -122,7 +122,7 @@ static int read_str(void *ta_parent, struct dmpv_node *dst, char **src)
         bstr r = bstr0(str);
         if (!mp_append_escaped_string(ta_parent, &unescaped, &r))
             return -1; // broken escapes
-        str = unescaped.start; // the function guarantees null-termination
+        str = (char *)unescaped.start; // the function guarantees null-termination
     }
     dst->format = DMPV_FORMAT_STRING;
     dst->u.string = str;
@@ -263,11 +263,11 @@ static void write_json_str(bstr *b, unsigned char *str)
             cur++;
         if (!cur[0])
             break;
-        bstr_xappend(NULL, b, (bstr){str, cur - str});
+        bstr_xappend(NULL, b, (bstr){(unsigned char *)str, cur - str});
         if (cur[0] == '\"') {
-            bstr_xappend(NULL, b, (bstr){"\\\"", 2});
+            bstr_xappend(NULL, b, (bstr){(unsigned char *)"\\\"", 2});
         } else if (cur[0] == '\\') {
-            bstr_xappend(NULL, b, (bstr){"\\\\", 2});
+            bstr_xappend(NULL, b, (bstr){(unsigned char *)"\\\\", 2});
         } else if (cur[0] < sizeof(special_escape) && special_escape[cur[0]]) {
             bstr_xappend_asprintf(NULL, b, "\\%c", special_escape[cur[0]]);
         } else {
@@ -275,7 +275,7 @@ static void write_json_str(bstr *b, unsigned char *str)
         }
         str = cur + 1;
     }
-    APPEND(b, str);
+    APPEND(b, (const char *)str);
     APPEND(b, "\"");
 }
 
