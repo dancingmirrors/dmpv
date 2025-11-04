@@ -24,6 +24,7 @@ jobs:
           sudo apt-get build-dep -y libxkbcommon wayland-protocols
 
           set -x
+          which ninja
 
           git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland.git --branch 1.23
           cd wayland
@@ -56,6 +57,9 @@ jobs:
       - name: configure, build, install, test (GCC and clang)
         run: |
           set -x
+          which ninja
+
+           sudo apt-get install -y --reinstall meson ninja-build
 
           ./configure --enable-lgpl
           ninja -C build
@@ -79,6 +83,9 @@ jobs:
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
           sudo rm -rf /usr/local/*
+          sudo apt-get install -y --reinstall meson ninja-build
+          which ninja
+
           rm -rf build
           ./configure
           ninja -C build
