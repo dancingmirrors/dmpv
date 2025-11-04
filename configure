@@ -51,7 +51,9 @@ check(desc      = "warning CFLAGS",
                         "-Wdisabled-optimization",
                         "-Wstrict-prototypes",
                         "-Werror=format-security",
-                        "-Wvla", "-Wundef"]))
+                        "-Wvla",
+                        "-Wundef",
+                        "-Wtype-limits"]))
 
 check("gnuc",
       desc      = "GNU C",
@@ -73,8 +75,11 @@ check(desc      = "extra GCC warnings",
       deps      = "gnuc",
       deps_neg  = "clang",
       fn        = lambda: check_cc(flags = [
-                        "-Wmissing-prototypes", "-Wshadow",
-                        "-Wparentheses", "-Wpointer-arith", "-Woverflow"]))
+                        "-Wmissing-prototypes",
+                        "-Wshadow",
+                        "-Wparentheses",
+                        "-Wpointer-arith",
+                        "-Woverflow"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
