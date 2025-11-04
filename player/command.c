@@ -4221,7 +4221,7 @@ char *mp_property_expand_escaped_string(struct MPContext *mpctx, const char *str
             break;
         bstr_xappend(tmp, &dst, bstr0("\""));
     }
-    char *r = mp_property_expand_string(mpctx, dst.start);
+    char *r = mp_property_expand_string(mpctx, (char *)dst.start);
     talloc_free(tmp);
     return r;
 }

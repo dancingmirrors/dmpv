@@ -350,14 +350,14 @@ static void remove_leading_hyphen_space(struct sd_filter *sd, int start_pos,
 //
 // Returns NULL if filtering resulted in all of ASS data being removed so no
 // subtitle should be output
-static char *filter_SDH(struct sd_filter *sd, char *data, int length, ptrdiff_t toff)
+static char *filter_SDH(struct sd_filter *sd, unsigned char *data, int length, ptrdiff_t toff)
 {
     struct buffer writebuf;
     struct buffer *buf = &writebuf;
     init_buf(buf, length + 1); // with room for terminating '\0'
 
     // pre-text headers into buf, rp is the (null-terminated) remaining text
-    char *ass = talloc_strndup(NULL, data, length), *rp = ass;
+    char *ass = talloc_strndup(NULL, (char *)data, length), *rp = ass;
     while (rp - ass < toff)
         append(sd, buf, *rp++);
 
@@ -467,10 +467,10 @@ static struct demux_packet *sdh_filter(struct sd_filter *ft,
         return pkt;  // we don't touch it
 
     ptrdiff_t toff = text.start - pkt->buffer;
-    char *line = filter_SDH(ft, (char *)pkt->buffer, (int)pkt->len, toff);
+    char *line = filter_SDH(ft, pkt->buffer, (int)pkt->len, toff);
     if (!line)
         return NULL;
-    if (0 == bstrcmp0((bstr){(char *)pkt->buffer, pkt->len}, line)) {
+    if (0 == bstrcmp0((bstr){pkt->buffer, pkt->len}, line)) {
         talloc_free(line);
         return pkt;  // unmodified, no need to allocate new packet
     }

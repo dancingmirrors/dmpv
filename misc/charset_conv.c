@@ -178,7 +178,7 @@ bstr mp_iconv_to_utf8(struct mp_log *log, bstr buf, const char *cp, int flags)
     size_t oleft = size - 1;
 
     char *outbuf = talloc_size(NULL, osize);
-    char *ip = buf.start;
+    char *ip = (char *)buf.start;
     char *op = outbuf;
 
     while (1) {
