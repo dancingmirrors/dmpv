@@ -418,6 +418,8 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
             * (double)dst->st->time_base.num
             / (double)dst->st->time_base.den;
         break;
+    default:
+        MP_ASSERT_UNREACHABLE();
     }
 
     if (av_interleaved_write_frame(p->muxer, pkt) < 0) {

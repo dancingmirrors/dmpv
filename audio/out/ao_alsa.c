@@ -163,6 +163,8 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
                        snd_mixer_selem_id_get_index(sid));
             goto alsa_error;
         }
+       default:
+           break;
 
         snd_mixer_selem_get_playback_volume_range(elem, &pmin, &pmax);
         f_multi = (100 / (float)(pmax - pmin));
@@ -216,6 +218,8 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
             }
             break;
         }
+        default:
+            break;
         }
         snd_mixer_close(handle);
         return CONTROL_OK;

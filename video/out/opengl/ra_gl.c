@@ -916,6 +916,10 @@ static struct ra_renderpass *gl_renderpass_create(struct ra *ra,
         case RA_VARTYPE_IMG_W:
             gl->Uniform1i(loc, params->inputs[n].binding);
             break;
+        case RA_VARTYPE_INVALID:
+            MP_ASSERT_UNREACHABLE();
+        default:
+            break;
         }
     }
     gl->UseProgram(0);
@@ -1028,6 +1032,10 @@ static void disable_binding(struct ra *ra, struct ra_renderpass *pass,
             gl->BindImageTexture(input->binding, 0, 0, GL_FALSE, 0,
                                  GL_WRITE_ONLY, tex_gl->internal_format);
         }
+        break;
+    case RA_VARTYPE_INVALID:
+        MP_ASSERT_UNREACHABLE();
+    default:
         break;
     }
     case RA_VARTYPE_BUF_RW:

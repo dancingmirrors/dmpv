@@ -1143,6 +1143,8 @@ static void handle_toplevel_config(void *data, struct xdg_toplevel *toplevel,
         case XDG_TOPLEVEL_STATE_SUSPENDED:
             is_suspended = true;
             break;
+        default:
+            break;
         }
     }
 

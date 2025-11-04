@@ -1012,6 +1012,8 @@ static int parse_node_chapters(struct MPContext *mpctx,
                 if (strcmp(key, "title") == 0)
                     title = chapter_data_element->u.string;
                 break;
+            default:
+                break;
             }
         }
 
@@ -2064,6 +2066,8 @@ static const char *track_type_name(enum stream_type t)
     case STREAM_VIDEO: return "Video";
     case STREAM_AUDIO: return "Audio";
     case STREAM_SUB: return "Sub";
+    default:
+        break;
     }
     return NULL;
 }
@@ -4400,6 +4404,8 @@ static bool reinit_filters(MPContext *mpctx, enum stream_type mediatype)
         return reinit_video_filters(mpctx) >= 0;
     case STREAM_AUDIO:
         return reinit_audio_filters(mpctx) >= 0;
+    default:
+        break;
     }
     return false;
 }

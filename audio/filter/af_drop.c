@@ -60,6 +60,8 @@ static bool af_drop_command(struct mp_filter *f, struct mp_filter_command *cmd)
     case MP_FILTER_COMMAND_SET_SPEED:
         p->speed = cmd->speed;
         return true;
+    default:
+        break;
     }
 
     return false;
