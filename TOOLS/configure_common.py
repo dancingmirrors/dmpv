@@ -779,6 +779,13 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         ("etc/dmpv-icon-8bit-64x64.png", "$builddir/generated/etc/dmpv-icon-8bit-64x64.png.inc"),
         ("etc/dmpv-icon-8bit-128x128.png", "$builddir/generated/etc/dmpv-icon-8bit-128x128.png.inc"),
         ("sub/osd_font.otf", "$builddir/generated/sub/osd_font.otf.inc"),
+        ("player/lua/defaults.lua", "$builddir/generated/player/lua/defaults.lua.inc"),
+        ("player/lua/assdraw.lua", "$builddir/generated/player/lua/assdraw.lua.inc"),
+        ("player/lua/options.lua", "$builddir/generated/player/lua/options.lua.inc"),
+        ("player/lua/stats.lua", "$builddir/generated/player/lua/stats.lua.inc"),
+        ("player/lua/360-sbs.lua", "$builddir/generated/player/lua/360-sbs.lua.inc"),
+        ("player/lua/360-sg.lua", "$builddir/generated/player/lua/360-sg.lua.inc"),
+        ("player/lua/positioning.lua", "$builddir/generated/player/lua/positioning.lua.inc"),
     ]
     for src, dst in inc_files:
         ninja_content += f"build {dst}: file2string $root/{src}\n"
@@ -839,6 +846,16 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
             implicit_deps.append("$builddir/generated/etc/builtin.conf.inc")
         if "sub/osd_libass.c" in src:
             implicit_deps.append("$builddir/generated/sub/osd_font.otf.inc")
+        if "player/lua.c" in src:
+            implicit_deps.extend([
+                "$builddir/generated/player/lua/defaults.lua.inc",
+                "$builddir/generated/player/lua/assdraw.lua.inc",
+                "$builddir/generated/player/lua/options.lua.inc",
+                "$builddir/generated/player/lua/stats.lua.inc",
+                "$builddir/generated/player/lua/360-sbs.lua.inc",
+                "$builddir/generated/player/lua/360-sg.lua.inc",
+                "$builddir/generated/player/lua/positioning.lua.inc",
+            ])
         if "video/out/x11_common.c" in src:
             implicit_deps.extend([
                 "$builddir/generated/etc/dmpv-icon-8bit-16x16.png.inc",
