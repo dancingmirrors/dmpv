@@ -1681,9 +1681,10 @@ static void cache_init(struct vo *vo, struct cache *cache, const char *dir_opt)
             .get = cache_load_obj,
             .set = cache_save_obj,
             .priv = cache,
+#if PL_API_VER >= 338
             // Set max_total_size to enable libplacebo's internal cache limiting
-            // This was added in a recent libplacebo version
             .max_total_size = limit,
+#endif
         )),
     };
 }
