@@ -760,17 +760,17 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += "\n"
     
     ninja_content += "rule ebml_header\n"
-    ninja_content += "  command = $root/TOOLS/matroska.py --generate-header > $out\n"
+    ninja_content += "  command = $root/TOOLS/matroska.py --generate-header $out\n"
     ninja_content += "  description = EBML $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule ebml_defs\n"
-    ninja_content += "  command = $root/TOOLS/matroska.py --generate-definitions > $out\n"
+    ninja_content += "  command = $root/TOOLS/matroska.py --generate-definitions $out\n"
     ninja_content += "  description = EBML $out\n"
     ninja_content += "\n"
     
     ninja_content += "rule file2string\n"
-    ninja_content += "  command = $root/TOOLS/file2string.py $in > $out\n"
+    ninja_content += "  command = $root/TOOLS/file2string.py $in $out $root\n"
     ninja_content += "  description = INC $out\n"
     ninja_content += "\n"
     
