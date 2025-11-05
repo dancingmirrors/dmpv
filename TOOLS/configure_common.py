@@ -830,6 +830,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
             ("staging/xdg-activation", "xdg-activation-v1"),
             ("staging/fifo", "fifo-v1"),
             ("staging/color-management", "color-management-v1"),
+            ("staging/single-pixel-buffer", "single-pixel-buffer-v1"),
         ]
         for proto_dir, proto_name in wayland_protocols:
             ninja_content += f"build $builddir/generated/wayland/{proto_name}.c: wayland_code $wl_proto_dir/{proto_dir}/{proto_name}.xml\n"
