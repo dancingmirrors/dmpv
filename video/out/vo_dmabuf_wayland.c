@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/hwcontext_drm.h>
@@ -28,7 +28,7 @@
 #include "gpu/hwdec.h"
 #include "gpu/video.h"
 #include "misc/mp_assert.h"
-#include "misc/mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "present_sync.h"
 #include "sub/draw_bmp.h"
 #include "video/fmt-conversion.h"
@@ -290,8 +290,10 @@ static bool drm_format_check(struct vo *vo, struct mp_image *src)
         return vaapi_drm_format(vo, src);
     case HWDEC_DRMPRIME:
         return drmprime_drm_format(vo, src);
+    case HWDEC_NONE:
+    default:
+        return false;
     }
-    return false;
 }
 
 static struct buffer *buffer_check(struct vo *vo, struct vo_frame *frame)
@@ -335,6 +337,9 @@ static struct buffer *buffer_create(struct vo *vo, struct vo_frame *frame)
         break;
     case HWDEC_DRMPRIME:
         drmprime_dmabuf_importer(buf, image, params);
+        break;
+    case HWDEC_NONE:
+    default:
         break;
     }
 
@@ -623,7 +628,7 @@ static void flip_page(struct vo *vo)
     wl_surface_commit(wl->video_surface);
     wl_surface_commit(wl->surface);
 
-    if (!wl->opts->disable_vsync)
+    if (wl->opts->wl_internal_vsync)
         vo_wayland_wait_frame(wl);
 
     if (wl->use_present)
@@ -650,6 +655,23 @@ static int query_format(struct vo *vo, int format)
 static int reconfig(struct vo *vo, struct mp_image *img)
 {
     struct priv *p = vo->priv;
+
+    switch (img->imgfmt) {
+    case IMGFMT_VAAPI:
+        p->hwdec_type = HWDEC_VAAPI;
+        break;
+    case IMGFMT_DRMPRIME:
+        p->hwdec_type = HWDEC_DRMPRIME;
+        break;
+    default:
+        p->hwdec_type = HWDEC_NONE;
+    }
+
+    if (p->hwdec_type == HWDEC_NONE) {
+        MP_ERR(vo, "Format '%s' is not a valid hardware accelerated format!\n",
+               mp_imgfmt_to_name(img->imgfmt));
+        return VO_ERROR;
+    }
 
     if (img->params.force_window) {
         p->force_window = true;
@@ -792,21 +814,10 @@ static int preinit(struct vo *vo)
         .global = p->global,
         .ra_ctx = p->ctx,
     };
-    ra_hwdec_ctx_init(&p->hwdec_ctx, vo->hwdec_devs, NULL, true);
 
-    for (int i = 0; i < p->hwdec_ctx.num_hwdecs; i++) {
-        struct ra_hwdec *hw = p->hwdec_ctx.hwdecs[i];
-        if (ra_get_native_resource(p->ctx->ra, "VADisplay")) {
-            p->hwdec_type = HWDEC_VAAPI;
-        } else if (strcmp(hw->driver->name, "drmprime") == 0) {
-            p->hwdec_type = HWDEC_DRMPRIME;
-        }
-    }
-
-    if (p->hwdec_type == HWDEC_NONE) {
-        MP_ERR(vo, "No valid hardware decoding driver could be loaded!\n");
-        goto err;
-    }
+    // Initialize all possible hwdec drivers.
+    ra_hwdec_ctx_init(&p->hwdec_ctx, vo->hwdec_devs, "vaapi", false);
+    ra_hwdec_ctx_init(&p->hwdec_ctx, vo->hwdec_devs, "drmprime", false);
 
     p->src = (struct mp_rect){0, 0, 0, 0};
     return 0;
