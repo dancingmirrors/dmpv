@@ -104,8 +104,6 @@ struct priv {
     bool destroy_buffers;
     bool force_window;
     enum hwdec_type hwdec_type;
-
-    struct mp_image_params target_params;
     uint32_t drm_format;
     uint64_t drm_modifier;
 };
@@ -297,8 +295,10 @@ static bool drm_format_check(struct vo *vo, struct mp_image *src)
         return vaapi_drm_format(vo, src);
     case HWDEC_DRMPRIME:
         return drmprime_drm_format(vo, src);
+    case HWDEC_NONE:
+    default:
+        return false;
     }
-    return false;
 }
 
 static struct buffer *buffer_check(struct vo *vo, struct vo_frame *frame)
@@ -342,6 +342,9 @@ static struct buffer *buffer_create(struct vo *vo, struct vo_frame *frame)
         break;
     case HWDEC_DRMPRIME:
         drmprime_dmabuf_importer(buf, image, params);
+        break;
+    case HWDEC_NONE:
+    default:
         break;
     }
 
@@ -510,13 +513,12 @@ static void resize(struct vo *vo)
 
     struct mp_rect src;
     struct mp_rect dst;
-    struct mp_vo_opts *opts = wl->opts;
+    struct mp_vo_opts *vo_opts = wl->vo_opts;
 
     const int width = mp_rect_w(wl->geometry);
     const int height = mp_rect_h(wl->geometry);
-    vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
 
-    if (width == 0 || height == 0 || mp_rect_w(dst) == 0 || mp_rect_h(dst) == 0)
+    if (width == 0 || height == 0)
         return;
 
     vo_wayland_set_opaque_region(wl, false);
@@ -529,27 +531,17 @@ static void resize(struct vo *vo)
     vo->opts->pan_x = 0;
     vo->opts->pan_y = 0;
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
-    int window_w = MPMAX(0, p->screen_osd_res.ml + p->screen_osd_res.mr) + mp_rect_w(dst);
-    int window_h = MPMAX(0, p->screen_osd_res.mt + p->screen_osd_res.mb) + mp_rect_h(dst);
-    wp_viewport_set_destination(wl->viewport, lround(window_w / wl->scaling_factor),
-                                lround(window_h / wl->scaling_factor));
+    wp_viewport_set_destination(wl->viewport, 2 * dst.x0 + mp_rect_w(dst), 2 * dst.y0 + mp_rect_h(dst));
 
     //now we restore pan for video viewport calculation
-    vo->opts->pan_x = opts->pan_x;
-    vo->opts->pan_y = opts->pan_y;
+    vo->opts->pan_x = vo_opts->pan_x;
+    vo->opts->pan_y = vo_opts->pan_y;
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
-    wp_viewport_set_destination(wl->video_viewport, lround(mp_rect_w(dst) / wl->scaling_factor),
-                                                    lround(mp_rect_h(dst) / wl->scaling_factor));
-    wl_subsurface_set_position(wl->video_subsurface, lround(dst.x0 / wl->scaling_factor), lround(dst.y0 / wl->scaling_factor));
-    wp_viewport_set_destination(wl->osd_viewport, lround(vo->dwidth / wl->scaling_factor),
-                                                  lround(vo->dheight / wl->scaling_factor));
-    wl_subsurface_set_position(wl->osd_subsurface, lround((0 - dst.x0) / wl->scaling_factor), lround((0 - dst.y0) / wl->scaling_factor));
+    wp_viewport_set_destination(wl->video_viewport, mp_rect_w(dst), mp_rect_h(dst));
+    wl_subsurface_set_position(wl->video_subsurface, dst.x0, dst.y0);
+    wp_viewport_set_destination(wl->osd_viewport, vo->dwidth, vo->dheight);
+    wl_subsurface_set_position(wl->osd_subsurface, 0 - dst.x0, 0 - dst.y0);
     set_viewport_source(vo, src);
-
-    if (vo->target_params) {
-        vo->target_params->w = mp_rect_w(dst);
-        vo->target_params->h = mp_rect_h(dst);
-    }
 
     vo->want_redraw = true;
 }
@@ -722,10 +714,7 @@ done:
     if (!vo_wayland_reconfig(vo))
         return VO_ERROR;
 
-    p->target_params = img->params;
-    vo->target_params = &p->target_params;
-
-    // dmpv doesn't support rotation in VO - handled via video filters
+    // dmpv doesn't have target_params or support rotation in VO
     wl_surface_set_buffer_transform(vo->wl->video_surface, 0);
 
     // Immediately destroy all buffers if params change.
