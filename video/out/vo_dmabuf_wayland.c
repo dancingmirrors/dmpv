@@ -77,7 +77,7 @@ struct osd_buffer {
 struct priv {
     struct mp_log *log;
     struct mp_rect src;
-    struct mpv_global *global;
+    struct dmpv_global *global;
 
     struct ra_ctx *ctx;
     struct ra_hwdec_ctx hwdec_ctx;
