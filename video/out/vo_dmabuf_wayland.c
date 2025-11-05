@@ -601,7 +601,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     if (!vo_wayland_check_visible(vo)) {
         if (frame->current)
             talloc_free(frame);
-        return VO_FALSE;
+        return;
     }
 
     if (p->destroy_buffers)
@@ -621,7 +621,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
         buf = buffer_get(vo, frame);
 
         if (buf && buf->frame) {
-            vo_wayland_handle_color(wl);
+            // dmpv doesn't have vo_wayland_handle_color - color management handled elsewhere
             struct mp_image *image = buf->frame->current;
             wl_surface_attach(wl->video_surface, buf->buffer, 0, 0);
             wl_surface_damage_buffer(wl->video_surface, 0, 0, image->w,
