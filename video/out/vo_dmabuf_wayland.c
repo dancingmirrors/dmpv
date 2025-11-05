@@ -29,7 +29,7 @@
 
 #include "gpu/hwdec.h"
 #include "gpu/video.h"
-#include "dmpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "present_sync.h"
 #include "sub/draw_bmp.h"
 #include "video/fmt-conversion.h"
@@ -43,9 +43,9 @@
 #endif
 
 // Generated from wayland-protocols
-#include "linux-dmabuf-unstable-v1.h"
-#include "viewporter.h"
-#include "single-pixel-buffer-v1.h"
+#include "generated/wayland/linux-dmabuf-unstable-v1.h"
+#include "generated/wayland/viewporter.h"
+#include "generated/wayland/single-pixel-buffer-v1.h"
 
 // We need at least enough buffers to avoid a
 // flickering artifact in certain formats.
