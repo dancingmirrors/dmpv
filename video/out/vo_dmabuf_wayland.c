@@ -546,12 +546,10 @@ static void resize(struct vo *vo)
     wl_subsurface_set_position(wl->osd_subsurface, lround((0 - dst.x0) / wl->scaling_factor), lround((0 - dst.y0) / wl->scaling_factor));
     set_viewport_source(vo, src);
 
-    mp_mutex_lock(&vo->params_mutex);
-    vo->target_params->w = mp_rect_w(dst);
-    vo->target_params->h = mp_rect_h(dst);
-    vo->target_params->rotate = (vo->params->rotate % 90) * 90;
-    vo->target_params->vflip = vo->params->vflip;
-    mp_mutex_unlock(&vo->params_mutex);
+    if (vo->target_params) {
+        vo->target_params->w = mp_rect_w(dst);
+        vo->target_params->h = mp_rect_h(dst);
+    }
 
     vo->want_redraw = true;
 }
@@ -600,7 +598,7 @@ done:
     return draw;
 }
 
-static bool draw_frame(struct vo *vo, struct vo_frame *frame)
+static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
     struct vo_wayland_state *wl = vo->wl;
@@ -653,8 +651,6 @@ static bool draw_frame(struct vo *vo, struct vo_frame *frame)
             p->osd_surface_is_mapped = false;
         }
     }
-
-    return VO_TRUE;
 }
 
 static void flip_page(struct vo *vo)
@@ -683,10 +679,6 @@ static int query_format(struct vo *vo, int format)
 {
     return format == IMGFMT_DRMPRIME || format == IMGFMT_VAAPI;
 }
-
-static const int32_t transform_enum_lut[4][2] = {
-    {0, 6}, {1, 5}, {2, 4}, {3, 7},
-};
 
 static int reconfig(struct vo *vo, struct mp_image *img)
 {
@@ -730,19 +722,11 @@ done:
     if (!vo_wayland_reconfig(vo))
         return VO_ERROR;
 
-    mp_mutex_lock(&vo->params_mutex);
     p->target_params = img->params;
-    // Restore fallback layer parameters if available.
-    mp_image_params_restore_dovi_mapping(&p->target_params);
-    // Strip metadata that is not understood anyway.
-    struct pl_hdr_metadata *hdr = &p->target_params.color.hdr;
-    hdr->scene_max[0] = hdr->scene_max[1] = hdr->scene_max[2] = 0;
-    hdr->scene_avg = hdr->max_pq_y = hdr->avg_pq_y = 0;
     vo->target_params = &p->target_params;
-    mp_mutex_unlock(&vo->params_mutex);
 
-    wl_surface_set_buffer_transform(vo->wl->video_surface,
-        transform_enum_lut[img->params.rotate / 90][!!img->params.vflip]);
+    // dmpv doesn't support rotation in VO - handled via video filters
+    wl_surface_set_buffer_transform(vo->wl->video_surface, 0);
 
     // Immediately destroy all buffers if params change.
     destroy_buffers(vo);
@@ -872,10 +856,8 @@ err:
 const struct vo_driver video_out_dmabuf_wayland = {
     .description = "Wayland dmabuf video output",
     .name = "dmabuf-wayland",
-    .caps = VO_CAP_ROTATE90 |
-            VO_CAP_FRAMEOWNER |
-            VO_CAP_VFLIP |
-            0x0,
+    .caps = VO_CAP_ROTATE90,
+    .frame_owner = true,
     .preinit = preinit,
     .query_format = query_format,
     .reconfig2 = reconfig,
