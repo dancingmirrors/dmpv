@@ -291,7 +291,10 @@ check("-wayland*",
           "generated/wayland/viewporter.c",
           "generated/wayland/linux-dmabuf-unstable-v1.c",
           "generated/wayland/fifo-v1.c",
-          "generated/wayland/color-management-v1.c"
+          "generated/wayland/color-management-v1.c",
+          "video/out/hwdec/dmabuf_interop_wl.c",
+          "video/out/wldmabuf/context_wldmabuf.c",
+          "video/out/wldmabuf/ra_wldmabuf.c"
       ],
 )
 check("memfd-create*",
@@ -394,6 +397,14 @@ check("-vaapi-egl*",
       desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
+check(deps      = ["drm", "egl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["egl", "libplacebo", "vaapi"],
+      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
+check(deps      = ["drm", "egl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["drm", "egl", "libplacebo", "vaapi"],
+      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-jpeg*",
       desc      = "JPEG support",
@@ -441,11 +452,6 @@ check(deps      = ["vulkan", "wayland"],
       sources   = "video/out/vulkan/context_wayland.c")
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
-
-check(deps      = ["drm", "gl", "egl"],
-      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
-check(deps      = ["drm", "gl", "egl", "libplacebo", "vaapi"],
-      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
 
 check("-sdl2*",
       desc      = "SDL video output",
