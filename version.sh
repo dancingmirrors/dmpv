@@ -12,7 +12,16 @@ for ac_option do
     extra="-$ac_arg"
     ;;
   --versionh=*)
-    version_h="$(pwd)/$ac_arg"
+    case "$ac_arg" in
+      /*)
+        # Absolute path, use as-is
+        version_h="$ac_arg"
+        ;;
+      *)
+        # Relative path, make it absolute
+        version_h="$(pwd)/$ac_arg"
+        ;;
+    esac
     print=no
     ;;
   --cwd=*)
