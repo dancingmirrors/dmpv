@@ -2173,7 +2173,7 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
         bstr *out = (bstr *)arg;
         if (!out || !x11->pseudo_mapped)
             return VO_NOTAVAIL;
-        
+
         // Try to get ICC profile from X11 property
         int atom_id = x11->displays[x11->current_screen].atom_id;
         char prop[80];
@@ -2193,19 +2193,19 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
             XSelectInput(x11->display, x11->rootwin, PropertyChangeMask);
             return VO_TRUE;
         }
-        
+
 #if HAVE_LCMS2
         // Try to generate ICC profile from default color space parameters
         // X11 doesn't provide parametric color space info, so we use sRGB/BT.709 as fallback
-        *out = gl_lcms_generate_profile_from_csp(NULL, x11->log, 
-                                                  MP_CSP_PRIM_BT_709, 
+        *out = gl_lcms_generate_profile_from_csp(NULL, x11->log,
+                                                  MP_CSP_PRIM_BT_709,
                                                   MP_CSP_TRC_SRGB);
         if (out->len > 0) {
             MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
             return VO_TRUE;
         }
 #endif
-        
+
         MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: no ICC profile available\n");
         return VO_FALSE;
     }

@@ -436,7 +436,7 @@ void vo_drm_release_crtc(struct vo_drm_state *drm)
 
     if (request)
         drmModeAtomicFree(request);
-    
+
     if (!success)
         MP_ERR(drm, "Failed to restore previous mode\n");
 
@@ -1017,9 +1017,9 @@ int vo_drm_control(struct vo *vo, int *events, int request, void *arg)
         bstr *out = (bstr *)arg;
         if (!out)
             return VO_NOTIMPL;
-        
+
         MP_VERBOSE(drm, "Generating ICC profile for DRM output\n");
-        
+
 #if HAVE_LCMS2
         // DRM doesn't easily expose EDID color info, fall back to sRGB/BT.709
         // Future enhancement: Parse EDID blob from connector properties
