@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include <libplacebo/colorspace.h>
 #include <libplacebo/options.h>
@@ -1631,12 +1632,28 @@ static void cache_save_obj(void *p, pl_cache_obj obj)
         MP_WARN(c, "Failed to open cache file %s for writing\n", filepath);
         goto done;
     }
-    size_t written = fwrite(obj.data, 1, obj.size, file);
-    fclose(file);
-    if (written != obj.size) {
-        MP_WARN(c, "Failed to write cache file %s\n", filepath);
-        unlink(filepath);
-        goto done;
+    
+    // Zero-initialize a temporary buffer to avoid Valgrind warnings about
+    // uninitialized bytes from libplacebo's cache objects
+    void *temp_buf = talloc_zero_size(ta_ctx, obj.size);
+    if (temp_buf) {
+        memcpy(temp_buf, obj.data, obj.size);
+        size_t written = fwrite(temp_buf, 1, obj.size, file);
+        fclose(file);
+        if (written != obj.size) {
+            MP_WARN(c, "Failed to write cache file %s\n", filepath);
+            unlink(filepath);
+            goto done;
+        }
+    } else {
+        // Fallback to direct write if allocation fails
+        size_t written = fwrite(obj.data, 1, obj.size, file);
+        fclose(file);
+        if (written != obj.size) {
+            MP_WARN(c, "Failed to write cache file %s\n", filepath);
+            unlink(filepath);
+            goto done;
+        }
     }
     int64_t save_end = mp_time_ns();
     MP_DBG(c, "%s: key(%" PRIx64 "), size(%zu), save time(%.3f ms)\n",
