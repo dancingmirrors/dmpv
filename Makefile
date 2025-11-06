@@ -32,8 +32,8 @@ define REDIRECT_TO_NINJA
 		echo "Error: build directory not found. Please run ./configure first."; \
 		exit 1; \
 	fi
-	@echo "Redirecting to: ninja -C $(BUILDDIR) $(1)"
-	@$(NINJA) -C $(BUILDDIR) $(1)
+	@echo "Redirecting to: ninja -v -C $(BUILDDIR) $(1)"
+	@$(NINJA) -v -C $(BUILDDIR) $(1)
 endef
 
 # Redirect all common targets to ninja
