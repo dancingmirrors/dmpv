@@ -1858,9 +1858,9 @@ static void pass_dispatch_sample_polar(struct gl_video *p, struct scaler *scaler
     float ratiox = (float)w / img.w,
           ratioy = (float)h / img.h;
 
-    // For performance we want to load at least as many pixels
-    // horizontally as there are threads in a warp (32 for nvidia), as
-    // well as enough to take advantage of shmem parallelism
+    // For performance we want to load at least as many pixels horizontally as
+    // there are threads in a warp (32 for NVIDIA), as well as enough to take
+    // advantage of shmem parallelism.
     const int warp_size = 32, threads = 256;
     int bw = warp_size;
     int bh = threads / bw;
