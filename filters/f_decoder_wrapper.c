@@ -217,9 +217,9 @@ struct priv {
     struct mp_async_queue *queue; // decoded frame output queue
     struct mp_dispatch_queue *dec_dispatch; // non-NULL if decoding thread used
     bool dec_thread_lock; // debugging (esp. for no-thread case)
-    pthread_t dec_thread;
+    mp_thread dec_thread;
     bool dec_thread_valid;
-    pthread_mutex_t cache_lock;
+    mp_mutex cache_lock;
 
     // --- Protected by cache_lock.
     char *cur_hwdec;
@@ -1090,7 +1090,7 @@ static void decf_process(struct mp_filter *f)
     read_frame(p);
 }
 
-static void *dec_thread(void *ptr)
+static MP_THREAD_VOID dec_thread(void *ptr)
 {
     struct priv *p = ptr;
 
@@ -1101,7 +1101,7 @@ static void *dec_thread(void *ptr)
     default:
         break;
     }
-    mpthread_set_name(t_name);
+    mp_thread_set_name(t_name);
 
     while (!p->request_terminate_dec_thread) {
         mp_filter_graph_run(p->dec_root_filter);
@@ -1109,7 +1109,7 @@ static void *dec_thread(void *ptr)
         mp_dispatch_queue_process(p->dec_dispatch, INFINITY);
     }
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void public_f_reset(struct mp_filter *f)
@@ -1138,7 +1138,7 @@ static void public_f_destroy(struct mp_filter *f)
         p->request_terminate_dec_thread = 1;
         mp_dispatch_interrupt(p->dec_dispatch);
         thread_unlock(p);
-        pthread_join(p->dec_thread, NULL);
+        mp_thread_join(p->dec_thread);
         p->dec_thread_valid = false;
     }
 
@@ -1146,7 +1146,7 @@ static void public_f_destroy(struct mp_filter *f)
 
     talloc_free(p->dec_root_filter);
     talloc_free(p->queue);
-    pthread_mutex_destroy(&p->cache_lock);
+    mp_mutex_destroy(&p->cache_lock);
 }
 
 static const struct mp_filter_info decf_filter = {
@@ -1187,7 +1187,7 @@ struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
     struct priv *p = public_f->priv;
     p->public.f = public_f;
 
-    pthread_mutex_init(&p->cache_lock, NULL);
+    mp_mutex_init(&p->cache_lock);
     p->opt_cache = m_config_cache_alloc(p, public_f->global, &dec_wrapper_conf);
     p->opts = p->opt_cache->opts;
     p->header = src;
@@ -1259,7 +1259,7 @@ struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
         mp_pin_connect(f_out->pins[0], p->decf->pins[0]);
 
         p->dec_thread_valid = true;
-        if (pthread_create(&p->dec_thread, NULL, dec_thread, p)) {
+        if (mp_thread_create(&p->dec_thread, dec_thread, p)) {
             p->dec_thread_valid = false;
             goto error;
         }
