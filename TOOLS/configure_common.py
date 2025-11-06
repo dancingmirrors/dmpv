@@ -908,8 +908,8 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     # Link target
     target = f"$builddir/dmpv$exesuf"
-    # Add version.h as implicit dependency to ensure version check runs on every build
-    ninja_content += f"build {target}: link {' '.join(objects)} | $builddir/generated/version.h\n"
+    # Add version.h as regular dependency to ensure link runs when version changes
+    ninja_content += f"build {target}: link {' '.join(objects)} $builddir/generated/version.h\n"
     ninja_content += "\n"
 
     # Default target
