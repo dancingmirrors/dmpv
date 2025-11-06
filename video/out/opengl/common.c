@@ -422,7 +422,7 @@ static const struct gl_functions gl_functions[] = {
             {0},
         },
     },
-    // For gl_hwdec_vdpau.c
+    // For hwdec_vdpau.c
     // http://www.opengl.org/registry/specs/NV/vdpau_interop.txt
     {
         .extension = "GL_NV_vdpau_interop",
