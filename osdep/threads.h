@@ -184,7 +184,9 @@ static inline void mp_thread_set_name(const char *name)
 #if HAVE_GLIBC_THREAD_NAME
     if (pthread_setname_np(pthread_self(), name) == ERANGE) {
         char tname[16] = {0}; // glibc-checked kernel limit
-        strncpy(tname, name, sizeof(tname) - 1);
+        size_t len = sizeof(tname) - 1;
+        memcpy(tname, name, len);
+        tname[len] = '\0';
         pthread_setname_np(pthread_self(), tname);
     }
 #elif HAVE_BSD_THREAD_NAME
