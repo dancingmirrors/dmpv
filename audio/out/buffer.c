@@ -72,7 +72,7 @@ struct buffer_state {
     // "Push" AOs only (AOs with driver->write).
     bool recover_pause;         // non-hw_paused: needs to recover delay
     struct mp_pcm_state prepause_state;
-    pthread_t thread;           // thread shoveling data to AO
+    mp_thread thread;           // thread shoveling data to AO
     bool thread_valid;          // thread is running
     struct mp_aframe *temp_buf;
 
@@ -81,14 +81,14 @@ struct buffer_state {
     bool terminate;             // exit thread
 };
 
-static void *playthread(void *arg);
+static MP_THREAD_VOID playthread(void *arg);
 
 void ao_wakeup_playthread(struct ao *ao)
 {
     struct buffer_state *p = ao->buffer_state;
     mp_mutex_lock(&p->pt_lock);
     p->need_wakeup = true;
-    pthread_cond_broadcast(&p->pt_wakeup);
+    mp_cond_broadcast(&p->pt_wakeup);
     mp_mutex_unlock(&p->pt_lock);
 }
 
@@ -197,7 +197,7 @@ int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_ns)
         p->playing = false;
         ao->wakeup_cb(ao->wakeup_ctx);
         // For ao_drain().
-        pthread_cond_broadcast(&p->wakeup);
+        mp_cond_broadcast(&p->wakeup);
     }
 
     mp_mutex_unlock(&p->lock);
@@ -485,10 +485,10 @@ void ao_uninit(struct ao *ao)
     if (p && p->thread_valid) {
         mp_mutex_lock(&p->pt_lock);
         p->terminate = true;
-        pthread_cond_broadcast(&p->pt_wakeup);
+        mp_cond_broadcast(&p->pt_wakeup);
         mp_mutex_unlock(&p->pt_lock);
 
-        pthread_join(p->thread, NULL);
+        mp_thread_join(p->thread);
         p->thread_valid = false;
     }
 
@@ -550,7 +550,7 @@ bool init_buffer_post(struct ao *ao)
         mp_filter_graph_set_wakeup_cb(p->filter_root, wakeup_filters, ao);
 
         p->thread_valid = true;
-        if (pthread_create(&p->thread, NULL, playthread, ao)) {
+        if (mp_thread_create(&p->thread, playthread, ao)) {
             p->thread_valid = false;
             return false;
         }
@@ -669,15 +669,15 @@ eof:
     }
     ao->wakeup_cb(ao->wakeup_ctx);
     // For ao_drain().
-    pthread_cond_broadcast(&p->wakeup);
+    mp_cond_broadcast(&p->wakeup);
     return true;
 }
 
-static void *playthread(void *arg)
+static MP_THREAD_VOID playthread(void *arg)
 {
     struct ao *ao = arg;
     struct buffer_state *p = ao->buffer_state;
-    mpthread_set_name("ao");
+    mp_thread_set_name("ao");
     while (1) {
         mp_mutex_lock(&p->lock);
 
@@ -702,12 +702,11 @@ static void *playthread(void *arg)
         }
         if (!p->need_wakeup && !retry) {
             MP_STATS(ao, "start audio wait");
-            struct timespec ts = mp_rel_time_to_timespec(timeout);
-            pthread_cond_timedwait(&p->pt_wakeup, &p->pt_lock, &ts);
+            mp_cond_timedwait(&p->pt_wakeup, &p->pt_lock, mp_time_ns() + (int64_t)(timeout * 1e9));
             MP_STATS(ao, "end audio wait");
         }
         p->need_wakeup = false;
         mp_mutex_unlock(&p->pt_lock);
     }
-    return NULL;
+    MP_THREAD_RETURN();
 }
