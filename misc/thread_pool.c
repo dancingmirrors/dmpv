@@ -38,7 +38,7 @@ struct mp_thread_pool {
 
     // --- the following fields are protected by lock
 
-    pthread_t *threads;
+    mp_thread *threads;
     int num_threads;
 
     // Number of threads which have taken up work and are still processing it.
@@ -50,11 +50,11 @@ struct mp_thread_pool {
     int num_work;
 };
 
-static void *worker_thread(void *arg)
+static MP_THREAD_VOID worker_thread(void *arg)
 {
     struct mp_thread_pool *pool = arg;
 
-    mpthread_set_name("worker");
+    mp_thread_set_name("worker");
 
     mp_mutex_lock(&pool->lock);
 
@@ -74,10 +74,10 @@ static void *worker_thread(void *arg)
             if (pool->num_threads > pool->min_threads) {
                 if (!ts.tv_sec && !ts.tv_nsec)
                     ts = mp_rel_time_to_timespec(DESTROY_TIMEOUT);
-                if (pthread_cond_timedwait(&pool->wakeup, &pool->lock, &ts))
+                if (mp_cond_timedwait(&pool->wakeup, &pool->lock, mp_time_ns() + DESTROY_TIMEOUT))
                     got_timeout = pool->num_threads > pool->min_threads;
             } else {
-                pthread_cond_wait(&pool->wakeup, &pool->lock);
+                mp_cond_wait(&pool->wakeup, &pool->lock);
             }
             continue;
         }
@@ -98,18 +98,18 @@ static void *worker_thread(void *arg)
     // timeout, and nobody is waiting for us. We have to remove ourselves.
     if (!pool->terminate) {
         for (int n = 0; n < pool->num_threads; n++) {
-            if (pthread_equal(pool->threads[n], pthread_self())) {
-                pthread_detach(pthread_self());
+            if (mp_thread_equal(pool->threads[n], mp_thread_self())) {
+                pthread_detach(mp_thread_self());
                 MP_TARRAY_REMOVE_AT(pool->threads, pool->num_threads, n);
                 mp_mutex_unlock(&pool->lock);
-                return NULL;
+                MP_THREAD_RETURN();
             }
         }
         MP_ASSERT_UNREACHABLE();
     }
 
     mp_mutex_unlock(&pool->lock);
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void thread_pool_dtor(void *ctx)
@@ -120,9 +120,9 @@ static void thread_pool_dtor(void *ctx)
     mp_mutex_lock(&pool->lock);
 
     pool->terminate = true;
-    pthread_cond_broadcast(&pool->wakeup);
+    mp_cond_broadcast(&pool->wakeup);
 
-    pthread_t *threads = pool->threads;
+    mp_thread *threads = pool->threads;
     int num_threads = pool->num_threads;
 
     pool->threads = NULL;
@@ -131,19 +131,19 @@ static void thread_pool_dtor(void *ctx)
     mp_mutex_unlock(&pool->lock);
 
     for (int n = 0; n < num_threads; n++)
-        pthread_join(threads[n], NULL);
+        mp_thread_join(threads[n]);
 
     mp_assert(pool->num_work == 0);
     mp_assert(pool->num_threads == 0);
-    pthread_cond_destroy(&pool->wakeup);
-    pthread_mutex_destroy(&pool->lock);
+    mp_cond_destroy(&pool->wakeup);
+    mp_mutex_destroy(&pool->lock);
 }
 
 static bool add_thread(struct mp_thread_pool *pool)
 {
-    pthread_t thread;
+    mp_thread thread;
 
-    if (pthread_create(&thread, NULL, worker_thread, pool) != 0)
+    if (mp_thread_create(&thread, worker_thread, pool) != 0)
         return false;
 
     MP_TARRAY_APPEND(pool, pool->threads, pool->num_threads, thread);
@@ -160,8 +160,8 @@ struct mp_thread_pool *mp_thread_pool_create(void *ta_parent, int init_threads,
     struct mp_thread_pool *pool = talloc_zero(ta_parent, struct mp_thread_pool);
     talloc_set_destructor(pool, thread_pool_dtor);
 
-    pthread_mutex_init(&pool->lock, NULL);
-    pthread_cond_init(&pool->wakeup, NULL);
+    mp_mutex_init(&pool->lock);
+    mp_cond_init(&pool->wakeup);
 
     pool->min_threads = min_threads;
     pool->max_threads = max_threads;
