@@ -3,14 +3,14 @@
 #
 # Quick start:
 # ./configure
-# ninja -C build
+# ninja -v -C build
 #
 # Build performance tips:
 # - Ninja automatically uses parallel builds
-# - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && ninja -C build
-# - Disable debug symbols for faster compilation: ./configure --disable-debug-build && ninja -C build
+# - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && ninja -v -C build
+# - Disable debug symbols for faster compilation: ./configure --disable-debug-build && ninja -v -C build
 #
-# Note: Direct 'make' usage is no longer supported. All make commands now redirect to ninja.
+# Note: Direct 'make' usage is no longer supported. All make commands now redirect to ninja with verbose output.
 
 BUILDDIR = build
 
