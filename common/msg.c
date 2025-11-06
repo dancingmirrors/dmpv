@@ -82,7 +82,7 @@ struct mp_log_root {
     // --- owner thread only (caller of mp_msg_init() etc.)
     char *log_path;
     char *stats_path;
-    pthread_t log_file_thread;
+    mp_thread log_file_thread;
     // --- owner thread only, but frozen while log_file_thread is running
     FILE *log_file;
     struct mp_log_buffer *log_file_buffer;
@@ -538,11 +538,11 @@ void mp_msg_init(struct dmpv_global *global)
     global->log = log;
 }
 
-static void *log_file_thread(void *p)
+static MP_THREAD_VOID log_file_thread(void *p)
 {
     struct mp_log_root *root = p;
 
-    mpthread_set_name("log-file");
+    mp_thread_set_name("log-file");
 
     mp_mutex_lock(&root->log_file_lock);
 
@@ -558,15 +558,15 @@ static void *log_file_thread(void *p)
             mp_mutex_lock(&root->log_file_lock);
             talloc_free(e);
             // Multiple threads might be blocked if the log buffer was full.
-            pthread_cond_broadcast(&root->log_file_wakeup);
+            mp_cond_broadcast(&root->log_file_wakeup);
         } else {
-            pthread_cond_wait(&root->log_file_wakeup, &root->log_file_lock);
+            mp_cond_wait(&root->log_file_wakeup, &root->log_file_lock);
         }
     }
 
     mp_mutex_unlock(&root->log_file_lock);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void wakeup_log_file(void *p)
@@ -574,7 +574,7 @@ static void wakeup_log_file(void *p)
     struct mp_log_root *root = p;
 
     mp_mutex_lock(&root->log_file_lock);
-    pthread_cond_broadcast(&root->log_file_wakeup);
+    mp_cond_broadcast(&root->log_file_wakeup);
     mp_mutex_unlock(&root->log_file_lock);
 }
 
@@ -586,13 +586,13 @@ static void terminate_log_file_thread(struct mp_log_root *root)
     mp_mutex_lock(&root->log_file_lock);
     if (root->log_file_thread_active) {
         root->log_file_thread_active = false;
-        pthread_cond_broadcast(&root->log_file_wakeup);
+        mp_cond_broadcast(&root->log_file_wakeup);
         wait_terminate = true;
     }
     mp_mutex_unlock(&root->log_file_lock);
 
     if (wait_terminate)
-        pthread_join(root->log_file_thread, NULL);
+        mp_thread_join(root->log_file_thread);
 
     mp_msg_log_buffer_destroy(root->log_file_buffer);
     root->log_file_buffer = NULL;
@@ -682,7 +682,7 @@ void mp_msg_update_msglevels(struct dmpv_global *global, struct MPOpts *opts)
                     mp_msg_log_buffer_new(global, FILE_BUF, MP_LOG_BUFFER_MSGL_LOGFILE,
                                           wakeup_log_file, root);
                 root->log_file_thread_active = true;
-                if (pthread_create(&root->log_file_thread, NULL, log_file_thread,
+                if (mp_thread_create(&root->log_file_thread, log_file_thread,
                                    root))
                 {
                     root->log_file_thread_active = false;

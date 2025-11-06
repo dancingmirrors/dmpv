@@ -12,9 +12,9 @@
 #include "dr_helper.h"
 
 struct dr_helper {
-    pthread_mutex_t thread_lock;
-    pthread_t thread;
-    bool thread_valid; // (POSIX defines no "unset" pthread_t value yet)
+    mp_mutex thread_lock;
+    mp_thread thread;
+    bool thread_valid; // (POSIX defines no "unset" mp_thread value yet)
 
     struct mp_dispatch_queue *dispatch;
     atomic_ullong dr_in_flight;
@@ -32,7 +32,7 @@ static void dr_helper_destroy(void *ptr)
     // dangling pointers.
     mp_assert(atomic_load(&dr->dr_in_flight) == 0);
 
-    pthread_mutex_destroy(&dr->thread_lock);
+    mp_mutex_destroy(&dr->thread_lock);
 }
 
 struct dr_helper *dr_helper_create(struct mp_dispatch_queue *dispatch,
@@ -48,7 +48,7 @@ struct dr_helper *dr_helper_create(struct mp_dispatch_queue *dispatch,
         .get_image = get_image,
         .get_image_ctx = get_image_ctx,
     };
-    pthread_mutex_init(&dr->thread_lock, NULL);
+    mp_mutex_init(&dr->thread_lock);
     return dr;
 }
 
@@ -57,7 +57,7 @@ void dr_helper_acquire_thread(struct dr_helper *dr)
     mp_mutex_lock(&dr->thread_lock);
     mp_assert(!dr->thread_valid); // fails on API user errors
     dr->thread_valid = true;
-    dr->thread = pthread_self();
+    dr->thread = mp_thread_self();
     mp_mutex_unlock(&dr->thread_lock);
 }
 
@@ -66,7 +66,7 @@ void dr_helper_release_thread(struct dr_helper *dr)
     mp_mutex_lock(&dr->thread_lock);
     // Fails on API user errors.
     mp_assert(dr->thread_valid);
-    mp_assert(pthread_equal(dr->thread, pthread_self()));
+    mp_assert(mp_thread_equal(dr->thread, mp_thread_self()));
     dr->thread_valid = false;
     mp_mutex_unlock(&dr->thread_lock);
 }
@@ -94,7 +94,7 @@ static void free_dr_buffer_on_dr_thread(void *opaque, uint8_t *data)
 
     mp_mutex_lock(&dr->thread_lock);
     bool on_this_thread =
-        dr->thread_valid && pthread_equal(ctx->dr->thread, pthread_self());
+        dr->thread_valid && mp_thread_equal(ctx->dr->thread, mp_thread_self());
     mp_mutex_unlock(&dr->thread_lock);
 
     // The image could be unreffed even on the DR thread. In practice, this

@@ -61,25 +61,16 @@ struct stat_entry {
     int64_t val_th;
     int64_t time_start_ns;
     int64_t cpu_start_ns;
-    pthread_t thread;
+    mp_thread thread;
 };
 
 #define IS_ACTIVE(ctx) \
     (atomic_load_explicit(&(ctx)->base->active, memory_order_relaxed))
 
 // Overflows only after I'm dead.
-static int64_t get_thread_cpu_time_ns(pthread_t thread)
+static int64_t get_thread_cpu_time_ns(mp_thread thread)
 {
-#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0 && defined(_POSIX_THREAD_CPUTIME)
-    clockid_t id;
-    struct timespec tv;
-    if (pthread_getcpuclockid(thread, &id) == 0 &&
-        clock_gettime(id, &tv) == 0)
-    {
-        return tv.tv_sec * (1000LL * 1000LL * 1000LL) + tv.tv_nsec;
-    }
-#endif
-    return 0;
+    return mp_thread_cpu_time_ns(thread);
 }
 
 static void stats_destroy(void *p)
@@ -89,7 +80,7 @@ static void stats_destroy(void *p)
     // All entries must have been destroyed before this.
     mp_assert(!stats->list.head);
 
-    pthread_mutex_destroy(&stats->lock);
+    mp_mutex_destroy(&stats->lock);
 }
 
 void stats_global_init(struct dmpv_global *global)
@@ -97,7 +88,7 @@ void stats_global_init(struct dmpv_global *global)
     mp_assert(!global->stats);
     struct stats_base *stats = talloc_zero(global, struct stats_base);
     ta_set_destructor(stats, stats_destroy);
-    pthread_mutex_init(&stats->lock, NULL);
+    mp_mutex_init(&stats->lock);
 
     global->stats = stats;
     stats->global = global;
@@ -286,7 +277,7 @@ void stats_time_start(struct stats_ctx *ctx, const char *name)
         return;
     mp_mutex_lock(&ctx->base->lock);
     struct stat_entry *e = find_entry(ctx, name);
-    e->cpu_start_ns = get_thread_cpu_time_ns(pthread_self());
+    e->cpu_start_ns = get_thread_cpu_time_ns(mp_thread_self());
     e->time_start_ns = mp_time_ns();
     mp_mutex_unlock(&ctx->base->lock);
 }
@@ -301,7 +292,7 @@ void stats_time_end(struct stats_ctx *ctx, const char *name)
     if (e->time_start_ns) {
         e->type = VAL_TIME;
         e->val_rt += mp_time_ns() - e->time_start_ns;
-        e->val_th += get_thread_cpu_time_ns(pthread_self()) - e->cpu_start_ns;
+        e->val_th += get_thread_cpu_time_ns(mp_thread_self()) - e->cpu_start_ns;
         e->time_start_ns = 0;
     }
     mp_mutex_unlock(&ctx->base->lock);
@@ -324,7 +315,7 @@ static void register_thread(struct stats_ctx *ctx, const char *name,
     mp_mutex_lock(&ctx->base->lock);
     struct stat_entry *e = find_entry(ctx, name);
     e->type = type;
-    e->thread = pthread_self();
+    e->thread = mp_thread_self();
     mp_mutex_unlock(&ctx->base->lock);
 }
 
