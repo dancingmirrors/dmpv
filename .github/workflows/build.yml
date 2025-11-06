@@ -61,6 +61,12 @@ jobs:
 
           sudo apt-get install -y --reinstall meson ninja-build
 
+          ./configure
+          make
+          sudo make install
+          sudo make uninstall
+          rm -rf build
+
           ./configure --enable-lgpl
           ninja -C build
           sudo ninja -C build install
