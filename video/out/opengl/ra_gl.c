@@ -1033,13 +1033,13 @@ static void disable_binding(struct ra *ra, struct ra_renderpass *pass,
                                  GL_WRITE_ONLY, tex_gl->internal_format);
         }
         break;
-    case RA_VARTYPE_INVALID:
-        MP_ASSERT_UNREACHABLE();
-    default:
-        break;
     }
     case RA_VARTYPE_BUF_RW:
         gl->BindBufferBase(GL_SHADER_STORAGE_BUFFER, input->binding, 0);
+        break;
+    case RA_VARTYPE_INVALID:
+        MP_ASSERT_UNREACHABLE();
+    default:
         break;
     }
 }

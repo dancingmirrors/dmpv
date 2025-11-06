@@ -1033,12 +1033,13 @@ static void demux_add_sh_stream_locked(struct demux_internal *in,
                                      strcmp(sh->codec->codec, "mp3") == 0))
                 ds->back_preroll = 2;
         }
-    default:
         break;
     case STREAM_VIDEO:
         ds->back_preroll = in->opts->video_back_preroll;
         if (ds->back_preroll < 0)
             ds->back_preroll = 0; // auto
+        break;
+    default:
         break;
     }
 
