@@ -251,6 +251,12 @@ void reset_playback_state(struct MPContext *mpctx)
     mpctx->paused_for_cache = false;
     mpctx->cache_buffer = 100;
     mpctx->cache_update_pts = MP_NOPTS_VALUE;
+    
+    // Reset seek mute state and update volume if needed
+    if (mpctx->seek_muted) {
+        mpctx->seek_muted = false;
+        audio_update_volume(mpctx);
+    }
 
     encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
 
