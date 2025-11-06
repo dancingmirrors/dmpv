@@ -184,7 +184,13 @@ static inline void mp_thread_set_name(const char *name)
 #if HAVE_GLIBC_THREAD_NAME
     if (pthread_setname_np(pthread_self(), name) == ERANGE) {
         char tname[16]; // glibc-checked kernel limit
-        snprintf(tname, sizeof(tname), "%s", name);
+        // Intentionally truncate the name to fit the kernel's 16-byte limit.
+        // We silence truncation warnings since this is expected behavior.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+        strncpy(tname, name, sizeof(tname) - 1);
+#pragma GCC diagnostic pop
+        tname[sizeof(tname) - 1] = '\0'; // Ensure null-termination
         pthread_setname_np(pthread_self(), tname);
     }
 #elif HAVE_BSD_THREAD_NAME
