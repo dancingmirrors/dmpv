@@ -787,8 +787,11 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     # Generate build statements for generated files
     ninja_content += "# Generated files\n"
-    # Mark version.h as a generator to always check for git state changes on every build
-    ninja_content += f"build $builddir/generated/version.h: version\n"
+    # Create an always-rebuild phony target to force version check on every build
+    ninja_content += "build _version_check: phony\n"
+    ninja_content += "\n"
+    # Mark version.h as a generator that depends on the always-rebuild target
+    ninja_content += f"build $builddir/generated/version.h: version _version_check\n"
     ninja_content += f"  generator = 1\n"
     ninja_content += "\n"
 
