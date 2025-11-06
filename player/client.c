@@ -64,7 +64,7 @@
 struct mp_client_api {
     struct MPContext *mpctx;
 
-    pthread_mutex_t lock;
+    mp_mutex lock;
 
     // -- protected by lock
 
@@ -432,7 +432,7 @@ static void abort_async(struct MPContext *mpctx, dmpv_handle *ctx,
 
 static void get_thread(void *ptr)
 {
-    *(pthread_t *)ptr = pthread_self();
+    *(mp_thread *)ptr = mp_thread_self();
 }
 
 static void mp_destroy_client(dmpv_handle *ctx, bool terminate)
@@ -529,7 +529,7 @@ static void mp_destroy_client(dmpv_handle *ctx, bool terminate)
         mpctx->stop_play = PT_QUIT;
         mp_dispatch_unlock(mpctx->dispatch);
 
-        pthread_t playthread;
+        mp_thread playthread;
         mp_dispatch_run(mpctx->dispatch, get_thread, &playthread);
 
         // Ask the core thread to stop.
@@ -539,7 +539,7 @@ static void mp_destroy_client(dmpv_handle *ctx, bool terminate)
         mp_wakeup_core(mpctx);
 
         // Blocking wait for all clients and core thread to terminate.
-        pthread_join(playthread, NULL);
+        mp_thread_join(playthread);
 
         mp_destroy(mpctx);
     }
@@ -603,11 +603,11 @@ bool mp_is_shutting_down(struct MPContext *mpctx)
     return res;
 }
 
-static void *core_thread(void *p)
+static MP_THREAD_VOID core_thread(void *p)
 {
     struct MPContext *mpctx = p;
 
-    mpthread_set_name("dmpv core");
+    mp_thread_set_name("dmpv core");
 
     while (!mpctx->initialized && mpctx->stop_play != PT_QUIT)
         mp_idle(mpctx);
@@ -620,7 +620,7 @@ static void *core_thread(void *p)
     // the last dmpv_handle.
     mp_shutdown_clients(mpctx);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 dmpv_handle *dmpv_create(void)
@@ -637,8 +637,8 @@ dmpv_handle *dmpv_create(void)
         return NULL;
     }
 
-    pthread_t thread;
-    if (pthread_create(&thread, NULL, core_thread, mpctx) != 0) {
+    mp_thread thread;
+    if (mp_thread_create(&thread, core_thread, mpctx) != 0) {
         ctx->clients->have_terminator = true; // avoid blocking
         dmpv_terminate_destroy(ctx);
         mp_destroy(mpctx);
