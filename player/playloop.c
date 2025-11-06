@@ -251,7 +251,6 @@ void reset_playback_state(struct MPContext *mpctx)
     mpctx->paused_for_cache = false;
     mpctx->cache_buffer = 100;
     mpctx->cache_update_pts = MP_NOPTS_VALUE;
-    
     // Reset seek mute state and update volume if needed
     if (mpctx->seek_muted) {
         mpctx->seek_muted = false;
@@ -414,6 +413,7 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
     }
 
     // Mute audio during seek if --seek-mute is enabled
+    // Check !mpctx->seek_muted to avoid redundant volume updates on consecutive seeks
     if (opts->seek_mute && !mpctx->seek_muted) {
         mpctx->seek_muted = true;
         audio_update_volume(mpctx);
