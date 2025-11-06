@@ -787,7 +787,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     # Generate build statements for generated files
     ninja_content += "# Generated files\n"
-    ninja_content += f"build $builddir/generated/version.h: version\n"
+    ninja_content += f"build $builddir/generated/version.h: version | $root/.git/HEAD\n"
     ninja_content += "\n"
 
     ninja_content += f"build $builddir/generated/ebml_types.h: ebml_header\n"
