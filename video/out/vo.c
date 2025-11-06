@@ -74,13 +74,13 @@ static const struct vo_driver *const video_out_drivers[] =
 };
 
 struct vo_internal {
-    pthread_t thread;
+    mp_thread thread;
     struct mp_dispatch_queue *dispatch;
     struct dr_helper *dr_helper;
 
     // --- The following fields are protected by lock
-    pthread_mutex_t lock;
-    pthread_cond_t wakeup;
+    mp_mutex lock;
+    mp_cond wakeup;
 
     bool need_wakeup;
     bool terminate;
@@ -134,7 +134,7 @@ struct vo_internal {
 extern const struct m_sub_options gl_video_conf;
 
 static void forget_frames(struct vo *vo);
-static void *vo_thread(void *ptr);
+static MP_THREAD_VOID vo_thread(void *ptr);
 
 static bool get_desc(struct m_obj_desc *dst, int index)
 {
@@ -210,8 +210,8 @@ static void dealloc_vo(struct vo *vo)
     talloc_free(vo->gl_opts_cache);
     talloc_free(vo->eq_opts_cache);
 
-    pthread_mutex_destroy(&vo->in->lock);
-    pthread_cond_destroy(&vo->in->wakeup);
+    mp_mutex_destroy(&vo->in->lock);
+    mp_cond_destroy(&vo->in->wakeup);
     talloc_free(vo);
 }
 
@@ -248,8 +248,8 @@ static struct vo *vo_create(bool probing, struct dmpv_global *global,
         .stats = stats_ctx_create(vo, global, "vo"),
     };
     mp_dispatch_set_wakeup_fn(vo->in->dispatch, dispatch_wakeup_cb, vo);
-    pthread_mutex_init(&vo->in->lock, NULL);
-    pthread_cond_init(&vo->in->wakeup, NULL);
+    mp_mutex_init(&vo->in->lock);
+    mp_cond_init(&vo->in->wakeup);
 
     vo->opts_cache = m_config_cache_alloc(NULL, global, &vo_sub_opts);
     vo->opts = vo->opts_cache->opts;
@@ -267,10 +267,10 @@ static struct vo *vo_create(bool probing, struct dmpv_global *global,
     if (!vo->priv)
         goto error;
 
-    if (pthread_create(&vo->in->thread, NULL, vo_thread, vo))
+    if (mp_thread_create(&vo->in->thread, vo_thread, vo))
         goto error;
     if (mp_rendezvous(vo, 0) < 0) { // init barrier
-        pthread_join(vo->in->thread, NULL);
+        mp_thread_join(vo->in->thread);
         goto error;
     }
     return vo;
@@ -324,7 +324,7 @@ void vo_destroy(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
     mp_dispatch_run(in->dispatch, terminate_vo, vo);
-    pthread_join(vo->in->thread, NULL);
+    mp_thread_join(vo->in->thread);
     dealloc_vo(vo);
 }
 
@@ -649,8 +649,7 @@ void vo_wait_default(struct vo *vo, int64_t until_time)
 
     mp_mutex_lock(&in->lock);
     if (!in->need_wakeup) {
-        struct timespec ts = mp_time_ns_to_realtime(until_time);
-        pthread_cond_timedwait(&in->wakeup, &in->lock, &ts);
+        mp_cond_timedwait_until(&in->wakeup, &in->lock, until_time);
     }
     mp_mutex_unlock(&in->lock);
 }
@@ -674,7 +673,7 @@ static void wakeup_locked(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
 
-    pthread_cond_broadcast(&in->wakeup);
+    mp_cond_broadcast(&in->wakeup);
     if (vo->driver->wakeup)
         vo->driver->wakeup(vo);
     in->need_wakeup = true;
@@ -797,7 +796,7 @@ void vo_wait_frame(struct vo *vo)
     struct vo_internal *in = vo->in;
     mp_mutex_lock(&in->lock);
     while (in->frame_queued || in->rendering)
-        pthread_cond_wait(&in->wakeup, &in->lock);
+        mp_cond_wait(&in->wakeup, &in->lock);
     mp_mutex_unlock(&in->lock);
 }
 
@@ -806,10 +805,9 @@ void vo_wait_frame(struct vo *vo)
 static void wait_until(struct vo *vo, int64_t target)
 {
     struct vo_internal *in = vo->in;
-    struct timespec ts = mp_time_us_to_realtime(target);
     mp_mutex_lock(&in->lock);
     while (target > mp_time_us()) {
-        if (pthread_cond_timedwait(&in->wakeup, &in->lock, &ts))
+        if (mp_cond_timedwait_until(&in->wakeup, &in->lock, MP_TIME_US_TO_NS(target)))
             break;
     }
     mp_mutex_unlock(&in->lock);
@@ -963,7 +961,7 @@ static bool render_frame(struct vo *vo)
     if (in->frame_queued && in->frame_queued->display_synced)
         more_frames = true;
 
-    pthread_cond_broadcast(&in->wakeup); // for vo_wait_frame()
+    mp_cond_broadcast(&in->wakeup); // for vo_wait_frame()
 
 done:
     if (!vo->driver->frame_owner)
@@ -1012,13 +1010,13 @@ static struct mp_image *get_image_vo(void *ctx, int imgfmt, int w, int h,
     return vo->driver->get_image(vo, imgfmt, w, h, stride_align, flags);
 }
 
-static void *vo_thread(void *ptr)
+static MP_THREAD_VOID vo_thread(void *ptr)
 {
     struct vo *vo = ptr;
     struct vo_internal *in = vo->in;
     bool vo_paused = false;
 
-    mpthread_set_name("vo");
+    mp_thread_set_name("vo");
 
     if (vo->driver->get_image) {
         in->dr_helper = dr_helper_create(in->dispatch, get_image_vo, vo);
@@ -1108,7 +1106,7 @@ static void *vo_thread(void *ptr)
     vo->driver->uninit(vo);
 done:
     TA_FREEP(&in->dr_helper);
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 void vo_set_paused(struct vo *vo, bool paused)
