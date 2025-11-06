@@ -2261,7 +2261,8 @@ void vo_x11_wakeup(struct vo *vo)
 {
     struct vo_x11_state *x11 = vo->x11;
 
-    (void)write(x11->wakeup_pipe[1], &(char){0}, 1);
+    ssize_t ignored = write(x11->wakeup_pipe[1], &(char){0}, 1);
+    (void)ignored;
 }
 
 void vo_x11_wait_events(struct vo *vo, int64_t until_time_ns)

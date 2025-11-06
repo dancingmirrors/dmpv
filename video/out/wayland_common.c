@@ -2897,5 +2897,6 @@ void vo_wayland_wait_events(struct vo *vo, int64_t until_time_ns)
 void vo_wayland_wakeup(struct vo *vo)
 {
     struct vo_wayland_state *wl = vo->wl;
-    (void)write(wl->wakeup_pipe[1], &(char){0}, 1);
+    ssize_t ignored = write(wl->wakeup_pipe[1], &(char){0}, 1);
+    (void)ignored;
 }
