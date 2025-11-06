@@ -787,8 +787,9 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     # Generate build statements for generated files
     ninja_content += "# Generated files\n"
-    # Add .git/HEAD as implicit dependency to track git state changes for incremental builds
-    ninja_content += f"build $builddir/generated/version.h: version | $root/.git/HEAD\n"
+    # Mark version.h as a generator to always check for git state changes on every build
+    ninja_content += f"build $builddir/generated/version.h: version\n"
+    ninja_content += f"  generator = 1\n"
     ninja_content += "\n"
 
     ninja_content += f"build $builddir/generated/ebml_types.h: ebml_header\n"
