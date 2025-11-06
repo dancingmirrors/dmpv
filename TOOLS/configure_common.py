@@ -748,7 +748,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += "\n"
 
     ninja_content += "rule link\n"
-    ninja_content += "  command = $cc @$out.rsp $cflags $ldflags -o $out\n"
+    ninja_content += "  command = $cc @$out.rsp $ldflags -o $out\n"
     ninja_content += "  description = LINK $out\n"
     ninja_content += "  rspfile = $out.rsp\n"
     ninja_content += "  rspfile_content = $in\n"
