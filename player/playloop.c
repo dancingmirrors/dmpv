@@ -407,6 +407,12 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
         }
     }
 
+    // Mute audio during seek if --seek-mute is enabled
+    if (opts->seek_mute && !mpctx->seek_muted) {
+        mpctx->seek_muted = true;
+        audio_update_volume(mpctx);
+    }
+
     if (mpctx->stop_play == AT_END_OF_FILE)
         mpctx->stop_play = KEEP_PLAYING;
 
@@ -1134,6 +1140,11 @@ static void handle_playback_restart(struct MPContext *mpctx)
         mpctx->hrseek_active = false;
         mpctx->restart_complete = true;
         mpctx->current_seek = (struct seek_params){0};
+        // Unmute audio after seek completes if it was muted
+        if (mpctx->seek_muted) {
+            mpctx->seek_muted = false;
+            audio_update_volume(mpctx);
+        }
         handle_playback_time(mpctx);
         mp_notify(mpctx, DMPV_EVENT_PLAYBACK_RESTART, NULL);
         update_core_idle_state(mpctx);
