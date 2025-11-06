@@ -2577,8 +2577,7 @@ static MP_THREAD_VOID demux_thread(void *pctx)
         if (thread_work(in))
             continue;
         mp_cond_signal(&in->wakeup);
-        struct timespec until = mp_time_ns_to_realtime(in->next_cache_update);
-        mp_cond_timedwait(&in->wakeup, &in->lock, until);
+        mp_cond_timedwait_until(&in->wakeup, &in->lock, in->next_cache_update);
     }
 
     if (in->shutdown_async) {
