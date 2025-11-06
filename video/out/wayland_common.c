@@ -2438,6 +2438,7 @@ bool vo_wayland_init(struct vo *vo)
         .wakeup_pipe = {-1, -1},
         .display_fd = -1,
         .dnd_fd = -1,
+        .dnd_action = DND_INVALID,
         .cursor_visible = true,
         .vo_opts_cache = m_config_cache_alloc(wl, vo->global, &vo_sub_opts),
     };
