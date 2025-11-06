@@ -483,7 +483,7 @@ bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
         return (bstr){0};
     }
 
-    // Map mpv color primaries to CIE xy chromaticities
+    // Map dmpv color primaries to CIE xy chromaticities
     cmsCIExyY white_point;
     cmsCIExyYTRIPLE prim_xyY;
 
