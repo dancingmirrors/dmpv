@@ -189,7 +189,7 @@ static void hwupload_process(struct mp_filter *f)
                 mp_imgfmt_to_name(p->last_source_fmt),
                 mp_imgfmt_to_name(p->hw_imgfmt),
                 mp_imgfmt_to_name(p->last_hw_output_fmt));
-        
+
         // Create or update the hw_pool for the upload operation
         if (!mp_update_av_hw_frames_pool(&p->hw_pool, p->av_device_ctx,
                                         p->hw_imgfmt, p->last_hw_output_fmt,

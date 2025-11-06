@@ -482,16 +482,16 @@ bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
                    "color space data (primaries=%d, gamma=%d)\n", primaries, gamma);
         return (bstr){0};
     }
-    
+
     // Map mpv color primaries to CIE xy chromaticities
     cmsCIExyY white_point;
     cmsCIExyYTRIPLE prim_xyY;
-    
+
     // D65 white point (standard for most content)
     white_point.x = 0.3127;
     white_point.y = 0.3290;
     white_point.Y = 1.0;
-    
+
     // Map primaries based on color space data
     switch (primaries) {
     case MP_CSP_PRIM_BT_601_525:
@@ -544,18 +544,18 @@ bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
         mp_verbose(log, "gl_lcms_generate_profile_from_csp: unsupported primaries %d\n", primaries);
         return (bstr){0};
     }
-    
+
     prim_xyY.Red.Y = 1.0;
     prim_xyY.Green.Y = 1.0;
     prim_xyY.Blue.Y = 1.0;
-    
+
     // Map transfer function
     cmsToneCurve *curve = NULL;
     switch (gamma) {
     case MP_CSP_TRC_SRGB:
         // sRGB transfer function with proper parameters
         // Parameters: gamma, a, b, c, d for: (a*x+b)^gamma if x >= d, else c*x
-        curve = cmsBuildParametricToneCurve(NULL, 4, 
+        curve = cmsBuildParametricToneCurve(NULL, 4,
             (double[5]){2.40, 1.0/1.055, 0.055/1.055, 1.0/12.92, 0.04045});
         break;
     case MP_CSP_TRC_LINEAR:
@@ -580,26 +580,26 @@ bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
         mp_verbose(log, "gl_lcms_generate_profile_from_csp: unsupported gamma %d\n", gamma);
         return (bstr){0};
     }
-    
+
     if (!curve) {
         mp_err(log, "gl_lcms_generate_profile_from_csp: failed to create tone curve\n");
         return (bstr){0};
     }
-    
+
     // Create array with the same curve for all channels
     cmsToneCurve *curves[3] = { curve, curve, curve };
-    
+
     // Create RGB profile
     cmsHPROFILE profile = cmsCreateRGBProfile(&white_point, &prim_xyY, curves);
-    
+
     // Free the tone curve (only once since all three pointers reference the same curve)
     cmsFreeToneCurve(curve);
-    
+
     if (!profile) {
         mp_err(log, "gl_lcms_generate_profile_from_csp: failed to create ICC profile\n");
         return (bstr){0};
     }
-    
+
     // Save profile to memory
     cmsUInt32Number profile_size = 0;
     cmsSaveProfileToMem(profile, NULL, &profile_size);
@@ -608,25 +608,25 @@ bstr gl_lcms_generate_profile_from_csp(void *talloc_ctx, struct mp_log *log,
         mp_err(log, "gl_lcms_generate_profile_from_csp: failed to get profile size\n");
         return (bstr){0};
     }
-    
+
     void *profile_data = talloc_size(talloc_ctx, profile_size);
     if (!profile_data) {
         cmsCloseProfile(profile);
         mp_err(log, "gl_lcms_generate_profile_from_csp: failed to allocate memory\n");
         return (bstr){0};
     }
-    
+
     if (!cmsSaveProfileToMem(profile, profile_data, &profile_size)) {
         cmsCloseProfile(profile);
         talloc_free(profile_data);
         mp_err(log, "gl_lcms_generate_profile_from_csp: failed to save profile to memory\n");
         return (bstr){0};
     }
-    
+
     cmsCloseProfile(profile);
-    
+
     mp_verbose(log, "gl_lcms_generate_profile_from_csp: generated ICC profile from "
-               "parametric data (%u bytes, primaries=%d, gamma=%d)\n", 
+               "parametric data (%u bytes, primaries=%d, gamma=%d)\n",
                profile_size, primaries, gamma);
     return (bstr){ .start = profile_data, .len = profile_size };
 }

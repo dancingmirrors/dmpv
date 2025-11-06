@@ -1,6 +1,6 @@
 # Build system:
 # This project uses Ninja as the build backend for faster builds.
-# 
+#
 # Quick start:
 # ./configure
 # ninja -C build

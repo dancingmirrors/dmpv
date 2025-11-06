@@ -419,13 +419,13 @@ struct mp_image *mp_av_pool_image_hw_upload(struct AVBufferRef *hw_frames_ctx,
     AVFrame *av_frame = av_frame_alloc();
     if (!av_frame)
         return NULL;
-    
+
     // Allocate a frame from the hardware frames context pool
     if (av_hwframe_get_buffer(hw_frames_ctx, av_frame, 0) < 0) {
         av_frame_free(&av_frame);
         return NULL;
     }
-    
+
     struct mp_image *dst = mp_image_from_av_frame(av_frame);
     av_frame_free(&av_frame);
     if (!dst)

@@ -177,13 +177,13 @@ static void wayland_vk_wait_events(struct ra_ctx *ctx, int64_t until_time_ns)
 static void wayland_vk_update_render_opts(struct ra_ctx *ctx)
 {
     struct vo_wayland_state *wl = ctx->vo->wl;
-    
+
     /* Defensive check: ensure wayland state and surface are valid */
     if (!wl || !wl->surface) {
         MP_WARN(ctx, "Wayland state or surface invalid during update_render_opts\n");
         return;
     }
-    
+
     vo_wayland_set_opaque_region(wl, ctx->opts.want_alpha);
     wl_surface_commit(wl->surface);
 }
