@@ -24,7 +24,7 @@
 #include "video/vdpau_mixer.h"
 
 // This is a GL_NV_vdpau_interop specification bug, and headers (unfortunately)
-// follow it. I'm not sure about the original nvidia headers.
+// follow it. I'm not sure about the original NVIDIA headers.
 #define BRAINDEATH(x) ((void *)(uintptr_t)(x))
 
 struct priv_owner {

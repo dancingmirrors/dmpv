@@ -429,12 +429,7 @@ static void xrandr_read(struct vo_x11_state *x11)
         return;
     }
 
-    /* Look at the available providers on the current screen and try to determine
-     * the driver. If amd/intel/radeon, assume this is mesa. If nvidia is found,
-     * assume nvidia. Because the same screen can have multiple providers (e.g.
-     * a laptop with switchable graphics), we need to know both of these things.
-     * In practice, this is used for determining whether or not to use XPresent
-     * (i.e. needs to be Mesa and not Nvidia). Requires Randr 1.4. */
+     /* We determine whether or not to use XPresent here. Requires Xrandr 1.4. */
     if (randr_14) {
         XRRProviderResources *pr = XRRGetProviderResources(x11->display, x11->rootwin);
         for (int i = 0; i < pr->nproviders; i++) {
