@@ -47,7 +47,7 @@ struct mp_ipc_ctx {
     struct mp_client_api *client_api;
     const char *path;
 
-    pthread_t thread;
+    mp_thread thread;
     int death_pipe[2];
 };
 
@@ -90,9 +90,9 @@ static int ipc_write_str(struct client_arg *client, const char *buf)
     return 0;
 }
 
-static void *client_thread(void *p)
+static MP_THREAD_VOID client_thread(void *p)
 {
-    pthread_detach(pthread_self());
+    pthread_detach(mp_thread_self());
 
     // We don't use MSG_NOSIGNAL because the moldy fruit OS doesn't support it.
     struct sigaction sa = { .sa_handler = SIG_IGN, .sa_flags = SA_RESTART };
@@ -104,7 +104,7 @@ static void *client_thread(void *p)
     struct client_arg *arg = p;
     bstr client_msg = { (unsigned char *)talloc_strdup(NULL, ""), 0 };
 
-    mpthread_set_name(arg->client_name);
+    mp_thread_set_name(arg->client_name);
 
     int pipe_fd = dmpv_get_wakeup_pipe(arg->client);
     if (pipe_fd < 0) {
@@ -216,7 +216,7 @@ done:
     } else {
         dmpv_destroy(h);
     }
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static bool ipc_start_client(struct mp_ipc_ctx *ctx, struct client_arg *client,
@@ -229,8 +229,8 @@ static bool ipc_start_client(struct mp_ipc_ctx *ctx, struct client_arg *client,
 
     client->log = mp_client_get_log(client->client);
 
-    pthread_t client_thr;
-    if (pthread_create(&client_thr, NULL, client_thread, client))
+    mp_thread client_thr;
+    if (mp_thread_create(&client_thr, client_thread, client))
         goto err;
 
     return true;
@@ -292,7 +292,7 @@ bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct dmpv_handle *h,
     return true;
 }
 
-static void *ipc_thread(void *p)
+static MP_THREAD_VOID ipc_thread(void *p)
 {
     int rc;
 
@@ -301,7 +301,7 @@ static void *ipc_thread(void *p)
 
     struct mp_ipc_ctx *arg = p;
 
-    mpthread_set_name("ipc socket listener");
+    mp_thread_set_name("ipc socket listener");
 
     MP_VERBOSE(arg, "Starting IPC master\n");
 
@@ -376,7 +376,7 @@ done:
     if (ipc_fd >= 0)
         close(ipc_fd);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 struct mp_ipc_ctx *mp_init_ipc(struct mp_client_api *client_api,
@@ -415,7 +415,7 @@ struct mp_ipc_ctx *mp_init_ipc(struct mp_client_api *client_api,
     if (mp_make_wakeup_pipe(arg->death_pipe) < 0)
         goto out;
 
-    if (pthread_create(&arg->thread, NULL, ipc_thread, arg))
+    if (mp_thread_create(&arg->thread, ipc_thread, arg))
         goto out;
 
     return arg;
@@ -436,7 +436,7 @@ void mp_uninit_ipc(struct mp_ipc_ctx *arg)
 
     ssize_t ignored = write(arg->death_pipe[1], &(char){0}, 1);
     (void)ignored;
-    pthread_join(arg->thread, NULL);
+    mp_thread_join(arg->thread);
 
     close(arg->death_pipe[0]);
     close(arg->death_pipe[1]);

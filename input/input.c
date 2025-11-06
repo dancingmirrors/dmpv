@@ -1516,7 +1516,7 @@ struct dmpv_node mp_input_get_bindings(struct input_ctx *ictx)
 }
 
 struct mp_input_src_internal {
-    pthread_t thread;
+    mp_thread thread;
     bool thread_running;
     bool init_done;
 
@@ -1578,7 +1578,7 @@ static void mp_input_src_kill(struct mp_input_src *src)
             if (src->cancel)
                 src->cancel(src);
             if (src->in->thread_running)
-                pthread_join(src->in->thread, NULL);
+                mp_thread_join(src->in->thread);
             if (src->uninit)
                 src->uninit(src);
             talloc_free(src);
@@ -1597,14 +1597,14 @@ void mp_input_src_init_done(struct mp_input_src *src)
     mp_rendezvous(&src->in->init_done, 0);
 }
 
-static void *input_src_thread(void *ptr)
+static MP_THREAD_VOID input_src_thread(void *ptr)
 {
     void **args = ptr;
     struct mp_input_src *src = args[0];
     void (*loop_fn)(struct mp_input_src *src, void *ctx) = args[1];
     void *ctx = args[2];
 
-    mpthread_set_name("input source");
+    mp_thread_set_name("input source");
 
     src->in->thread_running = true;
 
@@ -1613,7 +1613,7 @@ static void *input_src_thread(void *ptr)
     if (!src->in->init_done)
         mp_rendezvous(&src->in->init_done, -1);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 int mp_input_add_thread_src(struct input_ctx *ictx, void *ctx,
@@ -1624,7 +1624,7 @@ int mp_input_add_thread_src(struct input_ctx *ictx, void *ctx,
         return -1;
 
     void *args[] = {src, loop_fn, ctx};
-    if (pthread_create(&src->in->thread, NULL, input_src_thread, args)) {
+    if (mp_thread_create(&src->in->thread, input_src_thread, args)) {
         mp_input_src_kill(src);
         return -1;
     }
