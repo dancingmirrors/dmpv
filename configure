@@ -88,7 +88,7 @@ check(desc      = "extra clang warnings",
 
 check("-usan",
       desc      = "undefined sanitizer",
-      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = []))
+      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
 
 check("-git*",
       required  = "git: missing or not in PATH",
