@@ -43,10 +43,14 @@ NEW_REVISION="#define VERSION \"${VERSION}\""
 OLD_REVISION=$(head -n 1 "$version_h" 2> /dev/null)
 DMPVCOPYRIGHT="#define DMPVCOPYRIGHT \"Copyright © 2000-2025 dmpv/mpv/MPlayer/mplayer2 projects\""
 
-# Update version.h only on revision changes to avoid spurious rebuilds
+# Update version.h on revision changes
 if test "$NEW_REVISION" != "$OLD_REVISION"; then
     cat <<EOF > "$version_h"
 $NEW_REVISION
 $DMPVCOPYRIGHT
 EOF
+else
+    # Touch the file to update timestamp, matching old build system behavior
+    # This ensures the link step runs to embed the current version
+    touch "$version_h"
 fi
