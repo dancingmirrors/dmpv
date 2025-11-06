@@ -29,16 +29,6 @@ PREFIX=/usr/local
 
 all: $(BUILD_TARGET)
 
-clean:
-	$(LOG) "CLEAN"
-	$(Q) rm -f $(CLEAN_FILES)
-	$(Q) rm -rf $(BUILD)/generated/
-	$(Q) (rmdir $(BUILD)/*/*/*  $(BUILD)/*/* $(BUILD)/*) 2> /dev/null || true
-
-dist-clean:
-	$(LOG) "DIST-CLEAN"
-	$(Q) rm -rf $(BUILD)
-
 install:
 	$(LOG) "INSTALL"
 	$(Q) mkdir -p ${PREFIX}/bin
@@ -116,6 +106,6 @@ $(BUILD_TARGET): $(BUILD_OBJECTS) | $$(@D)/.
 %/.:
 	$(Q) mkdir -p $(dir $@)
 
-.PHONY: all clean .pregen
+.PHONY: all
 
 -include $(BUILD_DEPS)
