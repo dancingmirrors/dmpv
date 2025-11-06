@@ -178,9 +178,9 @@ struct demux_internal {
 
     // The lock protects the packet queues (struct demux_stream),
     // and the fields below.
-    pthread_mutex_t lock;
-    pthread_cond_t wakeup;
-    pthread_t thread;
+    mp_mutex lock;
+    mp_cond wakeup;
+    mp_thread thread;
 
     // -- All the following fields are protected by lock.
 
@@ -452,7 +452,7 @@ struct demux_stream {
 
 static void switch_to_fresh_cache_range(struct demux_internal *in);
 static void demuxer_sort_chapters(demuxer_t *demuxer);
-static void *demux_thread(void *pctx);
+static MP_THREAD_VOID demux_thread(void *pctx);
 static void update_cache(struct demux_internal *in);
 static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp);
 static struct demux_packet *advance_reader_head(struct demux_stream *ds);
@@ -878,7 +878,7 @@ static void wakeup_ds(struct demux_stream *ds)
             ds->in->wakeup_cb(ds->in->wakeup_cb_ctx);
         }
         ds->need_wakeup = false;
-        pthread_cond_signal(&ds->in->wakeup);
+        mp_cond_signal(&ds->in->wakeup);
     }
 }
 
@@ -1123,8 +1123,8 @@ static void demux_dealloc(struct demux_internal *in)
 {
     for (int n = 0; n < in->num_streams; n++)
         talloc_free(in->streams[n]);
-    pthread_mutex_destroy(&in->lock);
-    pthread_cond_destroy(&in->wakeup);
+    mp_mutex_destroy(&in->lock);
+    mp_cond_destroy(&in->wakeup);
     talloc_free(in->d_user);
 }
 
@@ -1158,7 +1158,7 @@ struct demux_free_async_state *demux_free_async(struct demuxer *demuxer)
     mp_mutex_lock(&in->lock);
     in->thread_terminate = true;
     in->shutdown_async = true;
-    pthread_cond_signal(&in->wakeup);
+    mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
 
     return (struct demux_free_async_state *)demuxer->in; // lies
@@ -1214,7 +1214,7 @@ void demux_start_thread(struct demuxer *demuxer)
 
     if (!in->threading) {
         in->threading = true;
-        if (pthread_create(&in->thread, NULL, demux_thread, in))
+        if (mp_thread_create(&in->thread, demux_thread, in))
             in->threading = false;
     }
 }
@@ -1227,9 +1227,9 @@ void demux_stop_thread(struct demuxer *demuxer)
     if (in->threading) {
         mp_mutex_lock(&in->lock);
         in->thread_terminate = true;
-        pthread_cond_signal(&in->wakeup);
+        mp_cond_signal(&in->wakeup);
         mp_mutex_unlock(&in->lock);
-        pthread_join(in->thread, NULL);
+        mp_thread_join(in->thread);
         in->threading = false;
         in->thread_terminate = false;
     }
@@ -1252,7 +1252,7 @@ void demux_start_prefetch(struct demuxer *demuxer)
 
     mp_mutex_lock(&in->lock);
     in->reading = true;
-    pthread_cond_signal(&in->wakeup);
+    mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
 }
 
@@ -1575,7 +1575,7 @@ resume_earlier:
             ds->reader_head = t;
             ds->back_need_recheck = true;
             in->back_any_need_recheck = true;
-            pthread_cond_signal(&in->wakeup);
+            mp_cond_signal(&in->wakeup);
         } else {
             ds->back_seek_pos -= in->opts->back_seek_size;
             in->need_back_seek = true;
@@ -2299,7 +2299,7 @@ static bool read_packet(struct demux_internal *in)
             if (!in->eof) {
                 if (in->wakeup_cb)
                     in->wakeup_cb(in->wakeup_cb_ctx);
-                pthread_cond_signal(&in->wakeup);
+                mp_cond_signal(&in->wakeup);
                 MP_VERBOSE(in, "EOF reached.\n");
             }
         }
@@ -2565,10 +2565,10 @@ static bool thread_work(struct demux_internal *in)
     return false;
 }
 
-static void *demux_thread(void *pctx)
+static MP_THREAD_VOID demux_thread(void *pctx)
 {
     struct demux_internal *in = pctx;
-    mpthread_set_name("demux");
+    mp_thread_set_name("demux");
     mp_mutex_lock(&in->lock);
 
     stats_register_thread_cputime(in->stats, "thread");
@@ -2576,9 +2576,9 @@ static void *demux_thread(void *pctx)
     while (!in->thread_terminate) {
         if (thread_work(in))
             continue;
-        pthread_cond_signal(&in->wakeup);
+        mp_cond_signal(&in->wakeup);
         struct timespec until = mp_time_ns_to_realtime(in->next_cache_update);
-        pthread_cond_timedwait(&in->wakeup, &in->lock, &until);
+        mp_cond_timedwait(&in->wakeup, &in->lock, until);
     }
 
     if (in->shutdown_async) {
@@ -2593,7 +2593,7 @@ static void *demux_thread(void *pctx)
     stats_unregister_thread(in->stats, "thread");
 
     mp_mutex_unlock(&in->lock);
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 // Low-level part of dequeueing a packet.
@@ -2665,7 +2665,7 @@ static int dequeue_packet(struct demux_stream *ds, double min_pts,
 
     if (!in->reading && (!in->eof || in->opts->force_retry_eof)) {
         in->reading = true; // enable demuxer thread prefetching
-        pthread_cond_signal(&in->wakeup);
+        mp_cond_signal(&in->wakeup);
     }
 
     ds->force_read_until = min_pts;
@@ -3333,8 +3333,8 @@ static struct demuxer *open_given_type(struct dmpv_global *global,
         .demux_ts = MP_NOPTS_VALUE,
         .owns_stream = !params->external_stream,
     };
-    pthread_mutex_init(&in->lock, NULL);
-    pthread_cond_init(&in->wakeup, NULL);
+    mp_mutex_init(&in->lock);
+    mp_cond_init(&in->wakeup);
 
     *in->d_thread = *demuxer;
 
@@ -3824,7 +3824,7 @@ int demux_seek(demuxer_t *demuxer, double seek_pts, int flags)
 
     int res = queue_seek(in, seek_pts, flags, true);
 
-    pthread_cond_signal(&in->wakeup);
+    mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
 
     return res;
@@ -4016,7 +4016,7 @@ void demuxer_select_track(struct demuxer *demuxer, struct sh_stream *stream,
                 initiate_refresh_seek(in, ds, ref_pts);
         }
         if (in->threading) {
-            pthread_cond_signal(&in->wakeup);
+            mp_cond_signal(&in->wakeup);
         } else {
             execute_trackswitch(in);
         }
@@ -4133,7 +4133,7 @@ void demux_block_reading(struct demuxer *demuxer, bool block)
         in->streams[n]->ds->need_wakeup = true;
         wakeup_ds(in->streams[n]->ds);
     }
-    pthread_cond_signal(&in->wakeup);
+    mp_cond_signal(&in->wakeup);
     mp_mutex_unlock(&in->lock);
 }
 
