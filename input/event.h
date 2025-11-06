@@ -22,7 +22,8 @@
 struct input_ctx;
 
 enum mp_dnd_action {
-    DND_REPLACE,
+    DND_INVALID = -1,
+    DND_REPLACE = 0,
     DND_APPEND,
     DND_INSERT_NEXT,
 };
