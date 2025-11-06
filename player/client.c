@@ -1972,7 +1972,6 @@ int dmpv_event_to_node(dmpv_node *dst, dmpv_event *event)
         dmpv_event_start_file *esf = event->data;
 
         node_map_add_int64(dst, "playlist_entry_id", esf->playlist_entry_id);
-    default:
         break;
     }
 
@@ -2063,6 +2062,8 @@ int dmpv_event_to_node(dmpv_node *dst, dmpv_event *event)
         break;
     }
 
+    default:
+        break;
     }
     return 0;
 }

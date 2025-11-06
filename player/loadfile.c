@@ -1877,7 +1877,6 @@ terminate_playback:
                 playback_start < 0 || mp_time_sec() - playback_start < 1.0;
             mpctx->playing->init_failed = nothing_played;
         }
-    default:
         break;
     }
     // Note that error_playing is meaningless in these cases.
@@ -1885,6 +1884,8 @@ terminate_playback:
     case PT_CURRENT_ENTRY:
     case PT_STOP:           end_event.reason = DMPV_END_FILE_REASON_STOP; break;
     case PT_QUIT:           end_event.reason = DMPV_END_FILE_REASON_QUIT; break;
+    default:
+        break;
     };
     mp_notify(mpctx, DMPV_EVENT_END_FILE, &end_event);
 
