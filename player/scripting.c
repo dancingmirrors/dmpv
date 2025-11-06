@@ -77,7 +77,7 @@ static void run_script(struct mp_script_args *arg)
     char name[90];
     snprintf(name, sizeof(name), "%s (%s)", arg->backend->name,
              dmpv_client_name(arg->client));
-    mpthread_set_name(name);
+    mp_thread_set_name(name);
 
     if (arg->backend->load(arg) < 0)
         MP_ERR(arg, "Could not load %s %s\n", arg->backend->name, arg->filename);
@@ -86,14 +86,14 @@ static void run_script(struct mp_script_args *arg)
     talloc_free(arg);
 }
 
-static void *script_thread(void *p)
+static MP_THREAD_VOID script_thread(void *p)
 {
-    pthread_detach(pthread_self());
+    pthread_detach(mp_thread_self());
 
     struct mp_script_args *arg = p;
     run_script(arg);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
@@ -182,8 +182,8 @@ static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
     if (backend->no_thread) {
         run_script(arg);
     } else {
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, script_thread, arg)) {
+        mp_thread thread;
+        if (mp_thread_create(&thread, script_thread, arg)) {
             dmpv_destroy(arg->client);
             talloc_free(arg);
             return -1;

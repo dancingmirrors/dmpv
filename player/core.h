@@ -18,10 +18,10 @@
 #ifndef MPLAYER_MP_CORE_H
 #define MPLAYER_MP_CORE_H
 
-#include <pthread.h>
 #include <stdbool.h>
 
 #include "osdep/atomic.h"
+#include "osdep/threads.h"
 
 #include "misc/client.h"
 
@@ -444,7 +444,7 @@ typedef struct MPContext {
     bool abort_all; // during final termination
 
     // --- Owned by MPContext
-    pthread_t open_thread;
+    mp_thread open_thread;
     bool open_active; // open_thread is a valid thread handle, all setup
     atomic_bool open_done;
     // --- All fields below are immutable while open_active is true.

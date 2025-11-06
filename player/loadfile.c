@@ -1115,11 +1115,11 @@ static void load_per_file_options(m_config_t *conf,
     }
 }
 
-static void *open_demux_thread(void *ctx)
+static MP_THREAD_VOID open_demux_thread(void *ctx)
 {
     struct MPContext *mpctx = ctx;
 
-    mpthread_set_name("opener");
+    mp_thread_set_name("opener");
 
     struct demuxer_params p = {
         .force_format = mpctx->open_format,
@@ -1157,7 +1157,7 @@ static void *open_demux_thread(void *ctx)
 
     atomic_store(&mpctx->open_done, true);
     mp_wakeup_core(mpctx);
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void cancel_open(struct MPContext *mpctx)
@@ -1166,7 +1166,7 @@ static void cancel_open(struct MPContext *mpctx)
         mp_cancel_trigger(mpctx->open_cancel);
 
     if (mpctx->open_active)
-        pthread_join(mpctx->open_thread, NULL);
+        mp_thread_join(mpctx->open_thread);
     mpctx->open_active = false;
 
     if (mpctx->open_res_demuxer)
@@ -1197,7 +1197,7 @@ static void start_open(struct MPContext *mpctx, char *url, int url_flags,
     mpctx->open_url_flags = url_flags;
     mpctx->open_for_prefetch = for_prefetch && mpctx->opts->demuxer_thread;
 
-    if (pthread_create(&mpctx->open_thread, NULL, open_demux_thread, mpctx)) {
+    if (mp_thread_create(&mpctx->open_thread, open_demux_thread, mpctx)) {
         cancel_open(mpctx);
         return;
     }
