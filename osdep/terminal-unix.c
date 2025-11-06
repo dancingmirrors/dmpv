@@ -394,7 +394,7 @@ static void getch2_poll(void)
         do_deactivate_getch2();
 }
 
-static pthread_t input_thread;
+static mp_thread input_thread;
 static struct input_ctx *input_ctx;
 static int death_pipe[2] = {-1, -1};
 enum { PIPE_STOP, PIPE_CONT };
@@ -454,9 +454,9 @@ static void quit_request_sighandler(int signum)
     errno = saved_errno;
 }
 
-static void *terminal_thread(void *ptr)
+static MP_THREAD_VOID terminal_thread(void *ptr)
 {
-    mpthread_set_name("terminal");
+    mp_thread_set_name("terminal");
     bool stdin_ok = read_terminal; // if false, we still wait for SIGTERM
     while (1) {
         getch2_poll();
@@ -501,7 +501,7 @@ static void *terminal_thread(void *ptr)
         if (cmd)
             mp_input_queue_cmd(input_ctx, cmd);
     }
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 void terminal_setup_getch(struct input_ctx *ictx)
@@ -523,7 +523,7 @@ void terminal_setup_getch(struct input_ctx *ictx)
 
     input_ctx = ictx;
 
-    if (pthread_create(&input_thread, NULL, terminal_thread, NULL)) {
+    if (mp_thread_create(&input_thread, terminal_thread, NULL)) {
         input_ctx = NULL;
         close_sig_pipes();
         close_tty();
@@ -552,7 +552,7 @@ void terminal_uninit(void)
     if (input_ctx) {
         ssize_t ignored = write(death_pipe[1], &(char){0}, 1);
         (void)ignored;
-        pthread_join(input_thread, NULL);
+        mp_thread_join(input_thread);
         close_sig_pipes();
         input_ctx = NULL;
     }
