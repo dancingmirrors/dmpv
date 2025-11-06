@@ -39,7 +39,7 @@ static void xlib_vk_swap_buffers(struct ra_ctx *ctx)
         MP_WARN(ctx, "X11 state invalid during swap_buffers\n");
         return;
     }
-    
+
     if (ctx->vo->x11->use_present)
         present_sync_swap(ctx->vo->x11->present);
 }
@@ -116,11 +116,11 @@ static bool resize(struct ra_ctx *ctx)
 {
     /* Defensive check: ensure dimensions are reasonable */
     if (ctx->vo->dwidth <= 0 || ctx->vo->dheight <= 0) {
-        MP_WARN(ctx, "Invalid resize dimensions: %dx%d, skipping resize\n", 
+        MP_WARN(ctx, "Invalid resize dimensions: %dx%d, skipping resize\n",
                 ctx->vo->dwidth, ctx->vo->dheight);
         return false;
     }
-    
+
     return ra_vk_ctx_resize(ctx, ctx->vo->dwidth, ctx->vo->dheight);
 }
 
