@@ -345,6 +345,7 @@ typedef struct MPContext {
     bool hrseek_backstep;   // go to frame before seek target
     double hrseek_pts;
     struct seek_params current_seek;
+    bool seek_muted;        // audio muted during seek (when --seek-mute is enabled)
     bool ab_loop_clip;      // clip to the "b" part of an A-B loop if available
     // AV sync: the next frame should be shown when the audio out has this
     // much (in seconds) buffered data left. Increased when more data is
