@@ -74,7 +74,7 @@ static MP_THREAD_VOID worker_thread(void *arg)
             if (pool->num_threads > pool->min_threads) {
                 if (!ts.tv_sec && !ts.tv_nsec)
                     ts = mp_rel_time_to_timespec(DESTROY_TIMEOUT);
-                if (mp_cond_timedwait(&pool->wakeup, &pool->lock, mp_time_ns() + MP_TIME_S_TO_NS(DESTROY_TIMEOUT)))
+                if (mp_cond_timedwait(&pool->wakeup, &pool->lock, MP_TIME_S_TO_NS(DESTROY_TIMEOUT)))
                     got_timeout = pool->num_threads > pool->min_threads;
             } else {
                 mp_cond_wait(&pool->wakeup, &pool->lock);
