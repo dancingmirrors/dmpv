@@ -1361,7 +1361,7 @@ void vo_drm_wait_events(struct vo *vo, int64_t until_time_ns)
     struct vo_drm_state *drm = vo->drm;
     if (drm->vt_switcher_active) {
         int64_t wait_ns = until_time_ns - mp_time_ns();
-        int timeout_ms = MPCLAMP(wait_ns / 1e6, 1, 10000);
+        int timeout_ms = MPCLAMP(wait_ns / MP_TIME_MS_TO_NS(1), 0, 10000);
         vt_switcher_poll(&drm->vt_switcher, timeout_ms);
     } else {
         vo_wait_default(vo, until_time_ns);

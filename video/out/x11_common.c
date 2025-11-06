@@ -2278,7 +2278,7 @@ void vo_x11_wait_events(struct vo *vo, int64_t until_time_ns)
         { .fd = x11->wakeup_pipe[0], .events = POLLIN },
     };
     int64_t wait_ns = until_time_ns - mp_time_ns();
-    int timeout_ms = MPCLAMP(wait_ns / 1e6, 1, 10000);
+    int timeout_ms = MPCLAMP(wait_ns / MP_TIME_MS_TO_NS(1), 0, 10000);
 
     poll(fds, 2, timeout_ms);
 
