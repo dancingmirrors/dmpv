@@ -702,7 +702,8 @@ static MP_THREAD_VOID playthread(void *arg)
         }
         if (!p->need_wakeup && !retry) {
             MP_STATS(ao, "start audio wait");
-            mp_cond_timedwait(&p->pt_wakeup, &p->pt_lock, (int64_t)(timeout * 1e9));
+            int64_t timeout_ns = isfinite(timeout) ? (int64_t)(timeout * 1e9) : INT64_MAX;
+            mp_cond_timedwait(&p->pt_wakeup, &p->pt_lock, timeout_ns);
             MP_STATS(ao, "end audio wait");
         }
         p->need_wakeup = false;
