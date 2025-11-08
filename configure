@@ -29,7 +29,6 @@ check(desc      = "pkg-config",
 # better practice to use platform-specific macros:
 # - Linux/glibc: _GNU_SOURCE enables GNU extensions
 # - BSD systems: _BSD_SOURCE enables BSD extensions
-# Note: macOS is not supported; other platforms use POSIX-standard flags as fallback
 system = platform.system()
 if system == "Linux":
     add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
