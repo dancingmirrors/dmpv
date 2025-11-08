@@ -4,9 +4,6 @@ else
 Q = @
 endif
 
-# Enable parallel builds by default
-MAKEFLAGS += --output-sync=target
-
 CFLAGS := -I$(ROOT) -I$(BUILD) $(CFLAGS)
 
 OBJECTS = $(SOURCES:.c=.o)
@@ -86,25 +83,20 @@ uninstall:
 
 # Generic pattern rules (used for most source files).
 
-# Enable secondary expansion for order-only directory prerequisites
-.SECONDEXPANSION:
-
-# Use order-only prerequisites for directories to avoid redundant mkdir calls
-$(BUILD)/%.o: %.c | $$(@D)/.
+$(BUILD)/%.o: %.c
+	$(Q) mkdir -p $(dir $@)
 	$(LOG) "CC" "$@"
 	$(Q) $(CC) $(CFLAGS) $< -c -o $@
 
-$(BUILD)/%.o: %.rc | $$(@D)/.
+$(BUILD)/%.o: %.rc
+	$(Q) mkdir -p $(dir $@)
 	$(LOG) "WINRC" "$@"
 	$(Q) $(WINDRES) -I$(ROOT) -I$(BUILD) $< $@
 
-$(BUILD_TARGET): $(BUILD_OBJECTS) | $$(@D)/.
+$(BUILD_TARGET): $(BUILD_OBJECTS)
+	$(Q) mkdir -p $(dir $@)
 	$(LOG) "LINK" "$@"
 	$(Q) $(CC) $(BUILD_OBJECTS) $(CFLAGS) $(LDFLAGS) -o $@
-
-# Create directories as needed
-%/.:
-	$(Q) mkdir -p $(dir $@)
 
 .PHONY: all
 

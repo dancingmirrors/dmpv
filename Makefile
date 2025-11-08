@@ -22,8 +22,10 @@ BUILD_EXISTS := $(shell test -d $(BUILDDIR) && echo yes)
 
 .DEFAULT_GOAL := all
 
-# Helper function to validate environment and redirect to ninja
-define REDIRECT_TO_NINJA
+# Redirect all common targets to ninja
+.PHONY: all clean install uninstall
+
+all:
 	@if [ -z "$(NINJA)" ]; then \
 		echo "Error: 'ninja' not found. Please install Ninja."; \
 		exit 1; \
@@ -32,25 +34,54 @@ define REDIRECT_TO_NINJA
 		echo "Error: build directory not found. Please run ./configure first."; \
 		exit 1; \
 	fi
-	@echo "Redirecting to: ninja -v -C $(BUILDDIR) $(1)"
-	@$(NINJA) -v -C $(BUILDDIR) $(1)
-endef
-
-# Redirect all common targets to ninja
-.PHONY: all clean install uninstall
-
-all:
-	$(call REDIRECT_TO_NINJA,)
+	@echo "Redirecting to: ninja -v -C $(BUILDDIR)"
+	@$(NINJA) -v -C $(BUILDDIR)
 
 clean:
-	$(call REDIRECT_TO_NINJA,clean)
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: 'ninja' not found. Please install Ninja."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -v -C $(BUILDDIR) clean"
+	@$(NINJA) -v -C $(BUILDDIR) clean
 
 install:
-	$(call REDIRECT_TO_NINJA,install)
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: 'ninja' not found. Please install Ninja."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -v -C $(BUILDDIR) install"
+	@$(NINJA) -v -C $(BUILDDIR) install
 
 uninstall:
-	$(call REDIRECT_TO_NINJA,uninstall)
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: 'ninja' not found. Please install Ninja."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -v -C $(BUILDDIR) uninstall"
+	@$(NINJA) -v -C $(BUILDDIR) uninstall
 
 # Catch-all target to redirect any other make target to ninja
 %:
-	$(call REDIRECT_TO_NINJA,$@)
+	@if [ -z "$(NINJA)" ]; then \
+		echo "Error: 'ninja' not found. Please install Ninja."; \
+		exit 1; \
+	fi
+	@if [ "$(BUILD_EXISTS)" != "yes" ]; then \
+		echo "Error: build directory not found. Please run ./configure first."; \
+		exit 1; \
+	fi
+	@echo "Redirecting to: ninja -v -C $(BUILDDIR) $@"
+	@$(NINJA) -v -C $(BUILDDIR) $@
