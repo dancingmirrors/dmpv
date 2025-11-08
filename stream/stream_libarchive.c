@@ -31,6 +31,14 @@
 #define MP_ARCHIVE_FLAG_MAYBE_VOLUMES   (MP_ARCHIVE_FLAG_PRIV << 2)
 
 #ifdef __NetBSD__
+// NetBSD doesn't support uselocale(), so we define it as a no-op.
+// This will trigger warnings about unused variables and unused values,
+// so we suppress them locally for GCC and Clang.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-value"
+#endif
 #define uselocale(locale) NULL
 #endif
 
@@ -635,3 +643,9 @@ const stream_info_t stream_info_libarchive = {
     .open = archive_entry_open,
     .protocols = (const char*const[]){ "archive", NULL },
 };
+
+#ifdef __NetBSD__
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#endif
