@@ -497,9 +497,25 @@ static void select_and_set_hwdec(struct mp_filter *vd)
             for (int n = 0; n < num_hwdecs; n++) {
                 struct hwdec_info *hwdec = &hwdecs[n];
 
-                if (!hwdec_auto && !(bstr_equals0(opt, hwdec->method_name) ||
-                                    bstr_equals0(opt, hwdec->name)))
-                    continue;
+                // When vf is in use and user specified a non-auto hwdec, also match the -copy variant
+                bool name_matches = bstr_equals0(opt, hwdec->method_name) ||
+                                   bstr_equals0(opt, hwdec->name);
+                if (!hwdec_auto && !name_matches) {
+                    // Check if this is the -copy variant of the requested hwdec
+                    if (vf_in_use && hwdec->copying) {
+                        // Extract base method name by removing "-copy" suffix
+                        size_t method_len = strlen(hwdec->method_name);
+                        if (method_len > 5 && strcmp(hwdec->method_name + method_len - 5, "-copy") == 0) {
+                            char base_method[24];
+                            snprintf(base_method, sizeof(base_method), "%.*s",
+                                    (int)(method_len - 5), hwdec->method_name);
+                            if (bstr_equals0(opt, base_method))
+                                name_matches = true;
+                        }
+                    }
+                    if (!name_matches)
+                        continue;
+                }
                 hwdec_name_supported = true;
 
                 bool already_attempted = false;
