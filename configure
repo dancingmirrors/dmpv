@@ -29,7 +29,7 @@ check(desc      = "pkg-config",
 # better practice to use platform-specific macros:
 # - Linux/glibc: _GNU_SOURCE enables GNU extensions
 # - BSD systems: _BSD_SOURCE enables BSD extensions
-# - Other systems: Use only POSIX-standard flags for maximum compatibility
+# Note: macOS is not supported; other platforms use POSIX-standard flags as fallback
 system = platform.system()
 if system == "Linux":
     add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
@@ -40,7 +40,7 @@ elif system in ["FreeBSD", "OpenBSD", "NetBSD", "DragonFly"]:
                "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
                "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
 else:
-    # For other systems (e.g., macOS), use POSIX-standard flags only
+    # Unsupported platform - use POSIX-standard flags as fallback
     add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE",
                "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
                "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
