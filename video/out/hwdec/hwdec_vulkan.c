@@ -154,7 +154,7 @@ static int vulkan_init(struct ra_hwdec *hw)
     device_hwctx->queue_family_comp_index = vk->vulkan->queue_compute.index;
     device_hwctx->nb_comp_queues = vk->vulkan->queue_compute.count;
     device_hwctx->queue_family_decode_index = decode_index;
-    device_hwctx->nb_decode_queues = qf[decode_index].queueFamilyProperties.queueCount;
+    device_hwctx->nb_decode_queues = decode_index >= 0 ? qf[decode_index].queueFamilyProperties.queueCount : 0;
 #endif
 
     ret = av_hwdevice_ctx_init(hw_device_ctx);
