@@ -170,16 +170,19 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
      * of the ffmpeg Vulkan hwcontext and video decoding capability.
      */
     const char *opt_extensions[] = {
+        /* Base extensions without dependencies */
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
         VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
+        /* VK_KHR_synchronization2 is required by video decode extensions */
+        "VK_KHR_synchronization2", /* VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME */
+        /* Video decode extensions (depend on synchronization2) */
+        VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_H265_EXTENSION_NAME,
-        VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
         "VK_KHR_video_decode_av1", /* VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME */
         "VK_KHR_video_maintenance2", /* VK_KHR_VIDEO_MAINTENANCE_2_EXTENSION_NAME */
-        "VK_KHR_synchronization2", /* VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME */
     };
 
     VkPhysicalDeviceShaderObjectFeaturesEXT shader_object_feature = {
