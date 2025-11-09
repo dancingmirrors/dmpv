@@ -179,6 +179,7 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
         VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
         "VK_KHR_video_decode_av1", /* VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME */
         "VK_KHR_video_maintenance2", /* VK_KHR_VIDEO_MAINTENANCE_2_EXTENSION_NAME */
+        "VK_KHR_synchronization2", /* VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME */
     };
 
     VkPhysicalDeviceShaderObjectFeaturesEXT shader_object_feature = {
