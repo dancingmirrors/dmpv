@@ -145,3 +145,31 @@ jobs:
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
+
+          rm -rf build
+          ./configure --disable-gl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          rm -rf build
+          ./configure --disable-egl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          rm -rf build
+          CC=clang ./configure --disable-gl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          rm -rf build
+          CC=clang ./configure --disable-egl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
