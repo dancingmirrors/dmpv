@@ -128,7 +128,7 @@ static const dmabuf_interop_init interop_inits[] = {
 #if HAVE_EGL && HAVE_GL
     dmabuf_interop_gl_init,
 #endif
-#if HAVE_LIBPLACEBO
+#if HAVE_EGL && HAVE_LIBPLACEBO
     dmabuf_interop_pl_init,
 #endif
 #if HAVE_WAYLAND
