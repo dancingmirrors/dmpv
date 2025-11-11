@@ -66,7 +66,7 @@ mp.add_forced_key_binding("=", increment_zoom, 'nonrepeatable')
 mp.add_forced_key_binding("-", decrement_zoom, 'nonrepeatable')
 
 mp.set_property("fullscreen", "yes")
-mp.set_property("hwdec", "no")
+mp.set_property("hwdec", "auto-copy")
 mp.set_property("sws-fast", "yes")
 
 update()
