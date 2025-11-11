@@ -32,8 +32,6 @@ jobs:
           meson setup --prefix=/usr/local -Ddocumentation=false build
           meson compile -C build
           sudo ninja -C build install
-          pkg-config --libs wayland-egl
-          pkg-config --atleast-version=9.0.0 wayland-egl ; echo $?
 
           git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland-protocols.git --branch 1.41
           cd wayland-protocols
@@ -49,7 +47,7 @@ jobs:
 
           git clone --depth 1 --recursive https://github.com/dancingmirrors/libplacebo.git
           cd libplacebo
-          meson setup --backend=ninja --prefix=/usr/local build
+          meson setup --prefix=/usr/local build
           meson compile -C build
           sudo ninja -C build install
 
