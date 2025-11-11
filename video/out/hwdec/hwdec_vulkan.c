@@ -22,6 +22,7 @@
 #include "video/out/vulkan/context.h"
 #include "video/out/placebo/ra_pl.h"
 
+#include <string.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
 
@@ -70,7 +71,24 @@ static int vulkan_init(struct ra_hwdec *hw)
     }
 
     /*
-     * libplacebo initialises all queues, but we still need to discover which
+     * Check if the required video decode extensions are enabled.
+     * FFmpeg will fail with cryptic errors if they're not available.
+     */
+    bool has_video_decode_queue = false;
+    for (int i = 0; i < vk->vulkan->num_extensions; i++) {
+        if (strcmp(vk->vulkan->extensions[i], "VK_KHR_video_decode_queue") == 0) {
+            has_video_decode_queue = true;
+            break;
+        }
+    }
+
+    if (!has_video_decode_queue) {
+        MP_MSG(hw, level, "Vulkan device does not have the VK_KHR_video_decode_queue extension enabled.\n");
+        return 0;
+    }
+
+    /*
+     * libplacebo initializes all queues, but we still need to discover which
      * one is the decode queue.
      */
     uint32_t num_qf = 0;
