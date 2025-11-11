@@ -347,24 +347,31 @@ check("-hwdec-vulkan*",
 check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl"))
+check("-gl*",
+      desc      = "OpenGL context support",
+      fn        = lambda: check_cc(link = "-lGL"),
+      sources   = ["video/out/opengl/common.c",
+                   "video/out/opengl/context.c",
+                   "video/out/opengl/formats.c",
+                   "video/out/opengl/ra_gl.c",
+                   "video/out/opengl/utils.c"])
 check("-gl-x11*",
       desc      = "OpenGL X11 Backend",
-      deps      = ["egl", "x11"],
-      fn        = lambda: check_cc(link = "-lGL",
-                                   include = "GL/glx.h",
+      deps      = ["gl", "x11"],
+      fn        = lambda: check_cc(include = "GL/glx.h",
                                    expr = "glXGetCurrentDisplay();"),
       sources   = "video/out/opengl/context_glx.c")
 check("-egl-x11*",
       desc      = "OpenGL X11 EGL Backend",
-      deps      = ["x11", "egl", "gbm"],
+      deps      = ["gl", "x11", "egl", "gbm"],
       sources   = "video/out/opengl/context_x11egl.c")
 check("-egl-drm*",
       desc      = "OpenGL DRM EGL Backend",
-      deps      = ["drm", "gbm", "egl"],
+      deps      = ["gl", "drm", "gbm", "egl"],
       sources   = "video/out/opengl/context_drm_egl.c")
 check("-gl-wayland*",
       desc      = "OpenGL Wayland Backend",
-      deps      =  ["wayland", "egl"],
+      deps      =  ["gl", "wayland", "egl"],
       fn        = lambda: check_pkg_config("wayland-egl >= 9.0.0"),
       sources   = "video/out/opengl/context_wayland.c")
 
@@ -412,11 +419,11 @@ check("-vaapi-egl*",
       desc      = "VA-API EGL",
       deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
       sources   = ["video/out/hwdec/hwdec_vaapi.c"])
-check(deps      = ["drm", "egl"],
+check(deps      = ["drm", "egl", "gl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 check(deps      = ["egl", "libplacebo", "vaapi"],
       sources   = "video/out/hwdec/dmabuf_interop_pl.c")
-check(deps      = ["drm", "egl"],
+check(deps      = ["drm", "egl", "gl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 check(deps      = ["drm", "egl", "libplacebo", "vaapi"],
       sources   = "video/out/hwdec/dmabuf_interop_pl.c")
@@ -442,21 +449,12 @@ check("spirv-cross*",
       desc      = "SPIRV-Cross SPIR-V shader converter",
       deps_any  = ["spirv-cross-shared", "spirv-cross-static"])
 
-check("-gl*",
-      desc      = "OpenGL context support",
-      deps_any  = ["gl-x11", "egl-x11", "egl-drm", "gl-wayland"],
-      sources   = ["video/out/opengl/common.c",
-                   "video/out/opengl/context.c",
-                   "video/out/opengl/formats.c",
-                   "video/out/opengl/ra_gl.c",
-                   "video/out/opengl/utils.c"])
-
 check(deps      = ["drm", "egl", "gbm", "gl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 
 check("egl-helpers*",
       desc      = "EGL helper functions",
-      deps      = "egl",
+      deps      = ["egl", "gl"],
       sources   = "video/out/opengl/egl_helpers.c"),
 
 check(deps_any   = ["drm", "x11", "wayland"],
