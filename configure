@@ -530,6 +530,7 @@ add_sources(
     "demux/demux_timeline.c",
     "demux/ebml.c",
     "demux/packet.c",
+    "demux/packet_pool.c",
     "demux/timeline.c",
     "filters/filter.c",
     "filters/f_async_queue.c",
