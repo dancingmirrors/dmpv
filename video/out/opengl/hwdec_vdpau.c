@@ -50,26 +50,32 @@ static int init(struct ra_hwdec *hw)
     Display *x11disp = ra_get_native_resource(ra, "x11");
     if (!x11disp || !ra_is_gl(ra))
         return -1;
+    
+    // Check if VDPAU is emulated first, before attempting any GL interop.
+    // Emulated VDPAU (e.g., libvdpau-va-gl) doesn't support GL_NV_vdpau_interop.
+    struct priv_owner *p = hw->priv;
+    p->ctx = mp_vdpau_create_device_x11(hw->log, x11disp, true);
+    if (p->ctx && mp_vdpau_guess_if_emulated(p->ctx)) {
+        if (!hw->probing) {
+            MP_ERR(hw, "VDPAU is emulated via VA-API. "
+                   "GL interop is not supported with emulated VDPAU.\n");
+            MP_ERR(hw, "Use --hwdec=vdpau-copy instead.\n");
+        }
+        mp_vdpau_destroy(p->ctx);
+        p->ctx = NULL;
+        return -1;
+    }
+    
+    // Clean up the test context - we'll create a new one if we proceed
+    mp_vdpau_destroy(p->ctx);
+    p->ctx = NULL;
+    
     GL *gl = ra_gl_get(ra);
     if (!(gl->mpgl_caps & MPGL_CAP_VDPAU)) {
         MP_VERBOSE(hw, "GL_NV_vdpau_interop not available.\n");
-        // Only provide detailed error message when explicitly requested (not probing)
-        if (!hw->probing) {
-            // Try to create a VDPAU context to check if it's emulated
-            struct priv_owner *p = hw->priv;
-            p->ctx = mp_vdpau_create_device_x11(hw->log, x11disp, true);
-            if (p->ctx && mp_vdpau_guess_if_emulated(p->ctx)) {
-                MP_ERR(hw, "VDPAU is emulated via VA-API, and the GL_NV_vdpau_interop "
-                       "extension is not available. This is a limitation of emulated "
-                       "VDPAU implementations like libvdpau-va-gl.\n");
-                MP_ERR(hw, "Use --hwdec=vdpau-copy instead for software upload.\n");
-            }
-            mp_vdpau_destroy(p->ctx);
-            p->ctx = NULL;
-        }
         return -1;
     }
-    struct priv_owner *p = hw->priv;
+    
     p->ctx = mp_vdpau_create_device_x11(hw->log, x11disp, true);
     if (!p->ctx)
         return -1;
