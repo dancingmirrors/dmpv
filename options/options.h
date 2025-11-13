@@ -190,6 +190,7 @@ typedef struct MPOpts {
     bool osd_fractions;
     int osd_on_seek;
     bool video_osd;
+    bool osd_preload;
 
     bool untimed;
     char *stream_dump;

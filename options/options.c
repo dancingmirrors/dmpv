@@ -633,6 +633,7 @@ static const m_option_t mp_opts[] = {
         {"msg-bar", 3})},
     {"osd-duration", OPT_INT(osd_duration), M_RANGE(0, 3600000)},
     {"osd-fractions", OPT_BOOL(osd_fractions)},
+    {"osd-preload", OPT_BOOL(osd_preload)},
 
     {"sstep", OPT_DOUBLE(step_sec), M_RANGE(0, DBL_MAX)},
 
@@ -787,6 +788,7 @@ static const struct MPOpts mp_default_opts = {
     .osd_level = 1,
     .osd_on_seek = 1,
     .osd_duration = 1000,
+    .osd_preload = false,
 #if HAVE_LUA
     .lua_load_stats = true,
     .lua_load_360_sbs = false,

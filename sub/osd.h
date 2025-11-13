@@ -172,6 +172,7 @@ struct dec_sub;
 struct osd_state *osd_create(struct dmpv_global *global);
 void osd_changed(struct osd_state *osd);
 void osd_free(struct osd_state *osd);
+void osd_preload(struct osd_state *osd);
 
 bool osd_query_and_reset_want_redraw(struct osd_state *osd);
 

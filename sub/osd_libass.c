@@ -97,6 +97,17 @@ void osd_destroy_backend(struct osd_state *osd)
     }
 }
 
+void osd_preload(struct osd_state *osd)
+{
+    // Pre-initialize the OSD renderer to avoid lag on first display
+    for (int n = 0; n < MAX_OSD_PARTS; n++) {
+        struct osd_object *obj = osd->objs[n];
+        if (obj->type == OSDTYPE_OSD) {
+            create_ass_renderer(osd, &obj->ass);
+        }
+    }
+}
+
 static void update_playres(struct ass_state *ass, struct mp_osd_res *vo_res)
 {
     ASS_Track *track = ass->track;
