@@ -187,15 +187,19 @@ static bool mp_image_alloc_planes(struct mp_image *mpi)
     return true;
 }
 
-void mp_image_setfmt(struct mp_image *mpi, int out_fmt)
+void mp_image_sethwfmt(struct mp_image *mpi, enum mp_imgfmt hw_fmt, enum mp_imgfmt sw_fmt)
 {
-    struct mp_image_params params = mpi->params;
-    struct mp_imgfmt_desc fmt = mp_imgfmt_get_desc(out_fmt);
-    params.imgfmt = fmt.id;
+    struct mp_imgfmt_desc fmt = mp_imgfmt_get_desc(sw_fmt ? sw_fmt : hw_fmt);
+    mpi->params.imgfmt = hw_fmt;
+    mpi->params.hw_subfmt = sw_fmt;
     mpi->fmt = fmt;
-    mpi->imgfmt = fmt.id;
+    mpi->imgfmt = hw_fmt;
     mpi->num_planes = fmt.num_planes;
-    mpi->params = params;
+}
+
+void mp_image_setfmt(struct mp_image *mpi, enum mp_imgfmt fmt)
+{
+    mp_image_sethwfmt(mpi, fmt, IMGFMT_NONE);
 }
 
 static void mp_image_destructor(void *ptr)
@@ -981,7 +985,12 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
 
     dst->hwctx = src->hw_frames_ctx;
 
-    mp_image_setfmt(dst, pixfmt2imgfmt(src->format));
+    if (dst->hwctx) {
+        AVHWFramesContext *fctx = (void *)dst->hwctx->data;
+        dst->params.hw_subfmt = pixfmt2imgfmt(fctx->sw_format);
+    }
+
+    mp_image_sethwfmt(dst, pixfmt2imgfmt(src->format), dst->params.hw_subfmt);
     mp_image_set_size(dst, src->width, src->height);
 
     dst->params.p_w = src->sample_aspect_ratio.num;
@@ -1083,11 +1092,6 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
             .buf = sd->buf,
         };
         MP_TARRAY_APPEND(NULL, dst->ff_side_data, dst->num_ff_side_data, mpsd);
-    }
-
-    if (dst->hwctx) {
-        AVHWFramesContext *fctx = (void *)dst->hwctx->data;
-        dst->params.hw_subfmt = pixfmt2imgfmt(fctx->sw_format);
     }
 
     struct mp_image *res = mp_image_new_ref(dst);
