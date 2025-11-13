@@ -51,29 +51,15 @@ static int init(struct ra_hwdec *hw)
     if (!x11disp || !ra_is_gl(ra))
         return -1;
     GL *gl = ra_gl_get(ra);
-    if (!(gl->mpgl_caps & MPGL_CAP_VDPAU)) {
-        MP_VERBOSE(hw, "GL_NV_vdpau_interop not available.\n");
-        // Only provide detailed error message when explicitly requested (not probing)
-        if (!hw->probing) {
-            // Try to create a VDPAU context to check if it's emulated
-            struct priv_owner *p = hw->priv;
-            p->ctx = mp_vdpau_create_device_x11(hw->log, x11disp, true);
-            if (p->ctx && mp_vdpau_guess_if_emulated(p->ctx)) {
-                MP_ERR(hw, "VDPAU is emulated via VA-API, and the GL_NV_vdpau_interop "
-                       "extension is not available. This is a limitation of emulated "
-                       "VDPAU implementations like libvdpau-va-gl.\n");
-                MP_ERR(hw, "Use --hwdec=vdpau-copy instead for software upload.\n");
-            }
-            mp_vdpau_destroy(p->ctx);
-            p->ctx = NULL;
-        }
+    if (!(gl->mpgl_caps & MPGL_CAP_VDPAU))
         return -1;
-    }
     struct priv_owner *p = hw->priv;
     p->ctx = mp_vdpau_create_device_x11(hw->log, x11disp, true);
     if (!p->ctx)
         return -1;
     if (mp_vdpau_handle_preemption(p->ctx, NULL) < 1)
+        return -1;
+    if (hw->probing && mp_vdpau_guess_if_emulated(p->ctx))
         return -1;
     p->ctx->hwctx.driver_name = hw->driver->name;
     p->ctx->hwctx.hw_imgfmt = IMGFMT_VDPAU;
