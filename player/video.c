@@ -30,6 +30,7 @@
 #include "common/common.h"
 #include "common/encode.h"
 #include "options/m_property.h"
+#include "osdep/compiler.h"
 #include "osdep/timer.h"
 
 #include "audio/out/ao.h"
@@ -467,7 +468,7 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
     bool hrseek = false;
     double hrseek_pts = mpctx->hrseek_pts;
     double tolerance = mpctx->hrseek_backstep ? 0 : .005;
-    if (mpctx->video_status == STATUS_SYNCING) {
+    if (likely(mpctx->video_status == STATUS_SYNCING)) {
         hrseek = mpctx->hrseek_active;
         // playback_pts is normally only set when audio and video have started
         // playing normally. If video is in syncing mode, then this must mean
@@ -490,7 +491,7 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
 
     // Get a new frame if we need one.
     int r = VD_PROGRESS;
-    if (needs_new_frame(mpctx)) {
+    if (likely(needs_new_frame(mpctx))) {
         // Filter a new frame.
         struct mp_image *img = NULL;
         struct mp_frame frame = mp_pin_out_read(vo_c->filter->f->pins[1]);
@@ -506,7 +507,7 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
             mp_frame_unref(&frame);
             return VD_ERROR;
         }
-        if (img) {
+        if (likely(img)) {
             double endpts = get_play_end_pts(mpctx);
             if (endpts != MP_NOPTS_VALUE)
                 endpts *= mpctx->play_dir;
