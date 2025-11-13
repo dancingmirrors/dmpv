@@ -1415,6 +1415,22 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
     wl->hidden = is_suspended;
     wl->locked_size = is_fullscreen || is_maximized;
 
+    // Handle state changes (e.g., exiting fullscreen/maximized)
+    if (wl->state_change) {
+        if (!wl->locked_size) {
+            wl->geometry = wl->window_size;
+            wl->state_change = false;
+            struct libdecor_state *state = libdecor_state_new(
+                mp_rect_w(wl->geometry) / wl->scaling,
+                mp_rect_h(wl->geometry) / wl->scaling);
+            libdecor_frame_commit(frame, state, configuration);
+            libdecor_state_free(state);
+            wl->pending_vo_events |= VO_EVENT_RESIZE;
+            wl->toplevel_configured = true;
+            return;
+        }
+    }
+
     // Reuse old size if either dimension is 0
     if (width == 0 || height == 0) {
         if (!wl->locked_size) {
