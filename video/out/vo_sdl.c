@@ -540,6 +540,7 @@ static void wakeup(struct vo *vo)
 
 static void wait_events(struct vo *vo, int64_t until_time_ns)
 {
+    struct priv *vc = vo->priv;
     int64_t wait_ns = until_time_ns - mp_time_ns();
     // Round-up to 1ms for short timeouts (100us, 1000us]
     if (wait_ns > MP_TIME_US_TO_NS(100))
@@ -871,13 +872,8 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
         SDL_GetWindowSize(vc->window, &width, &height);
     }
 
-    if (width > 0 && height > 0) {
-        // Update SDL window size
-        SDL_SetWindowSize(vc->window, width, height);
-        check_resize(vo);
-    }
-
-    // Commit the configuration
+    // Commit the configuration to acknowledge it
+    // SDL will handle the actual window resize through its own event system
     struct libdecor_state *state = libdecor_state_new(width, height);
     libdecor_frame_commit(frame, state, configuration);
     libdecor_state_free(state);
