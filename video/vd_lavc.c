@@ -521,7 +521,7 @@ static void select_and_set_hwdec(struct mp_filter *vd)
 
                 bool already_attempted = false;
                 for (int j = 0; j < ctx->num_attempted_hwdecs; j++) {
-                    if (bstr_equals0(ctx->attempted_hwdecs[j], hwdec->name)) {
+                    if (unlikely(bstr_equals0(ctx->attempted_hwdecs[j], hwdec->name))) {
                         MP_DBG(vd, "Skipping previously attempted hwdec: %s\n",
                                hwdec->name);
                         already_attempted = true;
@@ -1050,8 +1050,8 @@ static int get_buffer2_direct(AVCodecContext *avctx, AVFrame *pic, int flags)
 
     // (For simplicity, we realloc on any parameter change, instead of trying
     // to be clever.)
-    if (stride_align != p->dr_stride_align || w != p->dr_w || h != p->dr_h ||
-        imgfmt != p->dr_imgfmt)
+    if (unlikely(stride_align != p->dr_stride_align || w != p->dr_w || h != p->dr_h ||
+        imgfmt != p->dr_imgfmt))
     {
         mp_image_pool_clear(p->dr_pool);
         p->dr_imgfmt = imgfmt;
@@ -1063,12 +1063,12 @@ static int get_buffer2_direct(AVCodecContext *avctx, AVFrame *pic, int flags)
     }
 
     struct mp_image *img = mp_image_pool_get_no_alloc(p->dr_pool, imgfmt, w, h);
-    if (!img) {
+    if (unlikely(!img)) {
         bool host_cached = p->opts->dr == -1; // auto
         int dr_flags = host_cached ? VO_DR_FLAG_HOST_CACHED : 0;
         MP_DBG(p, "Allocating new%s DR image...\n", host_cached ? " (host-cached)" : "");
         img = vo_get_image(p->vo, imgfmt, w, h, stride_align, dr_flags);
-        if (!img) {
+        if (unlikely(!img)) {
             MP_DBG(p, "...failed..\n");
             goto fallback;
         }
