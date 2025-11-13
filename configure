@@ -139,14 +139,36 @@ check("stdatomic*",
 check(deps_any  = ["stdatomic", "gnuc"],
       required  = "stdatomic.h or GCC: missing (need C11 atomics support)")
 
+# On BSD systems (especially FreeBSD), iconv requires special handling.
+# FreeBSD needs -DLIBICONV_PLUG to avoid symbol conflicts between libiconv and libc.
+# OpenBSD's iconv implementation may be incomplete, so we make it optional there.
+# The code has fallbacks (bstr_sanitize_utf8_latin1) for when iconv is unavailable.
+def check_iconv():
+    # First, try to check if -DLIBICONV_PLUG is needed/works (BSD systems)
+    has_libiconv_plug = check_cc(flags = "-DLIBICONV_PLUG")
+    
+    # Try iconv without any special flags or libraries (Linux with glibc)
+    if check_cc(include = "iconv.h", link = [], expr = "iconv_open(0, 0);"):
+        return True
+    
+    # Try with -liconv library (some BSD systems, macOS)
+    if check_cc(include = "iconv.h", link = "-liconv", expr = "iconv_open(0, 0);"):
+        return True
+    
+    # If we have LIBICONV_PLUG but previous checks failed, it might be that
+    # we need both the flag AND the library on some BSD configurations
+    if has_libiconv_plug:
+        if check_cc(flags = "-DLIBICONV_PLUG", include = "iconv.h", link = "-liconv",
+                    expr = "iconv_open(0, 0);"):
+            return True
+    
+    return False
+
 check("-libiconv-plug*",
       desc      = "-DLIBICONV_PLUG",
       fn        = lambda: check_cc(flags = "-DLIBICONV_PLUG"))
 check("iconv*",
-      fn        = lambda: check_cc(include = "iconv.h", link = [],
-                                   expr = "iconv_open(0, 0);") or
-                          check_cc(include = "iconv.h", link = "-liconv",
-                                   expr = "iconv_open(0, 0);"))
+      fn        = check_iconv)
 check("-uchardet*",
       deps      = "iconv",
       fn        = lambda: check_pkg_config("uchardet"))
