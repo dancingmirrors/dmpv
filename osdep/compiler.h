@@ -22,7 +22,6 @@
 #define MP_ASSERT_UNREACHABLE() (assert(!"unreachable"), abort())
 #endif
 
-// Compiler hints for branch prediction optimization, similar to Mesa's style
 #if defined(__GNUC__) || defined(__clang__)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #define likely(x) __builtin_expect(!!(x), 1)
