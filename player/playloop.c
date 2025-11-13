@@ -41,6 +41,7 @@
 #include "options/m_config_frontend.h"
 #include "options/m_property.h"
 #include "options/options.h"
+#include "osdep/compiler.h"
 #include "osdep/terminal.h"
 #include "osdep/timer.h"
 #include "stream/stream.h"
@@ -414,7 +415,7 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
 
     // Mute audio during seek if --seek-mute is enabled
     // Check !mpctx->seek_muted to avoid redundant volume updates on consecutive seeks
-    if (opts->seek_mute && !mpctx->seek_muted) {
+    if (likely(opts->seek_mute && !mpctx->seek_muted)) {
         mpctx->seek_muted = true;
         audio_update_volume(mpctx);
     }
