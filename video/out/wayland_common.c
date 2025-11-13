@@ -1442,11 +1442,14 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
         if (!wl->locked_size) {
             wl->geometry = wl->window_size;
         }
-        struct libdecor_state *state = libdecor_state_new(
-            mp_rect_w(wl->geometry) / wl->scaling,
-            mp_rect_h(wl->geometry) / wl->scaling);
-        libdecor_frame_commit(frame, state, configuration);
-        libdecor_state_free(state);
+        int commit_width = mp_rect_w(wl->geometry) / wl->scaling;
+        int commit_height = mp_rect_h(wl->geometry) / wl->scaling;
+        // Skip commit if dimensions are still zero to avoid libdecor crash
+        if (commit_width > 0 && commit_height > 0) {
+            struct libdecor_state *state = libdecor_state_new(commit_width, commit_height);
+            libdecor_frame_commit(frame, state, configuration);
+            libdecor_state_free(state);
+        }
         wl->pending_vo_events |= VO_EVENT_RESIZE;
         wl->toplevel_configured = true;
         return;
