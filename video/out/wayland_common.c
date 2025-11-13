@@ -394,6 +394,7 @@ static void rescale_geometry(struct vo_wayland_state *wl, double old_scale);
 static void set_geometry(struct vo_wayland_state *wl, bool resize);
 static void set_surface_scaling(struct vo_wayland_state *wl);
 static void window_move(struct vo_wayland_state *wl, uint32_t serial);
+static void window_resize(struct vo_wayland_state *wl, uint32_t serial, uint32_t edges);
 
 /* Wayland listener boilerplate */
 static void pointer_handle_enter(void *data, struct wl_pointer *pointer,
@@ -478,7 +479,7 @@ static void pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
         uint32_t edges;
         // Implement an edge resize zone if there are no decorations
         if (!wl->vo_opts->border && check_for_resize(wl, wl->opts->edge_pixels_pointer, &edges)) {
-            xdg_toplevel_resize(wl->xdg_toplevel, wl->seat, serial, edges);
+            window_resize(wl, serial, edges);
         } else {
             window_move(wl, serial);
         }
@@ -528,9 +529,9 @@ static void touch_handle_down(void *data, struct wl_touch *wl_touch,
     enum xdg_toplevel_resize_edge edge;
     if (!mp_input_test_dragging(wl->vo->input_ctx, wl->mouse_x, wl->mouse_y)) {
         if (check_for_resize(wl, wl->opts->edge_pixels_touch, &edge)) {
-            xdg_toplevel_resize(wl->xdg_toplevel, wl->seat, serial, edge);
+            window_resize(wl, serial, edge);
         } else  {
-            xdg_toplevel_move(wl->xdg_toplevel, wl->seat, serial);
+            window_move(wl, serial);
         }
     }
 
@@ -2443,6 +2444,18 @@ static void window_move(struct vo_wayland_state *wl, uint32_t serial)
         xdg_toplevel_move(wl->xdg_toplevel, wl->seat, serial);
 }
 
+static void window_resize(struct vo_wayland_state *wl, uint32_t serial, uint32_t edges)
+{
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        libdecor_frame_resize(wl->libdecor_frame, wl->seat, serial, edges);
+        return;
+    }
+#endif
+    if (wl->xdg_toplevel)
+        xdg_toplevel_resize(wl->xdg_toplevel, wl->seat, serial, edges);
+}
+
 static void wayland_dispatch_events(struct vo_wayland_state *wl, int nfds, int timeout)
 {
     if (wl->display_fd == -1)
@@ -3163,7 +3176,7 @@ void vo_wayland_wait_frame(struct vo_wayland_state *wl)
         wl_display_roundtrip(wl->display);
 
     /* Only use this heuristic if the compositor doesn't support the suspended state. */
-    if (wl->frame_wait && xdg_toplevel_get_version(wl->xdg_toplevel) < 6) {
+    if (wl->frame_wait && wl->xdg_toplevel && xdg_toplevel_get_version(wl->xdg_toplevel) < 6) {
         // Only consider consecutive missed callbacks.
         if (wl->timeout_count > 1) {
             wl->hidden = true;
