@@ -1333,7 +1333,7 @@ static void libdecor_error(struct libdecor *context,
                           enum libdecor_error error,
                           const char *message)
 {
-    MP_ERR(context, "libdecor error (%d): %s\n", error, message);
+    MP_ERR(context, "libdecor error (%d): %s\n", error, message ? message : "(null)");
 }
 
 static struct libdecor_interface libdecor_iface = {
