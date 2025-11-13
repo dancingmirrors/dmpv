@@ -527,15 +527,10 @@ static void resize(struct vo *vo)
 
     create_shm_pool(vo);
 
-    // top level viewport is calculated with pan set to zero
-    vo->opts->pan_x = 0;
-    vo->opts->pan_y = 0;
-    vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
+    // top level viewport is always the full window size
     wp_viewport_set_destination(wl->viewport, width, height);
 
-    //now we restore pan for video viewport calculation
-    vo->opts->pan_x = vo_opts->pan_x;
-    vo->opts->pan_y = vo_opts->pan_y;
+    // Calculate video viewport with actual pan values
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
     wp_viewport_set_destination(wl->video_viewport, mp_rect_w(dst), mp_rect_h(dst));
     wl_subsurface_set_position(wl->video_subsurface, dst.x0, dst.y0);
