@@ -1386,9 +1386,12 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
             wl->geometry = wl->window_size;
         }
         // Acknowledge the configure but don't process further
-        struct libdecor_state *state = libdecor_state_new(width, height);
-        libdecor_frame_commit(frame, state, configuration);
-        libdecor_state_free(state);
+        // Skip commit if dimensions are zero to avoid libdecor crash
+        if (width > 0 && height > 0) {
+            struct libdecor_state *state = libdecor_state_new(width, height);
+            libdecor_frame_commit(frame, state, configuration);
+            libdecor_state_free(state);
+        }
         return;
     }
 
@@ -1423,11 +1426,14 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
         if (!wl->locked_size) {
             wl->geometry = wl->window_size;
             wl->state_change = false;
-            struct libdecor_state *state = libdecor_state_new(
-                mp_rect_w(wl->geometry) / wl->scaling,
-                mp_rect_h(wl->geometry) / wl->scaling);
-            libdecor_frame_commit(frame, state, configuration);
-            libdecor_state_free(state);
+            int commit_width = mp_rect_w(wl->geometry) / wl->scaling;
+            int commit_height = mp_rect_h(wl->geometry) / wl->scaling;
+            // Skip commit if dimensions are zero to avoid libdecor crash
+            if (commit_width > 0 && commit_height > 0) {
+                struct libdecor_state *state = libdecor_state_new(commit_width, commit_height);
+                libdecor_frame_commit(frame, state, configuration);
+                libdecor_state_free(state);
+            }
             wl->pending_vo_events |= VO_EVENT_RESIZE;
             wl->toplevel_configured = true;
             return;
@@ -1439,11 +1445,14 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
         if (!wl->locked_size) {
             wl->geometry = wl->window_size;
         }
-        struct libdecor_state *state = libdecor_state_new(
-            mp_rect_w(wl->geometry) / wl->scaling,
-            mp_rect_h(wl->geometry) / wl->scaling);
-        libdecor_frame_commit(frame, state, configuration);
-        libdecor_state_free(state);
+        int commit_width = mp_rect_w(wl->geometry) / wl->scaling;
+        int commit_height = mp_rect_h(wl->geometry) / wl->scaling;
+        // Skip commit if dimensions are still zero to avoid libdecor crash
+        if (commit_width > 0 && commit_height > 0) {
+            struct libdecor_state *state = libdecor_state_new(commit_width, commit_height);
+            libdecor_frame_commit(frame, state, configuration);
+            libdecor_state_free(state);
+        }
         wl->pending_vo_events |= VO_EVENT_RESIZE;
         wl->toplevel_configured = true;
         return;
@@ -1461,9 +1470,13 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
     wl->geometry.x1 = lround(width * wl->scaling);
     wl->geometry.y1 = lround(height * wl->scaling);
 
-    struct libdecor_state *state = libdecor_state_new(width, height);
-    libdecor_frame_commit(frame, state, configuration);
-    libdecor_state_free(state);
+    // This should not happen as zero dimensions are handled above,
+    // but check anyway to be safe
+    if (width > 0 && height > 0) {
+        struct libdecor_state *state = libdecor_state_new(width, height);
+        libdecor_frame_commit(frame, state, configuration);
+        libdecor_state_free(state);
+    }
 
     if (!mp_rect_equals(&old_geometry, &wl->geometry)) {
         MP_VERBOSE(wl, "Resizing due to libdecor from %dx%d to %dx%d\n",
