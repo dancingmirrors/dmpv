@@ -22,6 +22,7 @@
 #include "misc/mp_assert.h"
 
 #include "demux/demux.h"
+#include "demux/packet_pool.h"
 #include "sd.h"
 #include "dec_sub.h"
 #include "options/m_config.h"
@@ -46,6 +47,7 @@ struct dec_sub {
 
     struct mp_log *log;
     struct dmpv_global *global;
+    struct demux_packet_pool *packet_pool;
     struct mp_subtitle_opts *opts;
     struct m_config_cache *opts_cache;
 
@@ -171,6 +173,7 @@ struct dec_sub *sub_create(struct dmpv_global *global, struct track *track,
     *sub = (struct dec_sub){
         .log = mp_log_new(sub, global->log, "sub"),
         .global = global,
+        .packet_pool = demux_packet_pool_get(global),
         .opts_cache = m_config_cache_alloc(sub, global, &mp_subtitle_sub_opts),
         .sh = track->stream,
         .codec = track->stream->codec,
@@ -221,7 +224,7 @@ static void update_segment(struct dec_sub *sub)
             MP_ERR(sub, "Can't change to new codec.\n");
         }
         sub->sd->driver->decode(sub->sd, sub->new_segment);
-        talloc_free(sub->new_segment);
+        demux_packet_pool_push(sub->packet_pool, sub->new_segment);
         sub->new_segment = NULL;
     }
 }
@@ -315,7 +318,8 @@ bool sub_read_packets(struct dec_sub *sub, double video_pts, bool force)
         sub->last_pkt_pts = pkt->pts;
 
         if (is_new_segment(sub, pkt)) {
-            sub->new_segment = pkt;
+            sub->new_segment = demux_copy_packet(sub->packet_pool, pkt);
+            talloc_free(pkt);
             // Note that this can be delayed to a much later point in time.
             update_segment(sub);
             break;
@@ -392,7 +396,7 @@ void sub_reset(struct dec_sub *sub)
         sub->sd->driver->reset(sub->sd);
     sub->last_pkt_pts = MP_NOPTS_VALUE;
     sub->last_vo_pts = MP_NOPTS_VALUE;
-    talloc_free(sub->new_segment);
+    demux_packet_pool_push(sub->packet_pool, sub->new_segment);
     sub->new_segment = NULL;
     mp_mutex_unlock(&sub->lock);
 }

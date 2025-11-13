@@ -61,6 +61,7 @@ void lavc_conv_uninit(struct lavc_conv *priv);
 struct sd_filter {
     struct dmpv_global *global;
     struct mp_log *log;
+    struct demux_packet_pool *packet_pool;
     struct mp_sub_filter_opts *opts;
     const struct sd_filter_functions *driver;
 

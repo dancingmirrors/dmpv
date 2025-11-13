@@ -52,6 +52,7 @@
 #include "common/stats.h"
 #include "common/global.h"
 #include "filters/f_decoder_wrapper.h"
+#include "demux/packet_pool.h"
 #include "options/parse_configfile.h"
 #include "options/parse_commandline.h"
 #include "common/playlist.h"
@@ -256,6 +257,7 @@ struct MPContext *mp_create(void)
 
     mpctx->global = talloc_zero(mpctx, struct dmpv_global);
 
+    demux_packet_pool_init(mpctx->global);
     stats_global_init(mpctx->global);
 
     // Nothing must call mp_msg*() and related before this
