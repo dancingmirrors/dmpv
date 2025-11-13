@@ -2614,8 +2614,6 @@ bool vo_wayland_reconfig(struct vo *vo)
 {
     struct vo_wayland_state *wl = vo->wl;
 
-    MP_VERBOSE(wl, "Reconfiguring!\n");
-
     if (!wl->current_output) {
         wl->current_output = find_output(wl);
         if (!wl->current_output)
