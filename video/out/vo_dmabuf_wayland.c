@@ -513,7 +513,6 @@ static void resize(struct vo *vo)
 
     struct mp_rect src;
     struct mp_rect dst;
-    struct mp_vo_opts *vo_opts = wl->vo_opts;
 
     const int width = mp_rect_w(wl->geometry);
     const int height = mp_rect_h(wl->geometry);
@@ -527,15 +526,20 @@ static void resize(struct vo *vo)
 
     create_shm_pool(vo);
 
-    // top level viewport is calculated with pan set to zero
-    vo->opts->pan_x = 0;
-    vo->opts->pan_y = 0;
-    vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
-    wp_viewport_set_destination(wl->viewport, 2 * dst.x0 + mp_rect_w(dst), 2 * dst.y0 + mp_rect_h(dst));
+    // Set top-level viewport destination
+    // When libdecor is active, it manages scaling, so use unscaled dimensions
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        wp_viewport_set_destination(wl->viewport,
+                                    lround(width / wl->scaling),
+                                    lround(height / wl->scaling));
+    } else
+#endif
+    {
+        wp_viewport_set_destination(wl->viewport, width, height);
+    }
 
-    //now we restore pan for video viewport calculation
-    vo->opts->pan_x = vo_opts->pan_x;
-    vo->opts->pan_y = vo_opts->pan_y;
+    // Calculate video display rectangle for subsurface positioning
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
     wp_viewport_set_destination(wl->video_viewport, mp_rect_w(dst), mp_rect_h(dst));
     wl_subsurface_set_position(wl->video_subsurface, dst.x0, dst.y0);
