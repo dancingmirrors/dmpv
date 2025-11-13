@@ -29,6 +29,7 @@
 #include "options/options.h"
 #include "common/msg.h"
 #include "options/m_config.h"
+#include "osdep/compiler.h"
 #include "osdep/timer.h"
 #include "osdep/threads.h"
 
@@ -781,7 +782,7 @@ static void correct_audio_pts(struct priv *p, struct mp_aframe *aframe)
         if (dir < 0)
             frame_pts = -(frame_pts + frame_len);
 
-        if (p->pts != MP_NOPTS_VALUE)
+        if (unlikely(p->pts != MP_NOPTS_VALUE))
             MP_STATS(p, "value %f audio-pts-err", p->pts - frame_pts);
 
         double diff = fabs(p->pts - frame_pts);
