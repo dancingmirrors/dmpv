@@ -1386,9 +1386,12 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
             wl->geometry = wl->window_size;
         }
         // Acknowledge the configure but don't process further
-        struct libdecor_state *state = libdecor_state_new(width, height);
-        libdecor_frame_commit(frame, state, configuration);
-        libdecor_state_free(state);
+        // Skip commit if dimensions are zero to avoid libdecor crash
+        if (width > 0 && height > 0) {
+            struct libdecor_state *state = libdecor_state_new(width, height);
+            libdecor_frame_commit(frame, state, configuration);
+            libdecor_state_free(state);
+        }
         return;
     }
 
