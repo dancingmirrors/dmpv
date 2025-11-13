@@ -993,6 +993,11 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
         }
     }
 
+    if (!wl->current_output) {
+        MP_WARN(wl, "Surface entered unknown output\n");
+        return;
+    }
+
     wl->current_output->has_surface = true;
     bool force_resize = false;
 
