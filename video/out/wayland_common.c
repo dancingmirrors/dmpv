@@ -983,20 +983,22 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
 
     struct mp_rect old_output_geometry = wl->current_output->geometry;
     struct mp_rect old_geometry = wl->geometry;
-    wl->current_output = NULL;
 
     struct vo_wayland_output *o;
+    struct vo_wayland_output *new_output = NULL;
     wl_list_for_each(o, &wl->output_list, link) {
         if (o->output == output) {
-            wl->current_output = o;
+            new_output = o;
             break;
         }
     }
 
-    if (!wl->current_output) {
-        MP_WARN(wl, "Surface entered unknown output\n");
+    if (!new_output) {
+        MP_VERBOSE(wl, "Surface entered output that is not in the output list\n");
         return;
     }
+
+    wl->current_output = new_output;
 
     wl->current_output->has_surface = true;
     bool force_resize = false;
@@ -1016,7 +1018,7 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
         prepare_resize(wl, 0, 0);
 
     MP_VERBOSE(wl, "Surface entered output %s %s (0x%x), scale = %f, refresh rate = %f Hz\n",
-               o->make, o->model, o->id, wl->scaling, o->refresh_rate);
+               new_output->make, new_output->model, new_output->id, wl->scaling, new_output->refresh_rate);
 
     wl->pending_vo_events |= VO_EVENT_WIN_STATE;
 }
