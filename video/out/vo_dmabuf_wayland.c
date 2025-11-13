@@ -527,15 +527,15 @@ static void resize(struct vo *vo)
 
     create_shm_pool(vo);
 
-    // top level viewport is always the full window size
+    // Set top-level viewport to window geometry size
     wp_viewport_set_destination(wl->viewport, width, height);
 
-    // Calculate video viewport with actual pan values
+    // Calculate video display rectangle for subsurface positioning  
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
     wp_viewport_set_destination(wl->video_viewport, mp_rect_w(dst), mp_rect_h(dst));
     wl_subsurface_set_position(wl->video_subsurface, dst.x0, dst.y0);
     wp_viewport_set_destination(wl->osd_viewport, vo->dwidth, vo->dheight);
-    wl_subsurface_set_position(wl->osd_subsurface, 0 - dst.x0, 0 - dst.y0);
+    wl_subsurface_set_position(wl->osd_subsurface, 0, 0);
     set_viewport_source(vo, src);
 
     vo->want_redraw = true;
