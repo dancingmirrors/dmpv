@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <linux/input-event-codes.h>
 #include <poll.h>
+#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-cursor.h>
@@ -42,6 +43,10 @@
 #if HAVE_LCMS2
 #include <lcms2.h>
 #include "gpu/lcms.h"
+#endif
+
+#if HAVE_LIBDECOR
+#include <libdecor.h>
 #endif
 
 // Generated from wayland-protocols
@@ -988,6 +993,11 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
         }
     }
 
+    if (!wl->current_output) {
+        MP_WARN(wl, "Surface entered unknown output\n");
+        return;
+    }
+
     wl->current_output->has_surface = true;
     bool force_resize = false;
 
@@ -1323,6 +1333,170 @@ static void configure_decorations(void *data,
 static const struct zxdg_toplevel_decoration_v1_listener decoration_listener = {
     configure_decorations,
 };
+
+#if HAVE_LIBDECOR
+static void libdecor_error(struct libdecor *context,
+                          enum libdecor_error error,
+                          const char *message)
+{
+    // Can't use MP_ERR here as context is opaque, just log to stderr
+    fprintf(stderr, "libdecor error (%d): %s\n", error, message ? message : "(null)");
+}
+
+static struct libdecor_interface libdecor_iface = {
+    .error = libdecor_error,
+};
+
+static void handle_libdecor_configure(struct libdecor_frame *frame,
+                                      struct libdecor_configuration *configuration,
+                                      void *user_data)
+{
+    struct vo_wayland_state *wl = user_data;
+    struct mp_vo_opts *vo_opts = wl->vo_opts;
+    struct mp_rect old_geometry = wl->geometry;
+    int width, height;
+    enum libdecor_window_state window_state;
+    bool is_maximized = false;
+    bool is_fullscreen = false;
+    bool is_suspended = false;
+
+    if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
+        width = wl->toplevel_width;
+        height = wl->toplevel_height;
+    }
+
+    if (width < 0 || height < 0) {
+        MP_WARN(wl, "Compositor sent negative width/height values. Treating them as zero.\n");
+        width = height = 0;
+    }
+
+    wl->toplevel_width = width;
+    wl->toplevel_height = height;
+
+    // Handle initial configure before wl->configured is set
+    if (!wl->configured) {
+        bool autofit_or_geometry = vo_opts->geometry.wh_valid || vo_opts->autofit.wh_valid ||
+                                   vo_opts->autofit_larger.wh_valid || vo_opts->autofit_smaller.wh_valid;
+        if (width && height && !autofit_or_geometry) {
+            wl->initial_size_hint = true;
+            wl->window_size = (struct mp_rect){0, 0, width, height};
+            wl->geometry = wl->window_size;
+        }
+        // Acknowledge the configure but don't process further
+        struct libdecor_state *state = libdecor_state_new(width, height);
+        libdecor_frame_commit(frame, state, configuration);
+        libdecor_state_free(state);
+        return;
+    }
+
+    if (libdecor_configuration_get_window_state(configuration, &window_state)) {
+        is_maximized = window_state & LIBDECOR_WINDOW_STATE_MAXIMIZED;
+        is_fullscreen = window_state & LIBDECOR_WINDOW_STATE_FULLSCREEN;
+        is_suspended = window_state & LIBDECOR_WINDOW_STATE_SUSPENDED;
+
+        if (vo_opts->window_maximized != is_maximized) {
+            wl->state_change = true;
+            vo_opts->window_maximized = is_maximized;
+            m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->window_maximized);
+        }
+
+        if (vo_opts->fullscreen != is_fullscreen) {
+            wl->state_change = true;
+            vo_opts->fullscreen = is_fullscreen;
+            m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->fullscreen);
+        }
+
+        if (window_state & LIBDECOR_WINDOW_STATE_ACTIVE) {
+            vo_opts->window_minimized = false;
+            m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->window_minimized);
+        }
+    }
+
+    wl->hidden = is_suspended;
+    wl->locked_size = is_fullscreen || is_maximized;
+
+    // Handle state changes (e.g., exiting fullscreen/maximized)
+    if (wl->state_change) {
+        if (!wl->locked_size) {
+            wl->geometry = wl->window_size;
+            wl->state_change = false;
+            struct libdecor_state *state = libdecor_state_new(
+                mp_rect_w(wl->geometry) / wl->scaling,
+                mp_rect_h(wl->geometry) / wl->scaling);
+            libdecor_frame_commit(frame, state, configuration);
+            libdecor_state_free(state);
+            wl->pending_vo_events |= VO_EVENT_RESIZE;
+            wl->toplevel_configured = true;
+            return;
+        }
+    }
+
+    // Reuse old size if either dimension is 0
+    if (width == 0 || height == 0) {
+        if (!wl->locked_size) {
+            wl->geometry = wl->window_size;
+        }
+        struct libdecor_state *state = libdecor_state_new(
+            mp_rect_w(wl->geometry) / wl->scaling,
+            mp_rect_h(wl->geometry) / wl->scaling);
+        libdecor_frame_commit(frame, state, configuration);
+        libdecor_state_free(state);
+        wl->pending_vo_events |= VO_EVENT_RESIZE;
+        wl->toplevel_configured = true;
+        return;
+    }
+
+    if (!wl->locked_size) {
+        wl->window_size.x0 = 0;
+        wl->window_size.y0 = 0;
+        wl->window_size.x1 = lround(width * wl->scaling);
+        wl->window_size.y1 = lround(height * wl->scaling);
+    }
+
+    wl->geometry.x0 = 0;
+    wl->geometry.y0 = 0;
+    wl->geometry.x1 = lround(width * wl->scaling);
+    wl->geometry.y1 = lround(height * wl->scaling);
+
+    struct libdecor_state *state = libdecor_state_new(width, height);
+    libdecor_frame_commit(frame, state, configuration);
+    libdecor_state_free(state);
+
+    if (!mp_rect_equals(&old_geometry, &wl->geometry)) {
+        MP_VERBOSE(wl, "Resizing due to libdecor from %dx%d to %dx%d\n",
+                   mp_rect_w(old_geometry), mp_rect_h(old_geometry),
+                   mp_rect_w(wl->geometry), mp_rect_h(wl->geometry));
+        wl->pending_vo_events |= VO_EVENT_RESIZE;
+    }
+
+    wl->toplevel_configured = true;
+}
+
+static void handle_libdecor_close(struct libdecor_frame *frame, void *user_data)
+{
+    struct vo_wayland_state *wl = user_data;
+    mp_input_put_key(wl->vo->input_ctx, MP_KEY_CLOSE_WIN);
+}
+
+static void handle_libdecor_commit(struct libdecor_frame *frame, void *user_data)
+{
+    struct vo_wayland_state *wl = user_data;
+    wl_surface_commit(wl->surface);
+}
+
+static void handle_libdecor_dismiss_popup(struct libdecor_frame *frame,
+                                          const char *seat_name,
+                                          void *user_data)
+{
+}
+
+static struct libdecor_frame_interface libdecor_frame_iface = {
+    .configure = handle_libdecor_configure,
+    .close = handle_libdecor_close,
+    .commit = handle_libdecor_commit,
+    .dismiss_popup = handle_libdecor_dismiss_popup,
+};
+#endif
 
 static void pres_set_clockid(void *data, struct wp_presentation *pres,
                              uint32_t clockid)
@@ -1735,6 +1909,33 @@ static int create_viewports(struct vo_wayland_state *wl)
 
 static int create_xdg_surface(struct vo_wayland_state *wl)
 {
+#if HAVE_LIBDECOR
+    // Prefer libdecor when available and borders are enabled
+    // libdecor provides client-side decorations and works on all compositors
+    if (wl->vo_opts->border) {
+        wl->libdecor_context = libdecor_new(wl->display, &libdecor_iface);
+        if (wl->libdecor_context) {
+            wl->libdecor_frame = libdecor_decorate(wl->libdecor_context,
+                                                  wl->surface,
+                                                  &libdecor_frame_iface,
+                                                  wl);
+            if (wl->libdecor_frame) {
+                libdecor_frame_set_app_id(wl->libdecor_frame, wl->vo_opts->appid);
+                libdecor_frame_set_title(wl->libdecor_frame, "dmpv");
+                libdecor_frame_map(wl->libdecor_frame);
+                MP_VERBOSE(wl, "Using libdecor for client-side decorations\n");
+                return 0;
+            } else {
+                libdecor_unref(wl->libdecor_context);
+                wl->libdecor_context = NULL;
+                MP_VERBOSE(wl, "Failed to create libdecor frame, falling back to xdg-shell\n");
+            }
+        } else {
+            MP_VERBOSE(wl, "Failed to create libdecor context, falling back to xdg-shell\n");
+        }
+    }
+#endif
+
     wl->xdg_surface = xdg_wm_base_get_xdg_surface(wl->wm_base, wl->surface);
     xdg_surface_add_listener(wl->xdg_surface, &xdg_surface_listener, wl);
 
@@ -1765,6 +1966,13 @@ static void add_feedback(struct vo_wayland_feedback_pool *fback_pool,
 
 static void do_minimize(struct vo_wayland_state *wl)
 {
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        if (wl->vo_opts->window_minimized)
+            libdecor_frame_set_minimized(wl->libdecor_frame);
+        return;
+    }
+#endif
     if (!wl->xdg_toplevel)
         return;
     if (wl->vo_opts->window_minimized)
@@ -1897,7 +2105,16 @@ static void prepare_resize(struct vo_wayland_state *wl, int width, int height)
         width = mp_rect_w(wl->geometry) / wl->scaling;
     if (!height)
         height = mp_rect_h(wl->geometry) / wl->scaling;
-    xdg_surface_set_window_geometry(wl->xdg_surface, 0, 0, width, height);
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        struct libdecor_state *state = libdecor_state_new(width, height);
+        libdecor_frame_commit(wl->libdecor_frame, state, NULL);
+        libdecor_state_free(state);
+    } else
+#endif
+    if (wl->xdg_surface) {
+        xdg_surface_set_window_geometry(wl->xdg_surface, 0, 0, width, height);
+    }
     wl->pending_vo_events |= VO_EVENT_RESIZE;
 }
 
@@ -2114,6 +2331,21 @@ static int spawn_cursor(struct vo_wayland_state *wl)
 
 static void toggle_fullscreen(struct vo_wayland_state *wl)
 {
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        wl->state_change = true;
+        bool specific_screen = wl->vo_opts->fsscreen_id >= 0 || wl->vo_opts->fsscreen_name;
+        if (wl->vo_opts->fullscreen && !specific_screen) {
+            libdecor_frame_set_fullscreen(wl->libdecor_frame, NULL);
+        } else if (wl->vo_opts->fullscreen && specific_screen) {
+            struct vo_wayland_output *output = find_output(wl);
+            libdecor_frame_set_fullscreen(wl->libdecor_frame, output->output);
+        } else {
+            libdecor_frame_unset_fullscreen(wl->libdecor_frame);
+        }
+        return;
+    }
+#endif
     if (!wl->xdg_toplevel)
         return;
     wl->state_change = true;
@@ -2130,6 +2362,17 @@ static void toggle_fullscreen(struct vo_wayland_state *wl)
 
 static void toggle_maximized(struct vo_wayland_state *wl)
 {
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        wl->state_change = true;
+        if (wl->vo_opts->window_maximized) {
+            libdecor_frame_set_maximized(wl->libdecor_frame);
+        } else {
+            libdecor_frame_unset_maximized(wl->libdecor_frame);
+        }
+        return;
+    }
+#endif
     if (!wl->xdg_toplevel)
         return;
     wl->state_change = true;
@@ -2142,6 +2385,12 @@ static void toggle_maximized(struct vo_wayland_state *wl)
 
 static void update_app_id(struct vo_wayland_state *wl)
 {
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        libdecor_frame_set_app_id(wl->libdecor_frame, wl->vo_opts->appid);
+        return;
+    }
+#endif
     if (!wl->xdg_toplevel)
         return;
     xdg_toplevel_set_app_id(wl->xdg_toplevel, wl->vo_opts->appid);
@@ -2149,6 +2398,15 @@ static void update_app_id(struct vo_wayland_state *wl)
 
 static int update_window_title(struct vo_wayland_state *wl, const char *title)
 {
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        void *tmp = talloc_new(NULL);
+        struct bstr b_title = bstr_sanitize_utf8_latin1(tmp, bstr0(title));
+        libdecor_frame_set_title(wl->libdecor_frame, bstrto0(tmp, b_title));
+        talloc_free(tmp);
+        return VO_TRUE;
+    }
+#endif
     if (!wl->xdg_toplevel)
         return VO_NOTAVAIL;
     /* The xdg-shell protocol requires that the title is UTF-8. */
@@ -2161,6 +2419,12 @@ static int update_window_title(struct vo_wayland_state *wl, const char *title)
 
 static void window_move(struct vo_wayland_state *wl, uint32_t serial)
 {
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        libdecor_frame_move(wl->libdecor_frame, wl->seat, serial);
+        return;
+    }
+#endif
     if (wl->xdg_toplevel)
         xdg_toplevel_move(wl->xdg_toplevel, wl->seat, serial);
 }
@@ -2197,6 +2461,11 @@ static void wayland_dispatch_events(struct vo_wayland_state *wl, int nfds, int t
         mp_flush_wakeup_pipe(wl->wakeup_pipe[0]);
 
     wl_display_dispatch_pending(wl->display);
+
+#if HAVE_LIBDECOR
+    if (wl->libdecor_context)
+        libdecor_dispatch(wl->libdecor_context, 0);
+#endif
 }
 
 /* Non-static */
@@ -2538,19 +2807,23 @@ bool vo_wayland_init(struct vo *vo)
                    wp_presentation_interface.name);
     }
 
-    if (wl->xdg_decoration_manager) {
+    // libdecor is already initialized in create_xdg_surface if needed
+    if (wl->xdg_decoration_manager && wl->xdg_toplevel) {
         wl->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(wl->xdg_decoration_manager, wl->xdg_toplevel);
         zxdg_toplevel_decoration_v1_add_listener(wl->xdg_toplevel_decoration, &decoration_listener, wl);
         request_decoration_mode(
             wl, wl->vo_opts->border ?
                 ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE :
                 ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
-    } else {
-        wl->vo_opts->border = false;
-        m_config_cache_write_opt(wl->vo_opts_cache,
-                                 &wl->vo_opts->border);
+    } else if (!wl->xdg_decoration_manager) {
         MP_VERBOSE(wl, "Compositor doesn't support the %s protocol!\n",
                    zxdg_decoration_manager_v1_interface.name);
+#if !HAVE_LIBDECOR
+        if (wl->vo_opts->border) {
+            wl->vo_opts->border = false;
+            m_config_cache_write_opt(wl->vo_opts_cache, &wl->vo_opts->border);
+        }
+#endif
     }
 
     if (!wl->idle_inhibit_manager) {
@@ -2785,6 +3058,14 @@ void vo_wayland_uninit(struct vo *vo)
 
     if (wl->xdg_decoration_manager)
         zxdg_decoration_manager_v1_destroy(wl->xdg_decoration_manager);
+
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame)
+        libdecor_frame_unref(wl->libdecor_frame);
+
+    if (wl->libdecor_context)
+        libdecor_unref(wl->libdecor_context);
+#endif
 
     if (wl->xdg_toplevel)
         xdg_toplevel_destroy(wl->xdg_toplevel);

@@ -130,6 +130,12 @@ struct vo_wayland_state {
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
     int requested_decoration;
 
+    /* libdecor */
+#if HAVE_LIBDECOR
+    struct libdecor *libdecor_context;
+    struct libdecor_frame *libdecor_frame;
+#endif
+
     /* xdg-shell */
     struct xdg_wm_base      *wm_base;
     struct xdg_surface      *xdg_surface;
