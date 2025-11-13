@@ -949,34 +949,44 @@ static int preinit(struct vo *vo)
     SDL_VERSION(&wm_info.version);
     if (SDL_GetWindowWMInfo(vc->window, &wm_info)) {
         vc->is_wayland = (wm_info.subsystem == SDL_SYSWM_WAYLAND);
+        
+        MP_VERBOSE(vo, "Detected window system: %s\n", 
+                   vc->is_wayland ? "Wayland" : 
+                   (wm_info.subsystem == SDL_SYSWM_X11 ? "X11" : "other"));
+        
 #if HAVE_LIBDECOR
-        if (vc->is_wayland && !vc->borderless) {
-            struct mp_vo_opts *opts = vc->opts_cache->opts;
-            // Only use libdecor if borders are enabled
-            if (opts->border) {
-                vc->wl_display = wm_info.info.wl.display;
-                vc->wl_surface = wm_info.info.wl.surface;
+        struct mp_vo_opts *opts = vc->opts_cache->opts;
+        // Use libdecor for client-side decorations on Wayland when borders are wanted
+        // Note: vo_sdl has borderless=true by default, user needs --sdl-borderless=no
+        if (vc->is_wayland && !vc->borderless && opts->border) {
+            MP_VERBOSE(vo, "Attempting to initialize libdecor (borderless=%d, border=%d)\n",
+                       vc->borderless, opts->border);
+            
+            vc->wl_display = wm_info.info.wl.display;
+            vc->wl_surface = wm_info.info.wl.surface;
 
-                vc->libdecor_context = libdecor_new(vc->wl_display, &libdecor_iface);
-                if (vc->libdecor_context) {
-                    vc->libdecor_frame = libdecor_decorate(vc->libdecor_context,
-                                                          vc->wl_surface,
-                                                          &libdecor_frame_iface,
-                                                          vo);
-                    if (vc->libdecor_frame) {
-                        libdecor_frame_set_app_id(vc->libdecor_frame, opts->appid);
-                        libdecor_frame_set_title(vc->libdecor_frame, "dmpv");
-                        libdecor_frame_map(vc->libdecor_frame);
-                        MP_VERBOSE(vo, "Using libdecor for client-side decorations\n");
-                    } else {
-                        libdecor_unref(vc->libdecor_context);
-                        vc->libdecor_context = NULL;
-                        MP_VERBOSE(vo, "Failed to create libdecor frame\n");
-                    }
+            vc->libdecor_context = libdecor_new(vc->wl_display, &libdecor_iface);
+            if (vc->libdecor_context) {
+                vc->libdecor_frame = libdecor_decorate(vc->libdecor_context,
+                                                      vc->wl_surface,
+                                                      &libdecor_frame_iface,
+                                                      vo);
+                if (vc->libdecor_frame) {
+                    libdecor_frame_set_app_id(vc->libdecor_frame, opts->appid);
+                    libdecor_frame_set_title(vc->libdecor_frame, "dmpv");
+                    libdecor_frame_map(vc->libdecor_frame);
+                    MP_VERBOSE(vo, "Using libdecor for client-side decorations\n");
                 } else {
-                    MP_VERBOSE(vo, "Failed to create libdecor context\n");
+                    libdecor_unref(vc->libdecor_context);
+                    vc->libdecor_context = NULL;
+                    MP_VERBOSE(vo, "Failed to create libdecor frame\n");
                 }
+            } else {
+                MP_VERBOSE(vo, "Failed to create libdecor context\n");
             }
+        } else if (vc->is_wayland) {
+            MP_VERBOSE(vo, "Not using libdecor (borderless=%d, border=%d)\n",
+                       vc->borderless, opts->border);
         }
 #endif
     }
