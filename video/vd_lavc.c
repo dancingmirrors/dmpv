@@ -588,12 +588,24 @@ static void select_and_set_hwdec(struct mp_filter *vd)
                     // Most likely METHOD_INTERNAL, which often use delay-loaded
                     // VO support as well.
                     if (ctx->hwdec_devs) {
+                        int imgfmt = pixfmt2imgfmt(hwdec->pix_fmt);
                         struct hwdec_imgfmt_request params = {
-                            .imgfmt = pixfmt2imgfmt(hwdec->pix_fmt),
+                            .imgfmt = imgfmt,
                             .probing = hwdec_auto,
                         };
                         hwdec_devices_request_for_img_fmt(
                             ctx->hwdec_devs, &params);
+                        
+                        // Verify that the interop was actually loaded successfully
+                        const struct mp_hwdec_ctx *hw_ctx =
+                            hwdec_devices_get_by_imgfmt_and_type(ctx->hwdec_devs, imgfmt,
+                                                                 hwdec->lavc_device);
+                        
+                        if (!hw_ctx || !hw_ctx->av_device_ref) {
+                            MP_VERBOSE(vd, "VO interop for %s failed to load.\n",
+                                       hwdec->method_name);
+                            continue;
+                        }
                     }
                 }
 
