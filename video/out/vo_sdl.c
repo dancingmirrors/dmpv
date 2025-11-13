@@ -29,6 +29,13 @@
 #include <assert.h>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
+
+#include "config.h"
+
+#if HAVE_LIBDECOR
+#include <libdecor.h>
+#endif
 
 #include "input/input.h"
 #include "input/keycodes.h"
@@ -191,6 +198,15 @@ struct priv {
     Uint32 wakeup_event;
     bool screensaver_enabled;
     struct m_config_cache *opts_cache;
+
+    // Wayland-specific
+    bool is_wayland;
+#if HAVE_LIBDECOR
+    struct wl_display *wl_display;
+    struct wl_surface *wl_surface;
+    struct libdecor *libdecor_context;
+    struct libdecor_frame *libdecor_frame;
+#endif
 
     // options
     bool allow_sw;
@@ -641,12 +657,27 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
         }
         }
     }
+
+#if HAVE_LIBDECOR
+    // Dispatch libdecor events if we're using it
+    if (vc->libdecor_context) {
+        libdecor_dispatch(vc->libdecor_context, 0);
+    }
+#endif
 }
 
 static void uninit(struct vo *vo)
 {
     struct priv *vc = vo->priv;
     destroy_renderer(vo);
+    
+#if HAVE_LIBDECOR
+    if (vc->libdecor_frame)
+        libdecor_frame_unref(vc->libdecor_frame);
+    if (vc->libdecor_context)
+        libdecor_unref(vc->libdecor_context);
+#endif
+
     SDL_DestroyWindow(vc->window);
     vc->window = NULL;
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -814,6 +845,69 @@ static void draw_osd(struct vo *vo)
     osd_draw(vo->osd, vc->osd_res, vc->osd_pts, 0, osdformats, draw_osd_cb, vo);
 }
 
+#if HAVE_LIBDECOR
+static void libdecor_error(struct libdecor *context,
+                          enum libdecor_error error,
+                          const char *message)
+{
+    fprintf(stderr, "libdecor error (%d): %s\n", error, message ? message : "(null)");
+}
+
+static struct libdecor_interface libdecor_iface = {
+    .error = libdecor_error,
+};
+
+static void handle_libdecor_configure(struct libdecor_frame *frame,
+                                      struct libdecor_configuration *configuration,
+                                      void *user_data)
+{
+    struct vo *vo = user_data;
+    struct priv *vc = vo->priv;
+    int width, height;
+
+    // Get the configured size
+    if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
+        // No size specified, keep current size
+        SDL_GetWindowSize(vc->window, &width, &height);
+    }
+
+    if (width > 0 && height > 0) {
+        // Update SDL window size
+        SDL_SetWindowSize(vc->window, width, height);
+        check_resize(vo);
+    }
+
+    // Commit the configuration
+    struct libdecor_state *state = libdecor_state_new(width, height);
+    libdecor_frame_commit(frame, state, configuration);
+    libdecor_state_free(state);
+}
+
+static void handle_libdecor_close(struct libdecor_frame *frame, void *user_data)
+{
+    struct vo *vo = user_data;
+    mp_input_put_key(vo->input_ctx, MP_KEY_CLOSE_WIN);
+}
+
+static void handle_libdecor_commit(struct libdecor_frame *frame, void *user_data)
+{
+    // SDL handles the surface commit internally
+}
+
+static void handle_libdecor_dismiss_popup(struct libdecor_frame *frame,
+                                          const char *seat_name,
+                                          void *user_data)
+{
+}
+
+static struct libdecor_frame_interface libdecor_frame_iface = {
+    .configure = handle_libdecor_configure,
+    .close = handle_libdecor_close,
+    .commit = handle_libdecor_commit,
+    .dismiss_popup = handle_libdecor_dismiss_popup,
+};
+#endif
+
 static int preinit(struct vo *vo)
 {
     struct priv *vc = vo->priv;
@@ -852,6 +946,43 @@ static int preinit(struct vo *vo)
 
     if (vc->borderless) {
         SDL_SetWindowBordered(vc->window, SDL_FALSE);
+    }
+
+    // Check if we're running on Wayland and initialize libdecor
+    SDL_SysWMinfo wm_info;
+    SDL_VERSION(&wm_info.version);
+    if (SDL_GetWindowWMInfo(vc->window, &wm_info)) {
+        vc->is_wayland = (wm_info.subsystem == SDL_SYSWM_WAYLAND);
+#if HAVE_LIBDECOR
+        if (vc->is_wayland && !vc->borderless) {
+            struct mp_vo_opts *opts = vc->opts_cache->opts;
+            // Only use libdecor if borders are enabled
+            if (opts->border) {
+                vc->wl_display = wm_info.info.wl.display;
+                vc->wl_surface = wm_info.info.wl.surface;
+
+                vc->libdecor_context = libdecor_new(vc->wl_display, &libdecor_iface);
+                if (vc->libdecor_context) {
+                    vc->libdecor_frame = libdecor_decorate(vc->libdecor_context,
+                                                          vc->wl_surface,
+                                                          &libdecor_frame_iface,
+                                                          vo);
+                    if (vc->libdecor_frame) {
+                        libdecor_frame_set_app_id(vc->libdecor_frame, opts->appid);
+                        libdecor_frame_set_title(vc->libdecor_frame, "dmpv");
+                        libdecor_frame_map(vc->libdecor_frame);
+                        MP_VERBOSE(vo, "Using libdecor for client-side decorations\n");
+                    } else {
+                        libdecor_unref(vc->libdecor_context);
+                        vc->libdecor_context = NULL;
+                        MP_VERBOSE(vo, "Failed to create libdecor frame\n");
+                    }
+                } else {
+                    MP_VERBOSE(vo, "Failed to create libdecor context\n");
+                }
+            }
+        }
+#endif
     }
 
     // try creating a renderer (this also gets the renderer_info data
@@ -985,6 +1116,10 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     case VOCTRL_UPDATE_WINDOW_TITLE:
         SDL_SetWindowTitle(vc->window, (char *)data);
+#if HAVE_LIBDECOR
+        if (vc->libdecor_frame)
+            libdecor_frame_set_title(vc->libdecor_frame, (char *)data);
+#endif
         return true;
     case VOCTRL_GET_FOCUSED:
         *(bool *)data = SDL_GetWindowFlags(vc->window) & SDL_WINDOW_INPUT_FOCUS;
