@@ -1340,9 +1340,9 @@ static struct libdecor_interface libdecor_iface = {
     .error = libdecor_error,
 };
 
-static void libdecor_frame_configure(struct libdecor_frame *frame,
-                                    struct libdecor_configuration *configuration,
-                                    void *user_data)
+static void handle_libdecor_configure(struct libdecor_frame *frame,
+                                      struct libdecor_configuration *configuration,
+                                      void *user_data)
 {
     struct vo_wayland_state *wl = user_data;
     int width, height;
@@ -1378,29 +1378,29 @@ static void libdecor_frame_configure(struct libdecor_frame *frame,
     wl->toplevel_configured = true;
 }
 
-static void libdecor_frame_close(struct libdecor_frame *frame, void *user_data)
+static void handle_libdecor_close(struct libdecor_frame *frame, void *user_data)
 {
     struct vo_wayland_state *wl = user_data;
     mp_input_put_key(wl->vo->input_ctx, MP_KEY_CLOSE_WIN);
 }
 
-static void libdecor_frame_commit(struct libdecor_frame *frame, void *user_data)
+static void handle_libdecor_commit(struct libdecor_frame *frame, void *user_data)
 {
     struct vo_wayland_state *wl = user_data;
     wl_surface_commit(wl->surface);
 }
 
-static void libdecor_frame_dismiss_popup(struct libdecor_frame *frame,
-                                        const char *seat_name,
-                                        void *user_data)
+static void handle_libdecor_dismiss_popup(struct libdecor_frame *frame,
+                                          const char *seat_name,
+                                          void *user_data)
 {
 }
 
 static struct libdecor_frame_interface libdecor_frame_iface = {
-    .configure = libdecor_frame_configure,
-    .close = libdecor_frame_close,
-    .commit = libdecor_frame_commit,
-    .dismiss_popup = libdecor_frame_dismiss_popup,
+    .configure = handle_libdecor_configure,
+    .close = handle_libdecor_close,
+    .commit = handle_libdecor_commit,
+    .dismiss_popup = handle_libdecor_dismiss_popup,
 };
 #endif
 
