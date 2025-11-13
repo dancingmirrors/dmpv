@@ -47,6 +47,8 @@
 #include "win_state.h"
 #include "vo.h"
 
+#undef HAVE_LIBDECOR
+
 struct formatmap_entry {
     Uint32 sdl;
     unsigned int dmpv;
