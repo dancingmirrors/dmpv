@@ -531,7 +531,7 @@ static void resize(struct vo *vo)
     vo->opts->pan_x = 0;
     vo->opts->pan_y = 0;
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
-    wp_viewport_set_destination(wl->viewport, mp_rect_w(dst), mp_rect_h(dst));
+    wp_viewport_set_destination(wl->viewport, width, height);
 
     //now we restore pan for video viewport calculation
     vo->opts->pan_x = vo_opts->pan_x;
