@@ -422,6 +422,20 @@ static void set_fullscreen(struct vo *vo)
     int fs = opts->fullscreen;
     SDL_bool prev_screensaver_state = SDL_IsScreenSaverEnabled();
 
+#if HAVE_LIBDECOR
+    // When libdecor is active, use its API for fullscreen management
+    if (vc->libdecor_frame) {
+        MP_VERBOSE(vo, "Setting fullscreen via libdecor: %d\n", fs);
+        if (fs) {
+            libdecor_frame_set_fullscreen(vc->libdecor_frame, NULL);
+        } else {
+            libdecor_frame_unset_fullscreen(vc->libdecor_frame);
+        }
+        set_screensaver(prev_screensaver_state);
+        return;
+    }
+#endif
+
     Uint32 fs_flag;
     if (vc->switch_mode)
         fs_flag = SDL_WINDOW_FULLSCREEN;
@@ -865,6 +879,8 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
     struct vo *vo = user_data;
     struct priv *vc = vo->priv;
     int width, height;
+    enum libdecor_window_state window_state;
+    bool is_fullscreen = false;
 
     // Get the configured size
     if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
@@ -872,8 +888,27 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
         SDL_GetWindowSize(vc->window, &width, &height);
     }
 
-    // Commit the configuration to acknowledge it
-    // SDL will handle the actual window resize through its own event system
+    // Check window state (fullscreen, maximized, etc.)
+    if (libdecor_configuration_get_window_state(configuration, &window_state)) {
+        is_fullscreen = window_state & LIBDECOR_WINDOW_STATE_FULLSCREEN;
+        
+        MP_VERBOSE(vo, "libdecor configure: size=%dx%d, fullscreen=%d\n",
+                   width, height, is_fullscreen);
+        
+        // Update the fullscreen state in opts if it changed
+        struct mp_vo_opts *opts = vc->opts_cache->opts;
+        if (opts->fullscreen != is_fullscreen) {
+            opts->fullscreen = is_fullscreen;
+            m_config_cache_write_opt(vc->opts_cache, &opts->fullscreen);
+        }
+    }
+
+    // Update SDL window size if specified
+    if (width > 0 && height > 0) {
+        SDL_SetWindowSize(vc->window, width, height);
+    }
+
+    // Commit the configuration
     struct libdecor_state *state = libdecor_state_new(width, height);
     libdecor_frame_commit(frame, state, configuration);
     libdecor_state_free(state);
