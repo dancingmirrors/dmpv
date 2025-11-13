@@ -152,9 +152,27 @@ check("-usan",
       desc      = "undefined sanitizer",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
 
+def check_git():
+    # First check if git command exists
+    if not check_program("GIT"):
+        return False
+    # Then verify it supports 'git describe' (some git wrappers on iOS don't)
+    # We test this by running 'git describe --help' which should succeed
+    # for real git but may fail for git wrappers
+    import subprocess
+    try:
+        result = subprocess.run([get_program("GIT"), "describe", "--help"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              timeout=5)
+        if result.returncode != 0:
+            return False
+        return True
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
+
 check("git*",
-      required  = "git: missing or not in PATH",
-      fn        = lambda: check_program("GIT"))
+      required  = "git: missing, not in PATH, or doesn't support 'git describe'",
+      fn        = check_git)
 
 check("ninja*",
       required  = "ninja: missing or not in PATH.",
