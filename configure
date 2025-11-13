@@ -10,6 +10,52 @@ begin()
 def chain(*a):
     return a[-1]
 
+# ============================================================================
+# Understanding check() name patterns:
+# ============================================================================
+# The first argument to check() determines its behavior:
+#
+#   check("name")
+#     - Internal dependency identifier only
+#     - No command-line options generated
+#     - Used by other checks via deps/deps_any/deps_neg
+#     - Result not emitted to config.h
+#
+#   check("-name")
+#     - Optional feature controllable via command line
+#     - Generates: --enable-name, --disable-name, --with-name=yes/no/auto
+#     - Used for optional features that should be auto-detected
+#     - Result not emitted to config.h
+#
+#   check("name*")
+#     - Internal dependency identifier
+#     - No command-line options generated
+#     - Result emitted to config.h as HAVE_NAME (0 or 1)
+#     - Used for platform-specific features that code needs to check
+#
+#   check("-name*")
+#     - Optional feature controllable via command line
+#     - Generates: --enable-name, --disable-name, --with-name=yes/no/auto
+#     - Result emitted to config.h as HAVE_NAME (0 or 1)
+#     - Used for optional features that need both CLI control and C code checks
+#
+# Additional parameters:
+#   required="message"
+#     - Makes the check mandatory (configure fails if check fails)
+#     - Should NOT be combined with "-" prefix (contradictory)
+#     - Use for dependencies that are truly required to build
+#
+#   default=False
+#     - Disables the feature by default (can be enabled with --enable-name)
+#     - Only makes sense with "-" prefix
+#
+# Examples of correct usage:
+#   - Required dependency: check("name", required="...", fn=...)
+#   - Optional feature: check("-name", fn=...)
+#   - Optional with config.h: check("-name*", fn=...)
+#   - Platform check: check("name*", fn=...)
+# ============================================================================
+
 check("-lgpl",
       desc      = "LGPL (version 2.1 or later) build",
       default   = False)
@@ -106,11 +152,11 @@ check("-usan",
       desc      = "undefined sanitizer",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
 
-check("-git*",
+check("git*",
       required  = "git: missing or not in PATH",
       fn        = lambda: check_program("GIT"))
 
-check("-ninja*",
+check("ninja*",
       required  = "ninja: missing or not in PATH.",
       fn        = lambda: check_program("NINJA"))
 
@@ -190,7 +236,7 @@ check("-lua*",
                           check_pkg_config("lua >= 5.1.0"),
       sources   = "player/lua.c")
 
-check("-libass*",
+check("libass*",
       desc      = "libass subtitle/OSD renderer",
       fn        = lambda: check_pkg_config("libass >= 0.17.0"),
       required  = "libass >= 0.17.0: missing, broken, or too old",
