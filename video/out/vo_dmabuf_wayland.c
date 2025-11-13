@@ -513,7 +513,6 @@ static void resize(struct vo *vo)
 
     struct mp_rect src;
     struct mp_rect dst;
-    struct mp_vo_opts *vo_opts = wl->vo_opts;
 
     const int width = mp_rect_w(wl->geometry);
     const int height = mp_rect_h(wl->geometry);
@@ -527,15 +526,25 @@ static void resize(struct vo *vo)
 
     create_shm_pool(vo);
 
-    // Set top-level viewport to window geometry size
-    wp_viewport_set_destination(wl->viewport, width, height);
+    // Set top-level viewport destination
+    // When libdecor is active, it manages scaling, so use unscaled dimensions
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        wp_viewport_set_destination(wl->viewport,
+                                    lround(width / wl->scaling),
+                                    lround(height / wl->scaling));
+    } else
+#endif
+    {
+        wp_viewport_set_destination(wl->viewport, width, height);
+    }
 
-    // Calculate video display rectangle for subsurface positioning  
+    // Calculate video display rectangle for subsurface positioning
     vo_get_src_dst_rects(vo, &src, &dst, &p->screen_osd_res);
     wp_viewport_set_destination(wl->video_viewport, mp_rect_w(dst), mp_rect_h(dst));
     wl_subsurface_set_position(wl->video_subsurface, dst.x0, dst.y0);
     wp_viewport_set_destination(wl->osd_viewport, vo->dwidth, vo->dheight);
-    wl_subsurface_set_position(wl->osd_subsurface, 0, 0);
+    wl_subsurface_set_position(wl->osd_subsurface, 0 - dst.x0, 0 - dst.y0);
     set_viewport_source(vo, src);
 
     vo->want_redraw = true;
