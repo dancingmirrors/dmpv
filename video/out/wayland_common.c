@@ -394,6 +394,7 @@ static void rescale_geometry(struct vo_wayland_state *wl, double old_scale);
 static void set_geometry(struct vo_wayland_state *wl, bool resize);
 static void set_surface_scaling(struct vo_wayland_state *wl);
 static void window_move(struct vo_wayland_state *wl, uint32_t serial);
+static void window_resize(struct vo_wayland_state *wl, uint32_t serial, uint32_t edges);
 
 /* Wayland listener boilerplate */
 static void pointer_handle_enter(void *data, struct wl_pointer *pointer,
@@ -478,7 +479,7 @@ static void pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
         uint32_t edges;
         // Implement an edge resize zone if there are no decorations
         if (!wl->vo_opts->border && check_for_resize(wl, wl->opts->edge_pixels_pointer, &edges)) {
-            xdg_toplevel_resize(wl->xdg_toplevel, wl->seat, serial, edges);
+            window_resize(wl, serial, edges);
         } else {
             window_move(wl, serial);
         }
@@ -528,9 +529,9 @@ static void touch_handle_down(void *data, struct wl_touch *wl_touch,
     enum xdg_toplevel_resize_edge edge;
     if (!mp_input_test_dragging(wl->vo->input_ctx, wl->mouse_x, wl->mouse_y)) {
         if (check_for_resize(wl, wl->opts->edge_pixels_touch, &edge)) {
-            xdg_toplevel_resize(wl->xdg_toplevel, wl->seat, serial, edge);
+            window_resize(wl, serial, edge);
         } else  {
-            xdg_toplevel_move(wl->xdg_toplevel, wl->seat, serial);
+            window_move(wl, serial);
         }
     }
 
@@ -983,20 +984,22 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
 
     struct mp_rect old_output_geometry = wl->current_output->geometry;
     struct mp_rect old_geometry = wl->geometry;
-    wl->current_output = NULL;
 
     struct vo_wayland_output *o;
+    struct vo_wayland_output *new_output = NULL;
     wl_list_for_each(o, &wl->output_list, link) {
         if (o->output == output) {
-            wl->current_output = o;
+            new_output = o;
             break;
         }
     }
 
-    if (!wl->current_output) {
-        MP_WARN(wl, "Surface entered unknown output\n");
+    if (!new_output) {
+        MP_VERBOSE(wl, "Surface entered output that is not in the output list\n");
         return;
     }
+
+    wl->current_output = new_output;
 
     wl->current_output->has_surface = true;
     bool force_resize = false;
@@ -1016,7 +1019,7 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
         prepare_resize(wl, 0, 0);
 
     MP_VERBOSE(wl, "Surface entered output %s %s (0x%x), scale = %f, refresh rate = %f Hz\n",
-               o->make, o->model, o->id, wl->scaling, o->refresh_rate);
+               new_output->make, new_output->model, new_output->id, wl->scaling, new_output->refresh_rate);
 
     wl->pending_vo_events |= VO_EVENT_WIN_STATE;
 }
@@ -2261,7 +2264,19 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
 
 static void set_surface_scaling(struct vo_wayland_state *wl)
 {
-    if (wl->fractional_scale_manager || wl_surface_get_version(wl->surface) >= 6)
+    // When fractional scale is available, compositor handles scaling
+    if (wl->fractional_scale_manager)
+        return;
+
+#if HAVE_LIBDECOR
+    // When libdecor is active, it manages the surface and we can't safely
+    // call wl_surface_get_version on it. Libdecor also handles scaling.
+    if (wl->libdecor_frame)
+        return;
+#endif
+
+    // For wl_surface version >= 6, preferred_buffer_scale event handles scaling
+    if (wl_surface_get_version(wl->surface) >= 6)
         return;
 
     double old_scale = wl->scaling;
@@ -2427,6 +2442,18 @@ static void window_move(struct vo_wayland_state *wl, uint32_t serial)
 #endif
     if (wl->xdg_toplevel)
         xdg_toplevel_move(wl->xdg_toplevel, wl->seat, serial);
+}
+
+static void window_resize(struct vo_wayland_state *wl, uint32_t serial, uint32_t edges)
+{
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        libdecor_frame_resize(wl->libdecor_frame, wl->seat, serial, edges);
+        return;
+    }
+#endif
+    if (wl->xdg_toplevel)
+        xdg_toplevel_resize(wl->xdg_toplevel, wl->seat, serial, edges);
 }
 
 static void wayland_dispatch_events(struct vo_wayland_state *wl, int nfds, int timeout)
@@ -3149,7 +3176,7 @@ void vo_wayland_wait_frame(struct vo_wayland_state *wl)
         wl_display_roundtrip(wl->display);
 
     /* Only use this heuristic if the compositor doesn't support the suspended state. */
-    if (wl->frame_wait && xdg_toplevel_get_version(wl->xdg_toplevel) < 6) {
+    if (wl->frame_wait && wl->xdg_toplevel && xdg_toplevel_get_version(wl->xdg_toplevel) < 6) {
         // Only consider consecutive missed callbacks.
         if (wl->timeout_count > 1) {
             wl->hidden = true;
