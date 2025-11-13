@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <linux/input-event-codes.h>
 #include <poll.h>
+#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-cursor.h>
@@ -1333,7 +1334,8 @@ static void libdecor_error(struct libdecor *context,
                           enum libdecor_error error,
                           const char *message)
 {
-    MP_ERR(context, "libdecor error (%d): %s\n", error, message ? message : "(null)");
+    // Can't use MP_ERR here as context is opaque, just log to stderr
+    fprintf(stderr, "libdecor error (%d): %s\n", error, message ? message : "(null)");
 }
 
 static struct libdecor_interface libdecor_iface = {
@@ -1345,36 +1347,107 @@ static void handle_libdecor_configure(struct libdecor_frame *frame,
                                       void *user_data)
 {
     struct vo_wayland_state *wl = user_data;
+    struct mp_vo_opts *vo_opts = wl->vo_opts;
+    struct mp_rect old_geometry = wl->geometry;
     int width, height;
     enum libdecor_window_state window_state;
-    struct mp_vo_opts *vo_opts = wl->vo_opts;
+    bool is_maximized = false;
+    bool is_fullscreen = false;
+    bool is_suspended = false;
 
     if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
-        width = wl->window_size.x1;
-        height = wl->window_size.y1;
+        width = wl->toplevel_width;
+        height = wl->toplevel_height;
+    }
+
+    if (width < 0 || height < 0) {
+        MP_WARN(wl, "Compositor sent negative width/height values. Treating them as zero.\n");
+        width = height = 0;
+    }
+
+    wl->toplevel_width = width;
+    wl->toplevel_height = height;
+
+    // Handle initial configure before wl->configured is set
+    if (!wl->configured) {
+        bool autofit_or_geometry = vo_opts->geometry.wh_valid || vo_opts->autofit.wh_valid ||
+                                   vo_opts->autofit_larger.wh_valid || vo_opts->autofit_smaller.wh_valid;
+        if (width && height && !autofit_or_geometry) {
+            wl->initial_size_hint = true;
+            wl->window_size = (struct mp_rect){0, 0, width, height};
+            wl->geometry = wl->window_size;
+        }
+        // Acknowledge the configure but don't process further
+        struct libdecor_state *state = libdecor_state_new(width, height);
+        libdecor_frame_commit(frame, state, configuration);
+        libdecor_state_free(state);
+        return;
     }
 
     if (libdecor_configuration_get_window_state(configuration, &window_state)) {
-        vo_opts->window_maximized = window_state & LIBDECOR_WINDOW_STATE_MAXIMIZED;
-        vo_opts->window_minimized = window_state & LIBDECOR_WINDOW_STATE_SUSPENDED;
-        m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->window_maximized);
-        m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->window_minimized);
+        is_maximized = window_state & LIBDECOR_WINDOW_STATE_MAXIMIZED;
+        is_fullscreen = window_state & LIBDECOR_WINDOW_STATE_FULLSCREEN;
+        is_suspended = window_state & LIBDECOR_WINDOW_STATE_SUSPENDED;
+
+        if (vo_opts->window_maximized != is_maximized) {
+            wl->state_change = true;
+            vo_opts->window_maximized = is_maximized;
+            m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->window_maximized);
+        }
+
+        if (vo_opts->fullscreen != is_fullscreen) {
+            wl->state_change = true;
+            vo_opts->fullscreen = is_fullscreen;
+            m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->fullscreen);
+        }
+
+        if (window_state & LIBDECOR_WINDOW_STATE_ACTIVE) {
+            vo_opts->window_minimized = false;
+            m_config_cache_write_opt(wl->vo_opts_cache, &vo_opts->window_minimized);
+        }
     }
+
+    wl->hidden = is_suspended;
+    wl->locked_size = is_fullscreen || is_maximized;
+
+    // Reuse old size if either dimension is 0
+    if (width == 0 || height == 0) {
+        if (!wl->locked_size) {
+            wl->geometry = wl->window_size;
+        }
+        struct libdecor_state *state = libdecor_state_new(
+            mp_rect_w(wl->geometry) / wl->scaling,
+            mp_rect_h(wl->geometry) / wl->scaling);
+        libdecor_frame_commit(frame, state, configuration);
+        libdecor_state_free(state);
+        wl->pending_vo_events |= VO_EVENT_RESIZE;
+        wl->toplevel_configured = true;
+        return;
+    }
+
+    if (!wl->locked_size) {
+        wl->window_size.x0 = 0;
+        wl->window_size.y0 = 0;
+        wl->window_size.x1 = lround(width * wl->scaling);
+        wl->window_size.y1 = lround(height * wl->scaling);
+    }
+
+    wl->geometry.x0 = 0;
+    wl->geometry.y0 = 0;
+    wl->geometry.x1 = lround(width * wl->scaling);
+    wl->geometry.y1 = lround(height * wl->scaling);
 
     struct libdecor_state *state = libdecor_state_new(width, height);
     libdecor_frame_commit(frame, state, configuration);
     libdecor_state_free(state);
 
-    wl->window_size.x0 = 0;
-    wl->window_size.y0 = 0;
-    wl->window_size.x1 = width;
-    wl->window_size.y1 = height;
-    wl->geometry.x0 = 0;
-    wl->geometry.y0 = 0;
-    wl->geometry.x1 = width;
-    wl->geometry.y1 = height;
+    if (!mp_rect_equals(&old_geometry, &wl->geometry)) {
+        MP_VERBOSE(wl, "Resizing due to libdecor from %dx%d to %dx%d\n",
+                   mp_rect_w(old_geometry), mp_rect_h(old_geometry),
+                   mp_rect_w(wl->geometry), mp_rect_h(wl->geometry));
+        wl->pending_vo_events |= VO_EVENT_RESIZE;
+    }
 
-    wl->pending_vo_events |= VO_EVENT_RESIZE;
     wl->toplevel_configured = true;
 }
 
@@ -2011,7 +2084,16 @@ static void prepare_resize(struct vo_wayland_state *wl, int width, int height)
         width = mp_rect_w(wl->geometry) / wl->scaling;
     if (!height)
         height = mp_rect_h(wl->geometry) / wl->scaling;
-    xdg_surface_set_window_geometry(wl->xdg_surface, 0, 0, width, height);
+#if HAVE_LIBDECOR
+    if (wl->libdecor_frame) {
+        struct libdecor_state *state = libdecor_state_new(width, height);
+        libdecor_frame_commit(wl->libdecor_frame, state, NULL);
+        libdecor_state_free(state);
+    } else
+#endif
+    if (wl->xdg_surface) {
+        xdg_surface_set_window_geometry(wl->xdg_surface, 0, 0, width, height);
+    }
     wl->pending_vo_events |= VO_EVENT_RESIZE;
 }
 
