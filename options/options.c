@@ -788,7 +788,7 @@ static const struct MPOpts mp_default_opts = {
     .osd_level = 1,
     .osd_on_seek = 1,
     .osd_duration = 1000,
-    .osd_preload = false,
+    .osd_preload = true,
 #if HAVE_LUA
     .lua_load_stats = true,
     .lua_load_360_sbs = false,
