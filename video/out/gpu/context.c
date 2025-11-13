@@ -128,6 +128,25 @@ struct ra_ctx *ra_ctx_create(struct vo *vo, struct ra_ctx_opts opts)
     bool api_auto = !opts.context_type || strcmp(opts.context_type, "auto") == 0;
     bool ctx_auto = !opts.context_name || strcmp(opts.context_name, "auto") == 0;
 
+    // Check for contradictory options
+    if (!ctx_auto && !api_auto) {
+        // User specified both context name and API type, verify they're compatible
+        bool found_compatible = false;
+        for (int i = 0; i < MP_ARRAY_SIZE(contexts); i++) {
+            if (!contexts[i]->hidden &&
+                strcmp(contexts[i]->name, opts.context_name) == 0 &&
+                strcmp(contexts[i]->type, opts.context_type) == 0) {
+                found_compatible = true;
+                break;
+            }
+        }
+        if (!found_compatible) {
+            MP_ERR(vo, "Incompatible GPU options: --gpu-context=%s does not support --gpu-api=%s\n",
+                   opts.context_name, opts.context_type);
+            return NULL;
+        }
+    }
+
     if (ctx_auto) {
         MP_VERBOSE(vo, "Probing for best GPU context.\n");
         opts.probing = true;
