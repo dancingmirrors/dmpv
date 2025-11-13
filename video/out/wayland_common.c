@@ -2263,7 +2263,19 @@ static int set_screensaver_inhibitor(struct vo_wayland_state *wl, int state)
 
 static void set_surface_scaling(struct vo_wayland_state *wl)
 {
-    if (wl->fractional_scale_manager || wl_surface_get_version(wl->surface) >= 6)
+    // When fractional scale is available, compositor handles scaling
+    if (wl->fractional_scale_manager)
+        return;
+
+#if HAVE_LIBDECOR
+    // When libdecor is active, it manages the surface and we can't safely
+    // call wl_surface_get_version on it. Libdecor also handles scaling.
+    if (wl->libdecor_frame)
+        return;
+#endif
+
+    // For wl_surface version >= 6, preferred_buffer_scale event handles scaling
+    if (wl_surface_get_version(wl->surface) >= 6)
         return;
 
     double old_scale = wl->scaling;
