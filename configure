@@ -413,7 +413,7 @@ check("-hwdec-vulkan*",
       sources   = "video/out/hwdec/hwdec_vulkan.c")
 
 check("-egl*",
-      desc      = "EGL 1.4",
+      desc      = "EGL",
       fn        = lambda: check_pkg_config("egl") or
                           (check_cc(link = "-lEGL") and
                            check_cc(link = "-lGLESv2")))
