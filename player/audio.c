@@ -79,20 +79,6 @@ static void update_speed_filters(struct MPContext *mpctx)
     mp_output_chain_set_audio_speed(ao_c->filter, speed, resample, drop);
 }
 
-static bool has_video_track(struct MPContext *mpctx)
-{
-    if (mpctx->vo_chain && mpctx->vo_chain->is_coverart)
-        return false;
-
-    for (int n = 0; n < mpctx->num_tracks; n++) {
-        struct track *track = mpctx->tracks[n];
-        if (track->type == STREAM_VIDEO && !track->attached_picture && !track->image)
-            return true;
-    }
-
-    return false;
-}
-
 static int recreate_audio_filters(struct MPContext *mpctx)
 {
     struct ao_chain *ao_c = mpctx->ao_chain;
