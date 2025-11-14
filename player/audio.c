@@ -204,16 +204,6 @@ void update_playback_speed(struct MPContext *mpctx)
     update_speed_filters(mpctx);
 }
 
-void audio_update_media_role(struct MPContext *mpctx)
-{
-    if (!mpctx->ao)
-        return;
-
-    enum aocontrol_media_role role = has_video_track(mpctx) ?
-        AOCONTROL_MEDIA_ROLE_MOVIE : AOCONTROL_MEDIA_ROLE_MUSIC;
-    ao_control(mpctx->ao, AOCONTROL_UPDATE_MEDIA_ROLE, &role);
-}
-
 static void ao_chain_reset_state(struct ao_chain *ao_c)
 {
     ao_c->last_out_pts = MP_NOPTS_VALUE;
@@ -434,9 +424,6 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
                           opts->audio_output_channels.chmaps,
                           opts->audio_output_channels.num_chmaps);
     }
-
-    if (!has_video_track(mpctx))
-        ao_flags |= AO_INIT_MEDIA_ROLE_MUSIC;
 
     mpctx->ao_filter_fmt = out_fmt;
 
