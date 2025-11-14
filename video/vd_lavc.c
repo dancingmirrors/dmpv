@@ -521,7 +521,7 @@ static void select_and_set_hwdec(struct mp_filter *vd)
 
                 bool already_attempted = false;
                 for (int j = 0; j < ctx->num_attempted_hwdecs; j++) {
-                    if (unlikely(bstr_equals0(ctx->attempted_hwdecs[j], hwdec->name))) {
+                    if (bstr_equals0(ctx->attempted_hwdecs[j], hwdec->name)) {
                         MP_DBG(vd, "Skipping previously attempted hwdec: %s\n",
                                hwdec->name);
                         already_attempted = true;
@@ -1063,12 +1063,12 @@ static int get_buffer2_direct(AVCodecContext *avctx, AVFrame *pic, int flags)
     }
 
     struct mp_image *img = mp_image_pool_get_no_alloc(p->dr_pool, imgfmt, w, h);
-    if (unlikely(!img)) {
+    if (!img) {
         bool host_cached = p->opts->dr == -1; // auto
         int dr_flags = host_cached ? VO_DR_FLAG_HOST_CACHED : 0;
         MP_DBG(p, "Allocating new%s DR image...\n", host_cached ? " (host-cached)" : "");
         img = vo_get_image(p->vo, imgfmt, w, h, stride_align, dr_flags);
-        if (unlikely(!img)) {
+        if (!img) {
             MP_DBG(p, "...failed..\n");
             goto fallback;
         }

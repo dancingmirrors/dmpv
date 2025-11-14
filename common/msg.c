@@ -421,14 +421,14 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
         bstr_xappend_asprintf(root, &root->buffer, "%s", log->partial);
     log->partial[0] = '\0';
 
-    if (bstr_xappend_vasprintf(root, &root->buffer, format, va) < 0) {
+    if (unlikely(bstr_xappend_vasprintf(root, &root->buffer, format, va) < 0)) {
         bstr_xappend(root, &root->buffer, bstr0("format error: "));
         bstr_xappend(root, &root->buffer, bstr0(format));
     }
 
     char *text = (char *)root->buffer.start;
 
-    if (lev == MSGL_STATS) {
+    if (unlikely(lev == MSGL_STATS)) {
         dump_stats(log, lev, text);
     } else if (lev == MSGL_STATUS && !test_terminal_level(log, lev)) {
         /* discard */
