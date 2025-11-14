@@ -139,7 +139,6 @@ struct ra_tex_params {
                             // be true depends on ra_format.linear_filter)
     bool src_repeat;        // if false, clamp texture coordinates to edge
                             // if true, repeat texture coordinates
-    bool non_normalized;    // hack for GL_TEXTURE_RECTANGLE
     bool external_oes;      // hack for GL_TEXTURE_EXTERNAL_OES
     // If non-NULL, the texture will be created with these contents. Using
     // this does *not* require setting host_mutable. Otherwise, the initial
