@@ -415,8 +415,8 @@ check("-hwdec-vulkan*",
 check("-egl*",
       desc      = "EGL 1.4",
       fn        = lambda: check_pkg_config("egl") or
-                          check_pkg_config("angle_egl") or
-                          check_pkg_config("angle-egl"))
+                          check_cc(link = "-lEGL") or
+                          check_cc(link = "-lGLESv2"))
 check("libgl*",
       desc      = "libGL",
       fn        = lambda: check_cc(link = "-lGL"))
