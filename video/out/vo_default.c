@@ -285,7 +285,7 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             .host_writable = true,
             .sampleable = true,
         });
-        if (unlikely(!ok)) {
+        if (!ok) {
             MP_ERR(vo, "Failed recreating OSD texture!\n");
             break;
         }
@@ -295,7 +295,7 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             .row_pitch  = item->packed->stride[0],
             .ptr        = item->packed->planes[0],
         });
-        if (unlikely(!ok)) {
+        if (!ok) {
             MP_ERR(vo, "Failed uploading OSD texture!\n");
             break;
         }
@@ -496,7 +496,7 @@ static bool hwdec_reconfig(struct priv *p, struct ra_hwdec *hwdec,
     }
 
     p->hwdec_mapper = ra_hwdec_mapper_create(hwdec, par);
-    if (unlikely(!p->hwdec_mapper)) {
+    if (!p->hwdec_mapper) {
         MP_ERR(p, "Initializing texture for hardware decoding failed.\n");
         return NULL;
     }
@@ -538,7 +538,7 @@ static bool hwdec_acquire(pl_gpu gpu, struct pl_frame *frame)
     if (!hwdec_reconfig(p, fp->hwdec, &mpi->params))
         return false;
 
-    if (unlikely(ra_hwdec_mapper_map(p->hwdec_mapper, mpi) < 0)) {
+    if (ra_hwdec_mapper_map(p->hwdec_mapper, mpi) < 0) {
         MP_ERR(p, "Mapping hardware decoded surface failed.\n");
         return false;
     }
@@ -670,7 +670,7 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
                 data[n].priv = mp_image_new_ref(mpi);
             }
 
-            if (unlikely(!pl_upload_plane(gpu, plane, &tex[n], &data[n]))) {
+            if (!pl_upload_plane(gpu, plane, &tex[n], &data[n])) {
                 MP_ERR(vo, "Failed uploading frame!\n");
                 talloc_free(data[n].priv);
                 talloc_free(mpi);
@@ -1107,7 +1107,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     }
 
     // Render frame
-    if (unlikely(!pl_render_image_mix(p->rr, &mix, &target, &params))) {
+    if (!pl_render_image_mix(p->rr, &mix, &target, &params)) {
         MP_ERR(vo, "Failed rendering frame!\n");
         goto done;
     }
@@ -1145,7 +1145,7 @@ static void flip_page(struct vo *vo)
     struct ra_swapchain *sw = p->ra_ctx->swapchain;
 
     if (p->frame_pending) {
-        if (unlikely(!pl_swapchain_submit_frame(p->sw)))
+        if (!pl_swapchain_submit_frame(p->sw))
             MP_ERR(vo, "Failed presenting frame!\n");
         p->frame_pending = false;
     }
@@ -1242,7 +1242,7 @@ static bool update_auto_profile(struct priv *p, int *events)
     if (r != VO_NOTAVAIL) {
         if (r == VO_FALSE) {
             MP_WARN(p, "Could not retrieve an ICC profile.\n");
-        } else if (unlikely(r == VO_NOTIMPL)) {
+        } else if (r == VO_NOTIMPL) {
             MP_ERR(p, "icc-profile-auto not implemented on this platform.\n");
         }
 
@@ -1285,11 +1285,11 @@ static void video_screenshot(struct vo *vo, struct voctrl_screenshot *args)
 #endif
     ));
     mp_assert(status != PL_QUEUE_EOF);
-    if (unlikely(status == PL_QUEUE_ERR)) {
+    if (status == PL_QUEUE_ERR) {
         MP_ERR(vo, "Unknown error occurred while trying to take screenshot!\n");
         return;
     }
-    if (unlikely(!mix.num_frames)) {
+    if (!mix.num_frames) {
         MP_ERR(vo, "No frames available to take screenshot of, is a file loaded?\n");
         return;
     }
@@ -1349,7 +1349,7 @@ static void video_screenshot(struct vo *vo, struct voctrl_screenshot *args)
             break;
     }
 
-    if (unlikely(!fbo)) {
+    if (!fbo) {
         MP_ERR(vo, "Failed creating target FBO for screenshot!\n");
         return;
     }
@@ -1407,7 +1407,7 @@ static void video_screenshot(struct vo *vo, struct voctrl_screenshot *args)
         image.num_overlays = 0;
     }
 
-    if (unlikely(!pl_render_image(p->rr, &image, &target, &params))) {
+    if (!pl_render_image(p->rr, &image, &target, &params)) {
         MP_ERR(vo, "Failed rendering frame!\n");
         goto done;
     }
