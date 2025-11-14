@@ -299,12 +299,8 @@ static struct ra_tex *gl_tex_create_blank(struct ra *ra,
     case 3: tex_gl->target = GL_TEXTURE_3D; break;
     default: MP_ASSERT_UNREACHABLE();
     }
-    if (params->non_normalized) {
-        mp_assert(params->dimensions == 2);
-        tex_gl->target = GL_TEXTURE_RECTANGLE;
-    }
     if (params->external_oes) {
-        mp_assert(params->dimensions == 2 && !params->non_normalized);
+        mp_assert(params->dimensions == 2);
         tex_gl->target = GL_TEXTURE_EXTERNAL_OES;
     }
 

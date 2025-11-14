@@ -168,7 +168,6 @@ struct gl_video_opts {
     char *error_diffusion;
     char *fbo_format;
     int alpha_mode;
-    bool use_rectangle;
     struct m_color background;
     bool interpolation;
     float interpolation_threshold;

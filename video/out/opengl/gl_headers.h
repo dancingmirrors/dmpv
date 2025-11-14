@@ -103,10 +103,6 @@ typedef uint64_t GLuint64;
 #define GL_R16                            0x822A
 #define GL_RG16                           0x822C
 
-// --- GL 3.1
-
-#define GL_TEXTURE_RECTANGLE              0x84F5
-
 // --- GL 3.3 or GL_ARB_timer_query
 
 #define GL_TIME_ELAPSED                   0x88BF

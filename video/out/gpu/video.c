@@ -455,7 +455,6 @@ const struct m_sub_options gl_video_conf = {
             {"yes", ALPHA_YES},
             {"blend", ALPHA_BLEND},
             {"blend-tiles", ALPHA_BLEND_TILES})},
-        {"opengl-rectangle-textures", OPT_BOOL(use_rectangle)},
         {"background", OPT_COLOR(background)},
         {"interpolation", OPT_BOOL(interpolation)},
         {"interpolation-threshold", OPT_FLOAT(interpolation_threshold)},
@@ -954,7 +953,6 @@ static void init_video(struct gl_video *p)
                 .format = format,
                 .render_src = true,
                 .src_linear = format->linear_filter,
-                .non_normalized = p->opts.use_rectangle,
                 .host_mutable = true,
             };
 
@@ -1139,11 +1137,7 @@ static void pass_prepare_src_tex(struct gl_video *p)
         char *pixel_size = mp_tprintf(32, "pixel_size%d", n);
 
         gl_sc_uniform_texture(sc, texture_name, s->tex);
-        float f[2] = {1, 1};
-        if (!s->tex->params.non_normalized) {
-            f[0] = s->tex->params.w;
-            f[1] = s->tex->params.h;
-        }
+        float f[2] = {s->tex->params.w, s->tex->params.h};
         gl_sc_uniform_vec2(sc, texture_size, f);
         gl_sc_uniform_mat2(sc, texture_rot, true, (float *)s->transform.m);
         gl_sc_uniform_vec2(sc, texture_off, (float *)s->transform.t);
@@ -1258,10 +1252,9 @@ static struct mp_pass_perf render_pass_quad(struct gl_video *p,
             float tx = (n / 2) * s->w;
             float ty = (n % 2) * s->h;
             gl_transform_vec(tr, &tx, &ty);
-            bool rect = s->tex->params.non_normalized;
             // vec2 texcoordN in idx N+1
-            vs[i + 1].x = tx / (rect ? 1 : s->tex->params.w);
-            vs[i + 1].y = ty / (rect ? 1 : s->tex->params.h);
+            vs[i + 1].x = tx / s->tex->params.w;
+            vs[i + 1].y = ty / s->tex->params.h;
         }
     }
 
@@ -3890,7 +3883,6 @@ static void check_gl_features(struct gl_video *p)
             .pbo = p->opts.pbo,
             .fbo_format = p->opts.fbo_format,
             .alpha_mode = p->opts.alpha_mode,
-            .use_rectangle = p->opts.use_rectangle,
             .background = p->opts.background,
             .dither_algo = p->opts.dither_algo,
             .dither_depth = p->opts.dither_depth,
