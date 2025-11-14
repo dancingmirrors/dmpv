@@ -272,11 +272,11 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
 
     for (int n = 0; n < subs->num_items; n++) {
         const struct sub_bitmaps *item = subs->items[n];
-        if (!item->num_parts || !item->packed)
+        if (unlikely(!item->num_parts || !item->packed))
             continue;
         struct osd_entry *entry = &state->entries[item->render_index];
         pl_fmt tex_fmt = p->osd_fmt[item->format];
-        if (!entry->tex)
+        if (unlikely(!entry->tex))
             MP_TARRAY_POP(p->sub_tex, p->num_sub_tex, &entry->tex);
         bool ok = pl_tex_recreate(p->gpu, &entry->tex, &(struct pl_tex_params) {
             .format = tex_fmt,
@@ -285,7 +285,7 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             .host_writable = true,
             .sampleable = true,
         });
-        if (!ok) {
+        if (unlikely(!ok)) {
             MP_ERR(vo, "Failed recreating OSD texture!\n");
             break;
         }
@@ -295,7 +295,7 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             .row_pitch  = item->packed->stride[0],
             .ptr        = item->packed->planes[0],
         });
-        if (!ok) {
+        if (unlikely(!ok)) {
             MP_ERR(vo, "Failed uploading OSD texture!\n");
             break;
         }
@@ -334,10 +334,10 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             ol->mode = PL_OVERLAY_NORMAL;
             ol->repr.alpha = PL_ALPHA_PREMULTIPLIED;
             // Infer bitmap colorspace from source
-            if (src) {
+            if (likely(src)) {
                 ol->color = get_mpi_csp(vo, src);
                 // Seems like HDR subtitles are targeting SDR white
-                if (pl_color_transfer_is_hdr(ol->color.transfer)) {
+                if (unlikely(pl_color_transfer_is_hdr(ol->color.transfer))) {
                     ol->color.hdr = (struct pl_hdr_metadata) {
                         .max_luma = PL_COLOR_SDR_WHITE,
                     };
@@ -579,7 +579,7 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
         // only reconfig the mapper here (potentially creating it) to access
         // `dst_params`. In practice, though, this should not matter unless the
         // image format changes mid-stream.
-        if (!hwdec_reconfig(p, fp->hwdec, &mpi->params)) {
+        if (unlikely(!hwdec_reconfig(p, fp->hwdec, &mpi->params))) {
             talloc_free(mpi);
             return false;
         }
@@ -613,13 +613,13 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
         frame->repr.sys = PL_COLOR_SYSTEM_XYZ;
         break;
     case MP_CSP_AUTO:
-        if (!frame->repr.sys)
+        if (unlikely(!frame->repr.sys))
             frame->repr.sys = pl_color_system_guess_ycbcr(par->w, par->h);
         break;
     default: break;
     }
 
-    if (fp->hwdec) {
+    if (unlikely(fp->hwdec)) {
 
         struct mp_imgfmt_desc desc = mp_imgfmt_get_desc(par->imgfmt);
         frame->acquire = hwdec_acquire;
@@ -661,7 +661,7 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
             }
 
             pl_buf buf = get_dr_buf(p, data[n].pixels);
-            if (buf) {
+            if (likely(buf)) {
                 data[n].buf = buf;
                 data[n].buf_offset = (uint8_t *) data[n].pixels - buf->data;
                 data[n].pixels = NULL;
@@ -670,7 +670,7 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
                 data[n].priv = mp_image_new_ref(mpi);
             }
 
-            if (!pl_upload_plane(gpu, plane, &tex[n], &data[n])) {
+            if (unlikely(!pl_upload_plane(gpu, plane, &tex[n], &data[n]))) {
                 MP_ERR(vo, "Failed uploading frame!\n");
                 talloc_free(data[n].priv);
                 talloc_free(mpi);
@@ -990,7 +990,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     struct pl_swapchain_frame swframe;
     struct ra_swapchain *sw = p->ra_ctx->swapchain;
     bool should_draw = sw->fns->start_frame(sw, NULL); // for wayland logic
-    if (!should_draw || !pl_swapchain_start_frame(p->sw, &swframe)) {
+    if (unlikely(!should_draw || !pl_swapchain_start_frame(p->sw, &swframe))) {
         if (frame->current) {
             // Advance the queue state to the current PTS to discard unused frames
             pl_queue_update(p->queue, NULL, pl_queue_params(
@@ -1019,7 +1019,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     update_tm_viz(&pars->color_map_params, &target);
 
     struct pl_frame_mix mix = {0};
-    if (frame->current) {
+    if (likely(frame->current)) {
         // Update queue state
         struct pl_queue_params qparams = *pl_queue_params(
             .pts = frame->current->pts + pts_offset,
@@ -1036,8 +1036,8 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
         // pl_queue will have this frame, unless it's after a reset event. In
         // this case, start from the first available frame.
         struct pl_source_frame first;
-        if (pl_queue_peek(p->queue, 0, &first) && qparams.pts < first.pts) {
-            if (first.pts != frame->current->pts)
+        if (unlikely(pl_queue_peek(p->queue, 0, &first) && qparams.pts < first.pts)) {
+            if (unlikely(first.pts != frame->current->pts))
                 MP_VERBOSE(vo, "Current PTS(%f) != VPTS(%f)\n", frame->current->pts, first.pts);
             MP_VERBOSE(vo, "Clamping first frame PTS from %f to %f\n", qparams.pts, first.pts);
             qparams.pts = first.pts;
@@ -1107,19 +1107,19 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     }
 
     // Render frame
-    if (!pl_render_image_mix(p->rr, &mix, &target, &params)) {
+    if (unlikely(!pl_render_image_mix(p->rr, &mix, &target, &params))) {
         MP_ERR(vo, "Failed rendering frame!\n");
         goto done;
     }
 
     const struct pl_frame *cur_frame = NULL;
     for (int i = 0; i < mix.num_frames; i++) {
-        if (mix.timestamps[i] > 0.0f)
+        if (likely(mix.timestamps[i] > 0.0f))
             break;
         cur_frame = mix.frames[i];
     }
 
-    if (cur_frame) {
+    if (likely(cur_frame)) {
         p->last_hdr_metadata = cur_frame->color.hdr;
         // Augment metadata with peak detection max_pq_y / avg_pq_y
         pl_renderer_get_hdr_metadata(p->rr, &p->last_hdr_metadata);

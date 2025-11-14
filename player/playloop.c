@@ -74,7 +74,7 @@ void mp_wait_events(struct MPContext *mpctx)
 // mp_set_timeout(c, 0) is essentially equivalent to mp_wakeup_core(c).
 void mp_set_timeout(struct MPContext *mpctx, double sleeptime)
 {
-    if (mpctx->sleeptime > sleeptime) {
+    if (likely(mpctx->sleeptime > sleeptime)) {
         mpctx->sleeptime = sleeptime;
         int64_t abstime = mp_time_ns_add(mp_time_ns(), sleeptime);
         mp_dispatch_adjust_timeout(mpctx->dispatch, abstime);
@@ -112,13 +112,13 @@ static void mp_process_input(struct MPContext *mpctx)
     int processed = 0;
     for (;;) {
         mp_cmd_t *cmd = mp_input_read_cmd(mpctx->input);
-        if (!cmd)
+        if (unlikely(!cmd))
             break;
         run_command(mpctx, cmd, NULL, NULL, NULL);
         processed = 1;
     }
     mp_set_timeout(mpctx, mp_input_get_delay(mpctx->input));
-    if (processed)
+    if (unlikely(processed))
         mp_notify(mpctx, MP_EVENT_INPUT_PROCESSED, NULL);
 }
 
@@ -195,7 +195,7 @@ void update_internal_pause_state(struct MPContext *mpctx)
 
 void update_screensaver_state(struct MPContext *mpctx)
 {
-    if (!mpctx->video_out)
+    if (unlikely(!mpctx->video_out))
         return;
 
     bool saver_state = (!mpctx->playback_active || !mpctx->opts->stop_screensaver) &&
@@ -206,9 +206,9 @@ void update_screensaver_state(struct MPContext *mpctx)
 
 void add_step_frame(struct MPContext *mpctx, int dir)
 {
-    if (!mpctx->vo_chain)
+    if (unlikely(!mpctx->vo_chain))
         return;
-    if (dir > 0) {
+    if (likely(dir > 0)) {
         mpctx->step_frames += 1;
         set_pause_state(mpctx, false);
     } else if (dir < 0) {
@@ -268,10 +268,10 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
 {
     struct MPOpts *opts = mpctx->opts;
 
-    if (!mpctx->demuxer || !seek.type || seek.amount == MP_NOPTS_VALUE)
+    if (unlikely(!mpctx->demuxer || !seek.type || seek.amount == MP_NOPTS_VALUE))
         return;
 
-    if (seek.type == MPSEEK_CHAPTER) {
+    if (unlikely(seek.type == MPSEEK_CHAPTER)) {
         mpctx->last_chapter_flag = false;
         seek.type = MPSEEK_ABSOLUTE;
     } else {
@@ -280,9 +280,9 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
 
     bool hr_seek_very_exact = seek.exact == MPSEEK_VERY_EXACT;
     double current_time = get_playback_time(mpctx);
-    if (current_time == MP_NOPTS_VALUE && seek.type == MPSEEK_RELATIVE)
+    if (unlikely(current_time == MP_NOPTS_VALUE && seek.type == MPSEEK_RELATIVE))
         return;
-    if (current_time == MP_NOPTS_VALUE)
+    if (unlikely(current_time == MP_NOPTS_VALUE))
         current_time = 0;
     double seek_pts = MP_NOPTS_VALUE;
     int demux_flags = 0;
@@ -353,7 +353,7 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
 
     demux_flags |= SEEK_BLOCK;
 
-    if (!demux_seek(mpctx->demuxer, demux_pts, demux_flags)) {
+    if (unlikely(!demux_seek(mpctx->demuxer, demux_pts, demux_flags))) {
         if (!mpctx->demuxer->seekable) {
             MP_ERR(mpctx, "Cannot seek in this stream.\n");
             MP_ERR(mpctx, "You can force it with '--force-seekable=yes'.\n");
