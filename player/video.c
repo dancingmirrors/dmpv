@@ -75,10 +75,10 @@ int reinit_video_filters(struct MPContext *mpctx)
 {
     struct vo_chain *vo_c = mpctx->vo_chain;
 
-    if (!vo_c)
+    if (unlikely(!vo_c))
         return 0;
 
-    if (!recreate_video_filters(mpctx))
+    if (unlikely(!recreate_video_filters(mpctx)))
         return -1;
 
     mp_force_video_refresh(mpctx);
@@ -97,10 +97,10 @@ static void vo_chain_reset_state(struct vo_chain *vo_c)
 
 void reset_video_state(struct MPContext *mpctx)
 {
-    if (mpctx->vo_chain) {
+    if (likely(mpctx->vo_chain)) {
         vo_chain_reset_state(mpctx->vo_chain);
         struct track *t = mpctx->vo_chain->track;
-        if (t && t->dec)
+        if (likely(t && t->dec))
             mp_decoder_wrapper_set_play_dir(t->dec, mpctx->play_dir);
     }
 
@@ -138,10 +138,10 @@ void uninit_video_out(struct MPContext *mpctx)
 static void vo_chain_uninit(struct vo_chain *vo_c)
 {
     struct track *track = vo_c->track;
-    if (track) {
+    if (likely(track)) {
         mp_assert(track->vo_c == vo_c);
         track->vo_c = NULL;
-        if (vo_c->dec_src)
+        if (likely(vo_c->dec_src))
             mp_assert(track->dec->f->pins[0] == vo_c->dec_src);
         talloc_free(track->dec->f);
         track->dec = NULL;
@@ -204,7 +204,7 @@ err_out:
 void reinit_video_chain(struct MPContext *mpctx)
 {
     struct track *track = mpctx->current_track[0][STREAM_VIDEO];
-    if (!track || !track->stream) {
+    if (unlikely(!track || !track->stream)) {
         error_on_track(mpctx, track);
         return;
     }
@@ -224,7 +224,7 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
 {
     mp_assert(!mpctx->vo_chain);
 
-    if (!mpctx->video_out) {
+    if (unlikely(!mpctx->video_out)) {
         struct vo_extra ex = {
             .input_ctx = mpctx->input,
             .osd = mpctx->osd,
@@ -233,7 +233,7 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
             .wakeup_ctx = mpctx,
         };
         mpctx->video_out = init_best_video_out(mpctx->global, &ex);
-        if (!mpctx->video_out) {
+        if (unlikely(!mpctx->video_out)) {
             MP_FATAL(mpctx, "Error opening/initializing "
                     "the selected video_out (--vo) device.\n");
             mpctx->error_playing = DMPV_ERROR_VO_INIT_FAILED;
@@ -254,10 +254,10 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
     vo_c->filter->update_subtitles = filter_update_subtitles;
     vo_c->filter->update_subtitles_ctx = mpctx;
 
-    if (track) {
+    if (likely(track)) {
         vo_c->track = track;
         track->vo_c = vo_c;
-        if (!init_video_decoder(mpctx, track))
+        if (unlikely(!init_video_decoder(mpctx, track)))
             goto err_out;
 
         vo_c->dec_src = track->dec->f->pins[0];
@@ -275,7 +275,7 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
         mp_pin_connect(vo_c->filter->f->pins[0], vo_c->dec_src);
     }
 
-    if (!recreate_video_filters(mpctx))
+    if (unlikely(!recreate_video_filters(mpctx)))
         goto err_out;
 
     update_content_type(mpctx, track);
@@ -316,13 +316,13 @@ static void check_framedrop(struct MPContext *mpctx, struct vo_chain *vo_c)
 {
     struct MPOpts *opts = mpctx->opts;
     // check for frame-drop:
-    if (mpctx->video_status == STATUS_PLAYING && !mpctx->paused &&
+    if (likely(mpctx->video_status == STATUS_PLAYING && !mpctx->paused &&
         mpctx->audio_status == STATUS_PLAYING && !ao_untimed(mpctx->ao) &&
-        vo_c->track && vo_c->track->dec && (opts->frame_dropping & 2))
+        vo_c->track && vo_c->track->dec && (opts->frame_dropping & 2)))
     {
         float fps = vo_c->filter->container_fps;
         // it's a crappy heuristic; avoid getting upset by incorrect fps
-        if (fps <= 20 || fps >= 500)
+        if (unlikely(fps <= 20 || fps >= 500))
             return;
         double frame_time =  1.0 / fps;
         // try to drop as many frames as we appear to be behind
@@ -344,7 +344,7 @@ static void adjust_sync(struct MPContext *mpctx, double v_pts, double frame_time
 {
     struct MPOpts *opts = mpctx->opts;
 
-    if (mpctx->audio_status != STATUS_PLAYING)
+    if (unlikely(mpctx->audio_status != STATUS_PLAYING))
         return;
 
     mpctx->delay -= frame_time;
@@ -377,11 +377,11 @@ static void handle_new_frame(struct MPContext *mpctx)
     double pts = mpctx->next_frames[0]->pts;
     bool is_sparse = mpctx->vo_chain && mpctx->vo_chain->is_sparse;
 
-    if (mpctx->video_pts != MP_NOPTS_VALUE) {
+    if (likely(mpctx->video_pts != MP_NOPTS_VALUE)) {
         frame_time = pts - mpctx->video_pts;
         double tolerance = mpctx->demuxer->ts_resets_possible &&
                            !is_sparse ? 5 : 1e4;
-        if (frame_time <= 0 || frame_time >= tolerance) {
+        if (unlikely(frame_time <= 0 || frame_time >= tolerance)) {
             // Assume a discontinuity.
             MP_WARN(mpctx, "Invalid video timestamp: %f -> %f\n",
                     mpctx->video_pts, pts);
@@ -397,7 +397,7 @@ static void handle_new_frame(struct MPContext *mpctx)
 // Remove the first frame in mpctx->next_frames
 static void shift_frames(struct MPContext *mpctx)
 {
-    if (mpctx->num_next_frames < 1)
+    if (unlikely(mpctx->num_next_frames < 1))
         return;
     talloc_free(mpctx->next_frames[0]);
     for (int n = 0; n < mpctx->num_next_frames - 1; n++)
@@ -473,20 +473,20 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
         // playback_pts is normally only set when audio and video have started
         // playing normally. If video is in syncing mode, then this must mean
         // video was just enabled via track switching - skip to current time.
-        if (!hrseek && mpctx->playback_pts != MP_NOPTS_VALUE) {
+        if (unlikely(!hrseek && mpctx->playback_pts != MP_NOPTS_VALUE)) {
             hrseek = true;
             hrseek_pts = mpctx->playback_pts;
         }
     }
 
-    if (vo_c->is_coverart) {
+    if (unlikely(vo_c->is_coverart)) {
         *logical_eof = true;
         if (vo_has_frame(mpctx->video_out))
             return VD_EOF;
         hrseek = false;
     }
 
-    if (have_new_frame(mpctx, false))
+    if (unlikely(have_new_frame(mpctx, false)))
         return VD_NEW_FRAME;
 
     // Get a new frame if we need one.
@@ -495,11 +495,11 @@ static int video_output_image(struct MPContext *mpctx, bool *logical_eof)
         // Filter a new frame.
         struct mp_image *img = NULL;
         struct mp_frame frame = mp_pin_out_read(vo_c->filter->f->pins[1]);
-        if (frame.type == MP_FRAME_NONE) {
+        if (unlikely(frame.type == MP_FRAME_NONE)) {
             r = vo_c->filter->got_output_eof ? VD_EOF : VD_WAIT;
-        } else if (frame.type == MP_FRAME_EOF) {
+        } else if (unlikely(frame.type == MP_FRAME_EOF)) {
             r = VD_EOF;
-        } else if (frame.type == MP_FRAME_VIDEO) {
+        } else if (likely(frame.type == MP_FRAME_VIDEO)) {
             img = frame.data;
         } else {
             MP_ERR(mpctx, "unexpected frame type %s\n",
