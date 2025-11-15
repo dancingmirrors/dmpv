@@ -64,6 +64,9 @@ static const char * const builtin_lua_scripts[][2] = {
     {"mp.options",
 #   include "generated/player/lua/options.lua.inc"
     },
+    {"mp.input",
+#   include "generated/player/lua/input.lua.inc"
+    },
     {"@stats.lua",
 #   include "generated/player/lua/stats.lua.inc"
     },
