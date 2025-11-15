@@ -127,7 +127,7 @@ static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt,
     if (mp_msg_test(log, mp_level)) {
         char buffer[4096] = "";
         int pos = 0;
-        const char *prefix = avc ? avc->item_name(ptr) : NULL;
+        const char *prefix = (avc && avc->item_name) ? avc->item_name(ptr) : NULL;
         if (log_print_prefix && prefix)
             pos = snprintf(buffer, sizeof(buffer), "%s: ", prefix);
         log_print_prefix = fmt[strlen(fmt) - 1] == '\n';
