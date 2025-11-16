@@ -76,6 +76,10 @@ static void image_description_ready(void *data, struct wp_image_description_v1 *
                                     uint32_t info_identity);
 static const struct wp_image_description_info_v1_listener image_description_info_listener;
 
+/* Listener for image descriptions received from compositor via feedback mechanism.
+ * These callbacks handle asynchronously receiving color space information.
+ * Note: No blocking/synchronization needed here as we only receive data, we never
+ * send image descriptions to the compositor (unlike upstream mpv). */
 static const struct wp_image_description_v1_listener image_description_listener = {
     image_description_failed,
     image_description_ready,
@@ -2898,7 +2902,13 @@ bool vo_wayland_init(struct vo *vo)
         /* Note: Only request surface feedback, not both surface and feedback.
          * According to the wp-color-management-v1 protocol, requesting color
          * management on a surface can only be done once. We only need feedback
-         * to receive ICC profiles and color space information from the compositor. */
+         * to receive ICC profiles and color space information from the compositor.
+         *
+         * Architecture note: Unlike upstream mpv which uses wp_color_management_surface_v1
+         * to actively send image descriptions to the compositor (requiring synchronization
+         * via separate event queues as in commit 554684d7), dmpv uses the feedback-only
+         * approach. This means we only receive color information from the compositor and
+         * never send it, avoiding the race condition that upstream addresses. */
         wl->color_surface_feedback = wp_color_manager_v1_get_surface_feedback(wl->color_manager, wl->surface);
         if (wl->color_surface_feedback) {
             wp_color_management_surface_feedback_v1_add_listener(wl->color_surface_feedback,
