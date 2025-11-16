@@ -48,6 +48,7 @@
 #include "input/keycodes.h"
 #include "sub/osd.h"
 #include "vo.h"
+#include "win_state.h"
 
 // Key mapping from SDL to dmpv
 struct keymap_entry {
@@ -135,11 +136,26 @@ struct priv {
     struct SwsContext *sws_context;
     struct mp_image *rgb_image;  // RGB conversion buffer
     
+    // Video destination rectangle (for centering and aspect ratio)
+    struct mp_rect dst_rect;
+    
     // Event handling
     Uint32 wakeup_event;
 };
 
 static void cleanup_vulkan(struct priv *p);
+
+static void update_screeninfo(struct vo *vo, struct mp_rect *screenrc)
+{
+    struct priv *p = vo->priv;
+    SDL_DisplayMode mode;
+    if (SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(p->window),
+                                  &mode)) {
+        MP_ERR(vo, "SDL_GetCurrentDisplayMode failed\n");
+        return;
+    }
+    *screenrc = (struct mp_rect){0, 0, mode.w, mode.h};
+}
 
 static uint32_t find_memory_type(struct priv *p, uint32_t type_filter, VkMemoryPropertyFlags properties)
 {
@@ -897,9 +913,10 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
+    // Create window with undefined position - will be set in reconfig
     p->window = SDL_CreateWindow("dmpv (Vulkan)",
-                                  SDL_WINDOWPOS_CENTERED,
-                                  SDL_WINDOWPOS_CENTERED,
+                                  SDL_WINDOWPOS_UNDEFINED,
+                                  SDL_WINDOWPOS_UNDEFINED,
                                   1280, 720,
                                   SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     
@@ -984,8 +1001,29 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     
     p->params = *params;
     
-    // Resize window to match video dimensions
-    SDL_SetWindowSize(p->window, params->w, params->h);
+    // Calculate window geometry using autofit and geometry options
+    struct vo_win_geometry geo;
+    struct mp_rect screenrc;
+    
+    update_screeninfo(vo, &screenrc);
+    vo_calc_window_geometry(vo, &screenrc, &screenrc, false, &geo);
+    vo_apply_window_geometry(vo, &geo);
+    
+    int win_w = vo->dwidth;
+    int win_h = vo->dheight;
+    
+    // Resize window to calculated dimensions
+    SDL_SetWindowSize(p->window, win_w, win_h);
+    
+    // Set window position if forced
+    if (geo.flags & VO_WIN_FORCE_POS)
+        SDL_SetWindowPosition(p->window, geo.win.x0, geo.win.y0);
+    
+    // Calculate video destination rectangle for proper centering and aspect ratio
+    struct mp_rect src, dst;
+    struct mp_osd_res osd;
+    vo_get_src_dst_rects(vo, &src, &dst, &osd);
+    p->dst_rect = dst;
     
     // Create upload resources for software frames
     if (create_upload_resources(vo, params->w, params->h) < 0) {
@@ -1100,8 +1138,8 @@ static void flip_page(struct vo *vo)
                     .dstSubresource.mipLevel = 0,
                     .dstSubresource.baseArrayLayer = 0,
                     .dstSubresource.layerCount = 1,
-                    .dstOffsets[0] = {0, 0, 0},
-                    .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                    .dstOffsets[0] = {p->dst_rect.x0, p->dst_rect.y0, 0},
+                    .dstOffsets[1] = {p->dst_rect.x1, p->dst_rect.y1, 1},
                 };
                 
                 vkCmdBlitImage(cmd,
@@ -1217,8 +1255,8 @@ static void flip_page(struct vo *vo)
                             .dstSubresource.mipLevel = 0,
                             .dstSubresource.baseArrayLayer = 0,
                             .dstSubresource.layerCount = 1,
-                            .dstOffsets[0] = {0, 0, 0},
-                            .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                            .dstOffsets[0] = {p->dst_rect.x0, p->dst_rect.y0, 0},
+                            .dstOffsets[1] = {p->dst_rect.x1, p->dst_rect.y1, 1},
                         };
                         
                         vkCmdBlitImage(cmd,
