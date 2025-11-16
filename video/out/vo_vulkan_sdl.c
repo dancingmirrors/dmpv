@@ -31,6 +31,7 @@
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
+#include <libswscale/swscale.h>
 
 #include "config.h"
 #include "common/common.h"
@@ -41,10 +42,13 @@
 #include "osdep/timer.h"
 #include "video/hwdec.h"
 #include "video/mp_image.h"
+#include "video/sws_utils.h"
+#include "video/fmt-conversion.h"
 #include "input/input.h"
 #include "input/keycodes.h"
 #include "sub/osd.h"
 #include "vo.h"
+
 
 // OSD rendering temporarily disabled due to SPIR-V shader validation issues across different drivers
 // The shaders below are commented out - infrastructure remains for future implementation
@@ -223,6 +227,14 @@ struct priv {
     
     // Current video frame to display
     struct mp_image *current_frame_image;
+    
+    // Software frame upload resources
+    VkImage upload_image;
+    VkDeviceMemory upload_image_memory;
+    VkBuffer upload_staging_buffer;
+    VkDeviceMemory upload_staging_memory;
+    struct SwsContext *sws_context;
+    struct mp_image *rgb_image;  // RGB conversion buffer
     
     // OSD support
     struct mp_osd_res osd_res;
@@ -1227,6 +1239,145 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
     */ // End of disabled OSD code
 }
 
+static void cleanup_upload_resources(struct priv *p)
+{
+    if (!p->device)
+        return;
+    
+    vkDeviceWaitIdle(p->device);
+    
+    if (p->sws_context) {
+        sws_freeContext(p->sws_context);
+        p->sws_context = NULL;
+    }
+    
+    talloc_free(p->rgb_image);
+    p->rgb_image = NULL;
+    
+    if (p->upload_image) {
+        vkDestroyImage(p->device, p->upload_image, NULL);
+        p->upload_image = VK_NULL_HANDLE;
+    }
+    
+    if (p->upload_image_memory) {
+        vkFreeMemory(p->device, p->upload_image_memory, NULL);
+        p->upload_image_memory = VK_NULL_HANDLE;
+    }
+    
+    if (p->upload_staging_buffer) {
+        vkDestroyBuffer(p->device, p->upload_staging_buffer, NULL);
+        p->upload_staging_buffer = VK_NULL_HANDLE;
+    }
+    
+    if (p->upload_staging_memory) {
+        vkFreeMemory(p->device, p->upload_staging_memory, NULL);
+        p->upload_staging_memory = VK_NULL_HANDLE;
+    }
+}
+
+static int create_upload_resources(struct vo *vo, uint32_t width, uint32_t height)
+{
+    struct priv *p = vo->priv;
+    
+    // Clean up existing resources if any
+    cleanup_upload_resources(p);
+    
+    // Create staging buffer for uploading RGB data
+    VkDeviceSize buffer_size = width * height * 4; // BGRA format
+    
+    VkBufferCreateInfo buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = buffer_size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    
+    if (vkCreateBuffer(p->device, &buffer_info, NULL, &p->upload_staging_buffer) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create upload staging buffer\n");
+        return -1;
+    }
+    
+    VkMemoryRequirements mem_requirements;
+    vkGetBufferMemoryRequirements(p->device, p->upload_staging_buffer, &mem_requirements);
+    
+    uint32_t memory_type = find_memory_type(p, mem_requirements.memoryTypeBits,
+                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (memory_type == UINT32_MAX) {
+        MP_ERR(vo, "Failed to find suitable memory type for upload staging buffer\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = memory_type,
+    };
+    
+    if (vkAllocateMemory(p->device, &alloc_info, NULL, &p->upload_staging_memory) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to allocate upload staging memory\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    vkBindBufferMemory(p->device, p->upload_staging_buffer, p->upload_staging_memory, 0);
+    
+    // Create intermediate image for upload (BGRA format)
+    VkImageCreateInfo image_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .extent.width = width,
+        .extent.height = height,
+        .extent.depth = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    
+    if (vkCreateImage(p->device, &image_info, NULL, &p->upload_image) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create upload image\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    vkGetImageMemoryRequirements(p->device, p->upload_image, &mem_requirements);
+    
+    memory_type = find_memory_type(p, mem_requirements.memoryTypeBits,
+                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (memory_type == UINT32_MAX) {
+        MP_ERR(vo, "Failed to find suitable memory type for upload image\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    alloc_info.allocationSize = mem_requirements.size;
+    alloc_info.memoryTypeIndex = memory_type;
+    
+    if (vkAllocateMemory(p->device, &alloc_info, NULL, &p->upload_image_memory) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to allocate upload image memory\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    vkBindImageMemory(p->device, p->upload_image, p->upload_image_memory, 0);
+    
+    // Allocate RGB conversion buffer
+    p->rgb_image = mp_image_alloc(IMGFMT_BGRA, width, height);
+    if (!p->rgb_image) {
+        MP_ERR(vo, "Failed to allocate RGB conversion buffer\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    return 0;
+}
+
 static void cleanup_vulkan(struct priv *p)
 {
     if (!p->device)
@@ -1236,6 +1387,9 @@ static void cleanup_vulkan(struct priv *p)
     
     // Clean up OSD resources
     cleanup_osd_resources(p);
+    
+    // Clean up upload resources
+    cleanup_upload_resources(p);
     
     if (p->image_available_semaphores) {
         for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
@@ -1444,6 +1598,12 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
         return -1;
     }
     
+    // Create upload resources for software frames
+    if (create_upload_resources(vo, params->w, params->h) < 0) {
+        MP_ERR(vo, "Failed to create upload resources\n");
+        return -1;
+    }
+    
     return 0;
 }
 
@@ -1634,8 +1794,6 @@ static void flip_page(struct vo *vo)
             // Hardware decoded Vulkan frame
             AVFrame *frame = mp_image_to_av_frame(mpi);
             if (frame && frame->data[0]) {
-                AVHWFramesContext *hwfc = (AVHWFramesContext *)frame->hw_frames_ctx->data;
-                AVVulkanFramesContext *vkfc = hwfc->hwctx;
                 AVVkFrame *vkf = (AVVkFrame *)frame->data[0];
                 
                 // Transition source image to TRANSFER_SRC_OPTIMAL
@@ -1695,18 +1853,111 @@ static void flip_page(struct vo *vo)
             if (frame)
                 av_frame_free(&frame);
         } else {
-            // Software frame - for now just clear to gray to indicate we received a frame
-            // TODO: Implement proper YUV to RGB conversion and upload
-            VkClearColorValue clear_value = {{0.5f, 0.5f, 0.5f, 1.0f}};
-            VkImageSubresourceRange range = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            };
-            vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+            // Software frame - convert to RGB and upload
+            if (!p->rgb_image || !p->upload_staging_buffer || !p->upload_image) {
+                MP_WARN(vo, "Upload resources not initialized\n");
+            } else {
+                // Convert YUV to RGB using swscale
+                if (!p->sws_context) {
+                    p->sws_context = sws_getContext(
+                        mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
+                        mpi->w, mpi->h, AV_PIX_FMT_BGRA,
+                        SWS_BILINEAR, NULL, NULL, NULL);
+                }
+                
+                if (p->sws_context) {
+                    sws_scale(p->sws_context,
+                             (const uint8_t *const *)mpi->planes, mpi->stride,
+                             0, mpi->h,
+                             p->rgb_image->planes, p->rgb_image->stride);
+                    
+                    // Upload RGB data to staging buffer
+                    void *data;
+                    if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+                        // Copy RGB image data to staging buffer
+                        uint32_t src_stride = p->rgb_image->stride[0];
+                        uint32_t dst_stride = mpi->w * 4;
+                        
+                        for (uint32_t y = 0; y < mpi->h; y++) {
+                            memcpy((uint8_t*)data + y * dst_stride,
+                                   p->rgb_image->planes[0] + y * src_stride,
+                                   dst_stride);
+                        }
+                        
+                        vkUnmapMemory(p->device, p->upload_staging_memory);
+                        
+                        // Transition upload image to TRANSFER_DST_OPTIMAL
+                        VkImageMemoryBarrier upload_barrier = {
+                            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                            .image = p->upload_image,
+                            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .subresourceRange.baseMipLevel = 0,
+                            .subresourceRange.levelCount = 1,
+                            .subresourceRange.baseArrayLayer = 0,
+                            .subresourceRange.layerCount = 1,
+                            .srcAccessMask = 0,
+                            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                        };
+                        
+                        vkCmdPipelineBarrier(cmd,
+                                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                        
+                        // Copy staging buffer to upload image
+                        VkBufferImageCopy copy_region = {
+                            .bufferOffset = 0,
+                            .bufferRowLength = 0,
+                            .bufferImageHeight = 0,
+                            .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .imageSubresource.mipLevel = 0,
+                            .imageSubresource.baseArrayLayer = 0,
+                            .imageSubresource.layerCount = 1,
+                            .imageOffset = {0, 0, 0},
+                            .imageExtent = {mpi->w, mpi->h, 1},
+                        };
+                        
+                        vkCmdCopyBufferToImage(cmd, p->upload_staging_buffer, p->upload_image,
+                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+                        
+                        // Transition upload image to TRANSFER_SRC_OPTIMAL
+                        upload_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                        upload_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                        upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                        upload_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                        
+                        vkCmdPipelineBarrier(cmd,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                        
+                        // Blit upload image to swapchain
+                        VkImageBlit blit = {
+                            .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .srcSubresource.mipLevel = 0,
+                            .srcSubresource.baseArrayLayer = 0,
+                            .srcSubresource.layerCount = 1,
+                            .srcOffsets[0] = {0, 0, 0},
+                            .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                            .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .dstSubresource.mipLevel = 0,
+                            .dstSubresource.baseArrayLayer = 0,
+                            .dstSubresource.layerCount = 1,
+                            .dstOffsets[0] = {0, 0, 0},
+                            .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                        };
+                        
+                        vkCmdBlitImage(cmd,
+                                     p->upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     1, &blit, VK_FILTER_LINEAR);
+                    }
+                }
+            }
         }
     } else {
         // No frame - clear to black
