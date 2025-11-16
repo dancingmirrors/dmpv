@@ -1655,20 +1655,6 @@ done:
     talloc_free(ta_ctx);
 }
 
-#if PL_API_VER < 342
-static inline void xor_hash(void *hash, pl_cache_obj obj)
-{
-    *((uint64_t *) hash) ^= obj.key;
-}
-
-static inline uint64_t pl_cache_signature(pl_cache cache)
-{
-    uint64_t hash = 0;
-    pl_cache_iterate(cache, xor_hash, &hash);
-    return hash;
-}
-#endif
-
 static void cache_init(struct vo *vo, struct cache *cache, const char *dir_opt)
 {
     struct priv *p = vo->priv;
