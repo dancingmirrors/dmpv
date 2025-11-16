@@ -1769,8 +1769,8 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     }
     case VOCTRL_RESET:
-        // Handle seeking - request redraw to show OSD
-        vo->want_redraw = true;
+        // Handle seeking - don't immediately redraw, let playloop handle timing
+        // This allows OSD state to be updated before we render
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
