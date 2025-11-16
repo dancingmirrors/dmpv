@@ -35,12 +35,53 @@
 #include "config.h"
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/bstr.h"
 #include "options/m_config.h"
 #include "options/options.h"
 #include "osdep/timer.h"
 #include "video/hwdec.h"
 #include "video/mp_image.h"
+#include "input/input.h"
+#include "input/keycodes.h"
 #include "vo.h"
+
+// Key mapping from SDL to dmpv
+struct keymap_entry {
+    SDL_Keycode sdl;
+    int dmpv;
+};
+
+static const struct keymap_entry keys[] = {
+    {SDLK_RETURN, MP_KEY_ENTER},
+    {SDLK_ESCAPE, MP_KEY_ESC},
+    {SDLK_BACKSPACE, MP_KEY_BACKSPACE},
+    {SDLK_TAB, MP_KEY_TAB},
+    {SDLK_PRINTSCREEN, MP_KEY_PRINT},
+    {SDLK_PAUSE, MP_KEY_PAUSE},
+    {SDLK_INSERT, MP_KEY_INSERT},
+    {SDLK_HOME, MP_KEY_HOME},
+    {SDLK_PAGEUP, MP_KEY_PAGE_UP},
+    {SDLK_DELETE, MP_KEY_DELETE},
+    {SDLK_END, MP_KEY_END},
+    {SDLK_PAGEDOWN, MP_KEY_PAGE_DOWN},
+    {SDLK_RIGHT, MP_KEY_RIGHT},
+    {SDLK_LEFT, MP_KEY_LEFT},
+    {SDLK_DOWN, MP_KEY_DOWN},
+    {SDLK_UP, MP_KEY_UP},
+    {SDLK_KP_ENTER, MP_KEY_KPENTER},
+    {SDLK_F1, MP_KEY_F + 1},
+    {SDLK_F2, MP_KEY_F + 2},
+    {SDLK_F3, MP_KEY_F + 3},
+    {SDLK_F4, MP_KEY_F + 4},
+    {SDLK_F5, MP_KEY_F + 5},
+    {SDLK_F6, MP_KEY_F + 6},
+    {SDLK_F7, MP_KEY_F + 7},
+    {SDLK_F8, MP_KEY_F + 8},
+    {SDLK_F9, MP_KEY_F + 9},
+    {SDLK_F10, MP_KEY_F + 10},
+    {SDLK_F11, MP_KEY_F + 11},
+    {SDLK_F12, MP_KEY_F + 12},
+};
 
 struct priv {
     SDL_Window *window;
@@ -78,6 +119,9 @@ struct priv {
     
     struct mp_image_params params;
     bool vsync;
+    
+    // Event handling
+    Uint32 wakeup_event;
 };
 
 static void cleanup_vulkan(struct priv *p);
@@ -694,6 +738,14 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
+    p->wakeup_event = SDL_RegisterEvents(1);
+    if (p->wakeup_event == (Uint32)-1) {
+        MP_ERR(vo, "Failed to register SDL user event\n");
+        SDL_DestroyWindow(p->window);
+        SDL_Quit();
+        return -1;
+    }
+    
     if (init_vulkan(vo) < 0) {
         SDL_DestroyWindow(p->window);
         SDL_Quit();
@@ -766,8 +818,6 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
 
 static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
-    struct priv *p = vo->priv;
-    
     // Just store the frame for rendering in flip_page
     // Actual rendering happens in flip_page when we know which swapchain image to use
 }
@@ -858,6 +908,84 @@ static void flip_page(struct vo *vo)
     p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
 }
 
+static void wakeup(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    SDL_Event event = {.type = p->wakeup_event};
+    SDL_PushEvent(&event);
+}
+
+static void wait_events(struct vo *vo, int64_t until_time_ns)
+{
+    struct priv *p = vo->priv;
+    int64_t wait_ns = until_time_ns - mp_time_ns();
+    int timeout_ms = MPCLAMP(wait_ns / 1000000, 0, 10000);
+    SDL_Event ev;
+    
+    while (SDL_WaitEventTimeout(&ev, timeout_ms)) {
+        timeout_ms = 0;
+        switch (ev.type) {
+        case SDL_WINDOWEVENT:
+            switch (ev.window.event) {
+            case SDL_WINDOWEVENT_EXPOSED:
+                vo->want_redraw = true;
+                break;
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
+                vo_event(vo, VO_EVENT_RESIZE);
+                break;
+            case SDL_WINDOWEVENT_FOCUS_LOST:
+            case SDL_WINDOWEVENT_FOCUS_GAINED:
+                vo_event(vo, VO_EVENT_FOCUS);
+                break;
+            }
+            break;
+        case SDL_QUIT:
+            mp_input_put_key(vo->input_ctx, MP_KEY_CLOSE_WIN);
+            break;
+        case SDL_TEXTINPUT: {
+            int sdl_mod = SDL_GetModState();
+            int dmpv_mod = 0;
+            if (sdl_mod & (KMOD_LCTRL | KMOD_RCTRL))
+                dmpv_mod |= MP_KEY_MODIFIER_CTRL;
+            if (sdl_mod & (KMOD_LALT | KMOD_RALT))
+                dmpv_mod |= MP_KEY_MODIFIER_ALT;
+            if (sdl_mod & (KMOD_LGUI | KMOD_RGUI))
+                dmpv_mod |= MP_KEY_MODIFIER_META;
+            struct bstr t = {
+                (unsigned char *)ev.text.text, strlen(ev.text.text)
+            };
+            mp_input_put_key_utf8(vo->input_ctx, dmpv_mod, t);
+            break;
+        }
+        case SDL_KEYDOWN: {
+            int keycode = 0;
+            for (int i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
+                if (keys[i].sdl == ev.key.keysym.sym) {
+                    keycode = keys[i].dmpv;
+                    break;
+                }
+            }
+            if (keycode) {
+                if (ev.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
+                    keycode |= MP_KEY_MODIFIER_SHIFT;
+                if (ev.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL))
+                    keycode |= MP_KEY_MODIFIER_CTRL;
+                if (ev.key.keysym.mod & (KMOD_LALT | KMOD_RALT))
+                    keycode |= MP_KEY_MODIFIER_ALT;
+                if (ev.key.keysym.mod & (KMOD_LGUI | KMOD_RGUI))
+                    keycode |= MP_KEY_MODIFIER_META;
+                mp_input_put_key(vo->input_ctx, keycode);
+            }
+            break;
+        }
+        default:
+            if (ev.type == p->wakeup_event)
+                return;
+            break;
+        }
+    }
+}
+
 static int control(struct vo *vo, uint32_t request, void *data)
 {
     return VO_NOTIMPL;
@@ -882,5 +1010,7 @@ const struct vo_driver video_out_vulkan_sdl = {
     .control = control,
     .draw_frame = draw_frame,
     .flip_page = flip_page,
+    .wakeup = wakeup,
+    .wait_events = wait_events,
     .uninit = uninit,
 };
