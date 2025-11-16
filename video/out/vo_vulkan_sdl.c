@@ -154,6 +154,7 @@ struct priv {
     
     // Options
     bool borderless;
+    bool switch_mode;  // Use SDL_WINDOW_FULLSCREEN instead of FULLSCREEN_DESKTOP
 };
 
 static void cleanup_vulkan(struct priv *p);
@@ -262,7 +263,11 @@ static void set_fullscreen(struct vo *vo)
     struct mp_vo_opts *opts = p->opts_cache->opts;
     int fs = opts->fullscreen;
     
-    Uint32 fs_flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
+    Uint32 fs_flag;
+    if (p->switch_mode)
+        fs_flag = SDL_WINDOW_FULLSCREEN;
+    else
+        fs_flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
     
     Uint32 old_flags = SDL_GetWindowFlags(p->window);
     int prev_fs = !!(old_flags & fs_flag);
@@ -1864,10 +1869,12 @@ const struct vo_driver video_out_vulkan_sdl = {
     .priv_defaults = &(const struct priv) {
         .vsync = true,
         .borderless = true,
+        .switch_mode = false,
     },
     .options = (const struct m_option[]) {
         {"vsync", OPT_BOOL(vsync)},
         {"borderless", OPT_BOOL(borderless)},
+        {"switch-mode", OPT_BOOL(switch_mode)},
         {0}
     },
     .preinit = preinit,
