@@ -48,6 +48,7 @@
 #include "input/keycodes.h"
 #include "sub/osd.h"
 #include "vo.h"
+#include "win_state.h"
 
 // Key mapping from SDL to dmpv
 struct keymap_entry {
@@ -135,11 +136,55 @@ struct priv {
     struct SwsContext *sws_context;
     struct mp_image *rgb_image;  // RGB conversion buffer
     
+    // Video destination rectangle (for centering and aspect ratio)
+    struct mp_rect dst_rect;
+    
+    // Options cache for tracking changes
+    struct m_config_cache *opts_cache;
+    
     // Event handling
     Uint32 wakeup_event;
 };
 
 static void cleanup_vulkan(struct priv *p);
+
+static void set_fullscreen(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    struct mp_vo_opts *opts = p->opts_cache->opts;
+    int fs = opts->fullscreen;
+    
+    Uint32 fs_flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
+    
+    Uint32 old_flags = SDL_GetWindowFlags(p->window);
+    int prev_fs = !!(old_flags & fs_flag);
+    if (fs == prev_fs)
+        return;
+    
+    Uint32 flags = 0;
+    if (fs)
+        flags |= fs_flag;
+    
+    if (SDL_SetWindowFullscreen(p->window, flags)) {
+        MP_ERR(vo, "SDL_SetWindowFullscreen failed\n");
+        return;
+    }
+    
+    // Mark for redraw after fullscreen change
+    vo->want_redraw = true;
+}
+
+static void update_screeninfo(struct vo *vo, struct mp_rect *screenrc)
+{
+    struct priv *p = vo->priv;
+    SDL_DisplayMode mode;
+    if (SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(p->window),
+                                  &mode)) {
+        MP_ERR(vo, "SDL_GetCurrentDisplayMode failed\n");
+        return;
+    }
+    *screenrc = (struct mp_rect){0, 0, mode.w, mode.h};
+}
 
 static uint32_t find_memory_type(struct priv *p, uint32_t type_filter, VkMemoryPropertyFlags properties)
 {
@@ -892,14 +937,18 @@ static int preinit(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Initialize options cache
+    p->opts_cache = m_config_cache_alloc(p, vo->global, &vo_sub_opts);
+    
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         MP_ERR(vo, "SDL_Init failed: %s\n", SDL_GetError());
         return -1;
     }
     
+    // Create window with undefined position - will be set in reconfig
     p->window = SDL_CreateWindow("dmpv (Vulkan)",
-                                  SDL_WINDOWPOS_CENTERED,
-                                  SDL_WINDOWPOS_CENTERED,
+                                  SDL_WINDOWPOS_UNDEFINED,
+                                  SDL_WINDOWPOS_UNDEFINED,
                                   1280, 720,
                                   SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     
@@ -908,6 +957,9 @@ static int preinit(struct vo *vo)
         SDL_Quit();
         return -1;
     }
+    
+    // Always use borderless window
+    SDL_SetWindowBordered(p->window, SDL_FALSE);
     
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == (Uint32)-1) {
@@ -984,14 +1036,38 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     
     p->params = *params;
     
-    // Resize window to match video dimensions
-    SDL_SetWindowSize(p->window, params->w, params->h);
+    // Calculate window geometry using autofit and geometry options
+    struct vo_win_geometry geo;
+    struct mp_rect screenrc;
+    
+    update_screeninfo(vo, &screenrc);
+    vo_calc_window_geometry(vo, &screenrc, &screenrc, false, &geo);
+    vo_apply_window_geometry(vo, &geo);
+    
+    int win_w = vo->dwidth;
+    int win_h = vo->dheight;
+    
+    // Resize window to calculated dimensions
+    SDL_SetWindowSize(p->window, win_w, win_h);
+    
+    // Set window position if forced
+    if (geo.flags & VO_WIN_FORCE_POS)
+        SDL_SetWindowPosition(p->window, geo.win.x0, geo.win.y0);
+    
+    // Calculate video destination rectangle for proper centering and aspect ratio
+    struct mp_rect src, dst;
+    struct mp_osd_res osd;
+    vo_get_src_dst_rects(vo, &src, &dst, &osd);
+    p->dst_rect = dst;
     
     // Create upload resources for software frames
     if (create_upload_resources(vo, params->w, params->h) < 0) {
         MP_ERR(vo, "Failed to create upload resources\n");
         return -1;
     }
+    
+    // Set fullscreen state
+    set_fullscreen(vo);
     
     return 0;
 }
@@ -1056,6 +1132,18 @@ static void flip_page(struct vo *vo)
                        VK_PIPELINE_STAGE_TRANSFER_BIT,
                        0, 0, NULL, 0, NULL, 1, &barrier);
     
+    // Clear the entire swapchain image to black first to avoid stale content
+    VkClearColorValue clear_value = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    VkImageSubresourceRange clear_range = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+    vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &clear_range);
+    
     // Render the video frame
     if (p->current_frame_image) {
         struct mp_image *mpi = p->current_frame_image;
@@ -1088,6 +1176,13 @@ static void flip_page(struct vo *vo)
                                    VK_PIPELINE_STAGE_TRANSFER_BIT,
                                    0, 0, NULL, 0, NULL, 1, &src_barrier);
                 
+                // Calculate centered destination within swapchain
+                // Similar to SDL VO's centering logic
+                int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+                int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
                     .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1100,8 +1195,8 @@ static void flip_page(struct vo *vo)
                     .dstSubresource.mipLevel = 0,
                     .dstSubresource.baseArrayLayer = 0,
                     .dstSubresource.layerCount = 1,
-                    .dstOffsets[0] = {0, 0, 0},
-                    .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                    .dstOffsets[0] = {dst_x, dst_y, 0},
+                    .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
                 };
                 
                 vkCmdBlitImage(cmd,
@@ -1205,6 +1300,13 @@ static void flip_page(struct vo *vo)
                                            VK_PIPELINE_STAGE_TRANSFER_BIT,
                                            0, 0, NULL, 0, NULL, 1, &upload_barrier);
                         
+                        // Calculate centered destination within swapchain
+                        // Similar to SDL VO's centering logic
+                        int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+                        int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                        int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                        int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                        
                         // Blit upload image to swapchain
                         VkImageBlit blit = {
                             .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1217,8 +1319,8 @@ static void flip_page(struct vo *vo)
                             .dstSubresource.mipLevel = 0,
                             .dstSubresource.baseArrayLayer = 0,
                             .dstSubresource.layerCount = 1,
-                            .dstOffsets[0] = {0, 0, 0},
-                            .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                            .dstOffsets[0] = {dst_x, dst_y, 0},
+                            .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
                         };
                         
                         vkCmdBlitImage(cmd,
@@ -1229,18 +1331,6 @@ static void flip_page(struct vo *vo)
                 }
             }
         }
-    } else {
-        // No frame - clear to black
-        VkClearColorValue clear_value = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        VkImageSubresourceRange range = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
-        vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
     }
     
     // Transition swapchain image to PRESENT_SRC_KHR for presentation
@@ -1376,12 +1466,20 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
 
 static int control(struct vo *vo, uint32_t request, void *data)
 {
-    (void)vo;  // Unused for now
+    struct priv *p = vo->priv;
     
     switch (request) {
+    case VOCTRL_VO_OPTS_CHANGED: {
+        void *opt;
+        while (m_config_cache_get_next_changed(p->opts_cache, &opt)) {
+            struct mp_vo_opts *opts = p->opts_cache->opts;
+            if (&opts->fullscreen == opt)
+                set_fullscreen(vo);
+        }
+        return VO_TRUE;
+    }
     case VOCTRL_RESET:
         // Handle seeking - reset state if needed
-        // For now, just acknowledge the reset
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
@@ -1390,7 +1488,14 @@ static int control(struct vo *vo, uint32_t request, void *data)
         // Handle resume
         return VO_TRUE;
     case VOCTRL_SET_PANSCAN:
-        // Handle panscan changes
+        // Handle panscan changes - recalculate destination rect
+        if (vo->params) {
+            struct mp_rect src, dst;
+            struct mp_osd_res osd;
+            vo_get_src_dst_rects(vo, &src, &dst, &osd);
+            p->dst_rect = dst;
+            vo->want_redraw = true;
+        }
         return VO_TRUE;
     }
     
