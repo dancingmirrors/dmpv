@@ -1608,19 +1608,10 @@ static void flip_page(struct vo *vo)
         .pClearValues = &clear_color,
     };
     
-    // Update and upload OSD before recording commands
-    draw_osd(vo);
-    upload_osd_texture(vo);
-    
     vkCmdBeginRenderPass(cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     
-    // Render OSD if texture is available
-    if (p->osd_pipeline && p->osd_descriptor_set) {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->osd_pipeline);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->osd_pipeline_layout,
-                               0, 1, &p->osd_descriptor_set, 0, NULL);
-        vkCmdDraw(cmd, 4, 1, 0, 0);  // Draw fullscreen quad (4 vertices, 1 instance)
-    }
+    // OSD rendering disabled (pipeline is NULL)
+    // No OSD commands recorded
     
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
