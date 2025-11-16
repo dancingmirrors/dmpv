@@ -1546,7 +1546,7 @@ static void flip_page(struct vo *vo)
                        dst_stride);
             }
             
-            vkUnmapMemory(p->upload_staging_memory);
+            vkUnmapMemory(p->device, p->upload_staging_memory);
             
             // Upload to GPU and blit to swapchain
             VkImageMemoryBarrier upload_barrier = {
