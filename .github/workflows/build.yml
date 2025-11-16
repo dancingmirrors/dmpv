@@ -60,7 +60,7 @@ jobs:
 
           sudo apt-get install -y --reinstall meson ninja-build
 
-          ./configure
+          CFLAGS=-Werror ./configure
           make
           sudo make install
           sudo make uninstall
@@ -81,7 +81,7 @@ jobs:
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
           rm -rf build
-          CC=clang ./configure
+          CFLAGS=-Werror CC=clang ./configure
           ninja -C build
           sudo ninja -C build install
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
