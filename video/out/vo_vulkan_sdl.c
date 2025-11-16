@@ -1173,6 +1173,13 @@ static void flip_page(struct vo *vo)
                                    VK_PIPELINE_STAGE_TRANSFER_BIT,
                                    0, 0, NULL, 0, NULL, 1, &src_barrier);
                 
+                // Calculate centered destination within swapchain
+                // Similar to SDL VO's centering logic
+                int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+                int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
                     .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1185,8 +1192,8 @@ static void flip_page(struct vo *vo)
                     .dstSubresource.mipLevel = 0,
                     .dstSubresource.baseArrayLayer = 0,
                     .dstSubresource.layerCount = 1,
-                    .dstOffsets[0] = {p->dst_rect.x0, p->dst_rect.y0, 0},
-                    .dstOffsets[1] = {p->dst_rect.x1, p->dst_rect.y1, 1},
+                    .dstOffsets[0] = {dst_x, dst_y, 0},
+                    .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
                 };
                 
                 vkCmdBlitImage(cmd,
@@ -1290,6 +1297,13 @@ static void flip_page(struct vo *vo)
                                            VK_PIPELINE_STAGE_TRANSFER_BIT,
                                            0, 0, NULL, 0, NULL, 1, &upload_barrier);
                         
+                        // Calculate centered destination within swapchain
+                        // Similar to SDL VO's centering logic
+                        int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+                        int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                        int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                        int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                        
                         // Blit upload image to swapchain
                         VkImageBlit blit = {
                             .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1302,8 +1316,8 @@ static void flip_page(struct vo *vo)
                             .dstSubresource.mipLevel = 0,
                             .dstSubresource.baseArrayLayer = 0,
                             .dstSubresource.layerCount = 1,
-                            .dstOffsets[0] = {p->dst_rect.x0, p->dst_rect.y0, 0},
-                            .dstOffsets[1] = {p->dst_rect.x1, p->dst_rect.y1, 1},
+                            .dstOffsets[0] = {dst_x, dst_y, 0},
+                            .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
                         };
                         
                         vkCmdBlitImage(cmd,
