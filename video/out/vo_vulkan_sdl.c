@@ -152,6 +152,7 @@ struct priv {
     
     // Video equalizer for brightness/contrast/saturation/gamma support
     struct mp_csp_equalizer_state *video_eq;
+    struct mp_csp_params eq_params;  // Cached equalizer parameters
     
     // Event handling
     Uint32 wakeup_event;
@@ -1125,8 +1126,6 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
-    SDL_ShowWindow(p->window);
-    
     return 0;
 }
 
@@ -1229,6 +1228,9 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Set fullscreen state
     set_fullscreen(vo);
     
+    // Show window after configuration is complete
+    SDL_ShowWindow(p->window);
+    
     return 0;
 }
 
@@ -1237,14 +1239,12 @@ static void apply_equalizer(struct vo *vo, uint8_t *data, int width, int height,
 {
     struct priv *p = vo->priv;
     
-    // Get current equalizer values
-    struct mp_csp_params cparams = MP_CSP_PARAMS_DEFAULTS;
-    if (mp_csp_equalizer_state_changed(p->video_eq))
-        mp_csp_equalizer_state_get(p->video_eq, &cparams);
+    // Always get current equalizer values
+    mp_csp_equalizer_state_get(p->video_eq, &p->eq_params);
     
     // Check if we need to apply any adjustments
-    if (cparams.brightness == 0.0f && cparams.contrast == 1.0f &&
-        cparams.saturation == 1.0f && cparams.gamma == 1.0f) {
+    if (p->eq_params.brightness == 0.0f && p->eq_params.contrast == 1.0f &&
+        p->eq_params.saturation == 1.0f && p->eq_params.gamma == 1.0f) {
         return; // No adjustments needed
     }
     
@@ -1259,24 +1259,24 @@ static void apply_equalizer(struct vo *vo, uint8_t *data, int width, int height,
             // pixel[3] is alpha, keep it unchanged
             
             // Apply gamma
-            if (cparams.gamma != 1.0f) {
-                r = powf(r, 1.0f / cparams.gamma);
-                g = powf(g, 1.0f / cparams.gamma);
-                b = powf(b, 1.0f / cparams.gamma);
+            if (p->eq_params.gamma != 1.0f) {
+                r = powf(r, 1.0f / p->eq_params.gamma);
+                g = powf(g, 1.0f / p->eq_params.gamma);
+                b = powf(b, 1.0f / p->eq_params.gamma);
             }
             
             // Apply contrast and brightness
-            r = (r - 0.5f) * cparams.contrast + 0.5f + cparams.brightness;
-            g = (g - 0.5f) * cparams.contrast + 0.5f + cparams.brightness;
-            b = (b - 0.5f) * cparams.contrast + 0.5f + cparams.brightness;
+            r = (r - 0.5f) * p->eq_params.contrast + 0.5f + p->eq_params.brightness;
+            g = (g - 0.5f) * p->eq_params.contrast + 0.5f + p->eq_params.brightness;
+            b = (b - 0.5f) * p->eq_params.contrast + 0.5f + p->eq_params.brightness;
             
             // Apply saturation
-            if (cparams.saturation != 1.0f) {
+            if (p->eq_params.saturation != 1.0f) {
                 // Convert to grayscale using standard weights
                 float gray = 0.299f * r + 0.587f * g + 0.114f * b;
-                r = gray + (r - gray) * cparams.saturation;
-                g = gray + (g - gray) * cparams.saturation;
-                b = gray + (b - gray) * cparams.saturation;
+                r = gray + (r - gray) * p->eq_params.saturation;
+                g = gray + (g - gray) * p->eq_params.saturation;
+                b = gray + (b - gray) * p->eq_params.saturation;
             }
             
             // Clamp values to [0, 1] range and convert back to uint8_t
@@ -1290,6 +1290,11 @@ static void apply_equalizer(struct vo *vo, uint8_t *data, int width, int height,
 static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
+    
+    // Check if equalizer settings changed and request redraw if needed
+    if (mp_csp_equalizer_state_changed(p->video_eq)) {
+        vo->want_redraw = true;
+    }
     
     // Store a reference to the current frame for rendering in flip_page
     mp_image_setrefp(&p->current_frame_image, frame->current);
