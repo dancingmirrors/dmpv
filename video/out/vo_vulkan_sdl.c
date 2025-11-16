@@ -150,6 +150,9 @@ struct priv {
     
     // Event handling
     Uint32 wakeup_event;
+    
+    // Options
+    bool borderless;
 };
 
 static void cleanup_vulkan(struct priv *p);
@@ -1096,8 +1099,10 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
-    // Always use borderless window
-    SDL_SetWindowBordered(p->window, SDL_FALSE);
+    // Set window border based on option
+    if (p->borderless) {
+        SDL_SetWindowBordered(p->window, SDL_FALSE);
+    }
     
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == (Uint32)-1) {
@@ -1804,9 +1809,11 @@ const struct vo_driver video_out_vulkan_sdl = {
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .vsync = true,
+        .borderless = false,
     },
     .options = (const struct m_option[]) {
         {"vsync", OPT_BOOL(vsync)},
+        {"borderless", OPT_BOOL(borderless)},
         {0}
     },
     .preinit = preinit,
