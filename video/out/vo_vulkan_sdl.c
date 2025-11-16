@@ -19,6 +19,7 @@
  */
 
 #undef HAVE_LIBDECOR
+#undef HAVE_LIBPLACEBO
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -127,6 +128,7 @@ struct priv {
     
     // Current video frame to display
     struct mp_image *current_frame_image;
+    bool is_redraw;  // Track if current frame is a redraw for OSD handling
     
     // Software frame upload resources
     VkImage upload_image;
@@ -138,6 +140,10 @@ struct priv {
     
     // Video destination rectangle (for centering and aspect ratio)
     struct mp_rect dst_rect;
+    
+    // OSD support (CPU-side compositing for software decoding)
+    struct mp_osd_res osd_res;
+    struct mp_image *osd_image;  // OSD composition buffer (BGRA)
     
     // Options cache for tracking changes
     struct m_config_cache *opts_cache;
@@ -802,6 +808,13 @@ static int init_hwdec_ctx(struct vo *vo)
     return 0;
 }
 
+static void cleanup_osd_resources(struct priv *p)
+{
+    // Only CPU-side OSD buffer needs cleanup
+    talloc_free(p->osd_image);
+    p->osd_image = NULL;
+}
+
 static void cleanup_upload_resources(struct priv *p)
 {
     if (!p->device)
@@ -941,12 +954,33 @@ static int create_upload_resources(struct vo *vo, uint32_t width, uint32_t heigh
     return 0;
 }
 
+static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
+{
+    struct priv *p = vo->priv;
+    
+    // Clean up existing resources if any
+    cleanup_osd_resources(p);
+    
+    // Allocate OSD composition buffer (CPU-side only, no Vulkan resources needed)
+    // This buffer is used for compositing OSD onto software-decoded frames
+    p->osd_image = mp_image_alloc(IMGFMT_BGRA, width, height);
+    if (!p->osd_image) {
+        MP_ERR(vo, "Failed to allocate OSD composition buffer\n");
+        return -1;
+    }
+    
+    return 0;
+}
+
 static void cleanup_vulkan(struct priv *p)
 {
     if (!p->device)
         return;
     
     vkDeviceWaitIdle(p->device);
+    
+    // Clean up OSD resources
+    cleanup_osd_resources(p);
     
     // Clean up upload resources
     cleanup_upload_resources(p);
@@ -1164,9 +1198,26 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     vo_get_src_dst_rects(vo, &src, &dst, &osd);
     p->dst_rect = dst;
     
+    // Adjust OSD resolution to match video dimensions (OSD will scale with video)
+    // This ensures OSD text size is proportional to video size
+    p->osd_res.w = params->w;
+    p->osd_res.h = params->h;
+    p->osd_res.ml = 0;
+    p->osd_res.mt = 0;
+    p->osd_res.mr = 0;
+    p->osd_res.mb = 0;
+    
     // Create upload resources for software frames
+    // Note: Using video dimensions, OSD will be rendered at video resolution
     if (create_upload_resources(vo, params->w, params->h) < 0) {
         MP_ERR(vo, "Failed to create upload resources\n");
+        return -1;
+    }
+    
+    // Create OSD resources at video resolution to match upload buffer
+    // This means OSD will scale with the video
+    if (create_osd_resources(vo, params->w, params->h) < 0) {
+        MP_ERR(vo, "Failed to create OSD resources\n");
         return -1;
     }
     
@@ -1182,6 +1233,8 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     
     // Store a reference to the current frame for rendering in flip_page
     mp_image_setrefp(&p->current_frame_image, frame->current);
+    // Track if this is a redraw (for OSD rendering during seeks/pauses)
+    p->is_redraw = frame->redraw;
 }
 
 static void flip_page(struct vo *vo)
@@ -1340,100 +1393,235 @@ static void flip_page(struct vo *vo)
                              0, mpi->h,
                              p->rgb_image->planes, p->rgb_image->stride);
                     
-                    // Upload RGB data to staging buffer
-                    void *data;
-                    if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
-                        // Copy RGB image data to staging buffer
-                        uint32_t src_stride = p->rgb_image->stride[0];
-                        uint32_t dst_stride = mpi->w * 4;
+                    // Draw OSD on top of the RGB frame (similar to vo_drm)
+                    if (p->osd_image) {
+                        // Use osd_image as composition buffer at video resolution
+                        // Clear it first
+                        mp_image_clear(p->osd_image, 0, 0, p->osd_image->w, p->osd_image->h);
                         
-                        for (uint32_t y = 0; y < mpi->h; y++) {
-                            memcpy((uint8_t*)data + y * dst_stride,
-                                   p->rgb_image->planes[0] + y * src_stride,
-                                   dst_stride);
+                        // Copy RGB frame (already at video size)
+                        uint32_t copy_w = MPMIN(mpi->w, p->osd_image->w);
+                        uint32_t copy_h = MPMIN(mpi->h, p->osd_image->h);
+                        for (uint32_t y = 0; y < copy_h; y++) {
+                            memcpy(p->osd_image->planes[0] + y * p->osd_image->stride[0],
+                                   p->rgb_image->planes[0] + y * p->rgb_image->stride[0],
+                                   copy_w * 4);
                         }
                         
-                        vkUnmapMemory(p->device, p->upload_staging_memory);
+                        // Draw OSD on top at video resolution (will scale with video)
+                        // Use pts=0 for redraws to ensure fresh OSD state is used
+                        double osd_pts = p->is_redraw ? 0 : mpi->pts;
+                        osd_draw_on_image(vo->osd, p->osd_res, osd_pts, 0, p->osd_image);
                         
-                        // Transition upload image to TRANSFER_DST_OPTIMAL
-                        VkImageMemoryBarrier upload_barrier = {
-                            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                            .image = p->upload_image,
-                            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .subresourceRange.baseMipLevel = 0,
-                            .subresourceRange.levelCount = 1,
-                            .subresourceRange.baseArrayLayer = 0,
-                            .subresourceRange.layerCount = 1,
-                            .srcAccessMask = 0,
-                            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-                        };
-                        
-                        vkCmdPipelineBarrier(cmd,
-                                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                           0, 0, NULL, 0, NULL, 1, &upload_barrier);
-                        
-                        // Copy staging buffer to upload image
-                        VkBufferImageCopy copy_region = {
-                            .bufferOffset = 0,
-                            .bufferRowLength = 0,
-                            .bufferImageHeight = 0,
-                            .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .imageSubresource.mipLevel = 0,
-                            .imageSubresource.baseArrayLayer = 0,
-                            .imageSubresource.layerCount = 1,
-                            .imageOffset = {0, 0, 0},
-                            .imageExtent = {mpi->w, mpi->h, 1},
-                        };
-                        
-                        vkCmdCopyBufferToImage(cmd, p->upload_staging_buffer, p->upload_image,
-                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
-                        
-                        // Transition upload image to TRANSFER_SRC_OPTIMAL
-                        upload_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-                        upload_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-                        upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                        upload_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-                        
-                        vkCmdPipelineBarrier(cmd,
-                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                           0, 0, NULL, 0, NULL, 1, &upload_barrier);
-                        
-                        // Calculate centered destination within swapchain
-                        // Similar to SDL VO's centering logic
-                        int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
-                        int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-                        int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-                        int dst_y = (p->swapchain_extent.height - dst_h) / 2;
-                        
-                        // Blit upload image to swapchain
-                        VkImageBlit blit = {
-                            .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .srcSubresource.mipLevel = 0,
-                            .srcSubresource.baseArrayLayer = 0,
-                            .srcSubresource.layerCount = 1,
-                            .srcOffsets[0] = {0, 0, 0},
-                            .srcOffsets[1] = {mpi->w, mpi->h, 1},
-                            .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .dstSubresource.mipLevel = 0,
-                            .dstSubresource.baseArrayLayer = 0,
-                            .dstSubresource.layerCount = 1,
-                            .dstOffsets[0] = {dst_x, dst_y, 0},
-                            .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
-                        };
-                        
-                        vkCmdBlitImage(cmd,
-                                     p->upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                     p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     1, &blit, VK_FILTER_LINEAR);
+                        // Upload the composited image to staging buffer
+                        void *data;
+                        if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+                            uint32_t src_stride = p->osd_image->stride[0];
+                            uint32_t dst_stride = mpi->w * 4;
+                            
+                            for (uint32_t y = 0; y < mpi->h; y++) {
+                                memcpy((uint8_t*)data + y * dst_stride,
+                                       p->osd_image->planes[0] + y * src_stride,
+                                       dst_stride);
+                            }
+                            
+                            vkUnmapMemory(p->device, p->upload_staging_memory);
+                        }
+                    } else {
+                        // No OSD support - just upload the RGB frame
+                        void *data;
+                        if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+                            // Copy RGB image data to staging buffer
+                            uint32_t src_stride = p->rgb_image->stride[0];
+                            uint32_t dst_stride = mpi->w * 4;
+                            
+                            for (uint32_t y = 0; y < mpi->h; y++) {
+                                memcpy((uint8_t*)data + y * dst_stride,
+                                       p->rgb_image->planes[0] + y * src_stride,
+                                       dst_stride);
+                            }
+                            
+                            vkUnmapMemory(p->device, p->upload_staging_memory);
+                        }
                     }
+                    
+                    // Transition upload image to TRANSFER_DST_OPTIMAL
+                    VkImageMemoryBarrier upload_barrier = {
+                        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                        .image = p->upload_image,
+                        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .subresourceRange.baseMipLevel = 0,
+                        .subresourceRange.levelCount = 1,
+                        .subresourceRange.baseArrayLayer = 0,
+                        .subresourceRange.layerCount = 1,
+                        .srcAccessMask = 0,
+                        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                    };
+                    
+                    vkCmdPipelineBarrier(cmd,
+                                       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                    
+                    // Copy staging buffer to upload image
+                    VkBufferImageCopy copy_region = {
+                        .bufferOffset = 0,
+                        .bufferRowLength = 0,
+                        .bufferImageHeight = 0,
+                        .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .imageSubresource.mipLevel = 0,
+                        .imageSubresource.baseArrayLayer = 0,
+                        .imageSubresource.layerCount = 1,
+                        .imageOffset = {0, 0, 0},
+                        .imageExtent = {mpi->w, mpi->h, 1},
+                    };
+                    
+                    vkCmdCopyBufferToImage(cmd, p->upload_staging_buffer, p->upload_image,
+                                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+                    
+                    // Transition upload image to TRANSFER_SRC_OPTIMAL
+                    upload_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    upload_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                    upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    upload_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                    
+                    vkCmdPipelineBarrier(cmd,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                    
+                    // Calculate centered destination within swapchain
+                    int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+                    int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                    int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                    int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                    
+                    // Blit upload image (with OSD) to swapchain
+                    VkImageBlit blit = {
+                        .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .srcSubresource.mipLevel = 0,
+                        .srcSubresource.baseArrayLayer = 0,
+                        .srcSubresource.layerCount = 1,
+                        .srcOffsets[0] = {0, 0, 0},
+                        .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                        .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .dstSubresource.mipLevel = 0,
+                        .dstSubresource.baseArrayLayer = 0,
+                        .dstSubresource.layerCount = 1,
+                        .dstOffsets[0] = {dst_x, dst_y, 0},
+                        .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
+                    };
+                    
+                    vkCmdBlitImage(cmd,
+                                 p->upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                 p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 1, &blit, VK_FILTER_LINEAR);
                 }
             }
+        }
+    }
+    
+    // Render OSD-only overlay when redrawing (e.g., during seeks or paused)
+    // This ensures OSD elements like seek position/duration appear even when
+    // we're just redrawing the last frame or have no frame at all
+    if (p->is_redraw && p->osd_image && p->upload_image && p->upload_staging_buffer) {
+        // During redraws, render OSD on black background and overlay it
+        // Clear OSD buffer to black
+        mp_image_clear(p->osd_image, 0, 0, p->osd_image->w, p->osd_image->h);
+        
+        // Draw OSD at current time (use pts=0 when redrawing)
+        osd_draw_on_image(vo->osd, p->osd_res, 0, 0, p->osd_image);
+        
+        // Upload the OSD-only image
+        void *data;
+        if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+            uint32_t src_stride = p->osd_image->stride[0];
+            uint32_t dst_stride = p->osd_image->w * 4;
+            
+            for (uint32_t y = 0; y < p->osd_image->h; y++) {
+                memcpy((uint8_t*)data + y * dst_stride,
+                       p->osd_image->planes[0] + y * src_stride,
+                       dst_stride);
+            }
+            
+            vkUnmapMemory(p->device, p->upload_staging_memory);
+            
+            // Upload to GPU and blit to swapchain
+            VkImageMemoryBarrier upload_barrier = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = p->upload_image,
+                .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .subresourceRange.baseMipLevel = 0,
+                .subresourceRange.levelCount = 1,
+                .subresourceRange.baseArrayLayer = 0,
+                .subresourceRange.layerCount = 1,
+                .srcAccessMask = 0,
+                .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            };
+            
+            vkCmdPipelineBarrier(cmd,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               0, 0, NULL, 0, NULL, 1, &upload_barrier);
+            
+            VkBufferImageCopy copy_region = {
+                .bufferOffset = 0,
+                .bufferRowLength = 0,
+                .bufferImageHeight = 0,
+                .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .imageSubresource.mipLevel = 0,
+                .imageSubresource.baseArrayLayer = 0,
+                .imageSubresource.layerCount = 1,
+                .imageOffset = {0, 0, 0},
+                .imageExtent = {p->osd_image->w, p->osd_image->h, 1},
+            };
+            
+            vkCmdCopyBufferToImage(cmd, p->upload_staging_buffer, p->upload_image,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+            
+            upload_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            upload_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            upload_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            
+            vkCmdPipelineBarrier(cmd,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               0, 0, NULL, 0, NULL, 1, &upload_barrier);
+            
+            // Calculate centered destination
+            int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+            int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+            int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+            int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+            
+            VkImageBlit blit = {
+                .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .srcSubresource.mipLevel = 0,
+                .srcSubresource.baseArrayLayer = 0,
+                .srcSubresource.layerCount = 1,
+                .srcOffsets[0] = {0, 0, 0},
+                .srcOffsets[1] = {p->osd_image->w, p->osd_image->h, 1},
+                .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .dstSubresource.mipLevel = 0,
+                .dstSubresource.baseArrayLayer = 0,
+                .dstSubresource.layerCount = 1,
+                .dstOffsets[0] = {dst_x, dst_y, 0},
+                .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
+            };
+            
+            vkCmdBlitImage(cmd,
+                         p->upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                         p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                         1, &blit, VK_FILTER_LINEAR);
         }
     }
     
@@ -1583,7 +1771,8 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     }
     case VOCTRL_RESET:
-        // Handle seeking - reset state if needed
+        // Handle seeking - don't immediately redraw, let playloop handle timing
+        // This allows OSD state to be updated before we render
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
@@ -1598,6 +1787,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
             struct mp_osd_res osd;
             vo_get_src_dst_rects(vo, &src, &dst, &osd);
             p->dst_rect = dst;
+            // Keep OSD at video resolution (set in reconfig)
             vo->want_redraw = true;
         }
         return VO_TRUE;
