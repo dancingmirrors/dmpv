@@ -64,13 +64,13 @@ jobs:
           CFLAGS="-Werror" make
           sudo make install
           sudo make uninstall
-          rm -rf build
+          sudo rm -rf build
 
           CC=clang CFLAGS="-Werror" ./configure
           CFLAGS="-Werror" make
           sudo make install
           sudo make uninstall
-          rm -rf build
+          sudo rm -rf build
 
           ./configure --enable-lgpl
           ninja -C build
@@ -86,14 +86,14 @@ jobs:
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
           sudo ninja -C build uninstall
 
-          rm -rf build
+          sudo rm -rf build
           ./configure
           ninja -C build
           sudo ninja -C build install
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
           LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure
           ninja -C build
           sudo ninja -C build install
@@ -108,27 +108,27 @@ jobs:
           sudo rm -f /usr/local/lib/x86_64-linux-gnu/pkgconfig/libplacebo.pc
           sudo apt-get install -y --reinstall meson ninja-build
 
-          rm -rf build
+          sudo rm -rf build
           ./configure
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           ./configure --disable-libplacebo
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure --disable-libplacebo
           ninja -C build
           sudo ninja -C build install
@@ -146,56 +146,56 @@ jobs:
 
           sudo ldconfig
 
-          rm -rf build
+          sudo rm -rf build
           ./configure
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           ./configure --disable-gl
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           ./configure --disable-egl
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure --disable-gl
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure --disable-egl
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           ./configure --disable-gl --disable-egl
           ninja -C build
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
 
-          rm -rf build
+          sudo rm -rf build
           CC=clang ./configure --disable-gl --disable-egl
           ninja -C build
           sudo ninja -C build install
