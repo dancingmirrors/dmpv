@@ -1377,12 +1377,12 @@ static void flip_page(struct vo *vo)
                                    VK_PIPELINE_STAGE_TRANSFER_BIT,
                                    0, 0, NULL, 0, NULL, 1, &src_barrier);
                 
-                // Use destination rectangle from vo_get_src_dst_rects
-                // This already includes proper positioning for centering/letterboxing
-                int dst_x = p->dst_rect.x0;
-                int dst_y = p->dst_rect.y0;
+                // Calculate centered destination within swapchain
+                // Match vo_sdl.c approach: query actual size and recalculate centering
                 int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                 int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                int dst_y = (p->swapchain_extent.height - dst_h) / 2;
                 
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
@@ -1538,12 +1538,12 @@ static void flip_page(struct vo *vo)
                                        VK_PIPELINE_STAGE_TRANSFER_BIT,
                                        0, 0, NULL, 0, NULL, 1, &upload_barrier);
                     
-                    // Use destination rectangle from vo_get_src_dst_rects
-                    // This already includes proper positioning for centering/letterboxing
-                    int dst_x = p->dst_rect.x0;
-                    int dst_y = p->dst_rect.y0;
+                    // Calculate centered destination within swapchain
+                    // Match vo_sdl.c approach: query actual size and recalculate centering
                     int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                     int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                    int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                    int dst_y = (p->swapchain_extent.height - dst_h) / 2;
                     
                     // Blit upload image (with OSD) to swapchain
                     VkImageBlit blit = {
@@ -1642,12 +1642,12 @@ static void flip_page(struct vo *vo)
                                VK_PIPELINE_STAGE_TRANSFER_BIT,
                                0, 0, NULL, 0, NULL, 1, &upload_barrier);
             
-            // Use destination rectangle from vo_get_src_dst_rects
-            // This already includes proper positioning for centering/letterboxing
-            int dst_x = p->dst_rect.x0;
-            int dst_y = p->dst_rect.y0;
+            // Calculate centered destination within swapchain
+            // Match vo_sdl.c approach: query actual size and recalculate centering
             int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
             int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+            int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+            int dst_y = (p->swapchain_extent.height - dst_h) / 2;
             
             VkImageBlit blit = {
                 .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
