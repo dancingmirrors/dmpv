@@ -60,8 +60,13 @@ jobs:
 
           sudo apt-get install -y --reinstall meson ninja-build
 
-          ./configure
-          make
+          CFLAGS="-Werror" ./configure
+          CFLAGS="-Werror" make
+          sudo ninja -C build install
+          sudo ninja -C build uninstall
+
+          CC=clang CFLAGS="-Werror" ./configure
+          CC=clang CFLAGS="-Werror" make
           sudo ninja -C build install
           sudo ninja -C build uninstall
 
