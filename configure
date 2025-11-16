@@ -556,7 +556,8 @@ check("-sdl2*",
       sources   = "video/out/vo_sdl.c")
 check("-vulkan-sdl*",
       desc      = "Simple Vulkan output via SDL (no libplacebo)",
-      deps      = ["sdl2", "vulkan"],
+      deps      = "sdl2",
+      fn        = lambda: check_pkg_config("vulkan"),
       sources   = "video/out/vo_vulkan_sdl.c")
 
 add_sources(
