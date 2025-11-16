@@ -574,7 +574,8 @@ static int init_hwdec_ctx(struct vo *vo)
         .hw_imgfmt = IMGFMT_VULKAN,
     };
     
-    hwdec_devices_add(vo->hwdec_devs, &p->hwctx);
+    if (vo->hwdec_devs)
+        hwdec_devices_add(vo->hwdec_devs, &p->hwctx);
     
     return 0;
 }
@@ -716,7 +717,8 @@ static void uninit(struct vo *vo)
     struct priv *p = vo->priv;
     
     if (p->hwctx.av_device_ref) {
-        hwdec_devices_remove(vo->hwdec_devs, &p->hwctx);
+        if (vo->hwdec_devs)
+            hwdec_devices_remove(vo->hwdec_devs, &p->hwctx);
         av_buffer_unref(&p->hw_device_ctx);
     }
     
