@@ -1257,6 +1257,12 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
         vo->dwidth = actual_w;
         vo->dheight = actual_h;
         
+        // Recreate swapchain to match actual window size
+        if (recreate_swapchain(vo) < 0) {
+            MP_ERR(vo, "Failed to recreate swapchain for actual window size\n");
+            return -1;
+        }
+        
         // Recalculate video rectangles for the actual window size
         struct mp_rect src2, dst2;
         struct mp_osd_res osd2;
@@ -1378,11 +1384,13 @@ static void flip_page(struct vo *vo)
                                    0, 0, NULL, 0, NULL, 1, &src_barrier);
                 
                 // Calculate centered destination within swapchain
-                // Match vo_sdl.c approach: query actual size and recalculate centering
+                // Query actual swapchain size to ensure we use current dimensions
+                int swap_w = p->swapchain_extent.width;
+                int swap_h = p->swapchain_extent.height;
                 int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                 int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-                int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-                int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                int dst_x = (swap_w - dst_w) / 2;
+                int dst_y = (swap_h - dst_h) / 2;
                 
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
@@ -1539,11 +1547,13 @@ static void flip_page(struct vo *vo)
                                        0, 0, NULL, 0, NULL, 1, &upload_barrier);
                     
                     // Calculate centered destination within swapchain
-                    // Match vo_sdl.c approach: query actual size and recalculate centering
+                    // Query actual swapchain size to ensure we use current dimensions
+                    int swap_w = p->swapchain_extent.width;
+                    int swap_h = p->swapchain_extent.height;
                     int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                     int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-                    int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-                    int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                    int dst_x = (swap_w - dst_w) / 2;
+                    int dst_y = (swap_h - dst_h) / 2;
                     
                     // Blit upload image (with OSD) to swapchain
                     VkImageBlit blit = {
@@ -1643,11 +1653,13 @@ static void flip_page(struct vo *vo)
                                0, 0, NULL, 0, NULL, 1, &upload_barrier);
             
             // Calculate centered destination within swapchain
-            // Match vo_sdl.c approach: query actual size and recalculate centering
+            // Query actual swapchain size to ensure we use current dimensions
+            int swap_w = p->swapchain_extent.width;
+            int swap_h = p->swapchain_extent.height;
             int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
             int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-            int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-            int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+            int dst_x = (swap_w - dst_w) / 2;
+            int dst_y = (swap_h - dst_h) / 2;
             
             VkImageBlit blit = {
                 .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
