@@ -1195,6 +1195,12 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     if (geo.flags & VO_WIN_FORCE_POS)
         SDL_SetWindowPosition(p->window, geo.win.x0, geo.win.y0);
     
+    // Recreate swapchain to match new window size
+    if (recreate_swapchain(vo) < 0) {
+        MP_ERR(vo, "Failed to recreate swapchain after window resize\n");
+        return -1;
+    }
+    
     // Calculate video destination rectangle for proper centering and aspect ratio
     struct mp_rect src, dst;
     struct mp_osd_res osd;
