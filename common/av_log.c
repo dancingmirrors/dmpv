@@ -135,6 +135,13 @@ static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt,
         pos = MPMIN(MPMAX(pos, 0), sizeof(buffer));
         vsnprintf(buffer + pos, sizeof(buffer) - pos, fmt, vl);
 
+        // Downgrade repetitive swscaler "unscaled ... special converter" messages
+        // from verbose to debug level to reduce spam during seeks
+        if (avc && !strcmp(avc->class_name, "SWScaler") &&
+            strstr(buffer, "using unscaled") && strstr(buffer, "special converter")) {
+            mp_level = MSGL_DEBUG;
+        }
+
         mp_msg(log, mp_level, "%s", buffer);
     }
 

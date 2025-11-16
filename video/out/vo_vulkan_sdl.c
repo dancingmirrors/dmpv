@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -45,6 +46,7 @@
 #include "video/mp_image.h"
 #include "video/sws_utils.h"
 #include "video/fmt-conversion.h"
+#include "video/csputils.h"
 #include "input/input.h"
 #include "input/keycodes.h"
 #include "sub/osd.h"
@@ -147,6 +149,9 @@ struct priv {
     
     // Options cache for tracking changes
     struct m_config_cache *opts_cache;
+    
+    // Video equalizer for brightness/contrast/saturation/gamma support
+    struct mp_csp_equalizer_state *video_eq;
     
     // Event handling
     Uint32 wakeup_event;
@@ -1078,6 +1083,9 @@ static int preinit(struct vo *vo)
     // Initialize options cache
     p->opts_cache = m_config_cache_alloc(p, vo->global, &vo_sub_opts);
     
+    // Initialize video equalizer for brightness/contrast/saturation/gamma
+    p->video_eq = mp_csp_equalizer_create(p, vo->global);
+    
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         MP_ERR(vo, "SDL_Init failed: %s\n", SDL_GetError());
         return -1;
@@ -1095,9 +1103,6 @@ static int preinit(struct vo *vo)
         SDL_Quit();
         return -1;
     }
-    
-    // Always use borderless window
-    SDL_SetWindowBordered(p->window, SDL_FALSE);
     
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == (Uint32)-1) {
@@ -1225,6 +1230,61 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     set_fullscreen(vo);
     
     return 0;
+}
+
+// Apply video equalizer adjustments (brightness, contrast, saturation, gamma) to BGRA image
+static void apply_equalizer(struct vo *vo, uint8_t *data, int width, int height, int stride)
+{
+    struct priv *p = vo->priv;
+    
+    // Get current equalizer values
+    struct mp_csp_params cparams = MP_CSP_PARAMS_DEFAULTS;
+    if (mp_csp_equalizer_state_changed(p->video_eq))
+        mp_csp_equalizer_state_get(p->video_eq, &cparams);
+    
+    // Check if we need to apply any adjustments
+    if (cparams.brightness == 0.0f && cparams.contrast == 1.0f &&
+        cparams.saturation == 1.0f && cparams.gamma == 1.0f) {
+        return; // No adjustments needed
+    }
+    
+    // Apply per-pixel adjustments to BGRA data
+    for (int y = 0; y < height; y++) {
+        uint8_t *row = data + y * stride;
+        for (int x = 0; x < width; x++) {
+            uint8_t *pixel = row + x * 4; // BGRA format
+            float b = pixel[0] / 255.0f;
+            float g = pixel[1] / 255.0f;
+            float r = pixel[2] / 255.0f;
+            // pixel[3] is alpha, keep it unchanged
+            
+            // Apply gamma
+            if (cparams.gamma != 1.0f) {
+                r = powf(r, 1.0f / cparams.gamma);
+                g = powf(g, 1.0f / cparams.gamma);
+                b = powf(b, 1.0f / cparams.gamma);
+            }
+            
+            // Apply contrast and brightness
+            r = (r - 0.5f) * cparams.contrast + 0.5f + cparams.brightness;
+            g = (g - 0.5f) * cparams.contrast + 0.5f + cparams.brightness;
+            b = (b - 0.5f) * cparams.contrast + 0.5f + cparams.brightness;
+            
+            // Apply saturation
+            if (cparams.saturation != 1.0f) {
+                // Convert to grayscale using standard weights
+                float gray = 0.299f * r + 0.587f * g + 0.114f * b;
+                r = gray + (r - gray) * cparams.saturation;
+                g = gray + (g - gray) * cparams.saturation;
+                b = gray + (b - gray) * cparams.saturation;
+            }
+            
+            // Clamp values to [0, 1] range and convert back to uint8_t
+            pixel[0] = (uint8_t)MPCLAMP((int)(b * 255.0f + 0.5f), 0, 255);
+            pixel[1] = (uint8_t)MPCLAMP((int)(g * 255.0f + 0.5f), 0, 255);
+            pixel[2] = (uint8_t)MPCLAMP((int)(r * 255.0f + 0.5f), 0, 255);
+        }
+    }
 }
 
 static void draw_frame(struct vo *vo, struct vo_frame *frame)
@@ -1413,6 +1473,9 @@ static void flip_page(struct vo *vo)
                         double osd_pts = p->is_redraw ? 0 : mpi->pts;
                         osd_draw_on_image(vo->osd, p->osd_res, osd_pts, 0, p->osd_image);
                         
+                        // Apply video equalizer adjustments (brightness, contrast, saturation, gamma)
+                        apply_equalizer(vo, p->osd_image->planes[0], mpi->w, mpi->h, p->osd_image->stride[0]);
+                        
                         // Upload the composited image to staging buffer
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
@@ -1431,6 +1494,9 @@ static void flip_page(struct vo *vo)
                         // No OSD support - just upload the RGB frame
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+                            // Apply video equalizer adjustments before upload
+                            apply_equalizer(vo, p->rgb_image->planes[0], mpi->w, mpi->h, p->rgb_image->stride[0]);
+                            
                             // Copy RGB image data to staging buffer
                             uint32_t src_stride = p->rgb_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
