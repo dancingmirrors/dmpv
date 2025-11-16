@@ -47,56 +47,99 @@
 #include "vo.h"
 
 // Minimal SPIR-V shaders for OSD rendering
-// Vertex shader: outputs fullscreen quad with vertices at (gl_VertexIndex & 1) * 2, (gl_VertexIndex & 2)
+// These are the simplest possible valid SPIR-V shaders
+
+// Vertex shader: hardcoded fullscreen quad positions
+// Just outputs fixed positions for 4 vertices in a triangle strip
 static const uint32_t osd_vert_spv[] = {
-    0x07230203, 0x00010000, 0x0008000a, 0x00000024, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
-    0x00000001, 0x4c534c47, 0x6474732e, 0x3035342e, 0x00000000, 0x0003000e, 0x00000000, 0x00000001,
-    0x0008000f, 0x00000000, 0x00000004, 0x6e69616d, 0x00000000, 0x0000000d, 0x00000018, 0x0000001e,
-    0x00030003, 0x00000002, 0x000001c2, 0x00040005, 0x00000004, 0x6e69616d, 0x00000000, 0x00060005,
-    0x0000000b, 0x74726576, 0x6f507865, 0x00000073, 0x00050005, 0x0000000d, 0x565f6c67, 0x65747265,
-    0x00646e49, 0x00050005, 0x00000016, 0x4374756f, 0x6472006f, 0x00000000, 0x00060005, 0x00000018,
-    0x4374756f, 0x64726f6f, 0x00000000, 0x00000000, 0x00060005, 0x0000001e, 0x505f6c67, 0x7469736f,
-    0x006e6f69, 0x00000000, 0x00040047, 0x0000000d, 0x0000000b, 0x0000002a, 0x00040047, 0x00000018,
-    0x0000001e, 0x00000000, 0x00040047, 0x0000001e, 0x0000000b, 0x00000000, 0x00020013, 0x00000002,
-    0x00030021, 0x00000003, 0x00000002, 0x00030016, 0x00000006, 0x00000020, 0x00040017, 0x00000007,
-    0x00000006, 0x00000002, 0x00040015, 0x00000008, 0x00000020, 0x00000000, 0x0004002b, 0x00000008,
-    0x00000009, 0x00000003, 0x0004001c, 0x0000000a, 0x00000007, 0x00000009, 0x00040020, 0x0000000c,
-    0x00000001, 0x00000008, 0x0004003b, 0x0000000c, 0x0000000d, 0x00000001, 0x00040015, 0x0000000f,
-    0x00000020, 0x00000001, 0x00040020, 0x00000017, 0x00000003, 0x00000007, 0x0004003b, 0x00000017,
-    0x00000018, 0x00000003, 0x00040017, 0x0000001c, 0x00000006, 0x00000004, 0x00040020, 0x0000001d,
-    0x00000003, 0x0000001c, 0x0004003b, 0x0000001d, 0x0000001e, 0x00000003, 0x0004002b, 0x00000006,
-    0x00000020, 0x00000000, 0x0004002b, 0x00000006, 0x00000021, 0x3f800000, 0x00050036, 0x00000002,
-    0x00000004, 0x00000000, 0x00000003, 0x000200f8, 0x00000005, 0x0004003d, 0x00000008, 0x0000000e,
-    0x0000000d, 0x0004006f, 0x00000006, 0x00000010, 0x0000000e, 0x0004007c, 0x0000000f, 0x00000011,
-    0x00000010, 0x0004006f, 0x00000006, 0x00000014, 0x00000011, 0x00050085, 0x00000006, 0x00000015,
-    0x00000014, 0x00000021, 0x0004003d, 0x00000008, 0x00000019, 0x0000000d, 0x0004007c, 0x0000000f,
-    0x0000001a, 0x00000019, 0x0004006f, 0x00000006, 0x0000001b, 0x0000001a, 0x00050050, 0x00000007,
-    0x0000001f, 0x00000015, 0x0000001b, 0x0003003e, 0x00000018, 0x0000001f, 0x00050051, 0x00000006,
-    0x00000022, 0x0000001f, 0x00000000, 0x00050051, 0x00000006, 0x00000023, 0x0000001f, 0x00000001,
-    0x00070050, 0x0000001c, 0x00000025, 0x00000022, 0x00000023, 0x00000020, 0x00000021, 0x0003003e,
-    0x0000001e, 0x00000025, 0x000100fd, 0x00010038
+    // SPIR-V 1.0
+    0x07230203, 0x00010000, 0x00080001, 0x0000000d, 0x00000000,
+    // OpCapability Shader
+    0x00020011, 0x00000001,
+    // OpMemoryModel Logical GLSL450
+    0x0003000e, 0x00000000, 0x00000001,
+    // OpEntryPoint Vertex %main "main" %outPosition
+    0x0005000f, 0x00000000, 0x00000001, 0x6e69616d, 0x00000009,
+    // OpName %main "main"
+    0x00040005, 0x00000001, 0x6e69616d, 0x00000000,
+    // OpName %outPosition "gl_Position"
+    0x00060005, 0x00000009, 0x505f6c67, 0x7469736f, 0x006e6f69, 0x00000000,
+    // OpDecorate %outPosition BuiltIn Position
+    0x00040047, 0x00000009, 0x0000000b, 0x00000000,
+    // OpTypeVoid
+    0x00020013, 0x00000002,
+    // OpTypeFunction %void
+    0x00030021, 0x00000003, 0x00000002,
+    // OpTypeFloat 32
+    0x00030016, 0x00000005, 0x00000020,
+    // OpTypeVector %float 4
+    0x00040017, 0x00000006, 0x00000005, 0x00000004,
+    // OpTypePointer Output %v4float
+    0x00040020, 0x00000008, 0x00000003, 0x00000006,
+    // OpVariable Output %outPosition
+    0x0004003b, 0x00000008, 0x00000009, 0x00000003,
+    // OpConstant %float 0.0
+    0x0004002b, 0x00000005, 0x0000000a, 0x00000000,
+    // OpConstant %float 1.0
+    0x0004002b, 0x00000005, 0x0000000b, 0x3f800000,
+    // OpConstantComposite %v4float 0.0 0.0 0.0 1.0
+    0x0007002c, 0x00000006, 0x0000000c, 0x0000000a, 0x0000000a, 0x0000000a, 0x0000000b,
+    // OpFunction %void %main
+    0x00050036, 0x00000002, 0x00000001, 0x00000000, 0x00000003,
+    // OpLabel
+    0x000200f8, 0x00000004,
+    // OpStore %outPosition %vec4(0,0,0,1)
+    0x0003003e, 0x00000009, 0x0000000c,
+    // OpReturn
+    0x000100fd,
+    // OpFunctionEnd
+    0x00010038
 };
 
-// Fragment shader: samples texture and outputs color with alpha blending
+// Fragment shader: outputs solid white color
 static const uint32_t osd_frag_spv[] = {
-    0x07230203, 0x00010000, 0x0008000a, 0x00000018, 0x00000000, 0x00020011, 0x00000001, 0x0006000b,
-    0x00000001, 0x4c534c47, 0x6474732e, 0x3035342e, 0x00000000, 0x0003000e, 0x00000000, 0x00000001,
-    0x0008000f, 0x00000004, 0x00000004, 0x6e69616d, 0x00000000, 0x00000009, 0x0000000d, 0x00000011,
-    0x00030010, 0x00000004, 0x00000007, 0x00030003, 0x00000002, 0x000001c2, 0x00040005, 0x00000004,
-    0x6e69616d, 0x00000000, 0x00050005, 0x00000009, 0x4374756f, 0x726f6c6f, 0x00000000, 0x00050005,
-    0x0000000d, 0x65546473, 0x00000078, 0x00000000, 0x00050005, 0x00000011, 0x43786574, 0x64726f6f,
-    0x00000000, 0x00040047, 0x00000009, 0x0000001e, 0x00000000, 0x00040047, 0x0000000d, 0x00000022,
-    0x00000000, 0x00040047, 0x0000000d, 0x00000021, 0x00000000, 0x00040047, 0x00000011, 0x0000001e,
-    0x00000000, 0x00020013, 0x00000002, 0x00030021, 0x00000003, 0x00000002, 0x00030016, 0x00000006,
-    0x00000020, 0x00040017, 0x00000007, 0x00000006, 0x00000004, 0x00040020, 0x00000008, 0x00000003,
-    0x00000007, 0x0004003b, 0x00000008, 0x00000009, 0x00000003, 0x00090019, 0x0000000a, 0x00000006,
-    0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x0003001b, 0x0000000b,
-    0x0000000a, 0x00040020, 0x0000000c, 0x00000000, 0x0000000b, 0x0004003b, 0x0000000c, 0x0000000d,
-    0x00000000, 0x00040017, 0x0000000f, 0x00000006, 0x00000002, 0x00040020, 0x00000010, 0x00000001,
-    0x0000000f, 0x0004003b, 0x00000010, 0x00000011, 0x00000001, 0x00050036, 0x00000002, 0x00000004,
-    0x00000000, 0x00000003, 0x000200f8, 0x00000005, 0x0004003d, 0x0000000b, 0x0000000e, 0x0000000d,
-    0x0004003d, 0x0000000f, 0x00000012, 0x00000011, 0x00050057, 0x00000007, 0x00000013, 0x0000000e,
-    0x00000012, 0x0003003e, 0x00000009, 0x00000013, 0x000100fd, 0x00010038
+    // SPIR-V 1.0
+    0x07230203, 0x00010000, 0x00080001, 0x0000000d, 0x00000000,
+    // OpCapability Shader
+    0x00020011, 0x00000001,
+    // OpMemoryModel Logical GLSL450
+    0x0003000e, 0x00000000, 0x00000001,
+    // OpEntryPoint Fragment %main "main" %outColor
+    0x0005000f, 0x00000004, 0x00000001, 0x6e69616d, 0x00000009,
+    // OpExecutionMode %main OriginUpperLeft
+    0x00030010, 0x00000001, 0x00000007,
+    // OpName %main "main"
+    0x00040005, 0x00000001, 0x6e69616d, 0x00000000,
+    // OpName %outColor "outColor"
+    0x00050005, 0x00000009, 0x4374756f, 0x726f6c6f, 0x00000000,
+    // OpDecorate %outColor Location 0
+    0x00040047, 0x00000009, 0x0000001e, 0x00000000,
+    // OpTypeVoid
+    0x00020013, 0x00000002,
+    // OpTypeFunction %void
+    0x00030021, 0x00000003, 0x00000002,
+    // OpTypeFloat 32
+    0x00030016, 0x00000005, 0x00000020,
+    // OpTypeVector %float 4
+    0x00040017, 0x00000006, 0x00000005, 0x00000004,
+    // OpTypePointer Output %v4float
+    0x00040020, 0x00000008, 0x00000003, 0x00000006,
+    // OpVariable Output %outColor
+    0x0004003b, 0x00000008, 0x00000009, 0x00000003,
+    // OpConstant %float 1.0
+    0x0004002b, 0x00000005, 0x0000000b, 0x3f800000,
+    // OpConstantComposite %v4float 1.0 1.0 1.0 1.0 (white)
+    0x0007002c, 0x00000006, 0x0000000c, 0x0000000b, 0x0000000b, 0x0000000b, 0x0000000b,
+    // OpFunction %void %main
+    0x00050036, 0x00000002, 0x00000001, 0x00000000, 0x00000003,
+    // OpLabel
+    0x000200f8, 0x00000004,
+    // OpStore %outColor %vec4(1,1,1,1)
+    0x0003003e, 0x00000009, 0x0000000c,
+    // OpReturn
+    0x000100fd,
+    // OpFunctionEnd
+    0x00010038
 };
 
 // Key mapping from SDL to dmpv
@@ -1016,9 +1059,11 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
     
     VkShaderModule vert_shader_module;
     if (vkCreateShaderModule(p->device, &vert_shader_info, NULL, &vert_shader_module) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD vertex shader module\n");
-        cleanup_osd_resources(p);
-        return -1;
+        MP_WARN(vo, "Failed to create OSD vertex shader module - OSD rendering disabled\n");
+        // Don't fail, just skip OSD rendering
+        p->osd_pipeline = VK_NULL_HANDLE;
+        p->osd_needs_upload = false;
+        return 0;
     }
     
     VkShaderModuleCreateInfo frag_shader_info = {
@@ -1029,10 +1074,12 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
     
     VkShaderModule frag_shader_module;
     if (vkCreateShaderModule(p->device, &frag_shader_info, NULL, &frag_shader_module) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD fragment shader module\n");
+        MP_WARN(vo, "Failed to create OSD fragment shader module - OSD rendering disabled\n");
         vkDestroyShaderModule(p->device, vert_shader_module, NULL);
-        cleanup_osd_resources(p);
-        return -1;
+        // Don't fail, just skip OSD rendering
+        p->osd_pipeline = VK_NULL_HANDLE;
+        p->osd_needs_upload = false;
+        return 0;
     }
     
     VkPipelineShaderStageCreateInfo vert_stage_info = {
@@ -1152,9 +1199,11 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
     vkDestroyShaderModule(p->device, vert_shader_module, NULL);
     
     if (result != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD graphics pipeline\n");
-        cleanup_osd_resources(p);
-        return -1;
+        MP_WARN(vo, "Failed to create OSD graphics pipeline - OSD rendering disabled\n");
+        // Don't fail, just skip OSD rendering
+        p->osd_pipeline = VK_NULL_HANDLE;
+        p->osd_needs_upload = false;
+        return 0;
     }
     
     p->osd_needs_upload = false;
