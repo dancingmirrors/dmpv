@@ -49,6 +49,7 @@
 extern const struct vo_driver video_out_default;
 extern const struct vo_driver video_out_dmabuf_wayland;
 extern const struct vo_driver video_out_sdl;
+extern const struct vo_driver video_out_vulkan_sdl;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
 extern const struct vo_driver video_out_image;
@@ -64,6 +65,9 @@ static const struct vo_driver *const video_out_drivers[] =
 #endif
 #if HAVE_SDL2
     &video_out_sdl,
+#endif
+#if HAVE_VULKAN_SDL
+    &video_out_vulkan_sdl,
 #endif
 #if HAVE_DRM
     &video_out_drm,
