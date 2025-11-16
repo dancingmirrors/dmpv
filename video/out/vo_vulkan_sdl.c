@@ -284,6 +284,20 @@ static void set_fullscreen(struct vo *vo)
         return;
     }
     
+    // Update window dimensions and recalculate video rectangles for new size
+    // This is necessary because fullscreen changes the actual window/drawable size
+    int w, h;
+    SDL_GetWindowSize(p->window, &w, &h);
+    vo->dwidth = w;
+    vo->dheight = h;
+    
+    // Recalculate src/dst rectangles with updated dimensions
+    struct mp_rect src, dst;
+    struct mp_osd_res osd;
+    vo_get_src_dst_rects(vo, &src, &dst, &osd);
+    p->src_rect = src;
+    p->dst_rect = dst;
+    
     // Mark for redraw after fullscreen change
     vo->want_redraw = true;
 }
