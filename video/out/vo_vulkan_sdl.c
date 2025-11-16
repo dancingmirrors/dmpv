@@ -43,6 +43,7 @@
 #include "video/mp_image.h"
 #include "input/input.h"
 #include "input/keycodes.h"
+#include "sub/osd.h"
 #include "vo.h"
 
 // Key mapping from SDL to dmpv
@@ -119,6 +120,10 @@ struct priv {
     
     struct mp_image_params params;
     bool vsync;
+    
+    // OSD support
+    struct mp_osd_res osd_res;
+    double osd_pts;
     
     // Event handling
     Uint32 wakeup_event;
@@ -813,13 +818,40 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Resize window to match video dimensions
     SDL_SetWindowSize(p->window, params->w, params->h);
     
+    // Set up OSD resolution
+    p->osd_res = (struct mp_osd_res){
+        .w = params->w,
+        .h = params->h,
+        .display_par = 1.0,
+    };
+    
     return 0;
 }
 
 static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
+    struct priv *p = vo->priv;
+    
+    // Update OSD presentation timestamp
+    p->osd_pts = frame->current ? frame->current->pts : 0;
+    
     // Just store the frame for rendering in flip_page
     // Actual rendering happens in flip_page when we know which swapchain image to use
+}
+
+static void draw_osd(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    
+    // OSD drawing placeholder - for now we just call osd_draw with NULL callback
+    // This ensures OSD state is updated even if we don't render it yet
+    // Since we're drawing to black, we don't need to actually render OSD bitmaps
+    static const bool osdformats[SUBBITMAP_COUNT] = {
+        [SUBBITMAP_BGRA] = true,
+    };
+    
+    // Call osd_draw with NULL callback - this updates OSD state but doesn't render
+    osd_draw(vo->osd, p->osd_res, p->osd_pts, 0, osdformats, NULL, NULL);
 }
 
 static void flip_page(struct vo *vo)
@@ -867,6 +899,9 @@ static void flip_page(struct vo *vo)
     vkCmdBeginRenderPass(cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
+    
+    // Update OSD (even though we're not rendering it visually yet)
+    draw_osd(vo);
     
     // Submit command buffer
     VkSemaphore wait_semaphores[] = {p->image_available_semaphores[p->current_frame]};
@@ -988,6 +1023,24 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
 
 static int control(struct vo *vo, uint32_t request, void *data)
 {
+    struct priv *p = vo->priv;
+    
+    switch (request) {
+    case VOCTRL_RESET:
+        // Handle seeking - reset state if needed
+        // For now, just acknowledge the reset
+        return VO_TRUE;
+    case VOCTRL_PAUSE:
+        // Handle pause
+        return VO_TRUE;
+    case VOCTRL_RESUME:
+        // Handle resume
+        return VO_TRUE;
+    case VOCTRL_SET_PANSCAN:
+        // Handle panscan changes
+        return VO_TRUE;
+    }
+    
     return VO_NOTIMPL;
 }
 
