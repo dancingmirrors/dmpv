@@ -139,11 +139,40 @@ struct priv {
     // Video destination rectangle (for centering and aspect ratio)
     struct mp_rect dst_rect;
     
+    // Options cache for tracking changes
+    struct m_config_cache *opts_cache;
+    
     // Event handling
     Uint32 wakeup_event;
 };
 
 static void cleanup_vulkan(struct priv *p);
+
+static void set_fullscreen(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    struct mp_vo_opts *opts = p->opts_cache->opts;
+    int fs = opts->fullscreen;
+    
+    Uint32 fs_flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
+    
+    Uint32 old_flags = SDL_GetWindowFlags(p->window);
+    int prev_fs = !!(old_flags & fs_flag);
+    if (fs == prev_fs)
+        return;
+    
+    Uint32 flags = 0;
+    if (fs)
+        flags |= fs_flag;
+    
+    if (SDL_SetWindowFullscreen(p->window, flags)) {
+        MP_ERR(vo, "SDL_SetWindowFullscreen failed\n");
+        return;
+    }
+    
+    // Mark for redraw after fullscreen change
+    vo->want_redraw = true;
+}
 
 static void update_screeninfo(struct vo *vo, struct mp_rect *screenrc)
 {
@@ -908,6 +937,9 @@ static int preinit(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Initialize options cache
+    p->opts_cache = m_config_cache_alloc(p, vo->global, &vo_sub_opts);
+    
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         MP_ERR(vo, "SDL_Init failed: %s\n", SDL_GetError());
         return -1;
@@ -1031,6 +1063,9 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
         return -1;
     }
     
+    // Set fullscreen state
+    set_fullscreen(vo);
+    
     return 0;
 }
 
@@ -1093,6 +1128,18 @@ static void flip_page(struct vo *vo)
                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                        VK_PIPELINE_STAGE_TRANSFER_BIT,
                        0, 0, NULL, 0, NULL, 1, &barrier);
+    
+    // Clear the entire swapchain image to black first to avoid stale content
+    VkClearColorValue clear_value = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    VkImageSubresourceRange clear_range = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+    vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &clear_range);
     
     // Render the video frame
     if (p->current_frame_image) {
@@ -1267,18 +1314,6 @@ static void flip_page(struct vo *vo)
                 }
             }
         }
-    } else {
-        // No frame - clear to black
-        VkClearColorValue clear_value = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        VkImageSubresourceRange range = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
-        vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
     }
     
     // Transition swapchain image to PRESENT_SRC_KHR for presentation
@@ -1414,12 +1449,20 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
 
 static int control(struct vo *vo, uint32_t request, void *data)
 {
-    (void)vo;  // Unused for now
+    struct priv *p = vo->priv;
     
     switch (request) {
+    case VOCTRL_VO_OPTS_CHANGED: {
+        void *opt;
+        while (m_config_cache_get_next_changed(p->opts_cache, &opt)) {
+            struct mp_vo_opts *opts = p->opts_cache->opts;
+            if (&opts->fullscreen == opt)
+                set_fullscreen(vo);
+        }
+        return VO_TRUE;
+    }
     case VOCTRL_RESET:
         // Handle seeking - reset state if needed
-        // For now, just acknowledge the reset
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
@@ -1428,7 +1471,14 @@ static int control(struct vo *vo, uint32_t request, void *data)
         // Handle resume
         return VO_TRUE;
     case VOCTRL_SET_PANSCAN:
-        // Handle panscan changes
+        // Handle panscan changes - recalculate destination rect
+        if (vo->params) {
+            struct mp_rect src, dst;
+            struct mp_osd_res osd;
+            vo_get_src_dst_rects(vo, &src, &dst, &osd);
+            p->dst_rect = dst;
+            vo->want_redraw = true;
+        }
         return VO_TRUE;
     }
     
