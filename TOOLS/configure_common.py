@@ -212,6 +212,9 @@ def begin():
         _G.root_dir = sys.path[0]
         _G.out_of_tree = True
 
+    # Wipe the build directory completely to avoid leftover files causing issues
+    if os.path.exists(_G.build_dir):
+        shutil.rmtree(_G.build_dir)
     os.makedirs(_G.build_dir, exist_ok = True)
     _G.log_file = open(os.path.join(_G.build_dir, "config.log"), "w")
 
