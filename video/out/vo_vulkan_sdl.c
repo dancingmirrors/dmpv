@@ -1033,7 +1033,7 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
 
 static int control(struct vo *vo, uint32_t request, void *data)
 {
-    struct priv *p = vo->priv;
+    (void)vo;  // Unused for now
     
     switch (request) {
     case VOCTRL_RESET:
