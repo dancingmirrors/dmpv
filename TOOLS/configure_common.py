@@ -805,6 +805,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     # Generate .inc files for config files
     inc_files = [
         ("etc/input.conf", "$builddir/generated/etc/input.conf.inc"),
+        ("etc/input_vo_default.conf", "$builddir/generated/etc/input_vo_default.conf.inc"),
         ("etc/builtin.conf", "$builddir/generated/etc/builtin.conf.inc"),
         ("etc/dmpv-icon-8bit-16x16.png", "$builddir/generated/etc/dmpv-icon-8bit-16x16.png.inc"),
         ("etc/dmpv-icon-8bit-32x32.png", "$builddir/generated/etc/dmpv-icon-8bit-32x32.png.inc"),
@@ -875,6 +876,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
             implicit_deps.append("$builddir/generated/ebml_defs.c")
         if "input/input.c" in src:
             implicit_deps.append("$builddir/generated/etc/input.conf.inc")
+            implicit_deps.append("$builddir/generated/etc/input_vo_default.conf.inc")
         if "player/main.c" in src:
             implicit_deps.append("$builddir/generated/etc/builtin.conf.inc")
         if "sub/osd_libass.c" in src:

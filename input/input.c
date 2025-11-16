@@ -215,6 +215,12 @@ static const char builtin_input_conf[] =
 #include "generated/etc/input.conf.inc"
 ;
 
+#if HAVE_LIBPLACEBO
+static const char builtin_input_vo_default_conf[] =
+#include "generated/etc/input_vo_default.conf.inc"
+;
+#endif
+
 static bool test_rect(struct mp_rect *rc, int x, int y)
 {
     return x >= rc->x0 && y >= rc->y0 && x < rc->x1 && y < rc->y1;
@@ -1349,6 +1355,18 @@ void mp_input_load_config(struct input_ctx *ictx)
         if (!bstr_startswith0(line, " "))
             parse_config(ictx, true, line, "<builtin>", NULL);
     }
+
+#if HAVE_LIBPLACEBO
+    // Load vo_default-specific bindings (equalizer controls)
+    // These only work with the default VO which requires libplacebo
+    bstr builtin_vo_default = bstr0(builtin_input_vo_default_conf);
+    while (ictx->opts->builtin_bindings && builtin_vo_default.len) {
+        bstr line = bstr_getline(builtin_vo_default, &builtin_vo_default);
+        bstr_eatstart0(&line, "#");
+        if (!bstr_startswith0(line, " "))
+            parse_config(ictx, true, line, "<builtin-vo-default>", NULL);
+    }
+#endif
 
     bool config_ok = false;
     if (ictx->opts->config_file && ictx->opts->config_file[0])
