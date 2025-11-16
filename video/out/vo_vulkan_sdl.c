@@ -839,19 +839,25 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     // Actual rendering happens in flip_page when we know which swapchain image to use
 }
 
+static void draw_osd_cb(void *ctx, struct sub_bitmaps *imgs)
+{
+    // Empty callback - we're not rendering OSD visually yet (drawing to black)
+    // This callback is required by osd_draw to avoid NULL pointer crashes
+    (void)ctx;
+    (void)imgs;
+}
+
 static void draw_osd(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
-    // OSD drawing placeholder - for now we just call osd_draw with NULL callback
-    // This ensures OSD state is updated even if we don't render it yet
-    // Since we're drawing to black, we don't need to actually render OSD bitmaps
+    // OSD drawing placeholder - callback does nothing since we're drawing to black
+    // This ensures OSD state is updated without visual rendering
     static const bool osdformats[SUBBITMAP_COUNT] = {
         [SUBBITMAP_BGRA] = true,
     };
     
-    // Call osd_draw with NULL callback - this updates OSD state but doesn't render
-    osd_draw(vo->osd, p->osd_res, p->osd_pts, 0, osdformats, NULL, NULL);
+    osd_draw(vo->osd, p->osd_res, p->osd_pts, 0, osdformats, draw_osd_cb, vo);
 }
 
 static void flip_page(struct vo *vo)
