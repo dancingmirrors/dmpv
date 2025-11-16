@@ -221,6 +221,9 @@ struct priv {
     struct mp_image_params params;
     bool vsync;
     
+    // Current video frame to display
+    struct mp_image *current_frame_image;
+    
     // OSD support
     struct mp_osd_res osd_res;
     double osd_pts;
@@ -1371,6 +1374,9 @@ static void uninit(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Release current frame reference
+    mp_image_unrefp(&p->current_frame_image);
+    
     if (p->hwctx.av_device_ref) {
         if (vo->hwdec_devs)
             hwdec_devices_remove(vo->hwdec_devs, &p->hwctx);
@@ -1448,8 +1454,8 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     // Update OSD presentation timestamp
     p->osd_pts = frame->current ? frame->current->pts : 0;
     
-    // Just store the frame for rendering in flip_page
-    // Actual rendering happens in flip_page when we know which swapchain image to use
+    // Store a reference to the current frame for rendering in flip_page
+    mp_image_setrefp(&p->current_frame_image, frame->current);
 }
 
 /* OSD functions disabled - not used since OSD rendering is disabled
@@ -1598,29 +1604,140 @@ static void flip_page(struct vo *vo)
     
     vkBeginCommandBuffer(cmd, &begin_info);
     
-    VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    VkRenderPassBeginInfo render_pass_info = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext = NULL,
-        .renderPass = p->render_pass,
-        .framebuffer = p->framebuffers[image_index],
-        .renderArea.offset = {0, 0},
-        .renderArea.extent = p->swapchain_extent,
-        .clearValueCount = 1,
-        .pClearValues = &clear_color,
+    // Transition swapchain image to TRANSFER_DST_OPTIMAL for copying/blitting
+    VkImageMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = p->swapchain_images[image_index],
+        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.baseMipLevel = 0,
+        .subresourceRange.levelCount = 1,
+        .subresourceRange.baseArrayLayer = 0,
+        .subresourceRange.layerCount = 1,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
     };
     
-    vkCmdBeginRenderPass(cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdPipelineBarrier(cmd,
+                       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       0, 0, NULL, 0, NULL, 1, &barrier);
     
-    // OSD rendering disabled (pipeline is NULL)
-    // No OSD commands recorded
+    // Render the video frame
+    if (p->current_frame_image) {
+        struct mp_image *mpi = p->current_frame_image;
+        
+        if (mpi->imgfmt == IMGFMT_VULKAN) {
+            // Hardware decoded Vulkan frame
+            AVFrame *frame = mp_image_to_av_frame(mpi);
+            if (frame && frame->data[0]) {
+                AVHWFramesContext *hwfc = (AVHWFramesContext *)frame->hw_frames_ctx->data;
+                AVVulkanFramesContext *vkfc = hwfc->hwctx;
+                AVVkFrame *vkf = (AVVkFrame *)frame->data[0];
+                
+                // Transition source image to TRANSFER_SRC_OPTIMAL
+                VkImageMemoryBarrier src_barrier = {
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,  // Vulkan frames are typically in GENERAL layout
+                    .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image = vkf->img[0],
+                    .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .subresourceRange.baseMipLevel = 0,
+                    .subresourceRange.levelCount = 1,
+                    .subresourceRange.baseArrayLayer = 0,
+                    .subresourceRange.layerCount = 1,
+                    .srcAccessMask = 0,
+                    .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+                };
+                
+                vkCmdPipelineBarrier(cmd,
+                                   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   0, 0, NULL, 0, NULL, 1, &src_barrier);
+                
+                // Blit the Vulkan frame to swapchain
+                VkImageBlit blit = {
+                    .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .srcSubresource.mipLevel = 0,
+                    .srcSubresource.baseArrayLayer = 0,
+                    .srcSubresource.layerCount = 1,
+                    .srcOffsets[0] = {0, 0, 0},
+                    .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                    .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .dstSubresource.mipLevel = 0,
+                    .dstSubresource.baseArrayLayer = 0,
+                    .dstSubresource.layerCount = 1,
+                    .dstOffsets[0] = {0, 0, 0},
+                    .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                };
+                
+                vkCmdBlitImage(cmd,
+                             vkf->img[0], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             1, &blit, VK_FILTER_LINEAR);
+                
+                // Transition source image back to GENERAL
+                src_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                src_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+                src_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                src_barrier.dstAccessMask = 0;
+                
+                vkCmdPipelineBarrier(cmd,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                   0, 0, NULL, 0, NULL, 1, &src_barrier);
+            }
+            if (frame)
+                av_frame_free(&frame);
+        } else {
+            // Software frame - for now just clear to gray to indicate we received a frame
+            // TODO: Implement proper YUV to RGB conversion and upload
+            VkClearColorValue clear_value = {{0.5f, 0.5f, 0.5f, 1.0f}};
+            VkImageSubresourceRange range = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            };
+            vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+        }
+    } else {
+        // No frame - clear to black
+        VkClearColorValue clear_value = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        VkImageSubresourceRange range = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+        vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+    }
     
-    vkCmdEndRenderPass(cmd);
+    // Transition swapchain image to PRESENT_SRC_KHR for presentation
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = 0;
+    
+    vkCmdPipelineBarrier(cmd,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       0, 0, NULL, 0, NULL, 1, &barrier);
+    
     vkEndCommandBuffer(cmd);
     
     // Submit command buffer
     VkSemaphore wait_semaphores[] = {p->image_available_semaphores[p->current_frame]};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
     VkSemaphore signal_semaphores[] = {p->render_finished_semaphores[p->current_frame]};
     
     VkSubmitInfo submit_info = {
