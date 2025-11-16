@@ -494,15 +494,14 @@ static int create_swapchain(struct vo *vo)
     }
     free(present_modes);
     
-    p->swapchain_extent = capabilities.currentExtent;
-    if (p->swapchain_extent.width == UINT32_MAX) {
-        int w, h;
-        SDL_Vulkan_GetDrawableSize(p->window, &w, &h);
-        p->swapchain_extent.width = MPCLAMP(w, capabilities.minImageExtent.width, 
-                                            capabilities.maxImageExtent.width);
-        p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
-                                             capabilities.maxImageExtent.height);
-    }
+    // Always query the actual drawable size from SDL instead of relying on
+    // capabilities.currentExtent, which may return stale values after window resize
+    int w, h;
+    SDL_Vulkan_GetDrawableSize(p->window, &w, &h);
+    p->swapchain_extent.width = MPCLAMP(w, capabilities.minImageExtent.width, 
+                                        capabilities.maxImageExtent.width);
+    p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
+                                         capabilities.maxImageExtent.height);
     
     uint32_t image_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
