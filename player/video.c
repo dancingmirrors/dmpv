@@ -41,6 +41,7 @@
 #include "video/hwdec.h"
 #include "filters/f_decoder_wrapper.h"
 #include "video/out/vo.h"
+#include "input/input.h"
 
 #include "core.h"
 #include "command.h"
@@ -240,6 +241,15 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
             goto err_out;
         }
         mpctx->mouse_cursor_visible = true;
+
+#if HAVE_LIBPLACEBO
+        // Enable vo_default-specific input bindings if using vo_default
+        if (strcmp(mpctx->video_out->driver->name, "default") == 0) {
+            mp_input_enable_section(mpctx->input, "vo_default", 0);
+        } else {
+            mp_input_disable_section(mpctx->input, "vo_default");
+        }
+#endif
     }
 
     update_window_title(mpctx, true);

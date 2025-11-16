@@ -215,6 +215,12 @@ static const char builtin_input_conf[] =
 #include "generated/etc/input.conf.inc"
 ;
 
+#if HAVE_LIBPLACEBO
+static const char builtin_input_vo_default_conf[] =
+#include "generated/etc/input_vo_default.conf.inc"
+;
+#endif
+
 static bool test_rect(struct mp_rect *rc, int x, int y)
 {
     return x >= rc->x0 && y >= rc->y0 && x < rc->x1 && y < rc->y1;
@@ -1349,6 +1355,30 @@ void mp_input_load_config(struct input_ctx *ictx)
         if (!bstr_startswith0(line, " "))
             parse_config(ictx, true, line, "<builtin>", NULL);
     }
+
+#if HAVE_LIBPLACEBO
+    // Define vo_default-specific bindings in a named section
+    // These only work with the default VO which requires libplacebo
+    // The section is disabled by default and enabled dynamically when vo_default is active
+    if (ictx->opts->builtin_bindings) {
+        // Strip the '#' prefix from lines to prepare content for section
+        void *tmp = talloc_new(NULL);
+        char *section_content = talloc_strdup(tmp, "");
+        bstr builtin_vo_default = bstr0(builtin_input_vo_default_conf);
+        while (builtin_vo_default.len) {
+            bstr line = bstr_getline(builtin_vo_default, &builtin_vo_default);
+            bstr_eatstart0(&line, "#");
+            if (!bstr_startswith0(line, " ")) {
+                section_content = talloc_asprintf_append(section_content, "%.*s\n",
+                                                         BSTR_P(line));
+            }
+        }
+        mp_input_define_section(ictx, "vo_default", "<builtin-vo-default>",
+                               section_content, true, NULL);
+        // Section is defined but not enabled - it will be enabled when vo_default is active
+        talloc_free(tmp);
+    }
+#endif
 
     bool config_ok = false;
     if (ictx->opts->config_file && ictx->opts->config_file[0])
