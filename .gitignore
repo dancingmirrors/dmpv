@@ -1,5 +1,6 @@
 *.gch
 *.o
+*.backup
 /TOOLS/__pycache__
 _codeql_detected_source_root
 build
