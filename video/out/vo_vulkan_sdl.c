@@ -1125,8 +1125,6 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
-    SDL_ShowWindow(p->window);
-    
     return 0;
 }
 
@@ -1228,6 +1226,9 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     
     // Set fullscreen state
     set_fullscreen(vo);
+    
+    // Show window after it's been properly configured
+    SDL_ShowWindow(p->window);
     
     return 0;
 }
@@ -1809,7 +1810,7 @@ const struct vo_driver video_out_vulkan_sdl = {
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .vsync = true,
-        .borderless = false,
+        .borderless = true,
     },
     .options = (const struct m_option[]) {
         {"vsync", OPT_BOOL(vsync)},
