@@ -1826,4 +1826,5 @@ const struct vo_driver video_out_vulkan_sdl = {
     .wakeup = wakeup,
     .wait_events = wait_events,
     .uninit = uninit,
+    .options_prefix = "vulkan-sdl",
 };
