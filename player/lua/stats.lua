@@ -548,20 +548,161 @@ local function get_kbinfo_lines()
                                  o.font_mono, kspaces, o.font, 1.3*font_size)
     local spost = term and "" or format("{\\u0\\fs%d}%s", font_size, text_style())
 
-    -- create the display lines
-    local info_lines = {}
+    -- Group bindings by subject for side-by-side layout
+    local subject_groups = {}
+    local current_group = nil
     local subject = nil
+    
     for _, bind in ipairs(ordered) do
         if bind.subject ~= subject then  -- new subject (title)
             subject = bind.subject
-            append(info_lines, "", {})
-            append(info_lines, "", { prefix = spre .. subject .. spost })
+            current_group = {
+                subject = subject,
+                bindings = {},
+                line_count = 1  -- 1 for the subject header
+            }
+            subject_groups[#subject_groups + 1] = current_group
         end
         if bind.comment then
             bind.cmd = bind.cmd .. "  # " .. bind.comment
         end
-        append(info_lines, bind.cmd, { prefix = kpre .. no_ASS(align_right(bind.key)) .. kpost })
+        current_group.bindings[#current_group.bindings + 1] = {
+            key = bind.key,
+            cmd = bind.cmd
+        }
+        current_group.line_count = current_group.line_count + 1
     end
+    
+    -- Determine number of columns based on screen width
+    local screen_width = mp.get_property_number("osd-width", 1366)
+    local num_columns = screen_width >= 1920 and 3 or 2
+    
+    -- Distribute groups into columns, trying to balance height
+    local columns = {}
+    for i = 1, num_columns do
+        columns[i] = {groups = {}, total_lines = 0}
+    end
+    
+    -- Greedy distribution: assign each group to the column with fewest lines
+    for _, group in ipairs(subject_groups) do
+        local min_col_idx = 1
+        local min_lines = columns[1].total_lines
+        for i = 2, num_columns do
+            if columns[i].total_lines < min_lines then
+                min_lines = columns[i].total_lines
+                min_col_idx = i
+            end
+        end
+        columns[min_col_idx].groups[#columns[min_col_idx].groups + 1] = group
+        columns[min_col_idx].total_lines = columns[min_col_idx].total_lines + group.line_count + 1
+    end
+    
+    -- Build output lines
+    local info_lines = {}
+    
+    if not o.use_ass or num_columns == 1 then
+        -- Fall back to single column for terminal
+        for _, group in ipairs(subject_groups) do
+            append(info_lines, "", {})
+            append(info_lines, "", { prefix = spre .. group.subject .. spost })
+            for _, binding in ipairs(group.bindings) do
+                append(info_lines, binding.cmd, { prefix = kpre .. no_ASS(align_right(binding.key)) .. kpost })
+            end
+        end
+    else
+        -- Multi-column layout: convert each column to text lines
+        local column_lines = {}
+        local max_width = {}
+        
+        for col_idx = 1, num_columns do
+            column_lines[col_idx] = {}
+            max_width[col_idx] = 0
+            
+            for _, group in ipairs(columns[col_idx].groups) do
+                -- Add empty line before group
+                column_lines[col_idx][#column_lines[col_idx] + 1] = {
+                    text = "",
+                    visual_len = 0,
+                    is_subject = false
+                }
+                -- Add subject header
+                column_lines[col_idx][#column_lines[col_idx] + 1] = {
+                    text = group.subject,
+                    visual_len = group.subject:len() + 3,  -- +3 for "   " in spre
+                    is_subject = true
+                }
+                if column_lines[col_idx][#column_lines[col_idx]].visual_len > max_width[col_idx] then
+                    max_width[col_idx] = column_lines[col_idx][#column_lines[col_idx]].visual_len
+                end
+                
+                -- Add bindings
+                for _, binding in ipairs(group.bindings) do
+                    local key_aligned = align_right(binding.key)
+                    local line_text = key_aligned .. " " .. binding.cmd
+                    local visual_len = kspaces:len() + 1 + binding.cmd:len()
+                    column_lines[col_idx][#column_lines[col_idx] + 1] = {
+                        text = line_text,
+                        visual_len = visual_len,
+                        is_subject = false
+                    }
+                    if visual_len > max_width[col_idx] then
+                        max_width[col_idx] = visual_len
+                    end
+                end
+            end
+        end
+        
+        -- Find max number of lines across all columns
+        local max_lines = 0
+        for col_idx = 1, num_columns do
+            if #column_lines[col_idx] > max_lines then
+                max_lines = #column_lines[col_idx]
+            end
+        end
+        
+        -- Pad column widths for spacing (except last column)
+        local column_spacing = 4
+        for col_idx = 1, num_columns - 1 do
+            max_width[col_idx] = max_width[col_idx] + column_spacing
+        end
+        
+        -- Combine columns horizontally into output lines
+        for line_idx = 1, max_lines do
+            local combined = ""
+            
+            for col_idx = 1, num_columns do
+                local col_line = column_lines[col_idx][line_idx]
+                if col_line then
+                    local text = col_line.text
+                    local formatted_text = ""
+                    
+                    if col_line.is_subject then
+                        formatted_text = spre .. text .. spost
+                    elseif text ~= "" then
+                        formatted_text = kpre .. no_ASS(text) .. kpost
+                    end
+                    
+                    combined = combined .. formatted_text
+                    
+                    -- Add padding to align columns (except last column)
+                    if col_idx < num_columns then
+                        local padding = max_width[col_idx] - col_line.visual_len
+                        if padding > 0 then
+                            combined = combined .. string.rep(o.use_ass and "\\h" or " ", padding)
+                        end
+                    end
+                else
+                    -- Empty line in this column, add spacing if not last column
+                    if col_idx < num_columns then
+                        combined = combined .. string.rep(o.use_ass and "\\h" or " ", max_width[col_idx])
+                    end
+                end
+            end
+            
+            info_lines[#info_lines + 1] = combined
+        end
+    end
+    
     return info_lines
 end
 
