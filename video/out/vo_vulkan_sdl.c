@@ -124,6 +124,8 @@ struct priv {
     // OSD support
     struct mp_osd_res osd_res;
     double osd_pts;
+    struct mp_image *osd_image;  // Buffer for OSD rendering
+    // TODO: Add Vulkan OSD rendering (staging buffer, VkImage, etc.)
     
     // Event handling
     Uint32 wakeup_event;
@@ -825,6 +827,15 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
         .display_par = 1.0,
     };
     
+    // Create OSD image buffer (BGRA format for OSD rendering)
+    talloc_free(p->osd_image);
+    p->osd_image = mp_image_alloc(IMGFMT_BGRA, params->w, params->h);
+    if (!p->osd_image) {
+        MP_ERR(vo, "Failed to allocate OSD image\n");
+        return -1;
+    }
+    mp_image_clear(p->osd_image, 0, 0, params->w, params->h);
+    
     return 0;
 }
 
@@ -839,25 +850,18 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     // Actual rendering happens in flip_page when we know which swapchain image to use
 }
 
-static void draw_osd_cb(void *ctx, struct sub_bitmaps *imgs)
-{
-    // Empty callback - we're not rendering OSD visually yet (drawing to black)
-    // This callback is required by osd_draw to avoid NULL pointer crashes
-    (void)ctx;
-    (void)imgs;
-}
-
 static void draw_osd(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
-    // OSD drawing placeholder - callback does nothing since we're drawing to black
-    // This ensures OSD state is updated without visual rendering
-    static const bool osdformats[SUBBITMAP_COUNT] = {
-        [SUBBITMAP_BGRA] = true,
-    };
+    if (!p->osd_image)
+        return;
     
-    osd_draw(vo->osd, p->osd_res, p->osd_pts, 0, osdformats, draw_osd_cb, vo);
+    // Clear OSD image to transparent black
+    mp_image_clear(p->osd_image, 0, 0, p->osd_image->w, p->osd_image->h);
+    
+    // Draw OSD onto the image
+    osd_draw_on_image(vo->osd, p->osd_res, p->osd_pts, 0, p->osd_image);
 }
 
 static void flip_page(struct vo *vo)
