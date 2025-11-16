@@ -138,7 +138,8 @@ struct priv {
     struct SwsContext *sws_context;
     struct mp_image *rgb_image;  // RGB conversion buffer
     
-    // Video destination rectangle (for centering and aspect ratio)
+    // Video source and destination rectangles (for centering and aspect ratio)
+    struct mp_rect src_rect;
     struct mp_rect dst_rect;
     
     // OSD support (CPU-side compositing for software decoding)
@@ -1205,6 +1206,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     struct mp_rect src, dst;
     struct mp_osd_res osd;
     vo_get_src_dst_rects(vo, &src, &dst, &osd);
+    p->src_rect = src;
     p->dst_rect = dst;
     
     // Adjust OSD resolution to match video dimensions (OSD will scale with video)
@@ -1358,8 +1360,8 @@ static void flip_page(struct vo *vo)
                     .srcSubresource.mipLevel = 0,
                     .srcSubresource.baseArrayLayer = 0,
                     .srcSubresource.layerCount = 1,
-                    .srcOffsets[0] = {0, 0, 0},
-                    .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                    .srcOffsets[0] = {p->src_rect.x0, p->src_rect.y0, 0},
+                    .srcOffsets[1] = {p->src_rect.x1, p->src_rect.y1, 1},
                     .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                     .dstSubresource.mipLevel = 0,
                     .dstSubresource.baseArrayLayer = 0,
@@ -1518,8 +1520,8 @@ static void flip_page(struct vo *vo)
                         .srcSubresource.mipLevel = 0,
                         .srcSubresource.baseArrayLayer = 0,
                         .srcSubresource.layerCount = 1,
-                        .srcOffsets[0] = {0, 0, 0},
-                        .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                        .srcOffsets[0] = {p->src_rect.x0, p->src_rect.y0, 0},
+                        .srcOffsets[1] = {p->src_rect.x1, p->src_rect.y1, 1},
                         .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                         .dstSubresource.mipLevel = 0,
                         .dstSubresource.baseArrayLayer = 0,
@@ -1798,6 +1800,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
             struct mp_rect src, dst;
             struct mp_osd_res osd;
             vo_get_src_dst_rects(vo, &src, &dst, &osd);
+            p->src_rect = src;
             p->dst_rect = dst;
             // Keep OSD at video resolution (set in reconfig)
             vo->want_redraw = true;
