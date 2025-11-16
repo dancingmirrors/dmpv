@@ -1409,7 +1409,9 @@ static void flip_page(struct vo *vo)
                         }
                         
                         // Draw OSD on top at video resolution (will scale with video)
-                        osd_draw_on_image(vo->osd, p->osd_res, mpi->pts, 0, p->osd_image);
+                        // Use pts=0 for redraws to ensure fresh OSD state is used
+                        double osd_pts = p->is_redraw ? 0 : mpi->pts;
+                        osd_draw_on_image(vo->osd, p->osd_res, osd_pts, 0, p->osd_image);
                         
                         // Upload the composited image to staging buffer
                         void *data;
