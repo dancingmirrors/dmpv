@@ -958,6 +958,9 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
+    // Always use borderless window
+    SDL_SetWindowBordered(p->window, SDL_FALSE);
+    
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == (Uint32)-1) {
         MP_ERR(vo, "Failed to register SDL user event\n");
