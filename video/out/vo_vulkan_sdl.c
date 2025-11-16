@@ -659,12 +659,228 @@ static int init_hwdec_ctx(struct vo *vo)
     return 0;
 }
 
+static void cleanup_osd_resources(struct priv *p)
+{
+    if (!p->device)
+        return;
+    
+    vkDeviceWaitIdle(p->device);
+    
+    if (p->osd_pipeline) {
+        vkDestroyPipeline(p->device, p->osd_pipeline, NULL);
+        p->osd_pipeline = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_pipeline_layout) {
+        vkDestroyPipelineLayout(p->device, p->osd_pipeline_layout, NULL);
+        p->osd_pipeline_layout = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_descriptor_set) {
+        // Descriptor sets are freed when pool is destroyed
+        p->osd_descriptor_set = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_descriptor_pool) {
+        vkDestroyDescriptorPool(p->device, p->osd_descriptor_pool, NULL);
+        p->osd_descriptor_pool = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_descriptor_layout) {
+        vkDestroyDescriptorSetLayout(p->device, p->osd_descriptor_layout, NULL);
+        p->osd_descriptor_layout = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_sampler) {
+        vkDestroySampler(p->device, p->osd_sampler, NULL);
+        p->osd_sampler = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_texture_view) {
+        vkDestroyImageView(p->device, p->osd_texture_view, NULL);
+        p->osd_texture_view = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_texture) {
+        vkDestroyImage(p->device, p->osd_texture, NULL);
+        p->osd_texture = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_texture_memory) {
+        vkFreeMemory(p->device, p->osd_texture_memory, NULL);
+        p->osd_texture_memory = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_staging_buffer) {
+        vkDestroyBuffer(p->device, p->osd_staging_buffer, NULL);
+        p->osd_staging_buffer = VK_NULL_HANDLE;
+    }
+    
+    if (p->osd_staging_memory) {
+        vkFreeMemory(p->device, p->osd_staging_memory, NULL);
+        p->osd_staging_memory = VK_NULL_HANDLE;
+    }
+}
+
+static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
+{
+    struct priv *p = vo->priv;
+    
+    // Clean up existing resources if any
+    cleanup_osd_resources(p);
+    
+    p->osd_width = width;
+    p->osd_height = height;
+    
+    // Create OSD texture (BGRA format for OSD)
+    VkImageCreateInfo image_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .extent.width = width,
+        .extent.height = height,
+        .extent.depth = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    
+    if (vkCreateImage(p->device, &image_info, NULL, &p->osd_texture) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create OSD texture\n");
+        return -1;
+    }
+    
+    // Allocate memory for OSD texture
+    VkMemoryRequirements mem_requirements;
+    vkGetImageMemoryRequirements(p->device, p->osd_texture, &mem_requirements);
+    
+    uint32_t memory_type = find_memory_type(p, mem_requirements.memoryTypeBits,
+                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (memory_type == UINT32_MAX) {
+        MP_ERR(vo, "Failed to find suitable memory type for OSD texture\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = memory_type,
+    };
+    
+    if (vkAllocateMemory(p->device, &alloc_info, NULL, &p->osd_texture_memory) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to allocate OSD texture memory\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    vkBindImageMemory(p->device, p->osd_texture, p->osd_texture_memory, 0);
+    
+    // Create image view for OSD texture
+    VkImageViewCreateInfo view_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = p->osd_texture,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.baseMipLevel = 0,
+        .subresourceRange.levelCount = 1,
+        .subresourceRange.baseArrayLayer = 0,
+        .subresourceRange.layerCount = 1,
+    };
+    
+    if (vkCreateImageView(p->device, &view_info, NULL, &p->osd_texture_view) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create OSD texture view\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    // Create staging buffer for OSD upload
+    VkDeviceSize buffer_size = width * height * 4; // BGRA
+    
+    VkBufferCreateInfo buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = buffer_size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    
+    if (vkCreateBuffer(p->device, &buffer_info, NULL, &p->osd_staging_buffer) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create OSD staging buffer\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    VkMemoryRequirements buffer_mem_requirements;
+    vkGetBufferMemoryRequirements(p->device, p->osd_staging_buffer, &buffer_mem_requirements);
+    
+    memory_type = find_memory_type(p, buffer_mem_requirements.memoryTypeBits,
+                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (memory_type == UINT32_MAX) {
+        MP_ERR(vo, "Failed to find suitable memory type for OSD staging buffer\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    VkMemoryAllocateInfo staging_alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = buffer_mem_requirements.size,
+        .memoryTypeIndex = memory_type,
+    };
+    
+    if (vkAllocateMemory(p->device, &staging_alloc_info, NULL, &p->osd_staging_memory) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to allocate OSD staging memory\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    vkBindBufferMemory(p->device, p->osd_staging_buffer, p->osd_staging_memory, 0);
+    
+    // Create sampler for OSD texture
+    VkSamplerCreateInfo sampler_info = {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .anisotropyEnable = VK_FALSE,
+        .maxAnisotropy = 1.0f,
+        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = VK_FALSE,
+        .compareEnable = VK_FALSE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .mipLodBias = 0.0f,
+        .minLod = 0.0f,
+        .maxLod = 0.0f,
+    };
+    
+    if (vkCreateSampler(p->device, &sampler_info, NULL, &p->osd_sampler) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create OSD sampler\n");
+        cleanup_osd_resources(p);
+        return -1;
+    }
+    
+    p->osd_needs_upload = false;
+    
+    return 0;
+}
+
 static void cleanup_vulkan(struct priv *p)
 {
     if (!p->device)
         return;
     
     vkDeviceWaitIdle(p->device);
+    
+    // Clean up OSD resources
+    cleanup_osd_resources(p);
     
     if (p->image_available_semaphores) {
         for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
@@ -864,6 +1080,12 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     }
     mp_image_clear(p->osd_image, 0, 0, params->w, params->h);
     
+    // Create Vulkan OSD resources
+    if (create_osd_resources(vo, params->w, params->h) < 0) {
+        MP_ERR(vo, "Failed to create OSD resources\n");
+        return -1;
+    }
+    
     return 0;
 }
 
@@ -890,6 +1112,106 @@ static void draw_osd(struct vo *vo)
     
     // Draw OSD onto the image
     osd_draw_on_image(vo->osd, p->osd_res, p->osd_pts, 0, p->osd_image);
+    
+    // Mark that OSD needs to be uploaded to GPU
+    p->osd_needs_upload = true;
+}
+
+static void upload_osd_texture(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    
+    if (!p->osd_needs_upload || !p->osd_image || !p->osd_staging_buffer)
+        return;
+    
+    // Map staging buffer and copy OSD data
+    void *data;
+    if (vkMapMemory(p->device, p->osd_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+        // Copy OSD image data to staging buffer
+        uint32_t stride = p->osd_image->stride[0];
+        uint32_t height = p->osd_height;
+        
+        for (uint32_t y = 0; y < height; y++) {
+            memcpy((uint8_t*)data + y * p->osd_width * 4,
+                   p->osd_image->planes[0] + y * stride,
+                   p->osd_width * 4);
+        }
+        
+        vkUnmapMemory(p->device, p->osd_staging_memory);
+        
+        // Create a temporary command buffer for the upload
+        VkCommandBuffer cmd = p->command_buffers[0]; // Use first command buffer temporarily
+        
+        VkCommandBufferBeginInfo begin_info = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+        
+        vkBeginCommandBuffer(cmd, &begin_info);
+        
+        // Transition OSD texture to transfer dst layout
+        VkImageMemoryBarrier barrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = p->osd_texture,
+            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .subresourceRange.baseMipLevel = 0,
+            .subresourceRange.levelCount = 1,
+            .subresourceRange.baseArrayLayer = 0,
+            .subresourceRange.layerCount = 1,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        };
+        
+        vkCmdPipelineBarrier(cmd,
+                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                           0, 0, NULL, 0, NULL, 1, &barrier);
+        
+        // Copy buffer to image
+        VkBufferImageCopy region = {
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .imageSubresource.mipLevel = 0,
+            .imageSubresource.baseArrayLayer = 0,
+            .imageSubresource.layerCount = 1,
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {p->osd_width, p->osd_height, 1},
+        };
+        
+        vkCmdCopyBufferToImage(cmd, p->osd_staging_buffer, p->osd_texture,
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        
+        // Transition to shader read layout
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        
+        vkCmdPipelineBarrier(cmd,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                           0, 0, NULL, 0, NULL, 1, &barrier);
+        
+        vkEndCommandBuffer(cmd);
+        
+        // Submit command buffer
+        VkSubmitInfo submit_info = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &cmd,
+        };
+        
+        vkQueueSubmit(p->graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
+        vkQueueWaitIdle(p->graphics_queue); // Simple synchronization
+        
+        p->osd_needs_upload = false;
+    }
 }
 
 static void flip_page(struct vo *vo)
@@ -938,8 +1260,9 @@ static void flip_page(struct vo *vo)
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
     
-    // Update OSD (even though we're not rendering it visually yet)
+    // Update and upload OSD
     draw_osd(vo);
+    upload_osd_texture(vo);
     
     // Submit command buffer
     VkSemaphore wait_semaphores[] = {p->image_available_semaphores[p->current_frame]};
