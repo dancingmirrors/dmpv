@@ -768,8 +768,13 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
     
-    if (!frame->current)
-        return;
+    // Just store the frame for rendering in flip_page
+    // Actual rendering happens in flip_page when we know which swapchain image to use
+}
+
+static void flip_page(struct vo *vo)
+{
+    struct priv *p = vo->priv;
     
     uint32_t image_index;
     VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, UINT64_MAX,
@@ -784,12 +789,15 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
     vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
+    // Record command buffer
     VkCommandBuffer cmd = p->command_buffers[image_index];
     vkResetCommandBuffer(cmd, 0);
     
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pNext = NULL,
+        .pInheritanceInfo = NULL,
     };
     
     vkBeginCommandBuffer(cmd, &begin_info);
@@ -797,6 +805,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = NULL,
         .renderPass = p->render_pass,
         .framebuffer = p->framebuffers[image_index],
         .renderArea.offset = {0, 0},
@@ -806,48 +815,42 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     };
     
     vkCmdBeginRenderPass(cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-    
-    // TODO: Actual rendering of the frame would go here
-    // For now, just clear to black
-    
     vkCmdEndRenderPass(cmd);
     vkEndCommandBuffer(cmd);
-}
-
-static void flip_page(struct vo *vo)
-{
-    struct priv *p = vo->priv;
     
-    uint32_t image_index;
-    vkAcquireNextImageKHR(p->device, p->swapchain, UINT64_MAX,
-                         p->image_available_semaphores[p->current_frame],
-                         VK_NULL_HANDLE, &image_index);
-    
+    // Submit command buffer
     VkSemaphore wait_semaphores[] = {p->image_available_semaphores[p->current_frame]};
     VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSemaphore signal_semaphores[] = {p->render_finished_semaphores[p->current_frame]};
     
     VkSubmitInfo submit_info = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = NULL,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = wait_semaphores,
         .pWaitDstStageMask = wait_stages,
         .commandBufferCount = 1,
-        .pCommandBuffers = &p->command_buffers[image_index],
+        .pCommandBuffers = &cmd,
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = signal_semaphores,
     };
     
-    vkQueueSubmit(p->graphics_queue, 1, &submit_info, p->in_flight_fences[p->current_frame]);
+    result = vkQueueSubmit(p->graphics_queue, 1, &submit_info, p->in_flight_fences[p->current_frame]);
+    if (result != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to submit draw command buffer: %d\n", result);
+        return;
+    }
     
     VkSwapchainKHR swapchains[] = {p->swapchain};
     VkPresentInfoKHR present_info = {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext = NULL,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = signal_semaphores,
         .swapchainCount = 1,
         .pSwapchains = swapchains,
         .pImageIndices = &image_index,
+        .pResults = NULL,
     };
     
     vkQueuePresentKHR(p->graphics_queue, &present_info);
