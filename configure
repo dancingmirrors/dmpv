@@ -550,15 +550,15 @@ check(deps      = ["vulkan", "wayland"],
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
-check("-sdl2*",
-      desc      = "SDL video output",
+# SDL video output with automatic Vulkan/GL backend selection
+check("sdl-vulkan-backend*",
+      desc      = "SDL Vulkan backend support",
+      fn        = lambda: check_pkg_config("sdl2") and check_pkg_config("vulkan"))
+check("-sdl*",
+      desc      = "SDL video output (Vulkan or OpenGL backend)",
       fn        = lambda: check_pkg_config("sdl2"),
+      deps_any  = ["sdl-vulkan-backend", "gl"],
       sources   = "video/out/vo_sdl.c")
-check("-vulkan-sdl*",
-      desc      = "Simple Vulkan output via SDL (no libplacebo)",
-      deps      = "sdl2",
-      fn        = lambda: check_pkg_config("vulkan"),
-      sources   = "video/out/vo_vulkan_sdl.c")
 
 add_sources(
     "audio/aframe.c",

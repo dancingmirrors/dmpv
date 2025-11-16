@@ -1894,9 +1894,9 @@ static int control(struct vo *vo, uint32_t request, void *data)
 
 #define OPT_BASE_STRUCT struct priv
 
-const struct vo_driver video_out_vulkan_sdl = {
-    .description = "Simple Vulkan output via SDL (no libplacebo)",
-    .name = "vulkan-sdl",
+const struct vo_driver video_out_sdl = {
+    .description = "SDL video output (Vulkan backend)",
+    .name = "sdl",
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .vsync = true,
@@ -1918,5 +1918,5 @@ const struct vo_driver video_out_vulkan_sdl = {
     .wakeup = wakeup,
     .wait_events = wait_events,
     .uninit = uninit,
-    .options_prefix = "vulkan-sdl",
+    .options_prefix = "sdl",
 };
