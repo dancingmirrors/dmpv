@@ -147,6 +147,104 @@ struct priv {
 };
 
 static void cleanup_vulkan(struct priv *p);
+static int create_swapchain(struct vo *vo);
+static int create_image_views(struct vo *vo);
+static int create_framebuffers(struct vo *vo);
+static int create_command_buffers(struct vo *vo);
+static int create_sync_objects(struct vo *vo);
+
+static int recreate_swapchain(struct vo *vo)
+{
+    struct priv *p = vo->priv;
+    
+    if (!p->device)
+        return -1;
+    
+    // Wait for device to be idle before recreating swapchain
+    vkDeviceWaitIdle(p->device);
+    
+    // Clean up old swapchain resources
+    if (p->image_available_semaphores) {
+        for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
+            if (p->image_available_semaphores[i])
+                vkDestroySemaphore(p->device, p->image_available_semaphores[i], NULL);
+        }
+        free(p->image_available_semaphores);
+        p->image_available_semaphores = NULL;
+    }
+    
+    if (p->render_finished_semaphores) {
+        for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
+            if (p->render_finished_semaphores[i])
+                vkDestroySemaphore(p->device, p->render_finished_semaphores[i], NULL);
+        }
+        free(p->render_finished_semaphores);
+        p->render_finished_semaphores = NULL;
+    }
+    
+    if (p->in_flight_fences) {
+        for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
+            if (p->in_flight_fences[i])
+                vkDestroyFence(p->device, p->in_flight_fences[i], NULL);
+        }
+        free(p->in_flight_fences);
+        p->in_flight_fences = NULL;
+    }
+    
+    if (p->command_buffers) {
+        free(p->command_buffers);
+        p->command_buffers = NULL;
+    }
+    
+    if (p->framebuffers) {
+        for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
+            if (p->framebuffers[i])
+                vkDestroyFramebuffer(p->device, p->framebuffers[i], NULL);
+        }
+        free(p->framebuffers);
+        p->framebuffers = NULL;
+    }
+    
+    if (p->swapchain_image_views) {
+        for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
+            if (p->swapchain_image_views[i])
+                vkDestroyImageView(p->device, p->swapchain_image_views[i], NULL);
+        }
+        free(p->swapchain_image_views);
+        p->swapchain_image_views = NULL;
+    }
+    
+    if (p->swapchain_images) {
+        free(p->swapchain_images);
+        p->swapchain_images = NULL;
+    }
+    
+    if (p->swapchain) {
+        vkDestroySwapchainKHR(p->device, p->swapchain, NULL);
+        p->swapchain = VK_NULL_HANDLE;
+    }
+    
+    // Reset current frame counter
+    p->current_frame = 0;
+    
+    // Recreate swapchain and related resources
+    if (create_swapchain(vo) < 0)
+        return -1;
+    
+    if (create_image_views(vo) < 0)
+        return -1;
+    
+    if (create_framebuffers(vo) < 0)
+        return -1;
+    
+    if (create_command_buffers(vo) < 0)
+        return -1;
+    
+    if (create_sync_objects(vo) < 0)
+        return -1;
+    
+    return 0;
+}
 
 static void set_fullscreen(struct vo *vo)
 {
@@ -167,6 +265,12 @@ static void set_fullscreen(struct vo *vo)
     
     if (SDL_SetWindowFullscreen(p->window, flags)) {
         MP_ERR(vo, "SDL_SetWindowFullscreen failed\n");
+        return;
+    }
+    
+    // Recreate swapchain to handle fullscreen mode change
+    if (recreate_swapchain(vo) < 0) {
+        MP_ERR(vo, "Failed to recreate swapchain after fullscreen toggle\n");
         return;
     }
     
@@ -354,7 +458,7 @@ static int create_swapchain(struct vo *vo)
     
     VkSurfaceFormatKHR surface_format = formats[0];
     for (uint32_t i = 0; i < format_count; i++) {
-        if (formats[i].format == VK_FORMAT_B8G8R8A8_SRGB &&
+        if (formats[i].format == VK_FORMAT_B8G8R8A8_UNORM &&
             formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             surface_format = formats[i];
             break;
