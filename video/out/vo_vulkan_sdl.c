@@ -1520,6 +1520,107 @@ static void flip_page(struct vo *vo)
         }
     }
     
+    // Render OSD even when there's no video frame (e.g., during seeks or paused)
+    // This ensures OSD elements like seek position/duration appear
+    if (!p->current_frame_image && p->osd_image) {
+        // No video frame, but we can still render OSD on black background
+        // Clear OSD buffer to black
+        mp_image_clear(p->osd_image, 0, 0, p->osd_image->w, p->osd_image->h);
+        
+        // Draw OSD at current time (use pts=0 when no frame available)
+        osd_draw_on_image(vo->osd, p->osd_res, 0, 0, p->osd_image);
+        
+        // Upload the OSD-only image if there's content
+        if (p->upload_image && p->upload_staging_buffer) {
+            void *data;
+            if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+                uint32_t src_stride = p->osd_image->stride[0];
+                uint32_t dst_stride = p->osd_image->w * 4;
+                
+                for (uint32_t y = 0; y < p->osd_image->h; y++) {
+                    memcpy((uint8_t*)data + y * dst_stride,
+                           p->osd_image->planes[0] + y * src_stride,
+                           dst_stride);
+                }
+                
+                vkUnmapMemory(p->device, p->upload_staging_memory);
+                
+                // Upload to GPU and blit to swapchain
+                VkImageMemoryBarrier upload_barrier = {
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image = p->upload_image,
+                    .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .subresourceRange.baseMipLevel = 0,
+                    .subresourceRange.levelCount = 1,
+                    .subresourceRange.baseArrayLayer = 0,
+                    .subresourceRange.layerCount = 1,
+                    .srcAccessMask = 0,
+                    .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                };
+                
+                vkCmdPipelineBarrier(cmd,
+                                   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                
+                VkBufferImageCopy copy_region = {
+                    .bufferOffset = 0,
+                    .bufferRowLength = 0,
+                    .bufferImageHeight = 0,
+                    .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .imageSubresource.mipLevel = 0,
+                    .imageSubresource.baseArrayLayer = 0,
+                    .imageSubresource.layerCount = 1,
+                    .imageOffset = {0, 0, 0},
+                    .imageExtent = {p->osd_image->w, p->osd_image->h, 1},
+                };
+                
+                vkCmdCopyBufferToImage(cmd, p->upload_staging_buffer, p->upload_image,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+                
+                upload_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                upload_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                upload_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                
+                vkCmdPipelineBarrier(cmd,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                
+                // Calculate centered destination (even though there's no video, center the OSD area)
+                int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
+                int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
+                int dst_x = (p->swapchain_extent.width - dst_w) / 2;
+                int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                
+                VkImageBlit blit = {
+                    .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .srcSubresource.mipLevel = 0,
+                    .srcSubresource.baseArrayLayer = 0,
+                    .srcSubresource.layerCount = 1,
+                    .srcOffsets[0] = {0, 0, 0},
+                    .srcOffsets[1] = {p->osd_image->w, p->osd_image->h, 1},
+                    .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .dstSubresource.mipLevel = 0,
+                    .dstSubresource.baseArrayLayer = 0,
+                    .dstSubresource.layerCount = 1,
+                    .dstOffsets[0] = {dst_x, dst_y, 0},
+                    .dstOffsets[1] = {dst_x + dst_w, dst_y + dst_h, 1},
+                };
+                
+                vkCmdBlitImage(cmd,
+                             p->upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             1, &blit, VK_FILTER_LINEAR);
+            }
+        }
+    }
+    
     // Transition swapchain image to PRESENT_SRC_KHR for presentation
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
