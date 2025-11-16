@@ -3001,7 +3001,7 @@ enum sdl_backend_type {
 
 // Simple priv just to hold the backend option during parsing
 struct backend_choice {
-    enum sdl_backend_type backend;
+    int backend;  // Using int instead of enum for OPT_CHOICE compatibility
 };
 
 static int unified_preinit(struct vo *vo)
@@ -3080,6 +3080,7 @@ fail:
     return -1;
 }
 
+#undef OPT_BASE_STRUCT
 #define OPT_BASE_STRUCT struct backend_choice
 
 const struct vo_driver video_out_sdl = {
