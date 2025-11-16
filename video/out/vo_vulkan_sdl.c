@@ -31,6 +31,7 @@
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
+#include <libswscale/swscale.h>
 
 #include "config.h"
 #include "common/common.h"
@@ -41,110 +42,12 @@
 #include "osdep/timer.h"
 #include "video/hwdec.h"
 #include "video/mp_image.h"
+#include "video/sws_utils.h"
+#include "video/fmt-conversion.h"
 #include "input/input.h"
 #include "input/keycodes.h"
 #include "sub/osd.h"
 #include "vo.h"
-
-// OSD rendering temporarily disabled due to SPIR-V shader validation issues across different drivers
-// The shaders below are commented out - infrastructure remains for future implementation
-/*
-// Minimal SPIR-V shaders for OSD rendering
-// These are the simplest possible valid SPIR-V shaders
-
-// Vertex shader: hardcoded fullscreen quad positions
-// Just outputs fixed positions for 4 vertices in a triangle strip
-static const uint32_t osd_vert_spv[] = {
-    // SPIR-V 1.0
-    0x07230203, 0x00010000, 0x00080001, 0x0000000d, 0x00000000,
-    // OpCapability Shader
-    0x00020011, 0x00000001,
-    // OpMemoryModel Logical GLSL450
-    0x0003000e, 0x00000000, 0x00000001,
-    // OpEntryPoint Vertex %main "main" %outPosition
-    0x0005000f, 0x00000000, 0x00000001, 0x6e69616d, 0x00000009,
-    // OpName %main "main"
-    0x00040005, 0x00000001, 0x6e69616d, 0x00000000,
-    // OpName %outPosition "gl_Position"
-    0x00060005, 0x00000009, 0x505f6c67, 0x7469736f, 0x006e6f69, 0x00000000,
-    // OpDecorate %outPosition BuiltIn Position
-    0x00040047, 0x00000009, 0x0000000b, 0x00000000,
-    // OpTypeVoid
-    0x00020013, 0x00000002,
-    // OpTypeFunction %void
-    0x00030021, 0x00000003, 0x00000002,
-    // OpTypeFloat 32
-    0x00030016, 0x00000005, 0x00000020,
-    // OpTypeVector %float 4
-    0x00040017, 0x00000006, 0x00000005, 0x00000004,
-    // OpTypePointer Output %v4float
-    0x00040020, 0x00000008, 0x00000003, 0x00000006,
-    // OpVariable Output %outPosition
-    0x0004003b, 0x00000008, 0x00000009, 0x00000003,
-    // OpConstant %float 0.0
-    0x0004002b, 0x00000005, 0x0000000a, 0x00000000,
-    // OpConstant %float 1.0
-    0x0004002b, 0x00000005, 0x0000000b, 0x3f800000,
-    // OpConstantComposite %v4float 0.0 0.0 0.0 1.0
-    0x0007002c, 0x00000006, 0x0000000c, 0x0000000a, 0x0000000a, 0x0000000a, 0x0000000b,
-    // OpFunction %void %main
-    0x00050036, 0x00000002, 0x00000001, 0x00000000, 0x00000003,
-    // OpLabel
-    0x000200f8, 0x00000004,
-    // OpStore %outPosition %vec4(0,0,0,1)
-    0x0003003e, 0x00000009, 0x0000000c,
-    // OpReturn
-    0x000100fd,
-    // OpFunctionEnd
-    0x00010038
-};
-
-// Fragment shader: outputs solid white color
-static const uint32_t osd_frag_spv[] = {
-    // SPIR-V 1.0
-    0x07230203, 0x00010000, 0x00080001, 0x0000000d, 0x00000000,
-    // OpCapability Shader
-    0x00020011, 0x00000001,
-    // OpMemoryModel Logical GLSL450
-    0x0003000e, 0x00000000, 0x00000001,
-    // OpEntryPoint Fragment %main "main" %outColor
-    0x0005000f, 0x00000004, 0x00000001, 0x6e69616d, 0x00000009,
-    // OpExecutionMode %main OriginUpperLeft
-    0x00030010, 0x00000001, 0x00000007,
-    // OpName %main "main"
-    0x00040005, 0x00000001, 0x6e69616d, 0x00000000,
-    // OpName %outColor "outColor"
-    0x00050005, 0x00000009, 0x4374756f, 0x726f6c6f, 0x00000000,
-    // OpDecorate %outColor Location 0
-    0x00040047, 0x00000009, 0x0000001e, 0x00000000,
-    // OpTypeVoid
-    0x00020013, 0x00000002,
-    // OpTypeFunction %void
-    0x00030021, 0x00000003, 0x00000002,
-    // OpTypeFloat 32
-    0x00030016, 0x00000005, 0x00000020,
-    // OpTypeVector %float 4
-    0x00040017, 0x00000006, 0x00000005, 0x00000004,
-    // OpTypePointer Output %v4float
-    0x00040020, 0x00000008, 0x00000003, 0x00000006,
-    // OpVariable Output %outColor
-    0x0004003b, 0x00000008, 0x00000009, 0x00000003,
-    // OpConstant %float 1.0
-    0x0004002b, 0x00000005, 0x0000000b, 0x3f800000,
-    // OpConstantComposite %v4float 1.0 1.0 1.0 1.0 (white)
-    0x0007002c, 0x00000006, 0x0000000c, 0x0000000b, 0x0000000b, 0x0000000b, 0x0000000b,
-    // OpFunction %void %main
-    0x00050036, 0x00000002, 0x00000001, 0x00000000, 0x00000003,
-    // OpLabel
-    0x000200f8, 0x00000004,
-    // OpStore %outColor %vec4(1,1,1,1)
-    0x0003003e, 0x00000009, 0x0000000c,
-    // OpReturn
-    0x000100fd,
-    // OpFunctionEnd
-    0x00010038
-};
-*/
 
 // Key mapping from SDL to dmpv
 struct keymap_entry {
@@ -221,25 +124,16 @@ struct priv {
     struct mp_image_params params;
     bool vsync;
     
-    // OSD support
-    struct mp_osd_res osd_res;
-    double osd_pts;
-    struct mp_image *osd_image;  // Buffer for OSD rendering (CPU-side)
+    // Current video frame to display
+    struct mp_image *current_frame_image;
     
-    // Vulkan OSD rendering resources
-    VkImage osd_texture;
-    VkDeviceMemory osd_texture_memory;
-    VkImageView osd_texture_view;
-    VkBuffer osd_staging_buffer;
-    VkDeviceMemory osd_staging_memory;
-    VkSampler osd_sampler;
-    VkDescriptorSetLayout osd_descriptor_layout;
-    VkDescriptorPool osd_descriptor_pool;
-    VkDescriptorSet osd_descriptor_set;
-    VkPipelineLayout osd_pipeline_layout;
-    VkPipeline osd_pipeline;
-    uint32_t osd_width, osd_height;
-    bool osd_needs_upload;
+    // Software frame upload resources
+    VkImage upload_image;
+    VkDeviceMemory upload_image_memory;
+    VkBuffer upload_staging_buffer;
+    VkDeviceMemory upload_staging_memory;
+    struct SwsContext *sws_context;
+    struct mp_image *rgb_image;  // RGB conversion buffer
     
     // Event handling
     Uint32 wakeup_event;
@@ -759,80 +653,91 @@ static int init_hwdec_ctx(struct vo *vo)
     return 0;
 }
 
-static void cleanup_osd_resources(struct priv *p)
+static void cleanup_upload_resources(struct priv *p)
 {
     if (!p->device)
         return;
     
     vkDeviceWaitIdle(p->device);
     
-    if (p->osd_pipeline) {
-        vkDestroyPipeline(p->device, p->osd_pipeline, NULL);
-        p->osd_pipeline = VK_NULL_HANDLE;
+    if (p->sws_context) {
+        sws_freeContext(p->sws_context);
+        p->sws_context = NULL;
     }
     
-    if (p->osd_pipeline_layout) {
-        vkDestroyPipelineLayout(p->device, p->osd_pipeline_layout, NULL);
-        p->osd_pipeline_layout = VK_NULL_HANDLE;
+    talloc_free(p->rgb_image);
+    p->rgb_image = NULL;
+    
+    if (p->upload_image) {
+        vkDestroyImage(p->device, p->upload_image, NULL);
+        p->upload_image = VK_NULL_HANDLE;
     }
     
-    if (p->osd_descriptor_set) {
-        // Descriptor sets are freed when pool is destroyed
-        p->osd_descriptor_set = VK_NULL_HANDLE;
+    if (p->upload_image_memory) {
+        vkFreeMemory(p->device, p->upload_image_memory, NULL);
+        p->upload_image_memory = VK_NULL_HANDLE;
     }
     
-    if (p->osd_descriptor_pool) {
-        vkDestroyDescriptorPool(p->device, p->osd_descriptor_pool, NULL);
-        p->osd_descriptor_pool = VK_NULL_HANDLE;
+    if (p->upload_staging_buffer) {
+        vkDestroyBuffer(p->device, p->upload_staging_buffer, NULL);
+        p->upload_staging_buffer = VK_NULL_HANDLE;
     }
     
-    if (p->osd_descriptor_layout) {
-        vkDestroyDescriptorSetLayout(p->device, p->osd_descriptor_layout, NULL);
-        p->osd_descriptor_layout = VK_NULL_HANDLE;
-    }
-    
-    if (p->osd_sampler) {
-        vkDestroySampler(p->device, p->osd_sampler, NULL);
-        p->osd_sampler = VK_NULL_HANDLE;
-    }
-    
-    if (p->osd_texture_view) {
-        vkDestroyImageView(p->device, p->osd_texture_view, NULL);
-        p->osd_texture_view = VK_NULL_HANDLE;
-    }
-    
-    if (p->osd_texture) {
-        vkDestroyImage(p->device, p->osd_texture, NULL);
-        p->osd_texture = VK_NULL_HANDLE;
-    }
-    
-    if (p->osd_texture_memory) {
-        vkFreeMemory(p->device, p->osd_texture_memory, NULL);
-        p->osd_texture_memory = VK_NULL_HANDLE;
-    }
-    
-    if (p->osd_staging_buffer) {
-        vkDestroyBuffer(p->device, p->osd_staging_buffer, NULL);
-        p->osd_staging_buffer = VK_NULL_HANDLE;
-    }
-    
-    if (p->osd_staging_memory) {
-        vkFreeMemory(p->device, p->osd_staging_memory, NULL);
-        p->osd_staging_memory = VK_NULL_HANDLE;
+    if (p->upload_staging_memory) {
+        vkFreeMemory(p->device, p->upload_staging_memory, NULL);
+        p->upload_staging_memory = VK_NULL_HANDLE;
     }
 }
 
-static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
+static int create_upload_resources(struct vo *vo, uint32_t width, uint32_t height)
 {
     struct priv *p = vo->priv;
     
     // Clean up existing resources if any
-    cleanup_osd_resources(p);
+    cleanup_upload_resources(p);
     
-    p->osd_width = width;
-    p->osd_height = height;
+    // Create staging buffer for uploading RGB data
+    VkDeviceSize buffer_size = width * height * 4; // BGRA format
     
-    // Create OSD texture (BGRA format for OSD)
+    VkBufferCreateInfo buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = buffer_size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    
+    if (vkCreateBuffer(p->device, &buffer_info, NULL, &p->upload_staging_buffer) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create upload staging buffer\n");
+        return -1;
+    }
+    
+    VkMemoryRequirements mem_requirements;
+    vkGetBufferMemoryRequirements(p->device, p->upload_staging_buffer, &mem_requirements);
+    
+    uint32_t memory_type = find_memory_type(p, mem_requirements.memoryTypeBits,
+                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (memory_type == UINT32_MAX) {
+        MP_ERR(vo, "Failed to find suitable memory type for upload staging buffer\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = memory_type,
+    };
+    
+    if (vkAllocateMemory(p->device, &alloc_info, NULL, &p->upload_staging_memory) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to allocate upload staging memory\n");
+        cleanup_upload_resources(p);
+        return -1;
+    }
+    
+    vkBindBufferMemory(p->device, p->upload_staging_buffer, p->upload_staging_memory, 0);
+    
+    // Create intermediate image for upload (BGRA format)
     VkImageCreateInfo image_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -844,384 +749,47 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
         .format = VK_FORMAT_B8G8R8A8_UNORM,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
     
-    if (vkCreateImage(p->device, &image_info, NULL, &p->osd_texture) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD texture\n");
+    if (vkCreateImage(p->device, &image_info, NULL, &p->upload_image) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to create upload image\n");
+        cleanup_upload_resources(p);
         return -1;
     }
     
-    // Allocate memory for OSD texture
-    VkMemoryRequirements mem_requirements;
-    vkGetImageMemoryRequirements(p->device, p->osd_texture, &mem_requirements);
+    vkGetImageMemoryRequirements(p->device, p->upload_image, &mem_requirements);
     
-    uint32_t memory_type = find_memory_type(p, mem_requirements.memoryTypeBits,
-                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    memory_type = find_memory_type(p, mem_requirements.memoryTypeBits,
+                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (memory_type == UINT32_MAX) {
-        MP_ERR(vo, "Failed to find suitable memory type for OSD texture\n");
-        cleanup_osd_resources(p);
+        MP_ERR(vo, "Failed to find suitable memory type for upload image\n");
+        cleanup_upload_resources(p);
         return -1;
     }
     
-    VkMemoryAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = mem_requirements.size,
-        .memoryTypeIndex = memory_type,
-    };
+    alloc_info.allocationSize = mem_requirements.size;
+    alloc_info.memoryTypeIndex = memory_type;
     
-    if (vkAllocateMemory(p->device, &alloc_info, NULL, &p->osd_texture_memory) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to allocate OSD texture memory\n");
-        cleanup_osd_resources(p);
+    if (vkAllocateMemory(p->device, &alloc_info, NULL, &p->upload_image_memory) != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to allocate upload image memory\n");
+        cleanup_upload_resources(p);
         return -1;
     }
     
-    vkBindImageMemory(p->device, p->osd_texture, p->osd_texture_memory, 0);
+    vkBindImageMemory(p->device, p->upload_image, p->upload_image_memory, 0);
     
-    // Create image view for OSD texture
-    VkImageViewCreateInfo view_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = p->osd_texture,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = VK_FORMAT_B8G8R8A8_UNORM,
-        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-        .subresourceRange.baseMipLevel = 0,
-        .subresourceRange.levelCount = 1,
-        .subresourceRange.baseArrayLayer = 0,
-        .subresourceRange.layerCount = 1,
-    };
-    
-    if (vkCreateImageView(p->device, &view_info, NULL, &p->osd_texture_view) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD texture view\n");
-        cleanup_osd_resources(p);
+    // Allocate RGB conversion buffer
+    p->rgb_image = mp_image_alloc(IMGFMT_BGRA, width, height);
+    if (!p->rgb_image) {
+        MP_ERR(vo, "Failed to allocate RGB conversion buffer\n");
+        cleanup_upload_resources(p);
         return -1;
     }
-    
-    // Create staging buffer for OSD upload
-    VkDeviceSize buffer_size = width * height * 4; // BGRA
-    
-    VkBufferCreateInfo buffer_info = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = buffer_size,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
-    
-    if (vkCreateBuffer(p->device, &buffer_info, NULL, &p->osd_staging_buffer) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD staging buffer\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    VkMemoryRequirements buffer_mem_requirements;
-    vkGetBufferMemoryRequirements(p->device, p->osd_staging_buffer, &buffer_mem_requirements);
-    
-    memory_type = find_memory_type(p, buffer_mem_requirements.memoryTypeBits,
-                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    if (memory_type == UINT32_MAX) {
-        MP_ERR(vo, "Failed to find suitable memory type for OSD staging buffer\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    VkMemoryAllocateInfo staging_alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = buffer_mem_requirements.size,
-        .memoryTypeIndex = memory_type,
-    };
-    
-    if (vkAllocateMemory(p->device, &staging_alloc_info, NULL, &p->osd_staging_memory) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to allocate OSD staging memory\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    vkBindBufferMemory(p->device, p->osd_staging_buffer, p->osd_staging_memory, 0);
-    
-    // Create sampler for OSD texture
-    VkSamplerCreateInfo sampler_info = {
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .magFilter = VK_FILTER_LINEAR,
-        .minFilter = VK_FILTER_LINEAR,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 1.0f,
-        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-        .unnormalizedCoordinates = VK_FALSE,
-        .compareEnable = VK_FALSE,
-        .compareOp = VK_COMPARE_OP_ALWAYS,
-        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .mipLodBias = 0.0f,
-        .minLod = 0.0f,
-        .maxLod = 0.0f,
-    };
-    
-    if (vkCreateSampler(p->device, &sampler_info, NULL, &p->osd_sampler) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD sampler\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    // OSD rendering is currently disabled due to SPIR-V shader compilation issues
-    // across different Vulkan drivers. The infrastructure remains for future implementation.
-    MP_WARN(vo, "OSD rendering disabled - SPIR-V shader support varies across drivers\n");
-    p->osd_pipeline = VK_NULL_HANDLE;
-    p->osd_needs_upload = false;
-    return 0;
-    
-    /* DISABLED: SPIR-V shader code removed due to validation issues
-    // Create descriptor set layout
-    VkDescriptorSetLayoutBinding sampler_binding = {
-        .binding = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImmutableSamplers = NULL,
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-    };
-    
-    VkDescriptorSetLayoutCreateInfo layout_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &sampler_binding,
-    };
-    
-    if (vkCreateDescriptorSetLayout(p->device, &layout_info, NULL, &p->osd_descriptor_layout) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD descriptor set layout\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    // Create descriptor pool
-    VkDescriptorPoolSize pool_size = {
-        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .descriptorCount = 1,
-    };
-    
-    VkDescriptorPoolCreateInfo pool_info = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .poolSizeCount = 1,
-        .pPoolSizes = &pool_size,
-        .maxSets = 1,
-    };
-    
-    if (vkCreateDescriptorPool(p->device, &pool_info, NULL, &p->osd_descriptor_pool) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD descriptor pool\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    // Allocate descriptor set
-    VkDescriptorSetAllocateInfo alloc_info_desc = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = p->osd_descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &p->osd_descriptor_layout,
-    };
-    
-    if (vkAllocateDescriptorSets(p->device, &alloc_info_desc, &p->osd_descriptor_set) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to allocate OSD descriptor set\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    // Update descriptor set with texture
-    VkDescriptorImageInfo image_info_desc = {
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .imageView = p->osd_texture_view,
-        .sampler = p->osd_sampler,
-    };
-    
-    VkWriteDescriptorSet descriptor_write = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = p->osd_descriptor_set,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .descriptorCount = 1,
-        .pImageInfo = &image_info_desc,
-    };
-    
-    vkUpdateDescriptorSets(p->device, 1, &descriptor_write, 0, NULL);
-    
-    // Create pipeline layout
-    VkPipelineLayoutCreateInfo pipeline_layout_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &p->osd_descriptor_layout,
-        .pushConstantRangeCount = 0,
-    };
-    
-    if (vkCreatePipelineLayout(p->device, &pipeline_layout_info, NULL, &p->osd_pipeline_layout) != VK_SUCCESS) {
-        MP_ERR(vo, "Failed to create OSD pipeline layout\n");
-        cleanup_osd_resources(p);
-        return -1;
-    }
-    
-    // Create shader modules
-    VkShaderModuleCreateInfo vert_shader_info = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = sizeof(osd_vert_spv),
-        .pCode = osd_vert_spv,
-    };
-    
-    VkShaderModule vert_shader_module;
-    if (vkCreateShaderModule(p->device, &vert_shader_info, NULL, &vert_shader_module) != VK_SUCCESS) {
-        MP_WARN(vo, "Failed to create OSD vertex shader module - OSD rendering disabled\n");
-        // Don't fail, just skip OSD rendering
-        p->osd_pipeline = VK_NULL_HANDLE;
-        p->osd_needs_upload = false;
-        return 0;
-    }
-    
-    VkShaderModuleCreateInfo frag_shader_info = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = sizeof(osd_frag_spv),
-        .pCode = osd_frag_spv,
-    };
-    
-    VkShaderModule frag_shader_module;
-    if (vkCreateShaderModule(p->device, &frag_shader_info, NULL, &frag_shader_module) != VK_SUCCESS) {
-        MP_WARN(vo, "Failed to create OSD fragment shader module - OSD rendering disabled\n");
-        vkDestroyShaderModule(p->device, vert_shader_module, NULL);
-        // Don't fail, just skip OSD rendering
-        p->osd_pipeline = VK_NULL_HANDLE;
-        p->osd_needs_upload = false;
-        return 0;
-    }
-    
-    VkPipelineShaderStageCreateInfo vert_stage_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = vert_shader_module,
-        .pName = "main",
-    };
-    
-    VkPipelineShaderStageCreateInfo frag_stage_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = frag_shader_module,
-        .pName = "main",
-    };
-    
-    VkPipelineShaderStageCreateInfo shader_stages[] = {vert_stage_info, frag_stage_info};
-    
-    // Vertex input (no vertex buffers - using gl_VertexIndex)
-    VkPipelineVertexInputStateCreateInfo vertex_input_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 0,
-        .vertexAttributeDescriptionCount = 0,
-    };
-    
-    VkPipelineInputAssemblyStateCreateInfo input_assembly = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-        .primitiveRestartEnable = VK_FALSE,
-    };
-    
-    VkViewport viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = (float)p->swapchain_extent.width,
-        .height = (float)p->swapchain_extent.height,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
-    };
-    
-    VkRect2D scissor = {
-        .offset = {0, 0},
-        .extent = p->swapchain_extent,
-    };
-    
-    VkPipelineViewportStateCreateInfo viewport_state = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .viewportCount = 1,
-        .pViewports = &viewport,
-        .scissorCount = 1,
-        .pScissors = &scissor,
-    };
-    
-    VkPipelineRasterizationStateCreateInfo rasterizer = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .depthClampEnable = VK_FALSE,
-        .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = VK_POLYGON_MODE_FILL,
-        .lineWidth = 1.0f,
-        .cullMode = VK_CULL_MODE_NONE,
-        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        .depthBiasEnable = VK_FALSE,
-    };
-    
-    VkPipelineMultisampleStateCreateInfo multisampling = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .sampleShadingEnable = VK_FALSE,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-    };
-    
-    // Alpha blending for OSD
-    VkPipelineColorBlendAttachmentState color_blend_attachment = {
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-        .blendEnable = VK_TRUE,
-        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        .colorBlendOp = VK_BLEND_OP_ADD,
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .alphaBlendOp = VK_BLEND_OP_ADD,
-    };
-    
-    VkPipelineColorBlendStateCreateInfo color_blending = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .logicOpEnable = VK_FALSE,
-        .logicOp = VK_LOGIC_OP_COPY,
-        .attachmentCount = 1,
-        .pAttachments = &color_blend_attachment,
-        .blendConstants[0] = 0.0f,
-        .blendConstants[1] = 0.0f,
-        .blendConstants[2] = 0.0f,
-        .blendConstants[3] = 0.0f,
-    };
-    
-    VkGraphicsPipelineCreateInfo pipeline_info = {
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = 2,
-        .pStages = shader_stages,
-        .pVertexInputState = &vertex_input_info,
-        .pInputAssemblyState = &input_assembly,
-        .pViewportState = &viewport_state,
-        .pRasterizationState = &rasterizer,
-        .pMultisampleState = &multisampling,
-        .pColorBlendState = &color_blending,
-        .layout = p->osd_pipeline_layout,
-        .renderPass = p->render_pass,
-        .subpass = 0,
-        .basePipelineHandle = VK_NULL_HANDLE,
-    };
-    
-    VkResult result = vkCreateGraphicsPipelines(p->device, VK_NULL_HANDLE, 1, &pipeline_info,
-                                               NULL, &p->osd_pipeline);
-    
-    // Clean up shader modules (no longer needed after pipeline creation)
-    vkDestroyShaderModule(p->device, frag_shader_module, NULL);
-    vkDestroyShaderModule(p->device, vert_shader_module, NULL);
-    
-    if (result != VK_SUCCESS) {
-        MP_WARN(vo, "Failed to create OSD graphics pipeline - OSD rendering disabled\n");
-        // Don't fail, just skip OSD rendering
-        p->osd_pipeline = VK_NULL_HANDLE;
-        p->osd_needs_upload = false;
-        return 0;
-    }
-    
-    p->osd_needs_upload = false;
     
     return 0;
-    */ // End of disabled OSD code
 }
 
 static void cleanup_vulkan(struct priv *p)
@@ -1231,8 +799,8 @@ static void cleanup_vulkan(struct priv *p)
     
     vkDeviceWaitIdle(p->device);
     
-    // Clean up OSD resources
-    cleanup_osd_resources(p);
+    // Clean up upload resources
+    cleanup_upload_resources(p);
     
     if (p->image_available_semaphores) {
         for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
@@ -1371,6 +939,9 @@ static void uninit(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Release current frame reference
+    mp_image_unrefp(&p->current_frame_image);
+    
     if (p->hwctx.av_device_ref) {
         if (vo->hwdec_devs)
             hwdec_devices_remove(vo->hwdec_devs, &p->hwctx);
@@ -1416,25 +987,9 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Resize window to match video dimensions
     SDL_SetWindowSize(p->window, params->w, params->h);
     
-    // Set up OSD resolution
-    p->osd_res = (struct mp_osd_res){
-        .w = params->w,
-        .h = params->h,
-        .display_par = 1.0,
-    };
-    
-    // Create OSD image buffer (BGRA format for OSD rendering)
-    talloc_free(p->osd_image);
-    p->osd_image = mp_image_alloc(IMGFMT_BGRA, params->w, params->h);
-    if (!p->osd_image) {
-        MP_ERR(vo, "Failed to allocate OSD image\n");
-        return -1;
-    }
-    mp_image_clear(p->osd_image, 0, 0, params->w, params->h);
-    
-    // Create Vulkan OSD resources
-    if (create_osd_resources(vo, params->w, params->h) < 0) {
-        MP_ERR(vo, "Failed to create OSD resources\n");
+    // Create upload resources for software frames
+    if (create_upload_resources(vo, params->w, params->h) < 0) {
+        MP_ERR(vo, "Failed to create upload resources\n");
         return -1;
     }
     
@@ -1445,128 +1000,9 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
     
-    // Update OSD presentation timestamp
-    p->osd_pts = frame->current ? frame->current->pts : 0;
-    
-    // Just store the frame for rendering in flip_page
-    // Actual rendering happens in flip_page when we know which swapchain image to use
+    // Store a reference to the current frame for rendering in flip_page
+    mp_image_setrefp(&p->current_frame_image, frame->current);
 }
-
-/* OSD functions disabled - not used since OSD rendering is disabled
-static void draw_osd(struct vo *vo)
-{
-    struct priv *p = vo->priv;
-    
-    if (!p->osd_image)
-        return;
-    
-    // Clear OSD image to transparent black
-    mp_image_clear(p->osd_image, 0, 0, p->osd_image->w, p->osd_image->h);
-    
-    // Draw OSD onto the image
-    osd_draw_on_image(vo->osd, p->osd_res, p->osd_pts, 0, p->osd_image);
-    
-    // Mark that OSD needs to be uploaded to GPU
-    p->osd_needs_upload = true;
-}
-
-static void upload_osd_texture(struct vo *vo)
-{
-    struct priv *p = vo->priv;
-    
-    if (!p->osd_needs_upload || !p->osd_image || !p->osd_staging_buffer)
-        return;
-    
-    // Map staging buffer and copy OSD data
-    void *data;
-    if (vkMapMemory(p->device, p->osd_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
-        // Copy OSD image data to staging buffer
-        uint32_t stride = p->osd_image->stride[0];
-        uint32_t height = p->osd_height;
-        
-        for (uint32_t y = 0; y < height; y++) {
-            memcpy((uint8_t*)data + y * p->osd_width * 4,
-                   p->osd_image->planes[0] + y * stride,
-                   p->osd_width * 4);
-        }
-        
-        vkUnmapMemory(p->device, p->osd_staging_memory);
-        
-        // Create a temporary command buffer for the upload
-        VkCommandBuffer cmd = p->command_buffers[0]; // Use first command buffer temporarily
-        
-        VkCommandBufferBeginInfo begin_info = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        };
-        
-        vkBeginCommandBuffer(cmd, &begin_info);
-        
-        // Transition OSD texture to transfer dst layout
-        VkImageMemoryBarrier barrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = p->osd_texture,
-            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .subresourceRange.baseMipLevel = 0,
-            .subresourceRange.levelCount = 1,
-            .subresourceRange.baseArrayLayer = 0,
-            .subresourceRange.layerCount = 1,
-            .srcAccessMask = 0,
-            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        };
-        
-        vkCmdPipelineBarrier(cmd,
-                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                           VK_PIPELINE_STAGE_TRANSFER_BIT,
-                           0, 0, NULL, 0, NULL, 1, &barrier);
-        
-        // Copy buffer to image
-        VkBufferImageCopy region = {
-            .bufferOffset = 0,
-            .bufferRowLength = 0,
-            .bufferImageHeight = 0,
-            .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .imageSubresource.mipLevel = 0,
-            .imageSubresource.baseArrayLayer = 0,
-            .imageSubresource.layerCount = 1,
-            .imageOffset = {0, 0, 0},
-            .imageExtent = {p->osd_width, p->osd_height, 1},
-        };
-        
-        vkCmdCopyBufferToImage(cmd, p->osd_staging_buffer, p->osd_texture,
-                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        
-        // Transition to shader read layout
-        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        
-        vkCmdPipelineBarrier(cmd,
-                           VK_PIPELINE_STAGE_TRANSFER_BIT,
-                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                           0, 0, NULL, 0, NULL, 1, &barrier);
-        
-        vkEndCommandBuffer(cmd);
-        
-        // Submit command buffer
-        VkSubmitInfo submit_info = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &cmd,
-        };
-        
-        vkQueueSubmit(p->graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
-        vkQueueWaitIdle(p->graphics_queue); // Simple synchronization
-        
-        p->osd_needs_upload = false;
-    }
-}
-*/
 
 static void flip_page(struct vo *vo)
 {
@@ -1598,29 +1034,231 @@ static void flip_page(struct vo *vo)
     
     vkBeginCommandBuffer(cmd, &begin_info);
     
-    VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    VkRenderPassBeginInfo render_pass_info = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext = NULL,
-        .renderPass = p->render_pass,
-        .framebuffer = p->framebuffers[image_index],
-        .renderArea.offset = {0, 0},
-        .renderArea.extent = p->swapchain_extent,
-        .clearValueCount = 1,
-        .pClearValues = &clear_color,
+    // Transition swapchain image to TRANSFER_DST_OPTIMAL for copying/blitting
+    VkImageMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = p->swapchain_images[image_index],
+        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.baseMipLevel = 0,
+        .subresourceRange.levelCount = 1,
+        .subresourceRange.baseArrayLayer = 0,
+        .subresourceRange.layerCount = 1,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
     };
     
-    vkCmdBeginRenderPass(cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdPipelineBarrier(cmd,
+                       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       0, 0, NULL, 0, NULL, 1, &barrier);
     
-    // OSD rendering disabled (pipeline is NULL)
-    // No OSD commands recorded
+    // Render the video frame
+    if (p->current_frame_image) {
+        struct mp_image *mpi = p->current_frame_image;
+        
+        if (mpi->imgfmt == IMGFMT_VULKAN) {
+            // Hardware decoded Vulkan frame
+            AVFrame *frame = mp_image_to_av_frame(mpi);
+            if (frame && frame->data[0]) {
+                AVVkFrame *vkf = (AVVkFrame *)frame->data[0];
+                
+                // Transition source image to TRANSFER_SRC_OPTIMAL
+                VkImageMemoryBarrier src_barrier = {
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,  // Vulkan frames are typically in GENERAL layout
+                    .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image = vkf->img[0],
+                    .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .subresourceRange.baseMipLevel = 0,
+                    .subresourceRange.levelCount = 1,
+                    .subresourceRange.baseArrayLayer = 0,
+                    .subresourceRange.layerCount = 1,
+                    .srcAccessMask = 0,
+                    .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+                };
+                
+                vkCmdPipelineBarrier(cmd,
+                                   VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   0, 0, NULL, 0, NULL, 1, &src_barrier);
+                
+                // Blit the Vulkan frame to swapchain
+                VkImageBlit blit = {
+                    .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .srcSubresource.mipLevel = 0,
+                    .srcSubresource.baseArrayLayer = 0,
+                    .srcSubresource.layerCount = 1,
+                    .srcOffsets[0] = {0, 0, 0},
+                    .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                    .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .dstSubresource.mipLevel = 0,
+                    .dstSubresource.baseArrayLayer = 0,
+                    .dstSubresource.layerCount = 1,
+                    .dstOffsets[0] = {0, 0, 0},
+                    .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                };
+                
+                vkCmdBlitImage(cmd,
+                             vkf->img[0], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             1, &blit, VK_FILTER_LINEAR);
+                
+                // Transition source image back to GENERAL
+                src_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                src_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+                src_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                src_barrier.dstAccessMask = 0;
+                
+                vkCmdPipelineBarrier(cmd,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                   0, 0, NULL, 0, NULL, 1, &src_barrier);
+            }
+            if (frame)
+                av_frame_free(&frame);
+        } else {
+            // Software frame - convert to RGB and upload
+            if (!p->rgb_image || !p->upload_staging_buffer || !p->upload_image) {
+                MP_WARN(vo, "Upload resources not initialized\n");
+            } else {
+                // Convert YUV to RGB using swscale
+                if (!p->sws_context) {
+                    p->sws_context = sws_getContext(
+                        mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
+                        mpi->w, mpi->h, AV_PIX_FMT_BGRA,
+                        SWS_BILINEAR, NULL, NULL, NULL);
+                }
+                
+                if (p->sws_context) {
+                    sws_scale(p->sws_context,
+                             (const uint8_t *const *)mpi->planes, mpi->stride,
+                             0, mpi->h,
+                             p->rgb_image->planes, p->rgb_image->stride);
+                    
+                    // Upload RGB data to staging buffer
+                    void *data;
+                    if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
+                        // Copy RGB image data to staging buffer
+                        uint32_t src_stride = p->rgb_image->stride[0];
+                        uint32_t dst_stride = mpi->w * 4;
+                        
+                        for (uint32_t y = 0; y < mpi->h; y++) {
+                            memcpy((uint8_t*)data + y * dst_stride,
+                                   p->rgb_image->planes[0] + y * src_stride,
+                                   dst_stride);
+                        }
+                        
+                        vkUnmapMemory(p->device, p->upload_staging_memory);
+                        
+                        // Transition upload image to TRANSFER_DST_OPTIMAL
+                        VkImageMemoryBarrier upload_barrier = {
+                            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                            .image = p->upload_image,
+                            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .subresourceRange.baseMipLevel = 0,
+                            .subresourceRange.levelCount = 1,
+                            .subresourceRange.baseArrayLayer = 0,
+                            .subresourceRange.layerCount = 1,
+                            .srcAccessMask = 0,
+                            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                        };
+                        
+                        vkCmdPipelineBarrier(cmd,
+                                           VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                        
+                        // Copy staging buffer to upload image
+                        VkBufferImageCopy copy_region = {
+                            .bufferOffset = 0,
+                            .bufferRowLength = 0,
+                            .bufferImageHeight = 0,
+                            .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .imageSubresource.mipLevel = 0,
+                            .imageSubresource.baseArrayLayer = 0,
+                            .imageSubresource.layerCount = 1,
+                            .imageOffset = {0, 0, 0},
+                            .imageExtent = {mpi->w, mpi->h, 1},
+                        };
+                        
+                        vkCmdCopyBufferToImage(cmd, p->upload_staging_buffer, p->upload_image,
+                                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+                        
+                        // Transition upload image to TRANSFER_SRC_OPTIMAL
+                        upload_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                        upload_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                        upload_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                        upload_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                        
+                        vkCmdPipelineBarrier(cmd,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                           0, 0, NULL, 0, NULL, 1, &upload_barrier);
+                        
+                        // Blit upload image to swapchain
+                        VkImageBlit blit = {
+                            .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .srcSubresource.mipLevel = 0,
+                            .srcSubresource.baseArrayLayer = 0,
+                            .srcSubresource.layerCount = 1,
+                            .srcOffsets[0] = {0, 0, 0},
+                            .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                            .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .dstSubresource.mipLevel = 0,
+                            .dstSubresource.baseArrayLayer = 0,
+                            .dstSubresource.layerCount = 1,
+                            .dstOffsets[0] = {0, 0, 0},
+                            .dstOffsets[1] = {p->swapchain_extent.width, p->swapchain_extent.height, 1},
+                        };
+                        
+                        vkCmdBlitImage(cmd,
+                                     p->upload_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     p->swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     1, &blit, VK_FILTER_LINEAR);
+                    }
+                }
+            }
+        }
+    } else {
+        // No frame - clear to black
+        VkClearColorValue clear_value = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        VkImageSubresourceRange range = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+        vkCmdClearColorImage(cmd, p->swapchain_images[image_index],
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+    }
     
-    vkCmdEndRenderPass(cmd);
+    // Transition swapchain image to PRESENT_SRC_KHR for presentation
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = 0;
+    
+    vkCmdPipelineBarrier(cmd,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       0, 0, NULL, 0, NULL, 1, &barrier);
+    
     vkEndCommandBuffer(cmd);
     
     // Submit command buffer
     VkSemaphore wait_semaphores[] = {p->image_available_semaphores[p->current_frame]};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
     VkSemaphore signal_semaphores[] = {p->render_finished_semaphores[p->current_frame]};
     
     VkSubmitInfo submit_info = {
