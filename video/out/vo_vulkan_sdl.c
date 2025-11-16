@@ -124,14 +124,42 @@ struct priv {
     // OSD support
     struct mp_osd_res osd_res;
     double osd_pts;
-    struct mp_image *osd_image;  // Buffer for OSD rendering
-    // TODO: Add Vulkan OSD rendering (staging buffer, VkImage, etc.)
+    struct mp_image *osd_image;  // Buffer for OSD rendering (CPU-side)
+    
+    // Vulkan OSD rendering resources
+    VkImage osd_texture;
+    VkDeviceMemory osd_texture_memory;
+    VkImageView osd_texture_view;
+    VkBuffer osd_staging_buffer;
+    VkDeviceMemory osd_staging_memory;
+    VkSampler osd_sampler;
+    VkDescriptorSetLayout osd_descriptor_layout;
+    VkDescriptorPool osd_descriptor_pool;
+    VkDescriptorSet osd_descriptor_set;
+    VkPipelineLayout osd_pipeline_layout;
+    VkPipeline osd_pipeline;
+    uint32_t osd_width, osd_height;
+    bool osd_needs_upload;
     
     // Event handling
     Uint32 wakeup_event;
 };
 
 static void cleanup_vulkan(struct priv *p);
+
+static uint32_t find_memory_type(struct priv *p, uint32_t type_filter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties mem_properties;
+    vkGetPhysicalDeviceMemoryProperties(p->physical_device, &mem_properties);
+    
+    for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
+        if ((type_filter & (1 << i)) &&
+            (mem_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+    return UINT32_MAX;
+}
 
 static int find_queue_family(struct priv *p, VkPhysicalDevice device)
 {

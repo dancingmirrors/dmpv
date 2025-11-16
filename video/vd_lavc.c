@@ -240,10 +240,10 @@ struct autoprobe_info {
 };
 
 const struct autoprobe_info hwdec_autoprobe_info[] = {
-    {"vulkan-copy",     HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vulkan",          HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vulkan-copy",     HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vdpau-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vdpau",           HWDEC_FLAG_AUTO},
     {"no",              HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
@@ -465,13 +465,6 @@ static void select_and_set_hwdec(struct mp_filter *vd)
     int num_hwdecs = 0;
     add_all_hwdec_methods(&hwdecs, &num_hwdecs);
 
-    // Check if video filters (vf) are in use
-    struct m_obj_settings *vf_settings = NULL;
-    mp_read_option_raw(vd->global, "vf", &m_option_type_obj_settings_list,
-                       &vf_settings);
-    bool vf_in_use = vf_settings && vf_settings[0].name;
-    bool vf_requested_copy = false;
-
     char **hwdec_api = ctx->opts->hwdec_api;
     for (int i = 0; hwdec_api && hwdec_api[i]; i++) {
         bstr opt = bstr0(hwdec_api[i]);
@@ -498,25 +491,11 @@ static void select_and_set_hwdec(struct mp_filter *vd)
             for (int n = 0; n < num_hwdecs; n++) {
                 struct hwdec_info *hwdec = &hwdecs[n];
 
-                // When vf is in use and user specified a non-auto hwdec, also match the -copy variant
+                // Match hwdec by name
                 bool name_matches = bstr_equals0(opt, hwdec->method_name) ||
                                    bstr_equals0(opt, hwdec->name);
-                if (!hwdec_auto && !name_matches) {
-                    // Check if this is the -copy variant of the requested hwdec
-                    if (vf_in_use && hwdec->copying) {
-                        // Extract base method name by removing "-copy" suffix
-                        size_t method_len = strlen(hwdec->method_name);
-                        if (method_len > 5 && strcmp(hwdec->method_name + method_len - 5, "-copy") == 0) {
-                            char base_method[24];
-                            snprintf(base_method, sizeof(base_method), "%.*s",
-                                    (int)(method_len - 5), hwdec->method_name);
-                            if (bstr_equals0(opt, base_method))
-                                name_matches = true;
-                        }
-                    }
-                    if (!name_matches)
-                        continue;
-                }
+                if (!hwdec_auto && !name_matches)
+                    continue;
                 hwdec_name_supported = true;
 
                 bool already_attempted = false;
@@ -552,18 +531,6 @@ static void select_and_set_hwdec(struct mp_filter *vd)
 
                 if (hwdec_auto_copy && !hwdec->copying) {
                     MP_VERBOSE(vd, "Not using this for auto-copy.\n");
-                    continue;
-                }
-
-                // When video filters are in use, we need the -copy variant
-                // to avoid filter graph creation issues
-                if (vf_in_use && !hwdec->copying) {
-                    if (!vf_requested_copy) {
-                        MP_INFO(vd, "INFO: Video filters are active; switching to %s-copy for compatibility.\n",
-                                hwdec->method_name);
-                        vf_requested_copy = true;
-                    }
-                    MP_VERBOSE(vd, "Skipping non-copy hwdec due to video filters.\n");
                     continue;
                 }
 
