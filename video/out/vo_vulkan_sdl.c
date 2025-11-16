@@ -1248,6 +1248,23 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Set fullscreen state
     set_fullscreen(vo);
     
+    // Force update of window dimensions and video rectangles
+    // This ensures correct centering even when starting with --fs=yes
+    // where set_fullscreen() might not have updated dimensions
+    int actual_w, actual_h;
+    SDL_GetWindowSize(p->window, &actual_w, &actual_h);
+    if (vo->dwidth != actual_w || vo->dheight != actual_h) {
+        vo->dwidth = actual_w;
+        vo->dheight = actual_h;
+        
+        // Recalculate video rectangles for the actual window size
+        struct mp_rect src2, dst2;
+        struct mp_osd_res osd2;
+        vo_get_src_dst_rects(vo, &src2, &dst2, &osd2);
+        p->src_rect = src2;
+        p->dst_rect = dst2;
+    }
+    
     // Show window after it's been properly configured
     SDL_ShowWindow(p->window);
     
