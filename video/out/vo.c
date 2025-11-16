@@ -62,7 +62,7 @@ static const struct vo_driver *const video_out_drivers[] =
 #if HAVE_VAAPI_WAYLAND
     &video_out_dmabuf_wayland,
 #endif
-#if HAVE_SDL
+#if HAVE_SDL2
     &video_out_sdl,
 #endif
 #if HAVE_DRM

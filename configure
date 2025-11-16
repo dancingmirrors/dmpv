@@ -554,7 +554,7 @@ check(deps      = ["vulkan", "x11"],
 check("sdl-vulkan-backend*",
       desc      = "SDL Vulkan backend support",
       fn        = lambda: check_pkg_config("sdl2") and check_pkg_config("vulkan"))
-check("-sdl*",
+check("-sdl2*",
       desc      = "SDL video output (Vulkan or OpenGL backend)",
       fn        = lambda: check_pkg_config("sdl2"),
       deps_any  = ["sdl-vulkan-backend", "gl"],

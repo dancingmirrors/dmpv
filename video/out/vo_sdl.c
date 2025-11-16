@@ -11,12 +11,14 @@
 #include "config.h"
 
 // Ensure at least one backend is available
-#if !HAVE_VULKAN_SDL && !HAVE_GL
+#if !defined(HAVE_VULKAN_SDL) || !HAVE_VULKAN_SDL
+#if !defined(HAVE_GL) || !HAVE_GL
 #error "vo_sdl requires either Vulkan (HAVE_VULKAN_SDL) or OpenGL (HAVE_GL) support"
+#endif
 #endif
 
 
-#if HAVE_VULKAN_SDL
+#if defined(HAVE_VULKAN_SDL) && HAVE_VULKAN_SDL
 
 // ============================================================================
 // VULKAN BACKEND - Complete implementation from vo_vulkan_sdl.c
@@ -1949,7 +1951,7 @@ static const struct vo_driver vk_driver = {
 #endif // HAVE_VULKAN_SDL
 
 
-#if HAVE_GL
+#if defined(HAVE_GL) && HAVE_GL
 
 // ============================================================================  
 // GL BACKEND - Complete implementation from vo_sdl.c
@@ -2952,7 +2954,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
     return VO_NOTIMPL;
 }
 
-#define OPT_BASE_STRUCT struct priv
+#define OPT_BASE_STRUCT struct gl_priv
 
 static const struct vo_driver gl_driver = {
     .description = "SDL 2.0 Renderer",
@@ -2997,22 +2999,18 @@ enum sdl_backend_type {
     BACKEND_GL,
 };
 
-struct unified_priv {
-    enum sdl_backend_type backend_requested;
-    enum sdl_backend_type backend_active;
-    const struct vo_driver *active_driver;
-    void *backend_priv;
+// Simple priv just to hold the backend option during parsing
+struct backend_choice {
+    enum sdl_backend_type backend;
 };
 
 static int unified_preinit(struct vo *vo)
 {
-    struct unified_priv *up = talloc_zero(vo, struct unified_priv);
-    vo->priv = up;
+    // Parse backend option from vo->priv (set by option system)
+    struct backend_choice *choice = vo->priv;
+    enum sdl_backend_type requested = choice->backend;
     
-    enum sdl_backend_type requested = up->backend_requested;
-    int ret = -1;
-    
-    // Goto-based backend selection as requested
+    // Jump to appropriate backend based on choice
     if (requested == BACKEND_AUTO || requested == BACKEND_VULKAN) {
         goto try_vulkan;
     } else if (requested == BACKEND_GL) {
@@ -3020,28 +3018,22 @@ static int unified_preinit(struct vo *vo)
     }
     
 try_vulkan:
-#if HAVE_VULKAN_SDL
+#if defined(HAVE_VULKAN_SDL) && HAVE_VULKAN_SDL
     {
         MP_VERBOSE(vo, "Trying Vulkan backend...\n");
-        up->active_driver = &vk_driver;
-        up->backend_active = BACKEND_VULKAN;
         
-        // Allocate backend-specific priv
+        // Replace vo->priv with backend-specific priv
         vo->priv = talloc_zero_size(vo, vk_driver.priv_size);
         if (vk_driver.priv_defaults) {
             memcpy(vo->priv, vk_driver.priv_defaults, vk_driver.priv_size);
         }
         
-        ret = vk_driver.preinit(vo);
-        if (ret >= 0) {
+        if (vk_driver.preinit(vo) >= 0) {
             MP_VERBOSE(vo, "Vulkan backend initialized successfully\n");
-            talloc_free(up);
             return 0;
         }
         
         MP_WARN(vo, "Vulkan backend failed to initialize\n");
-        talloc_free(vo->priv);
-        vo->priv = up;
         
         // Fall back to GL in auto mode
         if (requested == BACKEND_AUTO) {
@@ -3051,7 +3043,7 @@ try_vulkan:
 #else
     if (requested == BACKEND_VULKAN) {
         MP_ERR(vo, "Vulkan backend not compiled in\n");
-        goto fail;
+        return -1;
     }
     if (requested == BACKEND_AUTO) {
         goto try_gl;
@@ -3060,28 +3052,22 @@ try_vulkan:
     goto fail;
     
 try_gl:
-#if HAVE_GL
+#if defined(HAVE_GL) && HAVE_GL
     {
         MP_VERBOSE(vo, "Trying OpenGL backend...\n");
-        up->active_driver = &gl_driver;
-        up->backend_active = BACKEND_GL;
         
-        // Allocate backend-specific priv
+        // Replace vo->priv with backend-specific priv
         vo->priv = talloc_zero_size(vo, gl_driver.priv_size);
         if (gl_driver.priv_defaults) {
             memcpy(vo->priv, gl_driver.priv_defaults, gl_driver.priv_size);
         }
         
-        ret = gl_driver.preinit(vo);
-        if (ret >= 0) {
+        if (gl_driver.preinit(vo) >= 0) {
             MP_VERBOSE(vo, "OpenGL backend initialized successfully\n");
-            talloc_free(up);
             return 0;
         }
         
         MP_WARN(vo, "OpenGL backend failed to initialize\n");
-        talloc_free(vo->priv);
-        vo->priv = up;
     }
 #else
     if (requested == BACKEND_GL) {
@@ -3091,21 +3077,20 @@ try_gl:
     
 fail:
     MP_ERR(vo, "All SDL backends failed to initialize\n");
-    talloc_free(up);
     return -1;
 }
 
-#define OPT_BASE_STRUCT struct unified_priv
+#define OPT_BASE_STRUCT struct backend_choice
 
 const struct vo_driver video_out_sdl = {
     .description = "SDL video output (Vulkan or OpenGL backend)",
     .name = "sdl",
-    .priv_size = sizeof(struct unified_priv),
-    .priv_defaults = &(const struct unified_priv) {
-        .backend_requested = BACKEND_AUTO,
+    .priv_size = sizeof(struct backend_choice),
+    .priv_defaults = &(const struct backend_choice) {
+        .backend = BACKEND_AUTO,
     },
     .options = (const struct m_option[]) {
-        {"backend", OPT_CHOICE(backend_requested,
+        {"backend", OPT_CHOICE(backend,
             {"auto", BACKEND_AUTO},
             {"vulkan", BACKEND_VULKAN},
             {"gl", BACKEND_GL})},
