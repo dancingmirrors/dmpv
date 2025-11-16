@@ -62,8 +62,8 @@ jobs:
 
           ./configure
           make
-          sudo make install
-          sudo make uninstall
+          sudo ninja -C build install
+          sudo ninja -C build uninstall
 
           ./configure --enable-lgpl
           ninja -C build
