@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <math.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -46,7 +45,6 @@
 #include "video/mp_image.h"
 #include "video/sws_utils.h"
 #include "video/fmt-conversion.h"
-#include "video/csputils.h"
 #include "input/input.h"
 #include "input/keycodes.h"
 #include "sub/osd.h"
@@ -149,10 +147,6 @@ struct priv {
     
     // Options cache for tracking changes
     struct m_config_cache *opts_cache;
-    
-    // Video equalizer for brightness/contrast/saturation/gamma support
-    struct mp_csp_equalizer_state *video_eq;
-    struct mp_csp_params eq_params;  // Cached equalizer parameters
     
     // Event handling
     Uint32 wakeup_event;
@@ -1084,20 +1078,18 @@ static int preinit(struct vo *vo)
     // Initialize options cache
     p->opts_cache = m_config_cache_alloc(p, vo->global, &vo_sub_opts);
     
-    // Initialize video equalizer for brightness/contrast/saturation/gamma
-    p->video_eq = mp_csp_equalizer_create(p, vo->global);
-    
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         MP_ERR(vo, "SDL_Init failed: %s\n", SDL_GetError());
         return -1;
     }
     
     // Create window with undefined position - will be set in reconfig
+    // Use borderless window to match vo_sdl behavior and avoid decoration issues
     p->window = SDL_CreateWindow("dmpv (Vulkan)",
                                   SDL_WINDOWPOS_UNDEFINED,
                                   SDL_WINDOWPOS_UNDEFINED,
                                   1280, 720,
-                                  SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
+                                  SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_BORDERLESS);
     
     if (!p->window) {
         MP_ERR(vo, "Failed to create SDL window: %s\n", SDL_GetError());
@@ -1228,73 +1220,15 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Set fullscreen state
     set_fullscreen(vo);
     
-    // Show window after configuration is complete
+    // Show window after all configuration is complete
     SDL_ShowWindow(p->window);
     
     return 0;
 }
 
-// Apply video equalizer adjustments (brightness, contrast, saturation, gamma) to BGRA image
-static void apply_equalizer(struct vo *vo, uint8_t *data, int width, int height, int stride)
-{
-    struct priv *p = vo->priv;
-    
-    // Always get current equalizer values
-    mp_csp_equalizer_state_get(p->video_eq, &p->eq_params);
-    
-    // Check if we need to apply any adjustments
-    if (p->eq_params.brightness == 0.0f && p->eq_params.contrast == 1.0f &&
-        p->eq_params.saturation == 1.0f && p->eq_params.gamma == 1.0f) {
-        return; // No adjustments needed
-    }
-    
-    // Apply per-pixel adjustments to BGRA data
-    for (int y = 0; y < height; y++) {
-        uint8_t *row = data + y * stride;
-        for (int x = 0; x < width; x++) {
-            uint8_t *pixel = row + x * 4; // BGRA format
-            float b = pixel[0] / 255.0f;
-            float g = pixel[1] / 255.0f;
-            float r = pixel[2] / 255.0f;
-            // pixel[3] is alpha, keep it unchanged
-            
-            // Apply gamma
-            if (p->eq_params.gamma != 1.0f) {
-                r = powf(r, 1.0f / p->eq_params.gamma);
-                g = powf(g, 1.0f / p->eq_params.gamma);
-                b = powf(b, 1.0f / p->eq_params.gamma);
-            }
-            
-            // Apply contrast and brightness
-            r = (r - 0.5f) * p->eq_params.contrast + 0.5f + p->eq_params.brightness;
-            g = (g - 0.5f) * p->eq_params.contrast + 0.5f + p->eq_params.brightness;
-            b = (b - 0.5f) * p->eq_params.contrast + 0.5f + p->eq_params.brightness;
-            
-            // Apply saturation
-            if (p->eq_params.saturation != 1.0f) {
-                // Convert to grayscale using standard weights
-                float gray = 0.299f * r + 0.587f * g + 0.114f * b;
-                r = gray + (r - gray) * p->eq_params.saturation;
-                g = gray + (g - gray) * p->eq_params.saturation;
-                b = gray + (b - gray) * p->eq_params.saturation;
-            }
-            
-            // Clamp values to [0, 1] range and convert back to uint8_t
-            pixel[0] = (uint8_t)MPCLAMP((int)(b * 255.0f + 0.5f), 0, 255);
-            pixel[1] = (uint8_t)MPCLAMP((int)(g * 255.0f + 0.5f), 0, 255);
-            pixel[2] = (uint8_t)MPCLAMP((int)(r * 255.0f + 0.5f), 0, 255);
-        }
-    }
-}
-
 static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
-    
-    // Check if equalizer settings changed and request redraw if needed
-    if (mp_csp_equalizer_state_changed(p->video_eq)) {
-        vo->want_redraw = true;
-    }
     
     // Store a reference to the current frame for rendering in flip_page
     mp_image_setrefp(&p->current_frame_image, frame->current);
@@ -1478,9 +1412,6 @@ static void flip_page(struct vo *vo)
                         double osd_pts = p->is_redraw ? 0 : mpi->pts;
                         osd_draw_on_image(vo->osd, p->osd_res, osd_pts, 0, p->osd_image);
                         
-                        // Apply video equalizer adjustments (brightness, contrast, saturation, gamma)
-                        apply_equalizer(vo, p->osd_image->planes[0], mpi->w, mpi->h, p->osd_image->stride[0]);
-                        
                         // Upload the composited image to staging buffer
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
@@ -1499,9 +1430,6 @@ static void flip_page(struct vo *vo)
                         // No OSD support - just upload the RGB frame
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
-                            // Apply video equalizer adjustments before upload
-                            apply_equalizer(vo, p->rgb_image->planes[0], mpi->w, mpi->h, p->rgb_image->stride[0]);
-                            
                             // Copy RGB image data to staging buffer
                             uint32_t src_stride = p->rgb_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
