@@ -1452,6 +1452,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     // Actual rendering happens in flip_page when we know which swapchain image to use
 }
 
+/* OSD functions disabled - not used since OSD rendering is disabled
 static void draw_osd(struct vo *vo)
 {
     struct priv *p = vo->priv;
@@ -1565,6 +1566,7 @@ static void upload_osd_texture(struct vo *vo)
         p->osd_needs_upload = false;
     }
 }
+*/
 
 static void flip_page(struct vo *vo)
 {
