@@ -46,6 +46,9 @@
 #include "sub/osd.h"
 #include "vo.h"
 
+// OSD rendering temporarily disabled due to SPIR-V shader validation issues across different drivers
+// The shaders below are commented out - infrastructure remains for future implementation
+/*
 // Minimal SPIR-V shaders for OSD rendering
 // These are the simplest possible valid SPIR-V shaders
 
@@ -141,6 +144,7 @@ static const uint32_t osd_frag_spv[] = {
     // OpFunctionEnd
     0x00010038
 };
+*/
 
 // Key mapping from SDL to dmpv
 struct keymap_entry {
@@ -963,6 +967,14 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
         return -1;
     }
     
+    // OSD rendering is currently disabled due to SPIR-V shader compilation issues
+    // across different Vulkan drivers. The infrastructure remains for future implementation.
+    MP_WARN(vo, "OSD rendering disabled - SPIR-V shader support varies across drivers\n");
+    p->osd_pipeline = VK_NULL_HANDLE;
+    p->osd_needs_upload = false;
+    return 0;
+    
+    /* DISABLED: SPIR-V shader code removed due to validation issues
     // Create descriptor set layout
     VkDescriptorSetLayoutBinding sampler_binding = {
         .binding = 0,
@@ -1209,6 +1221,7 @@ static int create_osd_resources(struct vo *vo, uint32_t width, uint32_t height)
     p->osd_needs_upload = false;
     
     return 0;
+    */ // End of disabled OSD code
 }
 
 static void cleanup_vulkan(struct priv *p)
