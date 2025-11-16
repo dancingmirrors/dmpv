@@ -786,7 +786,7 @@ static const struct MPOpts mp_default_opts = {
     .cursor_autohide_delay = 1000,
     .video_osd = true,
     .osd_level = 1,
-    .osd_on_seek = 1,
+    .osd_on_seek = 3,
     .osd_duration = 1000,
     .osd_preload = true,
 #if HAVE_LUA
