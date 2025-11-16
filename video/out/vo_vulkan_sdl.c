@@ -618,6 +618,11 @@ static void cleanup_vulkan(struct priv *p)
         p->command_pool = VK_NULL_HANDLE;
     }
     
+    if (p->command_buffers) {
+        free(p->command_buffers);
+        p->command_buffers = NULL;
+    }
+    
     if (p->framebuffers) {
         for (uint32_t i = 0; i < p->swapchain_image_count; i++) {
             if (p->framebuffers[i])
