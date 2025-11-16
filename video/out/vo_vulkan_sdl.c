@@ -1196,16 +1196,26 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     struct mp_osd_res osd;
     vo_get_src_dst_rects(vo, &src, &dst, &osd);
     p->dst_rect = dst;
-    p->osd_res = osd;
+    
+    // Adjust OSD resolution to match video dimensions (OSD will scale with video)
+    // This ensures OSD text size is proportional to video size
+    p->osd_res.w = params->w;
+    p->osd_res.h = params->h;
+    p->osd_res.ml = 0;
+    p->osd_res.mt = 0;
+    p->osd_res.mr = 0;
+    p->osd_res.mb = 0;
     
     // Create upload resources for software frames
+    // Note: Using video dimensions, OSD will be rendered at video resolution
     if (create_upload_resources(vo, params->w, params->h) < 0) {
         MP_ERR(vo, "Failed to create upload resources\n");
         return -1;
     }
     
-    // Create OSD resources
-    if (create_osd_resources(vo, p->swapchain_extent.width, p->swapchain_extent.height) < 0) {
+    // Create OSD resources at video resolution to match upload buffer
+    // This means OSD will scale with the video
+    if (create_osd_resources(vo, params->w, params->h) < 0) {
         MP_ERR(vo, "Failed to create OSD resources\n");
         return -1;
     }
@@ -1382,12 +1392,11 @@ static void flip_page(struct vo *vo)
                     
                     // Draw OSD on top of the RGB frame (similar to vo_drm)
                     if (p->osd_image) {
-                        // Use osd_image as a full-screen composition buffer
+                        // Use osd_image as composition buffer at video resolution
                         // Clear it first
                         mp_image_clear(p->osd_image, 0, 0, p->osd_image->w, p->osd_image->h);
                         
-                        // Simple approach: copy RGB frame to top-left of OSD buffer
-                        // A more sophisticated version would scale it properly
+                        // Copy RGB frame (already at video size)
                         uint32_t copy_w = MPMIN(mpi->w, p->osd_image->w);
                         uint32_t copy_h = MPMIN(mpi->h, p->osd_image->h);
                         for (uint32_t y = 0; y < copy_h; y++) {
@@ -1396,19 +1405,16 @@ static void flip_page(struct vo *vo)
                                    copy_w * 4);
                         }
                         
-                        // Draw OSD on top
+                        // Draw OSD on top at video resolution (will scale with video)
                         osd_draw_on_image(vo->osd, p->osd_res, mpi->pts, 0, p->osd_image);
                         
                         // Upload the composited image to staging buffer
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
-                            // Use the video frame dimensions for upload
-                            uint32_t upload_w = mpi->w;
-                            uint32_t upload_h = mpi->h;
                             uint32_t src_stride = p->osd_image->stride[0];
-                            uint32_t dst_stride = upload_w * 4;
+                            uint32_t dst_stride = mpi->w * 4;
                             
-                            for (uint32_t y = 0; y < upload_h; y++) {
+                            for (uint32_t y = 0; y < mpi->h; y++) {
                                 memcpy((uint8_t*)data + y * dst_stride,
                                        p->osd_image->planes[0] + y * src_stride,
                                        dst_stride);
@@ -1484,13 +1490,12 @@ static void flip_page(struct vo *vo)
                                        0, 0, NULL, 0, NULL, 1, &upload_barrier);
                     
                     // Calculate centered destination within swapchain
-                    // Similar to SDL VO's centering logic
                     int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                     int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
                     int dst_x = (p->swapchain_extent.width - dst_w) / 2;
                     int dst_y = (p->swapchain_extent.height - dst_h) / 2;
                     
-                    // Blit upload image to swapchain
+                    // Blit upload image (with OSD) to swapchain
                     VkImageBlit blit = {
                         .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                         .srcSubresource.mipLevel = 0,
@@ -1661,7 +1666,8 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     }
     case VOCTRL_RESET:
-        // Handle seeking - reset state if needed
+        // Handle seeking - request redraw to show OSD
+        vo->want_redraw = true;
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
@@ -1670,13 +1676,13 @@ static int control(struct vo *vo, uint32_t request, void *data)
         // Handle resume
         return VO_TRUE;
     case VOCTRL_SET_PANSCAN:
-        // Handle panscan changes - recalculate destination rect and OSD
+        // Handle panscan changes - recalculate destination rect
         if (vo->params) {
             struct mp_rect src, dst;
             struct mp_osd_res osd;
             vo_get_src_dst_rects(vo, &src, &dst, &osd);
             p->dst_rect = dst;
-            p->osd_res = osd;
+            // Keep OSD at video resolution (set in reconfig)
             vo->want_redraw = true;
         }
         return VO_TRUE;
