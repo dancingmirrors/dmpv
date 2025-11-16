@@ -1397,6 +1397,9 @@ static void flip_page(struct vo *vo)
                 int dst_x = (swap_w - dst_w) / 2;
                 int dst_y = (swap_h - dst_h) / 2;
                 
+                MP_VERBOSE(vo, "Centering: swap=%dx%d dst=%dx%d pos=%d,%d\n",
+                          swap_w, swap_h, dst_w, dst_h, dst_x, dst_y);
+                
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
                     .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
