@@ -1858,6 +1858,35 @@ static int control(struct vo *vo, uint32_t request, void *data)
             vo->want_redraw = true;
         }
         return VO_TRUE;
+    
+    case VOCTRL_CHECK_EVENTS:
+        // Handle window events including resize
+        {
+            int w, h;
+            SDL_GetWindowSize(p->window, &w, &h);
+            if (vo->dwidth != w || vo->dheight != h) {
+                vo->dwidth = w;
+                vo->dheight = h;
+                
+                // Recreate swapchain for new window size
+                if (recreate_swapchain(vo) < 0) {
+                    MP_ERR(vo, "Failed to recreate swapchain after resize\n");
+                    return VO_ERROR;
+                }
+                
+                // Recalculate video rectangles
+                if (vo->params) {
+                    struct mp_rect src, dst;
+                    struct mp_osd_res osd;
+                    vo_get_src_dst_rects(vo, &src, &dst, &osd);
+                    p->src_rect = src;
+                    p->dst_rect = dst;
+                }
+                
+                vo->want_redraw = true;
+            }
+        }
+        return VO_TRUE;
     }
     
     return VO_NOTIMPL;
