@@ -11,14 +11,14 @@
 #include "config.h"
 
 // Ensure at least one backend is available
-#if !defined(HAVE_VULKAN_SDL) || !HAVE_VULKAN_SDL
+#if !defined(HAVE_SDL_VULKAN_BACKEND) || !HAVE_SDL_VULKAN_BACKEND
 #if !defined(HAVE_GL) || !HAVE_GL
-#error "vo_sdl requires either Vulkan (HAVE_VULKAN_SDL) or OpenGL (HAVE_GL) support"
+#error "vo_sdl requires either Vulkan (HAVE_SDL_VULKAN_BACKEND) or OpenGL (HAVE_GL) support"
 #endif
 #endif
 
 
-#if defined(HAVE_VULKAN_SDL) && HAVE_VULKAN_SDL
+#if defined(HAVE_SDL_VULKAN_BACKEND) && HAVE_SDL_VULKAN_BACKEND
 
 // ============================================================================
 // VULKAN BACKEND - Complete implementation from vo_vulkan_sdl.c
@@ -1948,7 +1948,7 @@ static const struct vo_driver vk_driver = {
 };
 
 
-#endif // HAVE_VULKAN_SDL
+#endif // HAVE_SDL_VULKAN_BACKEND
 
 
 #if defined(HAVE_GL) && HAVE_GL
@@ -3018,7 +3018,7 @@ static int unified_preinit(struct vo *vo)
     }
     
 try_vulkan:
-#if defined(HAVE_VULKAN_SDL) && HAVE_VULKAN_SDL
+#if defined(HAVE_SDL_VULKAN_BACKEND) && HAVE_SDL_VULKAN_BACKEND
     {
         MP_VERBOSE(vo, "Trying Vulkan backend...\n");
         
