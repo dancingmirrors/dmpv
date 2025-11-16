@@ -138,7 +138,8 @@ struct priv {
     struct SwsContext *sws_context;
     struct mp_image *rgb_image;  // RGB conversion buffer
     
-    // Video destination rectangle (for centering and aspect ratio)
+    // Video source and destination rectangles (for centering and aspect ratio)
+    struct mp_rect src_rect;
     struct mp_rect dst_rect;
     
     // OSD support (CPU-side compositing for software decoding)
@@ -150,6 +151,10 @@ struct priv {
     
     // Event handling
     Uint32 wakeup_event;
+    
+    // Options
+    bool borderless;
+    bool switch_mode;  // Use SDL_WINDOW_FULLSCREEN instead of FULLSCREEN_DESKTOP
 };
 
 static void cleanup_vulkan(struct priv *p);
@@ -258,7 +263,11 @@ static void set_fullscreen(struct vo *vo)
     struct mp_vo_opts *opts = p->opts_cache->opts;
     int fs = opts->fullscreen;
     
-    Uint32 fs_flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
+    Uint32 fs_flag;
+    if (p->switch_mode)
+        fs_flag = SDL_WINDOW_FULLSCREEN;
+    else
+        fs_flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
     
     Uint32 old_flags = SDL_GetWindowFlags(p->window);
     int prev_fs = !!(old_flags & fs_flag);
@@ -279,6 +288,20 @@ static void set_fullscreen(struct vo *vo)
         MP_ERR(vo, "Failed to recreate swapchain after fullscreen toggle\n");
         return;
     }
+    
+    // Update window dimensions and recalculate video rectangles for new size
+    // This is necessary because fullscreen changes the actual window/drawable size
+    int w, h;
+    SDL_GetWindowSize(p->window, &w, &h);
+    vo->dwidth = w;
+    vo->dheight = h;
+    
+    // Recalculate src/dst rectangles with updated dimensions
+    struct mp_rect src, dst;
+    struct mp_osd_res osd;
+    vo_get_src_dst_rects(vo, &src, &dst, &osd);
+    p->src_rect = src;
+    p->dst_rect = dst;
     
     // Mark for redraw after fullscreen change
     vo->want_redraw = true;
@@ -490,15 +513,14 @@ static int create_swapchain(struct vo *vo)
     }
     free(present_modes);
     
-    p->swapchain_extent = capabilities.currentExtent;
-    if (p->swapchain_extent.width == UINT32_MAX) {
-        int w, h;
-        SDL_Vulkan_GetDrawableSize(p->window, &w, &h);
-        p->swapchain_extent.width = MPCLAMP(w, capabilities.minImageExtent.width, 
-                                            capabilities.maxImageExtent.width);
-        p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
-                                             capabilities.maxImageExtent.height);
-    }
+    // Always query the actual drawable size from SDL instead of relying on
+    // capabilities.currentExtent, which may return stale values after window resize
+    int w, h;
+    SDL_Vulkan_GetDrawableSize(p->window, &w, &h);
+    p->swapchain_extent.width = MPCLAMP(w, capabilities.minImageExtent.width, 
+                                        capabilities.maxImageExtent.width);
+    p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
+                                         capabilities.maxImageExtent.height);
     
     uint32_t image_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
@@ -1096,8 +1118,10 @@ static int preinit(struct vo *vo)
         return -1;
     }
     
-    // Always use borderless window
-    SDL_SetWindowBordered(p->window, SDL_FALSE);
+    // Set window border based on option
+    if (p->borderless) {
+        SDL_SetWindowBordered(p->window, SDL_FALSE);
+    }
     
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == (Uint32)-1) {
@@ -1119,8 +1143,6 @@ static int preinit(struct vo *vo)
         SDL_Quit();
         return -1;
     }
-    
-    SDL_ShowWindow(p->window);
     
     return 0;
 }
@@ -1192,10 +1214,17 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     if (geo.flags & VO_WIN_FORCE_POS)
         SDL_SetWindowPosition(p->window, geo.win.x0, geo.win.y0);
     
+    // Recreate swapchain to match new window size
+    if (recreate_swapchain(vo) < 0) {
+        MP_ERR(vo, "Failed to recreate swapchain after window resize\n");
+        return -1;
+    }
+    
     // Calculate video destination rectangle for proper centering and aspect ratio
     struct mp_rect src, dst;
     struct mp_osd_res osd;
     vo_get_src_dst_rects(vo, &src, &dst, &osd);
+    p->src_rect = src;
     p->dst_rect = dst;
     
     // Adjust OSD resolution to match video dimensions (OSD will scale with video)
@@ -1223,6 +1252,32 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     
     // Set fullscreen state
     set_fullscreen(vo);
+    
+    // Force update of window dimensions and video rectangles
+    // This ensures correct centering even when starting with --fs=yes
+    // where set_fullscreen() might not have updated dimensions
+    int actual_w, actual_h;
+    SDL_GetWindowSize(p->window, &actual_w, &actual_h);
+    if (vo->dwidth != actual_w || vo->dheight != actual_h) {
+        vo->dwidth = actual_w;
+        vo->dheight = actual_h;
+        
+        // Recreate swapchain to match actual window size
+        if (recreate_swapchain(vo) < 0) {
+            MP_ERR(vo, "Failed to recreate swapchain for actual window size\n");
+            return -1;
+        }
+        
+        // Recalculate video rectangles for the actual window size
+        struct mp_rect src2, dst2;
+        struct mp_osd_res osd2;
+        vo_get_src_dst_rects(vo, &src2, &dst2, &osd2);
+        p->src_rect = src2;
+        p->dst_rect = dst2;
+    }
+    
+    // Show window after it's been properly configured
+    SDL_ShowWindow(p->window);
     
     return 0;
 }
@@ -1334,11 +1389,16 @@ static void flip_page(struct vo *vo)
                                    0, 0, NULL, 0, NULL, 1, &src_barrier);
                 
                 // Calculate centered destination within swapchain
-                // Similar to SDL VO's centering logic
+                // Query actual swapchain size to ensure we use current dimensions
+                int swap_w = p->swapchain_extent.width;
+                int swap_h = p->swapchain_extent.height;
                 int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                 int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-                int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-                int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                int dst_x = (swap_w - dst_w) / 2;
+                int dst_y = (swap_h - dst_h) / 2;
+                
+                MP_VERBOSE(vo, "Centering: swap=%dx%d dst=%dx%d pos=%d,%d\n",
+                          swap_w, swap_h, dst_w, dst_h, dst_x, dst_y);
                 
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
@@ -1346,8 +1406,8 @@ static void flip_page(struct vo *vo)
                     .srcSubresource.mipLevel = 0,
                     .srcSubresource.baseArrayLayer = 0,
                     .srcSubresource.layerCount = 1,
-                    .srcOffsets[0] = {0, 0, 0},
-                    .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                    .srcOffsets[0] = {p->src_rect.x0, p->src_rect.y0, 0},
+                    .srcOffsets[1] = {p->src_rect.x1, p->src_rect.y1, 1},
                     .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                     .dstSubresource.mipLevel = 0,
                     .dstSubresource.baseArrayLayer = 0,
@@ -1495,10 +1555,13 @@ static void flip_page(struct vo *vo)
                                        0, 0, NULL, 0, NULL, 1, &upload_barrier);
                     
                     // Calculate centered destination within swapchain
+                    // Query actual swapchain size to ensure we use current dimensions
+                    int swap_w = p->swapchain_extent.width;
+                    int swap_h = p->swapchain_extent.height;
                     int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
                     int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-                    int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-                    int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+                    int dst_x = (swap_w - dst_w) / 2;
+                    int dst_y = (swap_h - dst_h) / 2;
                     
                     // Blit upload image (with OSD) to swapchain
                     VkImageBlit blit = {
@@ -1506,8 +1569,8 @@ static void flip_page(struct vo *vo)
                         .srcSubresource.mipLevel = 0,
                         .srcSubresource.baseArrayLayer = 0,
                         .srcSubresource.layerCount = 1,
-                        .srcOffsets[0] = {0, 0, 0},
-                        .srcOffsets[1] = {mpi->w, mpi->h, 1},
+                        .srcOffsets[0] = {p->src_rect.x0, p->src_rect.y0, 0},
+                        .srcOffsets[1] = {p->src_rect.x1, p->src_rect.y1, 1},
                         .dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                         .dstSubresource.mipLevel = 0,
                         .dstSubresource.baseArrayLayer = 0,
@@ -1597,11 +1660,14 @@ static void flip_page(struct vo *vo)
                                VK_PIPELINE_STAGE_TRANSFER_BIT,
                                0, 0, NULL, 0, NULL, 1, &upload_barrier);
             
-            // Calculate centered destination
+            // Calculate centered destination within swapchain
+            // Query actual swapchain size to ensure we use current dimensions
+            int swap_w = p->swapchain_extent.width;
+            int swap_h = p->swapchain_extent.height;
             int dst_w = p->dst_rect.x1 - p->dst_rect.x0;
             int dst_h = p->dst_rect.y1 - p->dst_rect.y0;
-            int dst_x = (p->swapchain_extent.width - dst_w) / 2;
-            int dst_y = (p->swapchain_extent.height - dst_h) / 2;
+            int dst_x = (swap_w - dst_w) / 2;
+            int dst_y = (swap_h - dst_h) / 2;
             
             VkImageBlit blit = {
                 .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1786,9 +1852,39 @@ static int control(struct vo *vo, uint32_t request, void *data)
             struct mp_rect src, dst;
             struct mp_osd_res osd;
             vo_get_src_dst_rects(vo, &src, &dst, &osd);
+            p->src_rect = src;
             p->dst_rect = dst;
             // Keep OSD at video resolution (set in reconfig)
             vo->want_redraw = true;
+        }
+        return VO_TRUE;
+    
+    case VOCTRL_CHECK_EVENTS:
+        // Handle window events including resize
+        {
+            int w, h;
+            SDL_GetWindowSize(p->window, &w, &h);
+            if (vo->dwidth != w || vo->dheight != h) {
+                vo->dwidth = w;
+                vo->dheight = h;
+                
+                // Recreate swapchain for new window size
+                if (recreate_swapchain(vo) < 0) {
+                    MP_ERR(vo, "Failed to recreate swapchain after resize\n");
+                    return VO_ERROR;
+                }
+                
+                // Recalculate video rectangles
+                if (vo->params) {
+                    struct mp_rect src, dst;
+                    struct mp_osd_res osd;
+                    vo_get_src_dst_rects(vo, &src, &dst, &osd);
+                    p->src_rect = src;
+                    p->dst_rect = dst;
+                }
+                
+                vo->want_redraw = true;
+            }
         }
         return VO_TRUE;
     }
@@ -1804,9 +1900,13 @@ const struct vo_driver video_out_vulkan_sdl = {
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .vsync = true,
+        .borderless = true,
+        .switch_mode = false,
     },
     .options = (const struct m_option[]) {
         {"vsync", OPT_BOOL(vsync)},
+        {"borderless", OPT_BOOL(borderless)},
+        {"switch-mode", OPT_BOOL(switch_mode)},
         {0}
     },
     .preinit = preinit,
@@ -1818,4 +1918,5 @@ const struct vo_driver video_out_vulkan_sdl = {
     .wakeup = wakeup,
     .wait_events = wait_events,
     .uninit = uninit,
+    .options_prefix = "vulkan-sdl",
 };
