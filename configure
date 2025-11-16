@@ -554,6 +554,10 @@ check("-sdl2*",
       desc      = "SDL video output",
       fn        = lambda: check_pkg_config("sdl2"),
       sources   = "video/out/vo_sdl.c")
+check("-vulkan-sdl*",
+      desc      = "Simple Vulkan output via SDL (no libplacebo)",
+      deps      = ["sdl2", "vulkan"],
+      sources   = "video/out/vo_vulkan_sdl.c")
 
 add_sources(
     "audio/aframe.c",
