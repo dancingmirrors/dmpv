@@ -282,18 +282,23 @@ static void set_fullscreen(struct vo *vo)
         return;
     }
     
-    // Recreate swapchain to handle fullscreen mode change
-    if (recreate_swapchain(vo) < 0) {
-        MP_ERR(vo, "Failed to recreate swapchain after fullscreen toggle\n");
-        return;
-    }
-    
     // Update window dimensions and recalculate video rectangles for new size
     // This is necessary because fullscreen changes the actual window/drawable size
     int w, h;
     SDL_GetWindowSize(p->window, &w, &h);
-    vo->dwidth = w;
-    vo->dheight = h;
+    
+    // Only recreate swapchain if the size actually changed
+    // For FULLSCREEN_DESKTOP mode, size often stays the same
+    if (vo->dwidth != w || vo->dheight != h) {
+        vo->dwidth = w;
+        vo->dheight = h;
+        
+        // Recreate swapchain to handle fullscreen mode change
+        if (recreate_swapchain(vo) < 0) {
+            MP_ERR(vo, "Failed to recreate swapchain after fullscreen toggle\n");
+            return;
+        }
+    }
     
     // Recalculate src/dst rectangles with updated dimensions
     struct mp_rect src, dst;
@@ -521,7 +526,9 @@ static int create_swapchain(struct vo *vo)
     p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
                                          capabilities.maxImageExtent.height);
     
-    uint32_t image_count = capabilities.minImageCount + 1;
+    // Prefer double buffering (2 images) for better performance and lower latency
+    // Only use triple buffering if minImageCount requires it
+    uint32_t image_count = MPMAX(2, capabilities.minImageCount);
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
         image_count = capabilities.maxImageCount;
     }
@@ -1292,17 +1299,36 @@ static void flip_page(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Use timeout on image acquisition to avoid blocking during seeks
+    // With only 2 swapchain images, rapid seeks could exhaust available images
     uint32_t image_index;
-    VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, UINT64_MAX,
+    VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, 16000000, // 16ms timeout
                                             p->image_available_semaphores[p->current_frame],
                                             VK_NULL_HANDLE, &image_index);
     
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        MP_WARN(vo, "Failed to acquire swapchain image\n");
+    if (result == VK_TIMEOUT) {
+        // No swapchain image available - GPU is still working on previous frames
+        // Skip this frame to maintain responsiveness during seeks
+        MP_VERBOSE(vo, "No swapchain image available, skipping frame\n");
+        p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        MP_WARN(vo, "Failed to acquire swapchain image: %d\n", result);
         return;
     }
     
-    vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
+    // Use a short timeout (16ms ~= 1 frame at 60fps) to avoid blocking during seeks
+    // If GPU isn't ready, skip this frame rather than stalling the pipeline
+    result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, 16000000);
+    if (result == VK_TIMEOUT) {
+        // GPU hasn't finished previous work on this slot - skip this frame to avoid stalling
+        MP_VERBOSE(vo, "Fence not ready, skipping frame to maintain responsiveness\n");
+        p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
+        return;
+    } else if (result != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to wait for fence: %d\n", result);
+        return;
+    }
     vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
     // Record command buffer
@@ -1393,9 +1419,6 @@ static void flip_page(struct vo *vo)
                 int dst_x = (swap_w - dst_w) / 2;
                 int dst_y = (swap_h - dst_h) / 2;
                 
-                MP_VERBOSE(vo, "Centering: swap=%dx%d dst=%dx%d pos=%d,%d\n",
-                          swap_w, swap_h, dst_w, dst_h, dst_x, dst_y);
-                
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
                     .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1435,20 +1458,32 @@ static void flip_page(struct vo *vo)
             if (!p->rgb_image || !p->upload_staging_buffer || !p->upload_image) {
                 MP_WARN(vo, "Upload resources not initialized\n");
             } else {
-                // Convert YUV to RGB using swscale
-                if (!p->sws_context) {
-                    p->sws_context = sws_getContext(
-                        mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
-                        mpi->w, mpi->h, AV_PIX_FMT_BGRA,
-                        SWS_BILINEAR, NULL, NULL, NULL);
+                // Check if input is already BGRA to skip unnecessary conversion
+                bool need_conversion = (mpi->imgfmt != IMGFMT_BGRA);
+                struct mp_image *source_image = NULL;
+                
+                if (need_conversion) {
+                    // Convert YUV to RGB using swscale
+                    if (!p->sws_context) {
+                        p->sws_context = sws_getContext(
+                            mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
+                            mpi->w, mpi->h, AV_PIX_FMT_BGRA,
+                            SWS_BILINEAR, NULL, NULL, NULL);
+                    }
+                    
+                    if (p->sws_context) {
+                        sws_scale(p->sws_context,
+                                 (const uint8_t *const *)mpi->planes, mpi->stride,
+                                 0, mpi->h,
+                                 p->rgb_image->planes, p->rgb_image->stride);
+                        source_image = p->rgb_image;
+                    }
+                } else {
+                    // Input is already BGRA, use it directly
+                    source_image = mpi;
                 }
                 
-                if (p->sws_context) {
-                    sws_scale(p->sws_context,
-                             (const uint8_t *const *)mpi->planes, mpi->stride,
-                             0, mpi->h,
-                             p->rgb_image->planes, p->rgb_image->stride);
-                    
+                if (source_image) {
                     // Draw OSD on top of the RGB frame (similar to vo_drm)
                     if (p->osd_image) {
                         // Use osd_image as composition buffer at video resolution
@@ -1458,10 +1493,17 @@ static void flip_page(struct vo *vo)
                         // Copy RGB frame (already at video size)
                         uint32_t copy_w = MPMIN(mpi->w, p->osd_image->w);
                         uint32_t copy_h = MPMIN(mpi->h, p->osd_image->h);
-                        for (uint32_t y = 0; y < copy_h; y++) {
-                            memcpy(p->osd_image->planes[0] + y * p->osd_image->stride[0],
-                                   p->rgb_image->planes[0] + y * p->rgb_image->stride[0],
-                                   copy_w * 4);
+                        // Optimize: if strides match, use single memcpy
+                        if (p->osd_image->stride[0] == source_image->stride[0]) {
+                            memcpy(p->osd_image->planes[0],
+                                   source_image->planes[0],
+                                   copy_h * source_image->stride[0]);
+                        } else {
+                            for (uint32_t y = 0; y < copy_h; y++) {
+                                memcpy(p->osd_image->planes[0] + y * p->osd_image->stride[0],
+                                       source_image->planes[0] + y * source_image->stride[0],
+                                       copy_w * 4);
+                            }
                         }
                         
                         // Draw OSD on top at video resolution (will scale with video)
@@ -1475,26 +1517,36 @@ static void flip_page(struct vo *vo)
                             uint32_t src_stride = p->osd_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
                             
-                            for (uint32_t y = 0; y < mpi->h; y++) {
-                                memcpy((uint8_t*)data + y * dst_stride,
-                                       p->osd_image->planes[0] + y * src_stride,
-                                       dst_stride);
+                            // Optimize: if strides match, use single memcpy
+                            if (src_stride == dst_stride) {
+                                memcpy(data, p->osd_image->planes[0], mpi->h * dst_stride);
+                            } else {
+                                for (uint32_t y = 0; y < mpi->h; y++) {
+                                    memcpy((uint8_t*)data + y * dst_stride,
+                                           p->osd_image->planes[0] + y * src_stride,
+                                           dst_stride);
+                                }
                             }
                             
                             vkUnmapMemory(p->device, p->upload_staging_memory);
                         }
                     } else {
-                        // No OSD support - just upload the RGB frame
+                        // No OSD support - just upload the source frame
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
-                            // Copy RGB image data to staging buffer
-                            uint32_t src_stride = p->rgb_image->stride[0];
+                            // Copy source image data to staging buffer
+                            uint32_t src_stride = source_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
                             
-                            for (uint32_t y = 0; y < mpi->h; y++) {
-                                memcpy((uint8_t*)data + y * dst_stride,
-                                       p->rgb_image->planes[0] + y * src_stride,
-                                       dst_stride);
+                            // Optimize: if strides match, use single memcpy
+                            if (src_stride == dst_stride) {
+                                memcpy(data, source_image->planes[0], mpi->h * dst_stride);
+                            } else {
+                                for (uint32_t y = 0; y < mpi->h; y++) {
+                                    memcpy((uint8_t*)data + y * dst_stride,
+                                           source_image->planes[0] + y * src_stride,
+                                           dst_stride);
+                                }
                             }
                             
                             vkUnmapMemory(p->device, p->upload_staging_memory);
@@ -1601,10 +1653,15 @@ static void flip_page(struct vo *vo)
             uint32_t src_stride = p->osd_image->stride[0];
             uint32_t dst_stride = p->osd_image->w * 4;
             
-            for (uint32_t y = 0; y < p->osd_image->h; y++) {
-                memcpy((uint8_t*)data + y * dst_stride,
-                       p->osd_image->planes[0] + y * src_stride,
-                       dst_stride);
+            // Optimize: if strides match, use single memcpy
+            if (src_stride == dst_stride) {
+                memcpy(data, p->osd_image->planes[0], p->osd_image->h * dst_stride);
+            } else {
+                for (uint32_t y = 0; y < p->osd_image->h; y++) {
+                    memcpy((uint8_t*)data + y * dst_stride,
+                           p->osd_image->planes[0] + y * src_stride,
+                           dst_stride);
+                }
             }
             
             vkUnmapMemory(p->device, p->upload_staging_memory);
@@ -1833,8 +1890,8 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     }
     case VOCTRL_RESET:
-        // Handle seeking - don't immediately redraw, let playloop handle timing
-        // This allows OSD state to be updated before we render
+        // Handle seeking - no action needed here
+        // Fence synchronization in flip_page will handle any pending GPU work
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
