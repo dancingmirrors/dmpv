@@ -1299,22 +1299,32 @@ static void flip_page(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Use timeout on image acquisition to avoid blocking during seeks
+    // With only 2 swapchain images, rapid seeks could exhaust available images
     uint32_t image_index;
-    VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, UINT64_MAX,
+    VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, 16000000, // 16ms timeout
                                             p->image_available_semaphores[p->current_frame],
                                             VK_NULL_HANDLE, &image_index);
     
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        MP_WARN(vo, "Failed to acquire swapchain image\n");
+    if (result == VK_TIMEOUT) {
+        // No swapchain image available - GPU is still working on previous frames
+        // Skip this frame to maintain responsiveness during seeks
+        MP_VERBOSE(vo, "No swapchain image available, skipping frame\n");
+        p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        MP_WARN(vo, "Failed to acquire swapchain image: %d\n", result);
         return;
     }
     
-    // Use a timeout to avoid deadlocks during rapid seeks
-    // 1 second should be more than enough for any real GPU work
-    result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, 1000000000);
+    // Use a short timeout (16ms ~= 1 frame at 60fps) to avoid blocking during seeks
+    // If GPU isn't ready, skip this frame rather than stalling the pipeline
+    result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, 16000000);
     if (result == VK_TIMEOUT) {
-        MP_WARN(vo, "Fence wait timeout - GPU too slow or deadlock, forcing device idle\n");
-        vkDeviceWaitIdle(p->device);
+        // GPU hasn't finished previous work on this slot - skip this frame to avoid stalling
+        MP_VERBOSE(vo, "Fence not ready, skipping frame to maintain responsiveness\n");
+        p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
+        return;
     } else if (result != VK_SUCCESS) {
         MP_ERR(vo, "Failed to wait for fence: %d\n", result);
         return;
@@ -1448,20 +1458,32 @@ static void flip_page(struct vo *vo)
             if (!p->rgb_image || !p->upload_staging_buffer || !p->upload_image) {
                 MP_WARN(vo, "Upload resources not initialized\n");
             } else {
-                // Convert YUV to RGB using swscale
-                if (!p->sws_context) {
-                    p->sws_context = sws_getContext(
-                        mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
-                        mpi->w, mpi->h, AV_PIX_FMT_BGRA,
-                        SWS_BILINEAR, NULL, NULL, NULL);
+                // Check if input is already BGRA to skip unnecessary conversion
+                bool need_conversion = (mpi->imgfmt != IMGFMT_BGRA);
+                struct mp_image *source_image = NULL;
+                
+                if (need_conversion) {
+                    // Convert YUV to RGB using swscale
+                    if (!p->sws_context) {
+                        p->sws_context = sws_getContext(
+                            mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
+                            mpi->w, mpi->h, AV_PIX_FMT_BGRA,
+                            SWS_BILINEAR, NULL, NULL, NULL);
+                    }
+                    
+                    if (p->sws_context) {
+                        sws_scale(p->sws_context,
+                                 (const uint8_t *const *)mpi->planes, mpi->stride,
+                                 0, mpi->h,
+                                 p->rgb_image->planes, p->rgb_image->stride);
+                        source_image = p->rgb_image;
+                    }
+                } else {
+                    // Input is already BGRA, use it directly
+                    source_image = mpi;
                 }
                 
-                if (p->sws_context) {
-                    sws_scale(p->sws_context,
-                             (const uint8_t *const *)mpi->planes, mpi->stride,
-                             0, mpi->h,
-                             p->rgb_image->planes, p->rgb_image->stride);
-                    
+                if (source_image) {
                     // Draw OSD on top of the RGB frame (similar to vo_drm)
                     if (p->osd_image) {
                         // Use osd_image as composition buffer at video resolution
@@ -1472,14 +1494,14 @@ static void flip_page(struct vo *vo)
                         uint32_t copy_w = MPMIN(mpi->w, p->osd_image->w);
                         uint32_t copy_h = MPMIN(mpi->h, p->osd_image->h);
                         // Optimize: if strides match, use single memcpy
-                        if (p->osd_image->stride[0] == p->rgb_image->stride[0]) {
+                        if (p->osd_image->stride[0] == source_image->stride[0]) {
                             memcpy(p->osd_image->planes[0],
-                                   p->rgb_image->planes[0],
-                                   copy_h * p->rgb_image->stride[0]);
+                                   source_image->planes[0],
+                                   copy_h * source_image->stride[0]);
                         } else {
                             for (uint32_t y = 0; y < copy_h; y++) {
                                 memcpy(p->osd_image->planes[0] + y * p->osd_image->stride[0],
-                                       p->rgb_image->planes[0] + y * p->rgb_image->stride[0],
+                                       source_image->planes[0] + y * source_image->stride[0],
                                        copy_w * 4);
                             }
                         }
@@ -1509,20 +1531,20 @@ static void flip_page(struct vo *vo)
                             vkUnmapMemory(p->device, p->upload_staging_memory);
                         }
                     } else {
-                        // No OSD support - just upload the RGB frame
+                        // No OSD support - just upload the source frame
                         void *data;
                         if (vkMapMemory(p->device, p->upload_staging_memory, 0, VK_WHOLE_SIZE, 0, &data) == VK_SUCCESS) {
-                            // Copy RGB image data to staging buffer
-                            uint32_t src_stride = p->rgb_image->stride[0];
+                            // Copy source image data to staging buffer
+                            uint32_t src_stride = source_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
                             
                             // Optimize: if strides match, use single memcpy
                             if (src_stride == dst_stride) {
-                                memcpy(data, p->rgb_image->planes[0], mpi->h * dst_stride);
+                                memcpy(data, source_image->planes[0], mpi->h * dst_stride);
                             } else {
                                 for (uint32_t y = 0; y < mpi->h; y++) {
                                     memcpy((uint8_t*)data + y * dst_stride,
-                                           p->rgb_image->planes[0] + y * src_stride,
+                                           source_image->planes[0] + y * src_stride,
                                            dst_stride);
                                 }
                             }
@@ -1868,12 +1890,8 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     }
     case VOCTRL_RESET:
-        // Handle seeking - flush GPU work to prevent deadlocks
-        // During rapid seeks, we need to ensure pending GPU work completes
-        // before submitting new frames to avoid fence synchronization issues
-        if (p->device) {
-            vkDeviceWaitIdle(p->device);
-        }
+        // Handle seeking - no action needed here
+        // Fence synchronization in flip_page will handle any pending GPU work
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
