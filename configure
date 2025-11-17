@@ -550,25 +550,6 @@ check(deps      = ["vulkan", "wayland"],
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
-# XXX
-check("-sdl2*",
-      desc      = "SDL 2",
-      fn        = lambda: check_pkg_config("sdl2"))
-check("-sdl2-vulkan*",
-      desc      = "SDL 2 video output (Vulkan)",
-      deps      = "sdl2",
-      fn        = lambda: check_pkg_config("vulkan"),
-      sources   = "video/out/vo_sdl2_vulkan.c")
-
-check("-sdl3*",
-      desc      = "SDL 3",
-      fn        = lambda: check_pkg_config("sdl3"))
-#check("-sdl3-vulkan*",
-#      desc      = "SDL 3 video output (Vulkan)",
-#      deps      = "sdl3",
-#      fn        = lambda: check_pkg_config("vulkan"),
-#      sources   = "video/out/vo_sdl3_vulkan.c")
-
 add_sources(
     "audio/aframe.c",
     "audio/chmap.c",
