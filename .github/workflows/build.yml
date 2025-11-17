@@ -56,10 +56,11 @@ jobs:
           set -x
 
           apt-get install -y --reinstall git meson ninja-build
+          git config --global --add safe.directory "$(pwd)"
 
           git clone https://github.com/dancingmirrors/dmpv.git
           cd dmpv
-          git config --global --add safe.directory "$(pwd)"
+
 
           CFLAGS="-Werror" ./configure
           CFLAGS="-Werror" make
