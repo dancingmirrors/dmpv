@@ -1330,7 +1330,7 @@ static void flip_page(struct vo *vo)
                                       VK_TRUE, 0);
     if (result == VK_TIMEOUT) {
         // GPU hasn't finished previous work on this slot - skip this frame to avoid stalling
-        MP_VERBOSE(vo, "Fence not ready, skipping frame to maintain responsiveness\n");
+        MP_WARN(vo, "Fence not ready, skipping frame to maintain responsiveness\n");
         p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
         return;
     } else if (result != VK_SUCCESS) {
@@ -1350,7 +1350,7 @@ static void flip_page(struct vo *vo)
         // No swapchain image available - GPU is still working on previous frames
         // Skip this frame to maintain responsiveness during seeks
         // Fence is still signaled, so next iteration will succeed the wait
-        MP_VERBOSE(vo, "No swapchain image available, skipping frame\n");
+        MP_WARN(vo, "No swapchain image available, skipping frame\n");
         p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
