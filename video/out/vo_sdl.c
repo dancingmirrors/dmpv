@@ -45,7 +45,6 @@
  */
 
 #undef HAVE_LIBDECOR
-#undef HAVE_LIBPLACEBO
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -283,7 +282,7 @@ static int recreate_swapchain(struct vo *vo)
     return 0;
 }
 
-static void set_fullscreen(struct vo *vo)
+static void vk_set_fullscreen(struct vo *vo)
 {
     struct vk_priv *p = vo->priv;
     struct mp_vo_opts *opts = p->opts_cache->opts;
@@ -333,7 +332,7 @@ static void set_fullscreen(struct vo *vo)
     vo->want_redraw = true;
 }
 
-static void update_screeninfo(struct vo *vo, struct mp_rect *screenrc)
+static void vk_update_screeninfo(struct vo *vo, struct mp_rect *screenrc)
 {
     struct vk_priv *p = vo->priv;
     SDL_DisplayMode mode;
@@ -1226,7 +1225,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     struct vo_win_geometry geo;
     struct mp_rect screenrc;
     
-    update_screeninfo(vo, &screenrc);
+    vk_update_screeninfo(vo, &screenrc);
     vo_calc_window_geometry(vo, &screenrc, &screenrc, false, &geo);
     vo_apply_window_geometry(vo, &geo);
     
@@ -1277,7 +1276,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     }
     
     // Set fullscreen state
-    set_fullscreen(vo);
+    vk_set_fullscreen(vo);
     
     // Force update of window dimensions and video rectangles
     // This ensures correct centering even when starting with --fs=yes
@@ -1858,7 +1857,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
         while (m_config_cache_get_next_changed(p->opts_cache, &opt)) {
             struct mp_vo_opts *opts = p->opts_cache->opts;
             if (&opts->fullscreen == opt)
-                set_fullscreen(vo);
+                vk_set_fullscreen(vo);
         }
         return VO_TRUE;
     }
@@ -1918,7 +1917,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
     return VO_NOTIMPL;
 }
 
-#define OPT_BASE_STRUCT struct priv
+#define OPT_BASE_STRUCT struct vk_priv
 
 static const struct vo_driver vk_driver = {
     .description = "Simple Vulkan output via SDL (no libplacebo)",
