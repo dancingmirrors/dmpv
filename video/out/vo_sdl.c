@@ -1118,7 +1118,7 @@ static void vk_cleanup_vulkan(struct vk_priv *p)
     }
 }
 
-static int preinit(struct vo *vo)
+static int vk_preinit(struct vo *vo)
 {
     struct vk_priv *p = vo->priv;
     
@@ -1172,7 +1172,7 @@ static int preinit(struct vo *vo)
     return 0;
 }
 
-static void uninit(struct vo *vo)
+static void vk_uninit(struct vo *vo)
 {
     struct vk_priv *p = vo->priv;
     
@@ -1195,7 +1195,7 @@ static void uninit(struct vo *vo)
     SDL_Quit();
 }
 
-static int query_format(struct vo *vo, int format)
+static int vk_query_format(struct vo *vo, int format)
 {
     // Accept Vulkan hardware frames and common software formats
     if (format == IMGFMT_VULKAN)
@@ -1215,7 +1215,7 @@ static int query_format(struct vo *vo, int format)
     return 0;
 }
 
-static int reconfig(struct vo *vo, struct mp_image_params *params)
+static int vk_reconfig(struct vo *vo, struct mp_image_params *params)
 {
     struct vk_priv *p = vo->priv;
     
@@ -1307,7 +1307,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     return 0;
 }
 
-static void draw_frame(struct vo *vo, struct vo_frame *frame)
+static void vk_draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct vk_priv *p = vo->priv;
     
@@ -1317,7 +1317,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
     p->is_redraw = frame->redraw;
 }
 
-static void flip_page(struct vo *vo)
+static void vk_flip_page(struct vo *vo)
 {
     struct vk_priv *p = vo->priv;
     
@@ -1769,14 +1769,14 @@ static void flip_page(struct vo *vo)
     p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
 }
 
-static void wakeup(struct vo *vo)
+static void vk_wakeup(struct vo *vo)
 {
     struct vk_priv *p = vo->priv;
     SDL_Event event = {.type = p->wakeup_event};
     SDL_PushEvent(&event);
 }
 
-static void wait_events(struct vo *vo, int64_t until_time_ns)
+static void vk_wait_events(struct vo *vo, int64_t until_time_ns)
 {
     struct vk_priv *p = vo->priv;
     int64_t wait_ns = until_time_ns - mp_time_ns();
@@ -1847,7 +1847,7 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
     }
 }
 
-static int control(struct vo *vo, uint32_t request, void *data)
+static int vk_control(struct vo *vo, uint32_t request, void *data)
 {
     struct vk_priv *p = vo->priv;
     
@@ -1934,15 +1934,15 @@ static const struct vo_driver vk_driver = {
         {"switch-mode", OPT_BOOL(switch_mode)},
         {0}
     },
-    .preinit = preinit,
-    .query_format = query_format,
-    .reconfig = reconfig,
-    .control = control,
-    .draw_frame = draw_frame,
-    .flip_page = flip_page,
-    .wakeup = wakeup,
-    .wait_events = wait_events,
-    .uninit = uninit,
+    .preinit = vk_preinit,
+    .query_format = vk_query_format,
+    .reconfig = vk_reconfig,
+    .control = vk_control,
+    .draw_frame = vk_draw_frame,
+    .flip_page = vk_flip_page,
+    .wakeup = vk_wakeup,
+    .wait_events = vk_wait_events,
+    .uninit = vk_uninit,
     .options_prefix = "vulkan-sdl",
 };
 
@@ -2953,6 +2953,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
     return VO_NOTIMPL;
 }
 
+#undef OPT_BASE_STRUCT
 #define OPT_BASE_STRUCT struct gl_priv
 
 static const struct vo_driver gl_driver = {
