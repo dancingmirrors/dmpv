@@ -170,8 +170,25 @@ static int recreate_swapchain(struct vo *vo)
     if (!p->device)
         return -1;
     
-    // Wait for device to be idle before recreating swapchain
-    vkDeviceWaitIdle(p->device);
+    // Wait for in-flight frames to complete before recreating swapchain
+    // Use fences instead of vkDeviceWaitIdle for better responsiveness during seeks
+    if (p->in_flight_fences && p->swapchain_image_count > 0) {
+        // Wait for all in-flight fences with a reasonable timeout (100ms)
+        // This prevents multi-second freezes during rapid seeks
+        VkResult result = vkWaitForFences(p->device, p->swapchain_image_count, 
+                                          p->in_flight_fences, VK_TRUE, 100000000);
+        if (result == VK_TIMEOUT) {
+            MP_WARN(vo, "Timeout waiting for fences during swapchain recreation, "
+                    "forcing device idle\n");
+            vkDeviceWaitIdle(p->device);
+        } else if (result != VK_SUCCESS) {
+            MP_ERR(vo, "Failed to wait for fences: %d\n", result);
+            vkDeviceWaitIdle(p->device);
+        }
+    } else {
+        // Fallback to device idle if fences aren't available yet
+        vkDeviceWaitIdle(p->device);
+    }
     
     // Clean up old swapchain resources
     if (p->image_available_semaphores) {
@@ -848,6 +865,12 @@ static void cleanup_upload_resources(struct priv *p)
     if (!p->device)
         return;
     
+    // Note: vkDeviceWaitIdle here can cause freezes during seeks if called frequently
+    // This function is called when video format changes, which is less common than
+    // swapchain recreation. However, we should still minimize blocking where possible.
+    // The resources being cleaned up here (upload image, staging buffer) may still be
+    // in use by pending command buffers, so we need to wait, but we can optimize later
+    // by deferring cleanup using fences.
     vkDeviceWaitIdle(p->device);
     
     if (p->sws_context) {
@@ -1299,27 +1322,11 @@ static void flip_page(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
-    // Use timeout on image acquisition to avoid blocking during seeks
-    // With only 2 swapchain images, rapid seeks could exhaust available images
-    uint32_t image_index;
-    VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, 16000000, // 16ms timeout
-                                            p->image_available_semaphores[p->current_frame],
-                                            VK_NULL_HANDLE, &image_index);
-    
-    if (result == VK_TIMEOUT) {
-        // No swapchain image available - GPU is still working on previous frames
-        // Skip this frame to maintain responsiveness during seeks
-        MP_VERBOSE(vo, "No swapchain image available, skipping frame\n");
-        p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
-        return;
-    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        MP_WARN(vo, "Failed to acquire swapchain image: %d\n", result);
-        return;
-    }
-    
+    // Wait for the fence FIRST before acquiring swapchain image
+    // This prevents accumulating acquired-but-not-presented images during seeks
     // Use a short timeout (16ms ~= 1 frame at 60fps) to avoid blocking during seeks
-    // If GPU isn't ready, skip this frame rather than stalling the pipeline
-    result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, 16000000);
+    VkResult result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], 
+                                      VK_TRUE, 16000000);
     if (result == VK_TIMEOUT) {
         // GPU hasn't finished previous work on this slot - skip this frame to avoid stalling
         MP_VERBOSE(vo, "Fence not ready, skipping frame to maintain responsiveness\n");
@@ -1330,6 +1337,41 @@ static void flip_page(struct vo *vo)
         return;
     }
     vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
+    
+    // Now acquire swapchain image - we know the fence is ready so we can use it
+    // Use timeout on image acquisition to avoid blocking during seeks
+    // With only 2 swapchain images, rapid seeks could exhaust available images
+    uint32_t image_index;
+    result = vkAcquireNextImageKHR(p->device, p->swapchain, 16000000, // 16ms timeout
+                                   p->image_available_semaphores[p->current_frame],
+                                   VK_NULL_HANDLE, &image_index);
+    
+    if (result == VK_TIMEOUT) {
+        // No swapchain image available - GPU is still working on previous frames
+        // Skip this frame to maintain responsiveness during seeks
+        // Note: fence was already reset, so re-signal it for next iteration
+        VkFenceCreateInfo fence_info = {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+        };
+        // Destroy and recreate the fence in signaled state
+        vkDestroyFence(p->device, p->in_flight_fences[p->current_frame], NULL);
+        vkCreateFence(p->device, &fence_info, NULL, &p->in_flight_fences[p->current_frame]);
+        
+        MP_VERBOSE(vo, "No swapchain image available, skipping frame\n");
+        p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        MP_WARN(vo, "Failed to acquire swapchain image: %d\n", result);
+        // Re-signal fence since we won't submit work
+        VkFenceCreateInfo fence_info = {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+        };
+        vkDestroyFence(p->device, p->in_flight_fences[p->current_frame], NULL);
+        vkCreateFence(p->device, &fence_info, NULL, &p->in_flight_fences[p->current_frame]);
+        return;
+    }
     
     // Record command buffer
     VkCommandBuffer cmd = p->command_buffers[image_index];
