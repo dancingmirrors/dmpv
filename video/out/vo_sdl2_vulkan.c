@@ -1324,9 +1324,10 @@ static void flip_page(struct vo *vo)
     
     // Wait for the fence FIRST before acquiring swapchain image
     // This prevents accumulating acquired-but-not-presented images during seeks
-    // Use a short timeout (16ms ~= 1 frame at 60fps) to avoid blocking during seeks
+    // Use zero timeout (non-blocking poll) to immediately drop frames during seeks
+    // This prevents multi-second freezes during rapid seeking
     VkResult result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], 
-                                      VK_TRUE, 16000000);
+                                      VK_TRUE, 0);
     if (result == VK_TIMEOUT) {
         // GPU hasn't finished previous work on this slot - skip this frame to avoid stalling
         MP_VERBOSE(vo, "Fence not ready, skipping frame to maintain responsiveness\n");
@@ -1339,8 +1340,9 @@ static void flip_page(struct vo *vo)
     
     // Fence is ready - now acquire swapchain image
     // Don't reset fence yet - only reset after successful acquire
+    // Use very short timeout to avoid blocking during seeks
     uint32_t image_index;
-    result = vkAcquireNextImageKHR(p->device, p->swapchain, 16000000, // 16ms timeout
+    result = vkAcquireNextImageKHR(p->device, p->swapchain, 1000000, // 1ms timeout
                                    p->image_available_semaphores[p->current_frame],
                                    VK_NULL_HANDLE, &image_index);
     
