@@ -3028,6 +3028,9 @@ try_vulkan:
             memcpy(vo->priv, vk_driver.priv_defaults, vk_driver.priv_size);
         }
         
+        // Replace vo->driver with backend driver
+        vo->driver = &vk_driver;
+        
         if (vk_driver.preinit(vo) >= 0) {
             MP_VERBOSE(vo, "Vulkan backend initialized successfully\n");
             return 0;
@@ -3061,6 +3064,9 @@ try_gl:
         if (gl_driver.priv_defaults) {
             memcpy(vo->priv, gl_driver.priv_defaults, gl_driver.priv_size);
         }
+        
+        // Replace vo->driver with backend driver
+        vo->driver = &gl_driver;
         
         if (gl_driver.preinit(vo) >= 0) {
             MP_VERBOSE(vo, "OpenGL backend initialized successfully\n");
