@@ -339,6 +339,7 @@ const struct m_sub_options wayland_conf = {
         {"wayland-edge-pixels-touch", OPT_INT(edge_pixels_touch),
             M_RANGE(0, INT_MAX)},
         {"wayland-present", OPT_BOOL(present)},
+        {"wayland-libdecor", OPT_BOOL(libdecor)},
         {0},
     },
     .size = sizeof(struct wayland_opts),
@@ -347,6 +348,7 @@ const struct m_sub_options wayland_conf = {
         .edge_pixels_pointer = 16,
         .edge_pixels_touch = 32,
         .present = true,
+        .libdecor = true,
     },
 };
 
@@ -1929,9 +1931,9 @@ static int create_xdg_surface(struct vo_wayland_state *wl)
     // Skip libdecor for dmabuf-wayland as it has viewport geometry issues
     bool using_dmabuf_wayland = !strcmp(wl->vo->driver->name, "dmabuf-wayland");
     
-    // Prefer libdecor when available and borders are enabled
+    // Prefer libdecor when available, enabled, and borders are enabled
     // libdecor provides client-side decorations and works on all compositors
-    if (wl->vo_opts->border && !using_dmabuf_wayland) {
+    if (wl->opts->libdecor && wl->vo_opts->border && !using_dmabuf_wayland) {
         wl->libdecor_context = libdecor_new(wl->display, &libdecor_iface);
         if (wl->libdecor_context) {
             wl->libdecor_frame = libdecor_decorate(wl->libdecor_context,
@@ -2795,6 +2797,8 @@ bool vo_wayland_init(struct vo *vo)
         goto err;
     }
 
+    wl->opts = mp_get_config_group(wl, wl->vo->global, &wayland_conf);
+
     /* Can't be initialized during registry due to multi-protocol dependence */
     if (create_viewports(wl))
         goto err;
@@ -2874,7 +2878,6 @@ bool vo_wayland_init(struct vo *vo)
                    zwp_idle_inhibit_manager_v1_interface.name);
     }
 
-    wl->opts = mp_get_config_group(wl, wl->vo->global, &wayland_conf);
     wl->display_fd = wl_display_get_fd(wl->display);
 
     update_app_id(wl);

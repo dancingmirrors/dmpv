@@ -36,6 +36,7 @@ struct wayland_opts {
     int edge_pixels_pointer;
     int edge_pixels_touch;
     bool present;
+    bool libdecor;
 };
 
 struct vo_wayland_state {
