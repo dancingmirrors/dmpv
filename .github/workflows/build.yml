@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: debian:stable-slim
 
     steps:
       - name: actions/checkout@v4
