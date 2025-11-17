@@ -53,8 +53,6 @@ jobs:
           meson compile -C build
           ninja -C build install
 
-          ldconfig
-
           set -x
 
           apt-get install -y --reinstall git meson ninja-build
@@ -138,8 +136,6 @@ jobs:
           meson compile -C build
           ninja -C build install
           cd ..
-
-          ldconfig
 
           ./configure
           ninja -C build
