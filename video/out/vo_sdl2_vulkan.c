@@ -1336,11 +1336,9 @@ static void flip_page(struct vo *vo)
         MP_ERR(vo, "Failed to wait for fence: %d\n", result);
         return;
     }
-    vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
-    // Now acquire swapchain image - we know the fence is ready so we can use it
-    // Use timeout on image acquisition to avoid blocking during seeks
-    // With only 2 swapchain images, rapid seeks could exhaust available images
+    // Fence is ready - now acquire swapchain image
+    // Don't reset fence yet - only reset after successful acquire
     uint32_t image_index;
     result = vkAcquireNextImageKHR(p->device, p->swapchain, 16000000, // 16ms timeout
                                    p->image_available_semaphores[p->current_frame],
@@ -1349,29 +1347,18 @@ static void flip_page(struct vo *vo)
     if (result == VK_TIMEOUT) {
         // No swapchain image available - GPU is still working on previous frames
         // Skip this frame to maintain responsiveness during seeks
-        // Note: fence was already reset, so re-signal it for next iteration
-        VkFenceCreateInfo fence_info = {
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-        };
-        // Destroy and recreate the fence in signaled state
-        vkDestroyFence(p->device, p->in_flight_fences[p->current_frame], NULL);
-        vkCreateFence(p->device, &fence_info, NULL, &p->in_flight_fences[p->current_frame]);
-        
+        // Fence is still signaled, so next iteration will succeed the wait
         MP_VERBOSE(vo, "No swapchain image available, skipping frame\n");
         p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         MP_WARN(vo, "Failed to acquire swapchain image: %d\n", result);
-        // Re-signal fence since we won't submit work
-        VkFenceCreateInfo fence_info = {
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-        };
-        vkDestroyFence(p->device, p->in_flight_fences[p->current_frame], NULL);
-        vkCreateFence(p->device, &fence_info, NULL, &p->in_flight_fences[p->current_frame]);
+        // Fence is still signaled, so next iteration will succeed the wait
         return;
     }
+    
+    // Successfully acquired swapchain image - now reset the fence before submitting work
+    vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
     // Record command buffer
     VkCommandBuffer cmd = p->command_buffers[image_index];
