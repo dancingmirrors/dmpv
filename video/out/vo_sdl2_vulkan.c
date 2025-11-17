@@ -327,6 +327,7 @@ static void set_fullscreen(struct vo *vo)
     
     // Mark for redraw after fullscreen change
     vo->want_redraw = true;
+    vo_wakeup(vo);
 }
 
 static void update_screeninfo(struct vo *vo, struct mp_rect *screenrc)
@@ -1308,6 +1309,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     
     // Request initial frame render
     vo->want_redraw = true;
+    vo_wakeup(vo);
     
     return 0;
 }
@@ -1852,6 +1854,7 @@ static void flip_page(struct vo *vo)
         // Swapchain needs to be recreated (will happen in VOCTRL_CHECK_EVENTS)
         // Request redraw so the frame is re-rendered after swapchain recreation
         vo->want_redraw = true;
+        vo_wakeup(vo);
     } else if (result != VK_SUCCESS) {
         MP_WARN(vo, "Failed to present swapchain image: %d\n", result);
     }
@@ -1971,6 +1974,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
             p->dst_rect = dst;
             // Keep OSD at video resolution (set in reconfig)
             vo->want_redraw = true;
+            vo_wakeup(vo);
         }
         return VO_TRUE;
     
@@ -1999,6 +2003,7 @@ static int control(struct vo *vo, uint32_t request, void *data)
                 }
                 
                 vo->want_redraw = true;
+                vo_wakeup(vo);
             }
         }
         return VO_TRUE;
