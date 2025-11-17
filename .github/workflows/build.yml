@@ -60,6 +60,9 @@ jobs:
 
           sudo apt-get install -y --reinstall meson ninja-build
 
+          git clone --depth 1 https://github.com/dancingmirrors/dmpv.git
+          cd dmpv
+
           CFLAGS="-Werror" ./configure
           CFLAGS="-Werror" make
           sudo ninja -C build install
