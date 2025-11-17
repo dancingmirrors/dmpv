@@ -141,19 +141,18 @@ struct priv {
     // Video source and destination rectangles (for centering and aspect ratio)
     struct mp_rect src_rect;
     struct mp_rect dst_rect;
-    
+
     // OSD support (CPU-side compositing for software decoding)
     struct mp_osd_res osd_res;
     struct mp_image *osd_image;  // OSD composition buffer (BGRA)
-    
+
     // Options cache for tracking changes
     struct m_config_cache *opts_cache;
-    
+
     // Event handling
     Uint32 wakeup_event;
-    
+
     // Options
-    bool borderless;
     bool switch_mode;  // Use SDL_WINDOW_FULLSCREEN instead of FULLSCREEN_DESKTOP
 };
 
@@ -1117,12 +1116,9 @@ static int preinit(struct vo *vo)
         SDL_Quit();
         return -1;
     }
-    
-    // Set window border based on option
-    if (p->borderless) {
-        SDL_SetWindowBordered(p->window, SDL_FALSE);
-    }
-    
+
+    SDL_SetWindowBordered(p->window, SDL_FALSE);
+
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == (Uint32)-1) {
         MP_ERR(vo, "Failed to register SDL user event\n");
@@ -1894,18 +1890,16 @@ static int control(struct vo *vo, uint32_t request, void *data)
 
 #define OPT_BASE_STRUCT struct priv
 
-const struct vo_driver video_out_vulkan_sdl = {
-    .description = "Simple Vulkan output via SDL (no libplacebo)",
-    .name = "vulkan-sdl",
+const struct vo_driver video_out_sdl2_vulkan = {
+    .description = "SDL 2 Renderer (Vulkan)",
+    .name = "sdl2-vulkan",
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .vsync = true,
-        .borderless = true,
         .switch_mode = false,
     },
     .options = (const struct m_option[]) {
         {"vsync", OPT_BOOL(vsync)},
-        {"borderless", OPT_BOOL(borderless)},
         {"switch-mode", OPT_BOOL(switch_mode)},
         {0}
     },
@@ -1918,5 +1912,5 @@ const struct vo_driver video_out_vulkan_sdl = {
     .wakeup = wakeup,
     .wait_events = wait_events,
     .uninit = uninit,
-    .options_prefix = "vulkan-sdl",
+    .options_prefix = "sdl2-vulkan",
 };

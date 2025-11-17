@@ -398,7 +398,7 @@ check("-x11*",
       sources   = "video/out/x11_common.c")
 
 check("-vulkan*",
-      desc      = "Vulkan context support",
+      desc      = "Vulkan context support (libplacebo)",
       deps      = "libplacebo",
       fn        = lambda: check_pkg_config("vulkan"),
       sources   = ["video/out/vulkan/context.c",
@@ -551,14 +551,17 @@ check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
 check("-sdl2*",
-      desc      = "SDL video output",
-      fn        = lambda: check_pkg_config("sdl2"),
-      sources   = "video/out/vo_sdl.c")
-check("-vulkan-sdl*",
-      desc      = "Simple Vulkan output via SDL (no libplacebo)",
+      desc      = "SDL 2",
+      fn        = lambda: check_pkg_config("sdl2"))
+check("-sdl2-vulkan*",
+      desc = "SDL 2 video output (Vulkan)",
       deps      = "sdl2",
       fn        = lambda: check_pkg_config("vulkan"),
-      sources   = "video/out/vo_vulkan_sdl.c")
+      sources   = "video/out/vo_sdl2_vulkan.c")
+check("-sdl2-gl*",
+      desc      = "SDL 2 video output (GL)",
+      deps      = ["sdl2", "gl"],
+      sources   = "video/out/vo_sdl2_gl.c")
 
 add_sources(
     "audio/aframe.c",

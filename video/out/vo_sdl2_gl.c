@@ -198,7 +198,6 @@ struct priv {
     bool allow_sw;
     bool switch_mode;
     bool vsync;
-    bool borderless;
 };
 
 static bool lock_texture(struct vo *vo, struct mp_image *texmpi)
@@ -852,9 +851,7 @@ static int preinit(struct vo *vo)
         return -1;
     }
 
-    if (vc->borderless) {
-        SDL_SetWindowBordered(vc->window, SDL_FALSE);
-    }
+    SDL_SetWindowBordered(vc->window, SDL_FALSE);
 
     // try creating a renderer (this also gets the renderer_info data
     // for query_format to use!)
@@ -997,21 +994,19 @@ static int control(struct vo *vo, uint32_t request, void *data)
 
 #define OPT_BASE_STRUCT struct priv
 
-const struct vo_driver video_out_sdl = {
-    .description = "SDL 2.0 Renderer",
-    .name = "sdl",
+const struct vo_driver video_out_sdl2_gl = {
+    .description = "SDL Renderer (GL)",
+    .name = "sdl2-gl",
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .renderer_index = -1,
         .vsync = true,
         .allow_sw = true,
-        .borderless = true,
     },
     .options = (const struct m_option []){
         {"sw", OPT_BOOL(allow_sw)},
         {"switch-mode", OPT_BOOL(switch_mode)},
         {"vsync", OPT_BOOL(vsync)},
-        {"borderless", OPT_BOOL(borderless)},
         {NULL}
     },
     .preinit = preinit,
@@ -1023,5 +1018,5 @@ const struct vo_driver video_out_sdl = {
     .flip_page = flip_page,
     .wait_events = wait_events,
     .wakeup = wakeup,
-    .options_prefix = "sdl",
+    .options_prefix = "sdl2-gl",
 };
