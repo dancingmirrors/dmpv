@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "av_log.h"
 #include "config.h"
@@ -134,6 +135,13 @@ static void mp_msg_av_log_callback(void *ptr, int level, const char *fmt,
 
         pos = MPMIN(MPMAX(pos, 0), sizeof(buffer));
         vsnprintf(buffer + pos, sizeof(buffer) - pos, fmt, vl);
+
+        // Filter out verbose swscaler messages about "special converter"
+        if (avc && avc->class_name && !strcmp(avc->class_name, "SWScaler") &&
+            strstr(buffer, "special converter")) {
+            mp_mutex_unlock(&log_lock);
+            return;
+        }
 
         mp_msg(log, mp_level, "%s", buffer);
     }
