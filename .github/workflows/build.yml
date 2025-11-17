@@ -57,9 +57,9 @@ jobs:
 
           set -x
 
-          apt-get install -y --reinstall meson ninja-build
+          apt-get install -y --reinstall git meson ninja-build
 
-          git clone --depth 1 https://github.com/dancingmirrors/dmpv.git
+          git clone https://github.com/dancingmirrors/dmpv.git
           cd dmpv
 
           CFLAGS="-Werror" ./configure
