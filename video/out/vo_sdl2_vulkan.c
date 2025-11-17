@@ -1500,6 +1500,28 @@ static void flip_page(struct vo *vo)
                             mpi->w, mpi->h, imgfmt2pixfmt(mpi->imgfmt),
                             mpi->w, mpi->h, AV_PIX_FMT_BGRA,
                             SWS_BILINEAR, NULL, NULL, NULL);
+                        
+                        // Set proper color space for conversion to prevent black/wrong colors
+                        // Use BT.709 for HD content, BT.601 for SD
+                        if (p->sws_context) {
+                            int colorspace = mpi->h >= 720 ? SWS_CS_ITU709 : SWS_CS_ITU601;
+                            int *inv_table = NULL, *table = NULL;
+                            int srcRange, dstRange, brightness, contrast, saturation;
+                            
+                            sws_getColorspaceDetails(p->sws_context, &inv_table, &srcRange,
+                                                    &table, &dstRange, &brightness,
+                                                    &contrast, &saturation);
+                            
+                            // Get the proper conversion table for the colorspace
+                            const int *new_table = sws_getCoefficients(colorspace);
+                            
+                            // Set full range for output (RGB is typically full range)
+                            // Input range depends on the source (0 = limited/TV range, 1 = full/PC range)
+                            sws_setColorspaceDetails(p->sws_context,
+                                                    new_table, srcRange,
+                                                    new_table, 1, // RGB output is full range
+                                                    brightness, contrast, saturation);
+                        }
                     }
                     
                     if (p->sws_context) {

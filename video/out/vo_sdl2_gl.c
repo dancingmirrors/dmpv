@@ -78,8 +78,11 @@ const struct formatmap_entry formats[] = {
     {SDL_PIXELFORMAT_ABGR8888, IMGFMT_RGBA, 1},
     {SDL_PIXELFORMAT_BGRA8888, IMGFMT_ARGB, 1},
 #endif
-    {SDL_PIXELFORMAT_RGB24, IMGFMT_RGB24, 0},
-    {SDL_PIXELFORMAT_BGR24, IMGFMT_BGR24, 0},
+    // Note: RGB24 and BGR24 removed - they cause stride alignment issues
+    // and green lines/distortion. Autoconvert will handle these formats
+    // by converting to 32-bit formats (BGR0/RGB0) which work correctly.
+    // {SDL_PIXELFORMAT_RGB24, IMGFMT_RGB24, 0},
+    // {SDL_PIXELFORMAT_BGR24, IMGFMT_BGR24, 0},
     {SDL_PIXELFORMAT_RGB565, IMGFMT_RGB565, 0},
 };
 
@@ -485,6 +488,19 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
         MP_ERR(vo, "Could not create a texture\n");
         return -1;
     }
+    
+    // Set YUV color space for proper conversion (SDL 2.0.8+)
+    // This prevents oversaturation by using correct YUV->RGB matrix
+#if SDL_VERSION_ATLEAST(2, 0, 8)
+    // Try to set YUV colorspace based on video resolution
+    // HD video (720p+) typically uses BT.709, SD uses BT.601
+    // This helps prevent oversaturated colors
+    if (params->h >= 720) {
+        SDL_SetYUVConversionMode(SDL_YUV_CONVERSION_BT709);
+    } else {
+        SDL_SetYUVConversionMode(SDL_YUV_CONVERSION_BT601);
+    }
+#endif
 
     vc->params = *params;
 
