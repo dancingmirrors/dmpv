@@ -1299,11 +1299,6 @@ static void flip_page(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
-    // Wait for previous frame on this slot to finish before acquiring next image
-    // This improves pipelining by allowing work on other frames to continue
-    vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
-    vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
-    
     uint32_t image_index;
     VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, UINT64_MAX,
                                             p->image_available_semaphores[p->current_frame],
@@ -1313,6 +1308,9 @@ static void flip_page(struct vo *vo)
         MP_WARN(vo, "Failed to acquire swapchain image\n");
         return;
     }
+    
+    vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
+    vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
     // Record command buffer
     VkCommandBuffer cmd = p->command_buffers[image_index];
