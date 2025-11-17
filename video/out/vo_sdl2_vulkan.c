@@ -282,18 +282,23 @@ static void set_fullscreen(struct vo *vo)
         return;
     }
     
-    // Recreate swapchain to handle fullscreen mode change
-    if (recreate_swapchain(vo) < 0) {
-        MP_ERR(vo, "Failed to recreate swapchain after fullscreen toggle\n");
-        return;
-    }
-    
     // Update window dimensions and recalculate video rectangles for new size
     // This is necessary because fullscreen changes the actual window/drawable size
     int w, h;
     SDL_GetWindowSize(p->window, &w, &h);
-    vo->dwidth = w;
-    vo->dheight = h;
+    
+    // Only recreate swapchain if the size actually changed
+    // For FULLSCREEN_DESKTOP mode, size often stays the same
+    if (vo->dwidth != w || vo->dheight != h) {
+        vo->dwidth = w;
+        vo->dheight = h;
+        
+        // Recreate swapchain to handle fullscreen mode change
+        if (recreate_swapchain(vo) < 0) {
+            MP_ERR(vo, "Failed to recreate swapchain after fullscreen toggle\n");
+            return;
+        }
+    }
     
     // Recalculate src/dst rectangles with updated dimensions
     struct mp_rect src, dst;
@@ -521,7 +526,9 @@ static int create_swapchain(struct vo *vo)
     p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
                                          capabilities.maxImageExtent.height);
     
-    uint32_t image_count = capabilities.minImageCount + 1;
+    // Prefer double buffering (2 images) for better performance and lower latency
+    // Only use triple buffering if minImageCount requires it
+    uint32_t image_count = MPMAX(2, capabilities.minImageCount);
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
         image_count = capabilities.maxImageCount;
     }
@@ -1292,6 +1299,11 @@ static void flip_page(struct vo *vo)
 {
     struct priv *p = vo->priv;
     
+    // Wait for previous frame on this slot to finish before acquiring next image
+    // This improves pipelining by allowing work on other frames to continue
+    vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
+    vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
+    
     uint32_t image_index;
     VkResult result = vkAcquireNextImageKHR(p->device, p->swapchain, UINT64_MAX,
                                             p->image_available_semaphores[p->current_frame],
@@ -1301,9 +1313,6 @@ static void flip_page(struct vo *vo)
         MP_WARN(vo, "Failed to acquire swapchain image\n");
         return;
     }
-    
-    vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
-    vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
     // Record command buffer
     VkCommandBuffer cmd = p->command_buffers[image_index];
@@ -1393,9 +1402,6 @@ static void flip_page(struct vo *vo)
                 int dst_x = (swap_w - dst_w) / 2;
                 int dst_y = (swap_h - dst_h) / 2;
                 
-                MP_VERBOSE(vo, "Centering: swap=%dx%d dst=%dx%d pos=%d,%d\n",
-                          swap_w, swap_h, dst_w, dst_h, dst_x, dst_y);
-                
                 // Blit the Vulkan frame to swapchain
                 VkImageBlit blit = {
                     .srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1458,10 +1464,17 @@ static void flip_page(struct vo *vo)
                         // Copy RGB frame (already at video size)
                         uint32_t copy_w = MPMIN(mpi->w, p->osd_image->w);
                         uint32_t copy_h = MPMIN(mpi->h, p->osd_image->h);
-                        for (uint32_t y = 0; y < copy_h; y++) {
-                            memcpy(p->osd_image->planes[0] + y * p->osd_image->stride[0],
-                                   p->rgb_image->planes[0] + y * p->rgb_image->stride[0],
-                                   copy_w * 4);
+                        // Optimize: if strides match, use single memcpy
+                        if (p->osd_image->stride[0] == p->rgb_image->stride[0]) {
+                            memcpy(p->osd_image->planes[0],
+                                   p->rgb_image->planes[0],
+                                   copy_h * p->rgb_image->stride[0]);
+                        } else {
+                            for (uint32_t y = 0; y < copy_h; y++) {
+                                memcpy(p->osd_image->planes[0] + y * p->osd_image->stride[0],
+                                       p->rgb_image->planes[0] + y * p->rgb_image->stride[0],
+                                       copy_w * 4);
+                            }
                         }
                         
                         // Draw OSD on top at video resolution (will scale with video)
@@ -1475,10 +1488,15 @@ static void flip_page(struct vo *vo)
                             uint32_t src_stride = p->osd_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
                             
-                            for (uint32_t y = 0; y < mpi->h; y++) {
-                                memcpy((uint8_t*)data + y * dst_stride,
-                                       p->osd_image->planes[0] + y * src_stride,
-                                       dst_stride);
+                            // Optimize: if strides match, use single memcpy
+                            if (src_stride == dst_stride) {
+                                memcpy(data, p->osd_image->planes[0], mpi->h * dst_stride);
+                            } else {
+                                for (uint32_t y = 0; y < mpi->h; y++) {
+                                    memcpy((uint8_t*)data + y * dst_stride,
+                                           p->osd_image->planes[0] + y * src_stride,
+                                           dst_stride);
+                                }
                             }
                             
                             vkUnmapMemory(p->device, p->upload_staging_memory);
@@ -1491,10 +1509,15 @@ static void flip_page(struct vo *vo)
                             uint32_t src_stride = p->rgb_image->stride[0];
                             uint32_t dst_stride = mpi->w * 4;
                             
-                            for (uint32_t y = 0; y < mpi->h; y++) {
-                                memcpy((uint8_t*)data + y * dst_stride,
-                                       p->rgb_image->planes[0] + y * src_stride,
-                                       dst_stride);
+                            // Optimize: if strides match, use single memcpy
+                            if (src_stride == dst_stride) {
+                                memcpy(data, p->rgb_image->planes[0], mpi->h * dst_stride);
+                            } else {
+                                for (uint32_t y = 0; y < mpi->h; y++) {
+                                    memcpy((uint8_t*)data + y * dst_stride,
+                                           p->rgb_image->planes[0] + y * src_stride,
+                                           dst_stride);
+                                }
                             }
                             
                             vkUnmapMemory(p->device, p->upload_staging_memory);
@@ -1601,10 +1624,15 @@ static void flip_page(struct vo *vo)
             uint32_t src_stride = p->osd_image->stride[0];
             uint32_t dst_stride = p->osd_image->w * 4;
             
-            for (uint32_t y = 0; y < p->osd_image->h; y++) {
-                memcpy((uint8_t*)data + y * dst_stride,
-                       p->osd_image->planes[0] + y * src_stride,
-                       dst_stride);
+            // Optimize: if strides match, use single memcpy
+            if (src_stride == dst_stride) {
+                memcpy(data, p->osd_image->planes[0], p->osd_image->h * dst_stride);
+            } else {
+                for (uint32_t y = 0; y < p->osd_image->h; y++) {
+                    memcpy((uint8_t*)data + y * dst_stride,
+                           p->osd_image->planes[0] + y * src_stride,
+                           dst_stride);
+                }
             }
             
             vkUnmapMemory(p->device, p->upload_staging_memory);
