@@ -490,15 +490,32 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     }
     
     // Set YUV color space for proper conversion (SDL 2.0.8+)
-    // This prevents oversaturation by using correct YUV->RGB matrix
+    // Use actual color space metadata from mpv instead of guessing
 #if SDL_VERSION_ATLEAST(2, 0, 8)
-    // Try to set YUV colorspace based on video resolution
-    // HD video (720p+) typically uses BT.709, SD uses BT.601
-    // This helps prevent oversaturated colors
-    if (params->h >= 720) {
-        SDL_SetYUVConversionMode(SDL_YUV_CONVERSION_BT709);
-    } else {
-        SDL_SetYUVConversionMode(SDL_YUV_CONVERSION_BT601);
+    SDL_YUVConversionMode yuv_mode = SDL_YUV_CONVERSION_AUTOMATIC;
+    switch (params->color.space) {
+    case MP_CSP_BT_709:
+        yuv_mode = SDL_YUV_CONVERSION_BT709;
+        break;
+    case MP_CSP_BT_601:
+        yuv_mode = SDL_YUV_CONVERSION_BT601;
+        break;
+    case MP_CSP_BT_2020_NC:
+    case MP_CSP_BT_2020_C:
+        // SDL doesn't have BT.2020, use BT.709 as closest match
+        yuv_mode = SDL_YUV_CONVERSION_BT709;
+        break;
+    case MP_CSP_SMPTE_240M:
+        // Similar to BT.709
+        yuv_mode = SDL_YUV_CONVERSION_BT709;
+        break;
+    default:
+        // For AUTO or other values, let SDL auto-detect
+        yuv_mode = SDL_YUV_CONVERSION_AUTOMATIC;
+        break;
+    }
+    if (yuv_mode != SDL_YUV_CONVERSION_AUTOMATIC) {
+        SDL_SetYUVConversionMode(yuv_mode);
     }
 #endif
 

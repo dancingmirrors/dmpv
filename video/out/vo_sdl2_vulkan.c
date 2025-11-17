@@ -45,6 +45,7 @@
 #include "video/mp_image.h"
 #include "video/sws_utils.h"
 #include "video/fmt-conversion.h"
+#include "video/csputils.h"
 #include "input/input.h"
 #include "input/keycodes.h"
 #include "sub/osd.h"
@@ -1501,13 +1502,15 @@ static void flip_page(struct vo *vo)
                             mpi->w, mpi->h, AV_PIX_FMT_BGRA,
                             SWS_BILINEAR, NULL, NULL, NULL);
                         
-                        // Set proper color space for conversion to prevent black/wrong colors
-                        // Use BT.709 for HD content, BT.601 for SD
+                        // Set proper color space using actual metadata from the image
                         if (p->sws_context) {
-                            int colorspace = mpi->h >= 720 ? SWS_CS_ITU709 : SWS_CS_ITU601;
+                            // Convert mpv color space enums to FFmpeg/swscale constants
+                            int colorspace = mp_csp_to_avcol_spc(mpi->params.color.space);
+                            int src_range = mp_csp_levels_to_avcol_range(mpi->params.color.levels);
+                            
+                            // Get current settings
                             int *inv_table = NULL, *table = NULL;
                             int srcRange, dstRange, brightness, contrast, saturation;
-                            
                             sws_getColorspaceDetails(p->sws_context, &inv_table, &srcRange,
                                                     &table, &dstRange, &brightness,
                                                     &contrast, &saturation);
@@ -1515,8 +1518,15 @@ static void flip_page(struct vo *vo)
                             // Get the proper conversion table for the colorspace
                             const int *new_table = sws_getCoefficients(colorspace);
                             
-                            // Set full range for output (RGB is typically full range)
-                            // Input range depends on the source (0 = limited/TV range, 1 = full/PC range)
+                            // Override srcRange if we have valid metadata
+                            if (src_range == AVCOL_RANGE_JPEG) {
+                                srcRange = 1; // full range (0-255)
+                            } else if (src_range == AVCOL_RANGE_MPEG) {
+                                srcRange = 0; // limited range (16-235)
+                            }
+                            // else keep the default from sws_getColorspaceDetails
+                            
+                            // Set color space details: RGB output is always full range
                             sws_setColorspaceDetails(p->sws_context,
                                                     new_table, srcRange,
                                                     new_table, 1, // RGB output is full range
