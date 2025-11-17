@@ -164,7 +164,6 @@ struct input_opts {
     int ar_delay;
     int ar_rate;
     bool use_alt_gr;
-    bool use_gamepad;
     bool use_media_keys;
     bool default_bindings;
     bool builtin_bindings;
