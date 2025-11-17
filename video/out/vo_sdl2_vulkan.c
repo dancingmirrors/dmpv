@@ -1844,7 +1844,17 @@ static void flip_page(struct vo *vo)
         .pResults = NULL,
     };
     
-    vkQueuePresentKHR(p->graphics_queue, &present_info);
+    result = vkQueuePresentKHR(p->graphics_queue, &present_info);
+    
+    // Check present result - if swapchain is out of date or suboptimal, request a redraw
+    // This ensures the image is re-rendered after swapchain recreation
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        // Swapchain needs to be recreated (will happen in VOCTRL_CHECK_EVENTS)
+        // Request redraw so the frame is re-rendered after swapchain recreation
+        vo->want_redraw = true;
+    } else if (result != VK_SUCCESS) {
+        MP_WARN(vo, "Failed to present swapchain image: %d\n", result);
+    }
     
     p->current_frame = (p->current_frame + 1) % p->swapchain_image_count;
 }
