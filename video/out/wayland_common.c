@@ -2797,6 +2797,8 @@ bool vo_wayland_init(struct vo *vo)
         goto err;
     }
 
+    wl->opts = mp_get_config_group(wl, wl->vo->global, &wayland_conf);
+
     /* Can't be initialized during registry due to multi-protocol dependence */
     if (create_viewports(wl))
         goto err;
@@ -2876,7 +2878,6 @@ bool vo_wayland_init(struct vo *vo)
                    zwp_idle_inhibit_manager_v1_interface.name);
     }
 
-    wl->opts = mp_get_config_group(wl, wl->vo->global, &wayland_conf);
     wl->display_fd = wl_display_get_fd(wl->display);
 
     update_app_id(wl);
