@@ -21,7 +21,7 @@ jobs:
           sudo apt-get build-dep -y mpv
           sudo apt-get install -y libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev \
                        libavfilter-dev libswscale-dev libswresample-dev libpostproc-dev \
-                       libplacebo-dev libsdl2-dev
+                       libplacebo-dev libsdl2-dev libsdl3-dev
 
           sudo apt-get build-dep -y libxkbcommon wayland-protocols
           sudo apt-get install -y libdecor-0-dev
