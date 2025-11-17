@@ -303,6 +303,10 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     int num_images;
     for (num_images = 0; (vkf->img[num_images] != VK_NULL_HANDLE); num_images++);
     const VkFormat *vk_fmt = av_vkfmt_from_pixfmt(hwfc->sw_format);
+    if (!vk_fmt) {
+        MP_ERR(mapper, "Unsupported pixel format for Vulkan: %d\n", hwfc->sw_format);
+        return -1;
+    }
 
     vkfc->lock_frame(hwfc, vkf);
 
@@ -310,6 +314,12 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
         pl_tex *tex = &p->tex[i];
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT;
         int index = i;
+
+        // Validate VkFormat before using it to avoid Mesa ISL asserts
+        if (vk_fmt[i] == VK_FORMAT_UNDEFINED) {
+            MP_ERR(mapper, "Plane %d has undefined Vulkan format\n", i);
+            goto error;
+        }
 
         // If we have multiple planes and one image, then that is a multiplane
         // frame. Anything else is treated as one-image-per-plane.
