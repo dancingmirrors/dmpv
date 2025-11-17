@@ -1309,7 +1309,16 @@ static void flip_page(struct vo *vo)
         return;
     }
     
-    vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, UINT64_MAX);
+    // Use a timeout to avoid deadlocks during rapid seeks
+    // 1 second should be more than enough for any real GPU work
+    result = vkWaitForFences(p->device, 1, &p->in_flight_fences[p->current_frame], VK_TRUE, 1000000000);
+    if (result == VK_TIMEOUT) {
+        MP_WARN(vo, "Fence wait timeout - GPU too slow or deadlock, forcing device idle\n");
+        vkDeviceWaitIdle(p->device);
+    } else if (result != VK_SUCCESS) {
+        MP_ERR(vo, "Failed to wait for fence: %d\n", result);
+        return;
+    }
     vkResetFences(p->device, 1, &p->in_flight_fences[p->current_frame]);
     
     // Record command buffer
@@ -1859,8 +1868,12 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
     }
     case VOCTRL_RESET:
-        // Handle seeking - don't immediately redraw, let playloop handle timing
-        // This allows OSD state to be updated before we render
+        // Handle seeking - flush GPU work to prevent deadlocks
+        // During rapid seeks, we need to ensure pending GPU work completes
+        // before submitting new frames to avoid fence synchronization issues
+        if (p->device) {
+            vkDeviceWaitIdle(p->device);
+        }
         return VO_TRUE;
     case VOCTRL_PAUSE:
         // Handle pause
