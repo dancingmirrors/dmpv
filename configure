@@ -563,11 +563,11 @@ check("-sdl2-vulkan*",
 check("-sdl3*",
       desc      = "SDL 3",
       fn        = lambda: check_pkg_config("sdl3"))
-#check("-sdl3-vulkan*",
-#      desc      = "SDL 3 video output (Vulkan)",
-#      deps      = "sdl3",
-#      fn        = lambda: check_pkg_config("vulkan"),
-#      sources   = "video/out/vo_sdl3_vulkan.c")
+check("-sdl3-vulkan*",
+      desc      = "SDL 3 video output (Vulkan)",
+      deps      = "sdl3",
+      fn        = lambda: check_pkg_config("vulkan"),
+      sources   = "video/out/vo_sdl3_vulkan.c")
 
 add_sources(
     "audio/aframe.c",
