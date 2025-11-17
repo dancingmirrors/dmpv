@@ -492,7 +492,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Set YUV color space for proper conversion (SDL 2.0.8+)
     // Use actual color space metadata from mpv instead of guessing
 #if SDL_VERSION_ATLEAST(2, 0, 8)
-    SDL_YUVConversionMode yuv_mode = SDL_YUV_CONVERSION_AUTOMATIC;
+    SDL_YUV_CONVERSION_MODE yuv_mode = SDL_YUV_CONVERSION_AUTOMATIC;
     switch (params->color.space) {
     case MP_CSP_BT_709:
         yuv_mode = SDL_YUV_CONVERSION_BT709;

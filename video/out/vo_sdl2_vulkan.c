@@ -1306,6 +1306,9 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
     // Show window after it's been properly configured
     SDL_ShowWindow(p->window);
     
+    // Request initial frame render
+    vo->want_redraw = true;
+    
     return 0;
 }
 
