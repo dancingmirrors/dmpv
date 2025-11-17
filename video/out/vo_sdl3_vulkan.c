@@ -284,22 +284,22 @@ static void set_fullscreen(struct vo *vo)
     if (fs == prev_fs)
         return;
     
-    // SDL3: Use SDL_SetWindowFullscreen with SDL_TRUE/SDL_FALSE
+    // SDL3: Use SDL_SetWindowFullscreen with true/false
     // For exclusive fullscreen vs desktop fullscreen, use SDL_SetWindowFullscreenMode
     if (fs) {
         if (p->switch_mode) {
             // Exclusive fullscreen mode - set display mode first
-            SDL_DisplayMode mode;
-            if (SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(p->window), &mode) == 0) {
-                SDL_SetWindowFullscreenMode(p->window, &mode);
+            const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(p->window));
+            if (mode) {
+                SDL_SetWindowFullscreenMode(p->window, mode);
             }
         } else {
             // Desktop fullscreen - use NULL mode
             SDL_SetWindowFullscreenMode(p->window, NULL);
         }
-        SDL_SetWindowFullscreen(p->window, SDL_TRUE);
+        SDL_SetWindowFullscreen(p->window, true);
     } else {
-        SDL_SetWindowFullscreen(p->window, SDL_FALSE);
+        SDL_SetWindowFullscreen(p->window, false);
     }
     
     // Update window dimensions and recalculate video rectangles for new size
@@ -387,16 +387,11 @@ static int create_vulkan_instance(struct vo *vo)
     struct priv *p = vo->priv;
     
     // Get required extensions from SDL
-    unsigned int sdl_extension_count = 0;
-    if (!SDL_Vulkan_GetInstanceExtensions(p->window, &sdl_extension_count, NULL)) {
-        MP_ERR(vo, "Failed to get SDL Vulkan extension count: %s\n", SDL_GetError());
-        return -1;
-    }
-    
-    const char **extensions = malloc((sdl_extension_count) * sizeof(char*));
-    if (!SDL_Vulkan_GetInstanceExtensions(p->window, &sdl_extension_count, extensions)) {
+    // SDL3: SDL_Vulkan_GetInstanceExtensions returns array directly
+    Uint32 sdl_extension_count = 0;
+    const char * const *sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_extension_count);
+    if (!sdl_extensions) {
         MP_ERR(vo, "Failed to get SDL Vulkan extensions: %s\n", SDL_GetError());
-        free(extensions);
         return -1;
     }
     
@@ -413,12 +408,11 @@ static int create_vulkan_instance(struct vo *vo)
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app_info,
         .enabledExtensionCount = sdl_extension_count,
-        .ppEnabledExtensionNames = extensions,
+        .ppEnabledExtensionNames = sdl_extensions,
         .enabledLayerCount = 0,
     };
     
     VkResult result = vkCreateInstance(&create_info, NULL, &p->instance);
-    free(extensions);
     
     if (result != VK_SUCCESS) {
         MP_ERR(vo, "Failed to create Vulkan instance: %d\n", result);
@@ -539,8 +533,9 @@ static int create_swapchain(struct vo *vo)
     
     // Always query the actual drawable size from SDL instead of relying on
     // capabilities.currentExtent, which may return stale values after window resize
+    // SDL3: Use SDL_GetWindowSizeInPixels instead of SDL_Vulkan_GetDrawableSize
     int w, h;
-    SDL_Vulkan_GetDrawableSize(p->window, &w, &h);
+    SDL_GetWindowSizeInPixels(p->window, &w, &h);
     p->swapchain_extent.width = MPCLAMP(w, capabilities.minImageExtent.width, 
                                         capabilities.maxImageExtent.width);
     p->swapchain_extent.height = MPCLAMP(h, capabilities.minImageExtent.height,
@@ -774,7 +769,8 @@ static int init_vulkan(struct vo *vo)
     if (create_vulkan_instance(vo) < 0)
         return -1;
     
-    if (!SDL_Vulkan_CreateSurface(p->window, p->instance, &p->surface)) {
+    // SDL3: SDL_Vulkan_CreateSurface signature changed
+    if (!SDL_Vulkan_CreateSurface(p->window, p->instance, NULL, &p->surface)) {
         MP_ERR(vo, "Failed to create Vulkan surface: %s\n", SDL_GetError());
         return -1;
     }
@@ -1148,7 +1144,7 @@ static int preinit(struct vo *vo)
         return -1;
     }
 
-    SDL_SetWindowBordered(p->window, SDL_FALSE);
+    SDL_SetWindowBordered(p->window, false);
 
     p->wakeup_event = SDL_RegisterEvents(1);
     if (p->wakeup_event == 0) {
@@ -1878,19 +1874,21 @@ static void wait_events(struct vo *vo, int64_t until_time_ns)
         case SDL_EVENT_KEY_DOWN: {
             int keycode = 0;
             for (int i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
-                if (keys[i].sdl == ev.key.keysym.sym) {
+                // SDL3: keysym is now just key, and sym is now scancode/key
+                if (keys[i].sdl == ev.key.key) {
                     keycode = keys[i].dmpv;
                     break;
                 }
             }
             if (keycode) {
-                if (ev.key.keysym.mod & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT))
+                // SDL3: mod is accessed directly from ev.key
+                if (ev.key.mod & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT))
                     keycode |= MP_KEY_MODIFIER_SHIFT;
-                if (ev.key.keysym.mod & (SDL_KMOD_LCTRL | SDL_KMOD_RCTRL))
+                if (ev.key.mod & (SDL_KMOD_LCTRL | SDL_KMOD_RCTRL))
                     keycode |= MP_KEY_MODIFIER_CTRL;
-                if (ev.key.keysym.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT))
+                if (ev.key.mod & (SDL_KMOD_LALT | SDL_KMOD_RALT))
                     keycode |= MP_KEY_MODIFIER_ALT;
-                if (ev.key.keysym.mod & (SDL_KMOD_LGUI | SDL_KMOD_RGUI))
+                if (ev.key.mod & (SDL_KMOD_LGUI | SDL_KMOD_RGUI))
                     keycode |= MP_KEY_MODIFIER_META;
                 mp_input_put_key(vo->input_ctx, keycode);
             }
@@ -1980,12 +1978,10 @@ static int control(struct vo *vo, uint32_t request, void *data)
     
     case VOCTRL_SET_CURSOR_VISIBILITY: {
         // Set cursor visibility
+        // SDL3: SDL_ShowCursor/SDL_HideCursor combined into SDL_ShowCursor(bool)
         bool *visible = (bool *)data;
         if (visible) {
-            if (*visible)
-                SDL_ShowCursor();
-            else
-                SDL_HideCursor();
+            SDL_ShowCursor(*visible);
         }
         return VO_TRUE;
     }
