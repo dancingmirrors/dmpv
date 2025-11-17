@@ -501,6 +501,21 @@ static void select_and_set_hwdec(struct mp_filter *vd)
                 // Match hwdec by name
                 bool name_matches = bstr_equals0(opt, hwdec->method_name) ||
                                    bstr_equals0(opt, hwdec->name);
+                
+                // When vf is in use and user specified an explicit hwdec,
+                // also match the copy variant (e.g., "vaapi" matches "vaapi-copy")
+                if (!hwdec_auto && vf_in_use && hwdec->copying) {
+                    // Check if the requested name matches this hwdec's method_name
+                    // without the "-copy" suffix
+                    bstr method = bstr0(hwdec->method_name);
+                    bstr copy_suffix = bstr0("-copy");
+                    if (bstr_endswith(method, copy_suffix)) {
+                        bstr base_method = bstr_splice(method, 0, method.len - copy_suffix.len);
+                        if (bstr_equals(opt, base_method))
+                            name_matches = true;
+                    }
+                }
+                
                 if (!hwdec_auto && !name_matches)
                     continue;
                 hwdec_name_supported = true;
