@@ -115,7 +115,7 @@ static void info_done(void *data, struct wp_image_description_info_v1 *image_des
     struct vo_wayland_state *wl = data;
     wp_image_description_info_v1_destroy(image_description_info);
     if (!wl->icc_file)
-        MP_VERBOSE(wl, "No ICC profile retrieved from the compositor.\n");
+        MP_DBG(wl, "No ICC profile retrieved from the compositor.\n");
 }
 
 static void info_icc_file(void *data, struct wp_image_description_info_v1 *image_description_info,
