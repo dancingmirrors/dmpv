@@ -70,7 +70,7 @@ enum mp_voctrl {
     // Triggered by any change to the OSD (e.g. OSD style changes)
     VOCTRL_OSD_CHANGED,
 
-    /* currently still used by vo_gpu_next */
+    /* Currently still used by vo_default. */
     VOCTRL_LOAD_HWDEC_API,
 
     VOCTRL_PREINIT,
@@ -101,7 +101,7 @@ enum mp_voctrl {
     VOCTRL_GET_DISPLAY_NAMES,
 
     // Retrieve window contents. (Normal screenshots use vo_get_current_frame().)
-    // Still used in the SDL 2 GL VO.
+    // Currently still used by vo_sdl2_gl.
     VOCTRL_SCREENSHOT_WIN,              // struct mp_image**
 
     // A normal screenshot - VOs can react to this if vo_get_current_frame() is
