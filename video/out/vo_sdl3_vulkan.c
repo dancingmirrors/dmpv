@@ -1978,10 +1978,13 @@ static int control(struct vo *vo, uint32_t request, void *data)
     
     case VOCTRL_SET_CURSOR_VISIBILITY: {
         // Set cursor visibility
-        // SDL3: SDL_ShowCursor/SDL_HideCursor combined into SDL_ShowCursor(bool)
+        // SDL3: SDL_ShowCursor/SDL_HideCursor are separate functions with no parameters
         bool *visible = (bool *)data;
         if (visible) {
-            SDL_ShowCursor(*visible);
+            if (*visible)
+                SDL_ShowCursor();
+            else
+                SDL_HideCursor();
         }
         return VO_TRUE;
     }
