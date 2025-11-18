@@ -17,6 +17,10 @@ jobs:
         run: |
           ./TOOLS/check-whitespace.sh
 
+      - name: check whitespace in C files
+        run: |
+          ./TOOLS/check-whitespace-c.sh
+
       - name: dependencies
         run: |
           sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
