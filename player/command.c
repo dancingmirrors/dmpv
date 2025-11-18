@@ -961,7 +961,7 @@ static int get_chapter_entry(int item, int action, void *arg, void *ctx)
     double time = chapter_start_time(mpctx, item);
     struct m_sub_property props[] = {
         {"title",       SUB_PROP_STR(name)},
-        {"time",        {.type = CONF_TYPE_TIME}, {.time = time}},
+        {"time",        {.type = CONF_TYPE_TIME}, {.time = time}, .unavailable = false},
         {0}
     };
 
@@ -4005,7 +4005,7 @@ static const struct m_property mp_properties_base[] = {
     {"ab-loop-b", .call = mp_property_ab_loop},
 
 #define PROPERTY_BITRATE(name, old, type) \
-    {name, mp_property_packet_bitrate, (void *)(uintptr_t)((type)|(old?0x100:0))}
+    {name, .call = mp_property_packet_bitrate, .priv = (void *)(uintptr_t)((type)|(old?0x100:0))}
     PROPERTY_BITRATE("packet-video-bitrate", true, STREAM_VIDEO),
     PROPERTY_BITRATE("packet-audio-bitrate", true, STREAM_AUDIO),
     PROPERTY_BITRATE("packet-sub-bitrate", true, STREAM_SUB),
@@ -4258,15 +4258,15 @@ static const struct property_osd_display {
     const char *msg;
 } property_osd_display[] = {
     // general
-    {"loop-playlist", "Loop"},
-    {"loop-file", "Loop current file"},
+    {.name = "loop-playlist", .osd_name = "Loop"},
+    {.name = "loop-file", .osd_name = "Loop current file"},
     {"chapter",
      .seek_msg = OSD_SEEK_INFO_CHAPTER_TEXT,
      .seek_bar = OSD_SEEK_INFO_BAR},
-    {"hr-seek", "hr-seek"},
-    {"speed", "Speed"},
-    {"clock", "Clock"},
-    {"edition", "Edition"},
+    {.name = "hr-seek", .osd_name = "hr-seek"},
+    {.name = "speed", .osd_name = "Speed"},
+    {.name = "clock", .osd_name = "Clock"},
+    {.name = "edition", .osd_name = "Edition"},
     // audio
     {"volume", "Volume",
      .msg = "Volume: ${?volume:${volume}% ${?mute==yes:(Muted)}}${!volume:${volume}}",
@@ -4274,49 +4274,49 @@ static const struct property_osd_display {
     {"ao-volume", "AO Volume",
      .msg = "AO Volume: ${?ao-volume:${ao-volume}% ${?ao-mute==yes:(Muted)}}${!ao-volume:${ao-volume}}",
      .osd_progbar = OSD_VOLUME, .marker = 100},
-    {"mute", "Mute"},
-    {"ao-mute", "AO Mute"},
-    {"audio-delay", "A-V delay"},
-    {"audio", "Audio"},
+    {.name = "mute", .osd_name = "Mute"},
+    {.name = "ao-mute", .osd_name = "AO Mute"},
+    {.name = "audio-delay", .osd_name = "A-V delay"},
+    {.name = "audio", .osd_name = "Audio"},
     // video
     {"panscan", "Panscan", .osd_progbar = OSD_PANSCAN},
-    {"taskbar-progress", "Progress in taskbar"},
-    {"snap-window", "Snap to screen edges"},
-    {"ontop", "Stay on top"},
-    {"on-all-workspaces", "Visibility on all workspaces"},
-    {"border", "Border"},
-    {"framedrop", "Framedrop"},
-    {"deinterlace", "Deinterlace"},
+    {.name = "taskbar-progress", .osd_name = "Progress in taskbar"},
+    {.name = "snap-window", .osd_name = "Snap to screen edges"},
+    {.name = "ontop", .osd_name = "Stay on top"},
+    {.name = "on-all-workspaces", .osd_name = "Visibility on all workspaces"},
+    {.name = "border", .osd_name = "Border"},
+    {.name = "framedrop", .osd_name = "Framedrop"},
+    {.name = "deinterlace", .osd_name = "Deinterlace"},
     {"gamma", "Gamma", .osd_progbar = OSD_BRIGHTNESS },
     {"brightness", "Brightness", .osd_progbar = OSD_BRIGHTNESS},
     {"contrast", "Contrast", .osd_progbar = OSD_CONTRAST},
     {"saturation", "Saturation", .osd_progbar = OSD_SATURATION},
     {"hue", "Hue", .osd_progbar = OSD_HUE},
-    {"angle", "Angle"},
+    {.name = "angle", .osd_name = "Angle"},
     // subs
-    {"sub", "Subtitles"},
-    {"secondary-sid", "Secondary subtitles"},
-    {"sub-pos", "Sub position"},
-    {"sub-delay", "Sub delay"},
-    {"sub-speed", "Sub speed"},
+    {.name = "sub", .osd_name = "Subtitles"},
+    {.name = "secondary-sid", .osd_name = "Secondary subtitles"},
+    {.name = "sub-pos", .osd_name = "Sub position"},
+    {.name = "sub-delay", .osd_name = "Sub delay"},
+    {.name = "sub-speed", .osd_name = "Sub speed"},
     {"sub-visibility",
      .msg = "Subtitles ${!sub-visibility==yes:hidden}"
       "${?sub-visibility==yes:visible${?sub==no: (but no subtitles selected)}}"},
     {"secondary-sub-visibility",
      .msg = "Secondary Subtitles ${!secondary-sub-visibility==yes:hidden}"
       "${?secondary-sub-visibility==yes:visible${?secondary-sid==no: (but no secondary subtitles selected)}}"},
-    {"sub-forced-only", "Forced sub only"},
-    {"sub-scale", "Sub Scale"},
-    {"sub-ass-vsfilter-aspect-compat", "Subtitle VSFilter aspect compat"},
-    {"sub-ass-override", "ASS subtitle style override"},
+    {.name = "sub-forced-only", .osd_name = "Forced sub only"},
+    {.name = "sub-scale", .osd_name = "Sub Scale"},
+    {.name = "sub-ass-vsfilter-aspect-compat", .osd_name = "Subtitle VSFilter aspect compat"},
+    {.name = "sub-ass-override", .osd_name = "ASS subtitle style override"},
     {"vf", "Video filters", .msg = "Video filters:\n${vf}"},
     {"af", "Audio filters", .msg = "Audio filters:\n${af}"},
-    {"ab-loop-a", "A-B loop start"},
+    {.name = "ab-loop-a", .osd_name = "A-B loop start"},
     {"ab-loop-b", .msg = "A-B loop: ${ab-loop-a} - ${ab-loop-b}"
                             "${?=ab-loop-count==0: (disabled)}"},
-    {"audio-device", "Audio device"},
+    {.name = "audio-device", .osd_name = "Audio device"},
     {"hwdec", .msg = "Hardware decoding: ${hwdec-current}"},
-    {"video-aspect-override", "Aspect ratio override"},
+    {.name = "video-aspect-override", .osd_name = "Aspect ratio override"},
     // By default, don't display the following properties on OSD
     {"pause", .call = NULL},
     {"fullscreen", .call = NULL},
@@ -6524,6 +6524,7 @@ const struct mp_cmd_def mp_cmds[] = {
     { "revert-seek", cmd_revert_seek,
         { {"flags", OPT_FLAGS(v.i, {"mark", 2|0}, {"mark-permanent", 2|1}),
            .flags = MP_CMD_OPT_ARG} },
+        .priv = NULL,
     },
     { "quit", cmd_quit, { {"code", OPT_INT(v.i), .flags = MP_CMD_OPT_ARG} },
         .priv = &(const bool){0} },
@@ -6531,7 +6532,8 @@ const struct mp_cmd_def mp_cmds[] = {
                                        .flags = MP_CMD_OPT_ARG} },
         .priv = &(const bool){1} },
     { "stop", cmd_stop,
-        { {"flags", OPT_FLAGS(v.i, {"keep-playlist", 1}), .flags = MP_CMD_OPT_ARG} }
+        { {"flags", OPT_FLAGS(v.i, {"keep-playlist", 1}), .flags = MP_CMD_OPT_ARG} },
+        .priv = NULL,
     },
     { "frame-step", cmd_frame_step, .allow_auto_repeat = true,
         .on_updown = true },
@@ -6562,10 +6564,11 @@ const struct mp_cmd_def mp_cmds[] = {
         {
             {"index", OPT_CHOICE(v.i, {"current", -2}, {"none", -1}),
                 M_RANGE(-1, INT_MAX)},
-        }
+        },
+        .priv = NULL,
     },
-    { "playlist-shuffle", cmd_playlist_shuffle, },
-    { "playlist-unshuffle", cmd_playlist_unshuffle, },
+    { "playlist-shuffle", cmd_playlist_shuffle, .args = {{0}} },
+    { "playlist-unshuffle", cmd_playlist_unshuffle, .args = {{0}} },
     { "sub-step", cmd_sub_step_seek,
         {
             {"skip", OPT_INT(v.i)},
