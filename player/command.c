@@ -6497,6 +6497,11 @@ static void cmd_dump_cache_ab(void *p)
 // array item  in mp_cmd.args[], using the index of the option definition.
 #define OPT_BASE_STRUCT struct mp_cmd_arg
 
+// Disable -Wmissing-field-initializers for mp_cmds array because the OPT_* macros
+// trigger false positives when used within the mp_cmd_def initializers
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 const struct mp_cmd_def mp_cmds[] = {
     { "ignore", cmd_ignore, .is_ignore = true, .is_noisy = true, },
 
@@ -6962,6 +6967,8 @@ const struct mp_cmd_def mp_cmds[] = {
 
     {0}
 };
+
+#pragma GCC diagnostic pop
 
 #undef OPT_BASE_STRUCT
 #undef ARG
