@@ -197,7 +197,7 @@ AVFrame *mp_frame_to_av(struct mp_frame frame, struct AVRational *tb)
 struct mp_frame mp_frame_from_av(enum mp_frame_type type, struct AVFrame *frame,
                                  struct AVRational *tb)
 {
-    struct mp_frame res = {type};
+    struct mp_frame res = {.type = type};
 
     if (!frame_handlers[res.type].from_av_ref)
         return MP_NO_FRAME;

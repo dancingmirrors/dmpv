@@ -558,7 +558,7 @@ struct mp_csp_primaries mp_get_csp_primaries(enum mp_csp_prim spc)
             .white = {0.32168, 0.33767},
         };
     default:
-        return (struct mp_csp_primaries) {{{0}}, {{0}}, {{0}}, {{0}}};
+        return (struct mp_csp_primaries) {.red = {0}, .green = {0}, .blue = {0}, .white = {0}};
     }
 }
 

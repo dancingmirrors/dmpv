@@ -116,7 +116,7 @@ int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
 
     mode = GLOBAL;
 
-    struct parse_state p = {config, argv, config->log};
+    struct parse_state p = {.config = config, .argv = argv, .log = config->log};
     while (split_opt(&p)) {
         if (p.is_opt) {
             int flags = M_SETOPT_FROM_CMDLINE;
@@ -226,7 +226,7 @@ err_out:
 void m_config_preparse_command_line(m_config_t *config, struct dmpv_global *global,
                                     int *verbose, char **argv)
 {
-    struct parse_state p = {config, argv, mp_null_log};
+    struct parse_state p = {.config = config, .argv = argv, .log = mp_null_log};
     while (split_opt(&p)) {
         if (p.is_opt) {
             // Ignore non-pre-parse options. They will be set later.

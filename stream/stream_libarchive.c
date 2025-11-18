@@ -290,13 +290,13 @@ struct file_pattern {
 };
 
 static const struct file_pattern patterns[] = {
-    { ".part1.rar",    "%.*s.part%.1d.rar", standard_volume_url, 2,    9 },
-    { ".part01.rar",   "%.*s.part%.2d.rar", standard_volume_url, 2,   99 },
-    { ".part001.rar",  "%.*s.part%.3d.rar", standard_volume_url, 2,  999 },
-    { ".part0001.rar", "%.*s.part%.4d.rar", standard_volume_url, 2, 9999 },
-    { ".rar",          "%.*s.%c%.2d",       old_rar_volume_url,  0,   99, true },
-    { ".001",          "%.*s.%.3d",         standard_volume_url, 2, 9999 },
-    { NULL, NULL, NULL, 0, 0 },
+    { ".part1.rar",    "%.*s.part%.1d.rar", standard_volume_url, 2,    9, .legacy = false },
+    { ".part01.rar",   "%.*s.part%.2d.rar", standard_volume_url, 2,   99, .legacy = false },
+    { ".part001.rar",  "%.*s.part%.3d.rar", standard_volume_url, 2,  999, .legacy = false },
+    { ".part0001.rar", "%.*s.part%.4d.rar", standard_volume_url, 2, 9999, .legacy = false },
+    { ".rar",          "%.*s.%c%.2d",       old_rar_volume_url,  0,   99, .legacy = true },
+    { ".001",          "%.*s.%.3d",         standard_volume_url, 2, 9999, .legacy = false },
+    { NULL, NULL, NULL, 0, 0, .legacy = false },
 };
 
 static bool find_volumes(struct mp_archive *mpa, int flags)

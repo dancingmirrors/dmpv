@@ -399,5 +399,5 @@ const struct filter_kernel mp_filter_kernels[] = {
     {.f = {"nearest",        0.5, box}},
     {.f = {"triangle",       1,   triangle, .resizable = true}},
     {.f = {"gaussian",       2,   gaussian, .params = {1.0, NAN}, .resizable = true}},
-    {{0}}
+    {.f = {0}}
 };
