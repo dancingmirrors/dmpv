@@ -1930,7 +1930,7 @@ static int create_xdg_surface(struct vo_wayland_state *wl)
 #if HAVE_LIBDECOR
     // Skip libdecor for dmabuf-wayland as it has viewport geometry issues
     bool using_dmabuf_wayland = !strcmp(wl->vo->driver->name, "dmabuf-wayland");
-    
+
     // Prefer libdecor when available, enabled, and borders are enabled
     // libdecor provides client-side decorations and works on all compositors
     if (wl->opts->libdecor && wl->vo_opts->border && !using_dmabuf_wayland) {
