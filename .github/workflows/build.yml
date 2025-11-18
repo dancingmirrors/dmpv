@@ -13,6 +13,10 @@ jobs:
       - name: actions/checkout@v4
         uses: actions/checkout@v4
 
+      - name: check whitespace in headers and TOOLS
+        run: |
+          ./TOOLS/check-whitespace.sh
+
       - name: dependencies
         run: |
           sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
