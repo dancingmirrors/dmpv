@@ -323,9 +323,9 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
 
     // This is probably a pixdesc bug, so fix it.
     if (fmt == AV_PIX_FMT_RGB8) {
-        desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2};
-        desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3};
-        desc->comps[0] = (struct mp_imgfmt_comp_desc){0, 5, 3};
+        desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2, 0};
+        desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3, 0};
+        desc->comps[0] = (struct mp_imgfmt_comp_desc){0, 5, 3, 0};
     }
 
     // Overlap test. If any shared bits are happening, this is not a format we

@@ -451,14 +451,14 @@ struct pl_format {
 };
 
 static const struct pl_format formats[] = {
-    {"directory", parse_dir},
+    {"directory", parse_dir, .mime_types = NULL},
     {"m3u", parse_m3u,
      MIME_TYPES("audio/mpegurl", "audio/x-mpegurl", "application/x-mpegurl")},
-    {"ini", parse_ref_init},
+    {"ini", parse_ref_init, .mime_types = NULL},
     {"pls", parse_pls,
      MIME_TYPES("audio/x-scpls")},
-    {"url", parse_url},
-    {"txt", parse_txt},
+    {"url", parse_url, .mime_types = NULL},
+    {"txt", parse_txt, .mime_types = NULL},
 };
 
 static const struct pl_format *probe_pl(struct pl_parser *p)

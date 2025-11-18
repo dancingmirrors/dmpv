@@ -155,12 +155,12 @@ struct format_hack {
 
 static const struct format_hack format_hacks[] = {
     // for webradios
-    {"aac", "audio/aacp", 25, 0.5},
-    {"aac", "audio/aac",  25, 0.5},
+    {.ff_name = "aac", .mime_type = "audio/aacp", .probescore = 25, .analyzeduration = 0.5},
+    {.ff_name = "aac", .mime_type = "audio/aac", .probescore = 25, .analyzeduration = 0.5},
 
     // some mp3 files don't detect correctly (usually id3v2 too large)
-    {"mp3", "audio/mpeg", 24, 0.5},
-    {"mp3", NULL,         24, .max_probe = true},
+    {.ff_name = "mp3", .mime_type = "audio/mpeg", .probescore = 24, .analyzeduration = 0.5},
+    {.ff_name = "mp3", .mime_type = NULL, .probescore = 24, .max_probe = true},
 
     {"hls", .no_stream = true, .clear_filepos = true, .no_ext_picky = true},
     {"dash", .no_stream = true, .clear_filepos = true},

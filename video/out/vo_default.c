@@ -1938,16 +1938,16 @@ static const struct pl_filter_config *map_scaler(struct priv *p,
                                                  enum scaler_unit unit)
 {
     const struct pl_filter_preset fixed_scalers[] = {
-        { "bilinear",       &pl_filter_bilinear },
-        { "bicubic_fast",   &pl_filter_bicubic },
-        { "nearest",        &pl_filter_nearest },
-        { "oversample",     &pl_filter_oversample },
+        { "bilinear",       &pl_filter_bilinear, NULL },
+        { "bicubic_fast",   &pl_filter_bicubic, NULL },
+        { "nearest",        &pl_filter_nearest, NULL },
+        { "oversample",     &pl_filter_oversample, NULL },
         {0},
     };
 
     const struct pl_filter_preset fixed_frame_mixers[] = {
-        { "linear",         &pl_filter_bilinear },
-        { "oversample",     &pl_filter_oversample },
+        { "linear",         &pl_filter_bilinear, NULL },
+        { "oversample",     &pl_filter_oversample, NULL },
         {0},
     };
 

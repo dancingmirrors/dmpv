@@ -135,12 +135,14 @@ check(desc      = "extra GCC warnings",
                         "-Wshadow",
                         "-Wparentheses",
                         "-Wpointer-arith",
-                        "-Woverflow"]))
+                        "-Woverflow",
+                        "-Wmissing-field-initializers"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
                         "-fcolor-diagnostics",
-                        "-Wunreachable-code-aggressive"]))
+                        "-Wunreachable-code-aggressive",
+                        "-Wmissing-field-initializers"]))
 
 check("-usan",
       desc      = "undefined sanitizer",

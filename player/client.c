@@ -1426,7 +1426,7 @@ static void getproperty_fn(void *arg)
     case DMPV_FORMAT_FLAG:
     case DMPV_FORMAT_INT64:
     case DMPV_FORMAT_DOUBLE: {
-        struct dmpv_node node = {{0}};
+        struct dmpv_node node = {{0}, DMPV_FORMAT_NONE};
         err = mp_property_do(req->name, M_PROPERTY_GET_NODE, &node, req->mpctx);
         if (err == M_PROPERTY_NOT_IMPLEMENTED) {
             // Go through explicit string conversion. Same reasoning as on the

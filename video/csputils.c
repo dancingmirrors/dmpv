@@ -558,7 +558,7 @@ struct mp_csp_primaries mp_get_csp_primaries(enum mp_csp_prim spc)
             .white = {0.32168, 0.33767},
         };
     default:
-        return (struct mp_csp_primaries) {{0}};
+        return (struct mp_csp_primaries) {{{0}}, {{0}}, {{0}}, {{0}}};
     }
 }
 
@@ -813,9 +813,9 @@ static void luma_coeffs(struct mp_cmat *mat, float lr, float lg, float lb)
 {
     mp_assert(fabs(lr+lg+lb - 1) < 1e-6);
     *mat = (struct mp_cmat) {
-        { {1, 0,                    2 * (1-lr)          },
-          {1, -2 * (1-lb) * lb/lg, -2 * (1-lr) * lr/lg  },
-          {1,  2 * (1-lb),          0                   } },
+        .m = { {1, 0,                    2 * (1-lr)          },
+               {1, -2 * (1-lb) * lb/lg, -2 * (1-lr) * lr/lg  },
+               {1,  2 * (1-lb),          0                   } },
         // Constant coefficients (mat->c) not set here
     };
 }
@@ -840,11 +840,11 @@ void mp_get_csp_matrix(struct mp_csp_params *params, struct mp_cmat *m)
         // If this clips on any VO, a constant 0.5 coefficient can be added
         // to the chroma channels to normalize them into [0,1]. This is not
         // currently needed by anything, though.
-        *m = (struct mp_cmat){{{0, 0, 1}, {1, 0, 0}, {0, 1, 0}}};
+        *m = (struct mp_cmat){.m = {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}}};
         break;
     }
     case MP_CSP_RGB: {
-        *m = (struct mp_cmat){{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+        *m = (struct mp_cmat){.m = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
         levels_in = -1;
         break;
     }
@@ -860,9 +860,9 @@ void mp_get_csp_matrix(struct mp_csp_params *params, struct mp_cmat *m)
     }
     case MP_CSP_YCGCO: {
         *m = (struct mp_cmat) {
-            {{1,  -1,  1},
-             {1,   1,  0},
-             {1,  -1, -1}},
+            .m = {{1,  -1,  1},
+                  {1,   1,  0},
+                  {1,  -1, -1}},
         };
         break;
     }
