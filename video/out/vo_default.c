@@ -215,7 +215,7 @@ static struct mp_image *get_image(struct vo *vo, int imgfmt, int w, int h,
 {
     struct priv *p = vo->priv;
     pl_gpu gpu = p->gpu;
-    if (unlikely((!gpu->limits.thread_safe || !gpu->limits.max_mapped_size)))
+    if (unlikely(!gpu->limits.thread_safe || !gpu->limits.max_mapped_size))
         return NULL;
 
     if ((flags & VO_DR_FLAG_HOST_CACHED) && !gpu->limits.host_cached)
@@ -276,7 +276,7 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             continue;
         struct osd_entry *entry = &state->entries[item->render_index];
         pl_fmt tex_fmt = p->osd_fmt[item->format];
-        if (unlikely(!entry->tex))
+        if (!entry->tex)
             MP_TARRAY_POP(p->sub_tex, p->num_sub_tex, &entry->tex);
         bool ok = pl_tex_recreate(p->gpu, &entry->tex, &(struct pl_tex_params) {
             .format = tex_fmt,
@@ -303,15 +303,17 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
         entry->num_parts = 0;
         for (int i = 0; i < item->num_parts; i++) {
             const struct sub_bitmap *b = &item->parts[i];
+            if (b->dw == 0 || b->dh == 0)
+                continue;
             uint32_t c = b->libass.color;
             struct pl_overlay_part part = {
                 .src = { b->src_x, b->src_y, b->src_x + b->w, b->src_y + b->h },
                 .dst = { b->x, b->y, b->x + b->dw, b->y + b->dh },
                 .color = {
-                    (c >> 24) / 255.0,
-                    ((c >> 16) & 0xFF) / 255.0,
-                    ((c >> 8) & 0xFF) / 255.0,
-                    1.0 - (c & 0xFF) / 255.0,
+                    (c >> 24) / 255.0f,
+                    ((c >> 16) & 0xFF) / 255.0f,
+                    ((c >> 8) & 0xFF) / 255.0f,
+                    (255 - (c & 0xFF)) / 255.0f,
                 }
             };
             MP_TARRAY_APPEND(p, entry->parts, entry->num_parts, part);
@@ -334,7 +336,7 @@ static void update_overlays(struct vo *vo, struct mp_osd_res res,
             ol->mode = PL_OVERLAY_NORMAL;
             ol->repr.alpha = PL_ALPHA_PREMULTIPLIED;
             // Infer bitmap colorspace from source
-            if (likely(src)) {
+            if (src) {
                 ol->color = get_mpi_csp(vo, src);
                 // Seems like HDR subtitles are targeting SDR white
                 if (unlikely(pl_color_transfer_is_hdr(ol->color.transfer))) {
