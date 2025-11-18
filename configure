@@ -109,7 +109,8 @@ check(desc      = "warning CFLAGS",
                         "-Werror=format-security",
                         "-Wvla",
                         "-Wundef",
-                        "-Wtype-limits"]))
+                        "-Wtype-limits",
+                        "-Wmissing-field-initializers"]))
 
 check("gnuc",
       desc      = "GNU C",
@@ -136,13 +137,12 @@ check(desc      = "extra GCC warnings",
                         "-Wparentheses",
                         "-Wpointer-arith",
                         "-Woverflow",
-                        "-Wmissing-field-initializers"]))
+                        "-Wclobbered"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
                         "-fcolor-diagnostics",
-                        "-Wunreachable-code-aggressive",
-                        "-Wmissing-field-initializers"]))
+                        "-Wunreachable-code-aggressive"]))
 
 check("-usan",
       desc      = "undefined sanitizer",
