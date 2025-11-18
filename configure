@@ -137,7 +137,8 @@ check(desc      = "extra GCC warnings",
                         "-Wparentheses",
                         "-Wpointer-arith",
                         "-Woverflow",
-                        "-Wclobbered"]))
+                        "-Wclobbered",
+                        "-Wcast-function-type"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
