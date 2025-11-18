@@ -355,9 +355,9 @@ const struct filter_window mp_filter_windows[] = {
 
 const struct filter_kernel mp_filter_kernels[] = {
     // Spline filters
-    {.f = {"spline16",       2,   spline16}},
-    {.f = {"spline36",       3,   spline36}},
-    {.f = {"spline64",       4,   spline64}},
+    {.f = {"spline16",       2,   spline16, .resizable = false}},
+    {.f = {"spline36",       3,   spline36, .resizable = false}},
+    {.f = {"spline64",       4,   spline64, .resizable = false}},
     // Sinc filters
     {.f = {"sinc",           2,  sinc, .resizable = true}},
     {.f = {"lanczos",        3,  sinc, .resizable = true}, .window = "sinc"},
@@ -396,7 +396,7 @@ const struct filter_kernel mp_filter_kernels[] = {
             .polar = true},
     // Miscellaneous filters
     {.f = {"box",            1,   box, .resizable = true}},
-    {.f = {"nearest",        0.5, box}},
+    {.f = {"nearest",        0.5, box, .resizable = false}},
     {.f = {"triangle",       1,   triangle, .resizable = true}},
     {.f = {"gaussian",       2,   gaussian, .params = {1.0, NAN}, .resizable = true}},
     {.f = {0}}
