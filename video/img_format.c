@@ -76,7 +76,7 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
         .name = "yap8",
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV,
-            .comps = { {0, 0, 8}, {0}, {0}, {1, 0, 8} },
+            .comps = { {0, 0, 8, 0}, {0}, {0}, {1, 0, 8, 0} },
         },
     },
     [IMGFMT_YAP16 - IMGFMT_CUST_BASE] = {
