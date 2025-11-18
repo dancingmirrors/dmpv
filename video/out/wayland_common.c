@@ -513,11 +513,11 @@ static void pointer_handle_axis(void *data, struct wl_pointer *wl_pointer,
 }
 
 static const struct wl_pointer_listener pointer_listener = {
-    pointer_handle_enter,
-    pointer_handle_leave,
-    pointer_handle_motion,
-    pointer_handle_button,
-    pointer_handle_axis,
+    .enter = pointer_handle_enter,
+    .leave = pointer_handle_leave,
+    .motion = pointer_handle_motion,
+    .button = pointer_handle_button,
+    .axis = pointer_handle_axis,
 };
 
 static void touch_handle_down(void *data, struct wl_touch *wl_touch,
@@ -737,7 +737,7 @@ static void seat_handle_caps(void *data, struct wl_seat *seat,
 }
 
 static const struct wl_seat_listener seat_listener = {
-    seat_handle_caps,
+    .capabilities = seat_handle_caps,
 };
 
 static void data_offer_handle_offer(void *data, struct wl_data_offer *offer,

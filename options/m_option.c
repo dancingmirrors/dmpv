@@ -1677,14 +1677,14 @@ const m_option_type_t m_option_type_string_list = {
     .set   = str_list_set,
     .equal = str_list_equal,
     .actions = (const struct m_option_action[]){
-        {"add"},
-        {"append"},
+        {"add", 0},
+        {"append", 0},
         {"clr",         M_OPT_TYPE_OPTIONAL_PARAM},
-        {"del"},
-        {"pre"},
-        {"set"},
-        {"toggle"},
-        {"remove"},
+        {"del", 0},
+        {"pre", 0},
+        {"set", 0},
+        {"toggle", 0},
+        {"remove", 0},
         {0}
     },
 };
@@ -1864,10 +1864,10 @@ const m_option_type_t m_option_type_keyvalue_list = {
     .set   = keyvalue_list_set,
     .equal = str_list_equal,
     .actions = (const struct m_option_action[]){
-        {"add"},
-        {"append"},
-        {"set"},
-        {"remove"},
+        {"add", 0},
+        {"append", 0},
+        {"set", 0},
+        {"remove", 0},
         {0}
     },
 };
@@ -3748,15 +3748,15 @@ const m_option_type_t m_option_type_obj_settings_list = {
     .get   = get_obj_settings_list,
     .equal = obj_settings_list_equal,
     .actions = (const struct m_option_action[]){
-        {"add"},
-        {"append"},
+        {"add", 0},
+        {"append", 0},
         {"clr",     M_OPT_TYPE_OPTIONAL_PARAM},
-        {"del"},
+        {"del", 0},
         {"help",    M_OPT_TYPE_OPTIONAL_PARAM},
-        {"pre"},
-        {"set"},
-        {"toggle"},
-        {"remove"},
+        {"pre", 0},
+        {"set", 0},
+        {"toggle", 0},
+        {"remove", 0},
         {0}
     },
 };
@@ -3871,7 +3871,7 @@ static void free_node(void *src)
     if (src) {
         struct dmpv_node *node = &VAL(src);
         talloc_free(node_get_alloc(node));
-        *node = (struct dmpv_node){{0}};
+        *node = (struct dmpv_node){{0}, DMPV_FORMAT_NONE};
     }
 }
 

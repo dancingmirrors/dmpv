@@ -418,7 +418,7 @@ static int demux_mkv_read_info(demuxer_t *demuxer)
     mkv_d->duration = 0;
 
     struct ebml_info info = {0};
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
     if (ebml_read_element(s, &parse_ctx, &info, &ebml_info_desc) < 0)
         return -1;
     if (info.muxing_app)
@@ -853,7 +853,7 @@ static int demux_mkv_read_tracks(demuxer_t *demuxer)
     MP_DBG(demuxer, "|+ segment tracks...\n");
 
     struct ebml_tracks tracks = {0};
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
     if (ebml_read_element(s, &parse_ctx, &tracks, &ebml_tracks_desc) < 0)
         return -1;
 
@@ -917,7 +917,7 @@ static int demux_mkv_read_cues(demuxer_t *demuxer)
 
     MP_VERBOSE(demuxer, "Parsing cues...\n");
     struct ebml_cues cues = {0};
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
     if (ebml_read_element(s, &parse_ctx, &cues, &ebml_cues_desc) < 0)
         return -1;
 
@@ -981,7 +981,7 @@ static int demux_mkv_read_chapters(struct demuxer *demuxer)
 
     MP_DBG(demuxer, "Parsing chapters...\n");
     struct ebml_chapters file_chapters = {0};
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
     if (ebml_read_element(s, &parse_ctx, &file_chapters,
                           &ebml_chapters_desc) < 0)
         return -1;
@@ -1128,7 +1128,7 @@ static int demux_mkv_read_tags(demuxer_t *demuxer)
     struct mkv_demuxer *mkv_d = demuxer->priv;
     stream_t *s = demuxer->stream;
 
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
     struct ebml_tags           tags = {0};
     if (ebml_read_element(s, &parse_ctx, &tags, &ebml_tags_desc) < 0)
         return -1;
@@ -1209,7 +1209,7 @@ static int demux_mkv_read_attachments(demuxer_t *demuxer)
     MP_DBG(demuxer, "Parsing attachments...\n");
 
     struct ebml_attachments attachments = {0};
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
     if (ebml_read_element(s, &parse_ctx, &attachments,
                           &ebml_attachments_desc) < 0)
         return -1;
@@ -1279,7 +1279,7 @@ static int demux_mkv_read_seekhead(demuxer_t *demuxer)
     struct stream *s = demuxer->stream;
     int res = 0;
     struct ebml_seek_head seekhead = {0};
-    struct ebml_parse_ctx parse_ctx = {demuxer->log};
+    struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
 
     MP_DBG(demuxer, "Parsing seek head...\n");
     if (ebml_read_element(s, &parse_ctx, &seekhead, &ebml_seek_head_desc) < 0) {
@@ -2928,7 +2928,7 @@ static int read_block_group(demuxer_t *demuxer, int64_t end,
 
         case MATROSKA_ID_BLOCKADDITIONS:;
             struct ebml_block_additions additions = {0};
-            struct ebml_parse_ctx parse_ctx = {demuxer->log};
+            struct ebml_parse_ctx parse_ctx = {.log = demuxer->log};
             if (ebml_read_element(s, &parse_ctx, &additions,
                                   &ebml_block_additions_desc) < 0)
                 return -1;

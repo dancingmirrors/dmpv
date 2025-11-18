@@ -1050,7 +1050,7 @@ bool vo_drm_init(struct vo *vo)
     *drm = (struct vo_drm_state) {
         .vo = vo,
         .log = mp_log_new(drm, vo->log, "drm"),
-        .mode = {{0}},
+        .mode = {.mode = {0}, .blob_id = 0},
         .crtc_id = -1,
         .card_no = -1,
     };

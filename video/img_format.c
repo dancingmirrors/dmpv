@@ -54,8 +54,8 @@ struct mp_imgfmt_entry {
         .name = dname,                                                      \
         .desc = { .flags = MP_IMGFLAG_COLOR_YUV | MP_IMGFLAG_TYPE_FLOAT,    \
                    .chroma_xs = xs, .chroma_ys = ys,                        \
-                   .comps = { {0, 0, 32}, {1, 0, 32}, {2, 0, 32},           \
-                              {3 * (a), 0, 32 * (a)} }, }}
+                   .comps = { {0, 0, 32, 0}, {1, 0, 32, 0}, {2, 0, 32, 0},           \
+                              {3 * (a), 0, 32 * (a), 0} }, }}
 
 static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
     // not in ffmpeg
@@ -69,21 +69,21 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
         .name = "rgb30",
         .desc = {
             .flags = MP_IMGFLAG_RGB,
-            .comps = { {0, 20, 10}, {0, 10, 10}, {0, 0, 10} },
+            .comps = { {0, 20, 10, 0}, {0, 10, 10, 0}, {0, 0, 10, 0} },
         },
     },
     [IMGFMT_YAP8 - IMGFMT_CUST_BASE] = {
         .name = "yap8",
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV,
-            .comps = { {0, 0, 8}, {0}, {0}, {1, 0, 8} },
+            .comps = { {0, 0, 8, 0}, {0}, {0}, {1, 0, 8, 0} },
         },
     },
     [IMGFMT_YAP16 - IMGFMT_CUST_BASE] = {
         .name = "yap16",
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV,
-            .comps = { {0, 0, 16}, {0}, {0}, {1, 0, 16} },
+            .comps = { {0, 0, 16, 0}, {0}, {0}, {1, 0, 16, 0} },
         },
     },
     [IMGFMT_Y1 - IMGFMT_CUST_BASE] = {
@@ -97,7 +97,7 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
         .name = "grayaf32", // try to mimic ffmpeg naming convention
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV | MP_IMGFLAG_TYPE_FLOAT,
-            .comps = { {0, 0, 32}, {0}, {0}, {1, 0, 32} },
+            .comps = { {0, 0, 32, 0}, {0}, {0}, {1, 0, 32, 0} },
         },
     },
     FLOAT_YUV(IMGFMT_444PF,  "yuv444pf",  0, 0, 0),
@@ -323,9 +323,9 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
 
     // This is probably a pixdesc bug, so fix it.
     if (fmt == AV_PIX_FMT_RGB8) {
-        desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2};
-        desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3};
-        desc->comps[0] = (struct mp_imgfmt_comp_desc){0, 5, 3};
+        desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2, 0};
+        desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3, 0};
+        desc->comps[0] = (struct mp_imgfmt_comp_desc){0, 5, 3, 0};
     }
 
     // Overlap test. If any shared bits are happening, this is not a format we

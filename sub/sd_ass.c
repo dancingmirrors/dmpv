@@ -698,7 +698,7 @@ static char *get_text_buf(struct sd *sd, double pts, enum sd_text_type type)
         return NULL;
     long long ipts = find_timestamp(sd, pts);
 
-    struct buf b = {ctx->last_text, sizeof(ctx->last_text) - 1};
+    struct buf b = {ctx->last_text, sizeof(ctx->last_text) - 1, 0};
 
     for (int i = 0; i < track->n_events; ++i) {
         ASS_Event *event = track->events + i;

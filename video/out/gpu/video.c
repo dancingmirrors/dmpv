@@ -715,7 +715,7 @@ static void get_transform(float w, float h, int rotate, bool flip,
     int sin90[4] = {0, 1, 0, -1}; // just to avoid rounding issues etc.
     int cos90[4] = {1, 0, -1, 0};
     struct gl_transform tr = {{{ cos90[a], sin90[a]},
-                               {-sin90[a], cos90[a]}}};
+                               {-sin90[a], cos90[a]}}, {0, 0}};
 
     // basically, recenter to keep the whole image in view
     float b[2] = {1, 1};
@@ -767,7 +767,7 @@ static void pass_get_images(struct gl_video *p, struct video_image *vimg,
     float ls_w = 1.0 / p->ra_format.chroma_w;
     float ls_h = 1.0 / p->ra_format.chroma_h;
 
-    struct gl_transform chroma = {{{ls_w, 0.0}, {0.0, ls_h}}};
+    struct gl_transform chroma = {{{ls_w, 0.0}, {0.0, ls_h}}, {0, 0}};
 
     if (p->image_params.chroma_location != MP_CHROMA_CENTER) {
         int cx, cy;
@@ -2039,7 +2039,7 @@ static void user_hook(struct gl_video *p, struct image img,
     eval_szexpr(p->log, &(struct szexp_ctx){p, img}, szexp_lookup, shader->width, &w);
     eval_szexpr(p->log, &(struct szexp_ctx){p, img}, szexp_lookup, shader->height, &h);
 
-    *trans = (struct gl_transform){{{w / img.w, 0}, {0, h / img.h}}};
+    *trans = (struct gl_transform){{{w / img.w, 0}, {0, h / img.h}}, {0, 0}};
     gl_transform_trans(shader->offset, trans);
 }
 
@@ -2371,7 +2371,7 @@ static void pass_convert_yuv(struct gl_video *p)
 
     // Conversion to RGB. For RGB itself, this still applies e.g. brightness
     // and contrast controls, or expansion of e.g. LSB-packed 10 bit data.
-    struct mp_cmat m = {{{0}}};
+    struct mp_cmat m = {{{0}}, {0}};
     mp_get_csp_matrix(&cparams, &m);
     gl_sc_uniform_mat3(sc, "colormatrix", true, &m.m[0][0]);
     gl_sc_uniform_vec3(sc, "colormatrix_c", m.c);
@@ -3039,7 +3039,7 @@ static bool pass_render_frame(struct gl_video *p, struct mp_image *mpi,
             .display_par = scale[1] / scale[0], // counter compensate scaling
         };
         finish_pass_tex(p, &p->blend_subs_tex, rect.w, rect.h);
-        struct ra_fbo fbo = { p->blend_subs_tex };
+        struct ra_fbo fbo = { .tex = p->blend_subs_tex };
         pass_draw_osd(p, OSD_DRAW_SUB_ONLY, flags, vpts, rect, fbo, false);
         pass_read_tex(p, p->blend_subs_tex);
         pass_describe(p, "blend subs video");
@@ -3071,7 +3071,7 @@ static bool pass_render_frame(struct gl_video *p, struct mp_image *mpi,
             p->use_linear = false;
         }
         finish_pass_tex(p, &p->blend_subs_tex, p->texture_w, p->texture_h);
-        struct ra_fbo fbo = { p->blend_subs_tex };
+        struct ra_fbo fbo = { .tex = p->blend_subs_tex };
         pass_draw_osd(p, OSD_DRAW_SUB_ONLY, flags, vpts, rect, fbo, false);
         pass_read_tex(p, p->blend_subs_tex);
         pass_describe(p, "blend subs");
@@ -3406,7 +3406,7 @@ void gl_video_render_frame(struct gl_video *p, struct vo_frame *frame,
                                            fbo.tex->params.w, fbo.tex->params.h,
                                            fmt);
                     if (r) {
-                        dest_fbo = (struct ra_fbo) { p->output_tex };
+                        dest_fbo = (struct ra_fbo) { .tex = p->output_tex };
                         p->output_tex_valid = true;
                     }
                 }
@@ -3536,7 +3536,7 @@ void gl_video_screenshot(struct gl_video *p, struct vo_frame *frame,
         flags |= RENDER_FRAME_SUBS;
     if (args->osd)
         flags |= RENDER_FRAME_OSD;
-    gl_video_render_frame(p, nframe, (struct ra_fbo){target}, flags);
+    gl_video_render_frame(p, nframe, (struct ra_fbo){.tex = target}, flags);
 
     res = mp_image_alloc(mpfmt, params.w, params.h);
     if (!res)
@@ -3867,8 +3867,8 @@ static void check_gl_features(struct gl_video *p)
         }
         p->dumb_mode = true;
         static const struct scaler_config dumb_scaler_config = {
-            {"bilinear", .params = {NAN, NAN}},
-            {.params = {NAN, NAN}},
+            .kernel = {"bilinear", .params = {NAN, NAN}},
+            .window = {.params = {NAN, NAN}},
         };
         // Most things don't work, so whitelist all options that still work.
         p->opts = (struct gl_video_opts){

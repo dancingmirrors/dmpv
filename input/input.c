@@ -1164,7 +1164,7 @@ static void bind_keys(struct input_ctx *ictx, bool builtin, bstr section,
     }
 
     if (!bind) {
-        struct cmd_bind empty = {{0}};
+        struct cmd_bind empty = {.keys = {0}};
         MP_TARRAY_APPEND(bs, bs->binds, bs->num_binds, empty);
         bind = &bs->binds[bs->num_binds - 1];
     }
@@ -1469,7 +1469,7 @@ void mp_input_bind_key(struct input_ctx *ictx, int key, bstr command)
     }
 
     if (!bind) {
-        struct cmd_bind empty = {{0}};
+        struct cmd_bind empty = {.keys = {0}};
         MP_TARRAY_APPEND(bs, bs->binds, bs->num_binds, empty);
         bind = &bs->binds[bs->num_binds - 1];
     }

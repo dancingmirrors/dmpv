@@ -354,6 +354,7 @@ def generate_C_definitions(out):
             for subel, multiple in el.subelements:
                 printf(out, 'F({0.definename}, {0.fieldname}, {1})'.format(
                             subel, int(multiple)))
+            printf(out, '{0, 0, 0, 0, NULL},')
             printf(out, '}};')
             printf(out, '#undef N')
         else:

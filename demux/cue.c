@@ -60,7 +60,7 @@ static const struct {
     { CUE_UNUSED, "SONGWRITER" },
     { CUE_UNUSED, "MESSAGE" },
     { CUE_UNUSED, "MCN" },
-    { -1 },
+    { -1, NULL },
 };
 
 static const uint8_t spaces[] = {' ', '\f', '\n', '\r', '\t', '\v', 0xA0};

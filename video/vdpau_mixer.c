@@ -251,7 +251,7 @@ int mp_vdpau_mixer_render(struct mp_vdpau_mixer *mixer,
         return -1;
 
     struct mp_vdpau_mixer_frame *frame = mp_vdpau_mixed_frame_get(video);
-    struct mp_vdpau_mixer_frame fallback = {{0}};
+    struct mp_vdpau_mixer_frame fallback = {.past = {0}};
     if (!frame) {
         frame = &fallback;
         frame->current = (uintptr_t)video->planes[3];
