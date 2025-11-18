@@ -4318,10 +4318,10 @@ static const struct property_osd_display {
     {"hwdec", .msg = "Hardware decoding: ${hwdec-current}"},
     {.name = "video-aspect-override", .osd_name = "Aspect ratio override"},
     // By default, don't display the following properties on OSD
-    {"pause", .call = NULL},
-    {"fullscreen", .call = NULL},
-    {"window-minimized", .call = NULL},
-    {"window-maximized", .call = NULL},
+    {.name = "pause"},
+    {.name = "fullscreen"},
+    {.name = "window-minimized"},
+    {.name = "window-maximized"},
     {0}
 };
 
@@ -6541,7 +6541,7 @@ const struct mp_cmd_def mp_cmds[] = {
     { "playlist-next", cmd_playlist_next_prev,
         {
             {"flags", OPT_CHOICE(v.i,
-                {"weak", .call = 0},
+                {"weak", 0},
                 {"force", 1}),
                 .flags = MP_CMD_OPT_ARG},
         },
@@ -6550,7 +6550,7 @@ const struct mp_cmd_def mp_cmds[] = {
     { "playlist-prev", cmd_playlist_next_prev,
         {
             {"flags", OPT_CHOICE(v.i,
-                {"weak", .call = 0},
+                {"weak", 0},
                 {"force", 1}),
                 .flags = MP_CMD_OPT_ARG},
         },
@@ -6573,7 +6573,7 @@ const struct mp_cmd_def mp_cmds[] = {
         {
             {"skip", OPT_INT(v.i)},
             {"flags", OPT_CHOICE(v.i,
-                {"primary", .call = 0},
+                {"primary", 0},
                 {"secondary", 1}),
                 OPTDEF_INT(0)},
         },
@@ -6584,7 +6584,7 @@ const struct mp_cmd_def mp_cmds[] = {
         {
             {"skip", OPT_INT(v.i)},
             {"flags", OPT_CHOICE(v.i,
-                {"primary", .call = 0},
+                {"primary", 0},
                 {"secondary", 1}),
                 OPTDEF_INT(0)},
         },
@@ -6681,7 +6681,7 @@ const struct mp_cmd_def mp_cmds[] = {
     { "rescan-external-files", cmd_rescan_external_files,
         {
             {"flags", OPT_CHOICE(v.i,
-                {"keep-selection", .call = 1},
+                {"keep-selection", 1},
                 {"reselect", 0}),
                 .flags = MP_CMD_OPT_ARG},
         },
@@ -6710,8 +6710,8 @@ const struct mp_cmd_def mp_cmds[] = {
         {
             {"filename", OPT_STRING(v.s)},
             {"flags", OPT_CHOICE(v.i,
-                {"video", .call = 0},
-                {"window", .call = 1},
+                {"video", 0},
+                {"window", 1},
                 {"subtitles", 2}),
                 OPTDEF_INT(2)},
         },
@@ -6720,44 +6720,46 @@ const struct mp_cmd_def mp_cmds[] = {
     { "screenshot-raw", cmd_screenshot_raw,
         {
             {"flags", OPT_CHOICE(v.i,
-                {"video", .call = 0},
-                {"window", .call = 1},
+                {"video", 0},
+                {"window", 1},
                 {"subtitles", 2}),
                 OPTDEF_INT(2)},
              {"format", OPT_CHOICE(v.i,
-                {"bgr0", .call = 0},
-                {"bgra", .call = 1},
-                {"rgba", .call = 2},
+                {"bgr0", 0},
+                {"bgra", 1},
+                {"rgba", 2},
                 {"rgba64", 3}),
                 OPTDEF_INT(0)},
         },
+        .priv = NULL,
     },
     { "loadfile", cmd_loadfile,
         {
             {"url", OPT_STRING(v.s)},
             {"flags", OPT_CHOICE(v.i,
-                {"replace", .call = 0},
-                {"append", .call = 1},
-                {"append-play", .call = 2},
-                {"insert-next", .call = 3},
-                {"insert-next-play", .call = 4},
-                {"insert-at", .call = 5},
+                {"replace", 0},
+                {"append", 1},
+                {"append-play", 2},
+                {"insert-next", 3},
+                {"insert-next-play", 4},
+                {"insert-at", 5},
                 {"insert-at-play", 6}),
                 .flags = MP_CMD_OPT_ARG},
             {"index", OPT_INT(v.i), OPTDEF_INT(-1)},
             {"options", OPT_KEYVALUELIST(v.str_list), .flags = MP_CMD_OPT_ARG},
         },
+        .priv = NULL,
     },
     { "loadlist", cmd_loadlist,
         {
             {"url", OPT_STRING(v.s)},
             {"flags", OPT_CHOICE(v.i,
-                {"replace", .call = 0},
-                {"append", .call = 1},
-                {"append-play", .call = 2},
-                {"insert-next", .call = 3},
-                {"insert-next-play", .call = 4},
-                {"insert-at", .call = 5},
+                {"replace", 0},
+                {"append", 1},
+                {"append-play", 2},
+                {"insert-next", 3},
+                {"insert-next-play", 4},
+                {"insert-at", 5},
                 {"insert-at-play", 6}),
                 .flags = MP_CMD_OPT_ARG},
             {"index", OPT_INT(v.i), OPTDEF_INT(-1)},
@@ -6765,10 +6767,10 @@ const struct mp_cmd_def mp_cmds[] = {
         .spawn_thread = true,
         .can_abort = true,
     },
-    { "playlist-clear", cmd_playlist_clear },
+    { "playlist-clear", cmd_playlist_clear, .args = {{0}} },
     { "playlist-remove", cmd_playlist_remove, {
         {"index", OPT_CHOICE(v.i, {"current", -1}),
-            .flags = MP_CMD_OPT_ARG, M_RANGE(0, INT_MAX)}, }},
+            .flags = MP_CMD_OPT_ARG, M_RANGE(0, INT_MAX)}, }, .priv = NULL },
     { "playlist-move", cmd_playlist_move,  { {"index1", OPT_INT(v.i)},
                                              {"index2", OPT_INT(v.i)}, }},
     { "run", cmd_run, { {"command", OPT_STRING(v.s)},
@@ -6821,15 +6823,16 @@ const struct mp_cmd_def mp_cmds[] = {
         {
             {"name", OPT_STRING(v.s)},
             {"flags", OPT_FLAGS(v.i,
-                {"default", .call = 0},
-                {"exclusive", .call = MP_INPUT_EXCLUSIVE},
-                {"allow-hide-cursor", .call = MP_INPUT_ALLOW_HIDE_CURSOR},
+                {"default", 0},
+                {"exclusive", MP_INPUT_EXCLUSIVE},
+                {"allow-hide-cursor", MP_INPUT_ALLOW_HIDE_CURSOR},
                 {"allow-vo-dragging", MP_INPUT_ALLOW_VO_DRAGGING}),
                 .flags = MP_CMD_OPT_ARG},
-        }
+        },
+        .priv = NULL,
     },
     { "disable-section", cmd_disable_input_section,
-        {{"name", OPT_STRING(v.s)} }},
+        {{"name", OPT_STRING(v.s)} }, .priv = NULL },
     { "define-section", cmd_define_input_section,
         {
             {"name", OPT_STRING(v.s)},
@@ -6837,11 +6840,12 @@ const struct mp_cmd_def mp_cmds[] = {
             {"flags", OPT_CHOICE(v.i, {"default", 0}, {"force", 1}),
                 .flags = MP_CMD_OPT_ARG},
         },
+        .priv = NULL,
     },
 
-    { "ab-loop", cmd_ab_loop },
+    { "ab-loop", cmd_ab_loop, .args = {{0}} },
 
-    { "drop-buffers", cmd_drop_buffers, },
+    { "drop-buffers", cmd_drop_buffers, .args = {{0}} },
 
     { "af", cmd_filter, { {"operation", OPT_STRING(v.s)},
                           {"value", OPT_STRING(v.s)}, },
@@ -6869,7 +6873,7 @@ const struct mp_cmd_def mp_cmds[] = {
         },
         .priv = &(const int){STREAM_VIDEO} },
 
-    { "ao-reload", cmd_ao_reload },
+    { "ao-reload", cmd_ao_reload, .args = {{0}} },
 
     { "script-binding", cmd_script_binding, { {"name", OPT_STRING(v.s)} },
         .allow_auto_repeat = true, .on_updown = true},
@@ -6907,7 +6911,7 @@ const struct mp_cmd_def mp_cmds[] = {
         .is_noisy = true,
     },
 
-    { "write-watch-later-config", cmd_write_watch_later_config },
+    { "write-watch-later-config", cmd_write_watch_later_config, .args = {{0}} },
     { "delete-watch-later-config", cmd_delete_watch_later_config,
         {{"filename", OPT_STRING(v.s), .flags = MP_CMD_OPT_ARG} }},
 
@@ -6916,9 +6920,9 @@ const struct mp_cmd_def mp_cmds[] = {
                             {"button", OPT_INT(v.i), OPTDEF_INT(-1)},
                             {"mode", OPT_CHOICE(v.i,
                                 {"single", 0}, {"double", 1}),
-                                .flags = MP_CMD_OPT_ARG}}},
+                                .flags = MP_CMD_OPT_ARG}}, .priv = NULL },
     { "keybind", cmd_key_bind, { {"name", OPT_STRING(v.s)},
-                                 {"cmd", OPT_STRING(v.s)} }},
+                                 {"cmd", OPT_STRING(v.s)} }, .priv = NULL },
     { "keypress", cmd_key, { {"name", OPT_STRING(v.s)},
                              {"scale", OPT_DOUBLE(v.d), OPTDEF_DOUBLE(1)} },
         .priv = &(const int){0}},
@@ -6930,14 +6934,15 @@ const struct mp_cmd_def mp_cmds[] = {
     { "apply-profile", cmd_apply_profile, {
         {"name", OPT_STRING(v.s)},
         {"mode", OPT_CHOICE(v.i, {"apply", 0}, {"restore", 1}),
-            .flags = MP_CMD_OPT_ARG}, }
+            .flags = MP_CMD_OPT_ARG}, },
+        .priv = NULL,
     },
 
-    { "load-config-file", cmd_load_config_file, {{"filename", OPT_STRING(v.s)}} },
+    { "load-config-file", cmd_load_config_file, {{"filename", OPT_STRING(v.s)}}, .priv = NULL },
 
-    { "load-input-conf", cmd_load_input_conf, {{"filename", OPT_STRING(v.s)}} },
+    { "load-input-conf", cmd_load_input_conf, {{"filename", OPT_STRING(v.s)}}, .priv = NULL },
 
-    { "load-script", cmd_load_script, {{"filename", OPT_STRING(v.s)}} },
+    { "load-script", cmd_load_script, {{"filename", OPT_STRING(v.s)}}, .priv = NULL },
 
     { "dump-cache", cmd_dump_cache, { {"start", OPT_TIME(v.d),
                                         .flags = M_OPT_ALLOW_NO},
@@ -6953,7 +6958,7 @@ const struct mp_cmd_def mp_cmds[] = {
         .can_abort = true,
     },
 
-    { "ab-loop-align-cache", cmd_align_cache_ab },
+    { "ab-loop-align-cache", cmd_align_cache_ab, .args = {{0}} },
 
     {0}
 };
