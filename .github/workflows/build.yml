@@ -13,13 +13,9 @@ jobs:
       - name: actions/checkout@v4
         uses: actions/checkout@v4
 
-      - name: check whitespace in headers and TOOLS
+      - name: check whitespace
         run: |
           ./TOOLS/check-whitespace.sh
-
-      - name: check whitespace in C files
-        run: |
-          ./TOOLS/check-whitespace-c.sh
 
       - name: dependencies
         run: |

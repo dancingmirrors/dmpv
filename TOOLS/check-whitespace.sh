@@ -1,5 +1,5 @@
 #!/bin/bash
-# Whitespace checker for .h files and TOOLS scripts
+# Whitespace checker for C files, headers, and TOOLS scripts
 # This script checks for accidental whitespace issues:
 # 1. Lines with only whitespace (should be completely empty)
 # 2. Lines ending with whitespace
@@ -60,6 +60,14 @@ check_file() {
     fi
 }
 
+echo "=== Checking .c files ==="
+c_file_count=0
+while IFS= read -r file; do
+    check_file "$file"
+    c_file_count=$((c_file_count + 1))
+done < <(find . -name "*.c" -type f | grep -v ".git")
+
+echo ""
 echo "=== Checking .h header files ==="
 h_file_count=0
 while IFS= read -r file; do
@@ -68,16 +76,26 @@ while IFS= read -r file; do
 done < <(find . -name "*.h" -type f | grep -v ".git")
 
 echo ""
+echo "=== Checking .py files ==="
+py_file_count=0
+while IFS= read -r file; do
+    check_file "$file"
+    py_file_count=$((py_file_count + 1))
+done < <(find . -name "*.py" -type f | grep -v ".git")
+
+echo ""
 echo "=== Checking TOOLS scripts ==="
 tools_file_count=0
 while IFS= read -r file; do
     check_file "$file"
     tools_file_count=$((tools_file_count + 1))
-done < <(find ./TOOLS -type f \( -name "*.py" -o -name "*.sh" -o -name "*.mak" \) | grep -v ".git")
+done < <(find ./TOOLS -type f \( -name "*.sh" -o -name "*.mak" \) | grep -v ".git")
 
 echo ""
 echo "=== Summary ==="
+echo "C files checked: $c_file_count"
 echo "Header files checked: $h_file_count"
+echo "Python files checked: $py_file_count"
 echo "TOOLS scripts checked: $tools_file_count"
 echo "Files with issues: $files_with_issues"
 echo "Total issues found: $total_issues"
