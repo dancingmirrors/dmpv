@@ -24,9 +24,9 @@ check_file() {
     local whitespace_only=$(grep -n "^[[:space:]]\+$" "$file" 2>/dev/null | wc -l)
     if [ $whitespace_only -gt 0 ]; then
         output+="  ${YELLOW}Lines with only whitespace ($whitespace_only):${NC}\n"
-        grep -n "^[[:space:]]\+$" "$file" | head -10 | while read line; do
+        while IFS= read -r line; do
             output+="    Line $(echo $line | cut -d: -f1)\n"
-        done
+        done < <(grep -n "^[[:space:]]\+$" "$file" | head -10)
         file_issues=$((file_issues + whitespace_only))
     fi
 
@@ -34,10 +34,10 @@ check_file() {
     local trailing_whitespace=$(grep -n "[^[:space:]][[:space:]]\+$" "$file" 2>/dev/null | wc -l)
     if [ $trailing_whitespace -gt 0 ]; then
         output+="  ${YELLOW}Lines ending with whitespace ($trailing_whitespace):${NC}\n"
-        grep -n "[^[:space:]][[:space:]]\+$" "$file" | head -10 | while read line; do
+        while IFS= read -r line; do
             line_num=$(echo "$line" | cut -d: -f1)
             output+="    Line $line_num\n"
-        done
+        done < <(grep -n "[^[:space:]][[:space:]]\+$" "$file" | head -10)
         file_issues=$((file_issues + trailing_whitespace))
     fi
 
@@ -45,10 +45,10 @@ check_file() {
     local equals_space=$(grep -n "=[[:space:]]\+$" "$file" 2>/dev/null | wc -l)
     if [ $equals_space -gt 0 ]; then
         output+="  ${YELLOW}Lines ending with '= ' ($equals_space):${NC}\n"
-        grep -n "=[[:space:]]\+$" "$file" | head -10 | while read line; do
+        while IFS= read -r line; do
             line_num=$(echo "$line" | cut -d: -f1)
             output+="    Line $line_num\n"
-        done
+        done < <(grep -n "=[[:space:]]\+$" "$file" | head -10)
         file_issues=$((file_issues + equals_space))
     fi
 
