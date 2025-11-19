@@ -6,6 +6,12 @@
 
 #include "misc/mp_assert.h"
 
+#include "config.h"
+
+#if HAVE_BSD_THREAD_NAME && (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
+#include <pthread_np.h>
+#endif
+
 // Helper to reduce boiler plate.
 int mpthread_mutex_init_recursive(pthread_mutex_t *mutex);
 
@@ -189,12 +195,9 @@ static inline void mp_thread_set_name(const char *name)
         pthread_setname_np(pthread_self(), tname);
     }
 #elif HAVE_BSD_THREAD_NAME
-#ifdef __OpenBSD__
-#include <pthread_np.h>
-#endif
 #ifdef __NetBSD__
-    pthread_setname_np(pthread_self(), "%s", name);
-#else
+    pthread_setname_np(pthread_self(), name, NULL);
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
     pthread_set_name_np(pthread_self(), name);
 #endif
 #endif

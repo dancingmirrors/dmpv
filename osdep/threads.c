@@ -23,10 +23,8 @@
 #include "threads.h"
 #include "timer.h"
 
-#if HAVE_BSD_THREAD_NAME
-#ifndef __NetBSD__
+#if HAVE_BSD_THREAD_NAME && (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread_np.h>
-#endif
 #endif
 
 int mpthread_mutex_init_recursive(pthread_mutex_t *mutex)
@@ -50,11 +48,8 @@ void mpthread_set_name(const char *name)
     }
 #elif HAVE_BSD_THREAD_NAME
 #ifdef __NetBSD__
-    pthread_setname_np(pthread_self(), "%s", name);
-#elif defined(__OpenBSD__)
-    void pthread_set_name_np(pthread_t, const char *);
-    pthread_set_name_np(pthread_self(), tname);
-#else
+    pthread_setname_np(pthread_self(), tname, NULL);
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
     pthread_set_name_np(pthread_self(), tname);
 #endif
 #endif
