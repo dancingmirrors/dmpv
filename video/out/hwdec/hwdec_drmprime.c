@@ -69,8 +69,11 @@ static int init(struct ra_hwdec *hw)
 {
     struct priv_owner *p = hw->priv;
 
+    MP_VERBOSE(hw, "DRM PRIME: Initializing hardware decode support\n");
+
     for (int i = 0; interop_inits[i]; i++) {
         if (interop_inits[i](hw, &p->dmabuf_interop)) {
+            MP_VERBOSE(hw, "DRM PRIME: Initialized interop backend %d\n", i);
             break;
         }
     }
@@ -102,6 +105,7 @@ static int init(struct ra_hwdec *hw)
                               opt_path ? opt_path : "/dev/dri/renderD128";
     MP_VERBOSE(hw, "Using DRM device: %s\n", device_path);
 
+    MP_VERBOSE(hw, "DRM PRIME: Creating hwdevice context for %s\n", device_path);
     int ret = av_hwdevice_ctx_create(&p->hwctx.av_device_ref,
                                      AV_HWDEVICE_TYPE_DRM,
                                      device_path, NULL, 0);
@@ -110,6 +114,7 @@ static int init(struct ra_hwdec *hw)
         MP_VERBOSE(hw, "Failed to create hwdevice_ctx: %s\n", av_err2str(ret));
         return -1;
     }
+    MP_VERBOSE(hw, "DRM PRIME: hwdevice context created successfully\n");
 
     /*
      * At the moment, there is no way to discover compatible formats
@@ -125,6 +130,8 @@ static int init(struct ra_hwdec *hw)
     MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_P210));
 #endif
     MP_TARRAY_APPEND(p, p->formats, num_formats, 0); // terminate it
+    
+    MP_VERBOSE(hw, "DRM PRIME: Configured %d supported formats\n", num_formats);
 
     p->hwctx.hw_imgfmt = IMGFMT_DRMPRIME;
     p->hwctx.supported_formats = p->formats;
@@ -205,6 +212,8 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     struct priv_owner *p_owner = mapper->owner->priv;
     struct dmabuf_interop_priv *p = mapper->priv;
 
+    MP_VERBOSE(mapper, "DRM PRIME: Mapping frame to DMA-buf\n");
+
     /*
      * Although we use the same AVDRMFrameDescriptor to hold the dmabuf
      * properties, we additionally need to dup the fds to ensure the
@@ -214,18 +223,32 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     const AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)mapper->src->planes[0];
     p->desc.nb_layers = desc->nb_layers;
     p->desc.nb_objects = desc->nb_objects;
+    
+    MP_VERBOSE(mapper, "DRM PRIME: Frame has %d layers, %d objects\n",
+               desc->nb_layers, desc->nb_objects);
+    
     for (int i = 0; i < desc->nb_layers; i++) {
         p->desc.layers[i].format = desc->layers[i].format;
         p->desc.layers[i].nb_planes = desc->layers[i].nb_planes;
+        MP_VERBOSE(mapper, "DRM PRIME: Layer %d: format=0x%x planes=%d\n",
+                   i, desc->layers[i].format, desc->layers[i].nb_planes);
         for (int j = 0; j < desc->layers[i].nb_planes; j++) {
             p->desc.layers[i].planes[j].object_index = desc->layers[i].planes[j].object_index;
             p->desc.layers[i].planes[j].offset = desc->layers[i].planes[j].offset;
             p->desc.layers[i].planes[j].pitch = desc->layers[i].planes[j].pitch;
+            MP_VERBOSE(mapper, "DRM PRIME:   Plane %d: object=%d offset=%d pitch=%d\n",
+                       j, desc->layers[i].planes[j].object_index,
+                       desc->layers[i].planes[j].offset,
+                       desc->layers[i].planes[j].pitch);
         }
     }
     for (int i = 0; i < desc->nb_objects; i++) {
         p->desc.objects[i].format_modifier = desc->objects[i].format_modifier;
         p->desc.objects[i].size = desc->objects[i].size;
+        MP_VERBOSE(mapper, "DRM PRIME: Object %d: size=%u modifier=0x%lx fd=%d\n",
+                   i, desc->objects[i].size,
+                   (unsigned long)desc->objects[i].format_modifier,
+                   desc->objects[i].fd);
         // Initialise fds to -1 to make partial failure cleanup easier.
         p->desc.objects[i].fd = -1;
     }
@@ -233,6 +256,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     p->surface_acquired = true;
 
     // Now actually dup the fds
+    MP_VERBOSE(mapper, "DRM PRIME: Duplicating %d dmabuf fds\n", desc->nb_objects);
     for (int i = 0; i < desc->nb_objects; i++) {
         p->desc.objects[i].fd = fcntl(desc->objects[i].fd, F_DUPFD_CLOEXEC, 0);
         if (p->desc.objects[i].fd == -1) {
@@ -240,6 +264,8 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
                    mp_strerror(errno));
             goto err;
         }
+        MP_VERBOSE(mapper, "DRM PRIME: Duplicated fd %d -> %d\n",
+                   desc->objects[i].fd, p->desc.objects[i].fd);
     }
 
     // We can handle composed formats if the total number of planes is still
@@ -259,11 +285,14 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
                p->desc.nb_layers, num_returned_planes, p->num_planes);
         goto err;
     }
+    
+    MP_VERBOSE(mapper, "DRM PRIME: Calling interop_map for %d planes\n", num_returned_planes);
 
     if (!p_owner->dmabuf_interop.interop_map(mapper, &p_owner->dmabuf_interop,
                                              false))
         goto err;
 
+    MP_VERBOSE(mapper, "DRM PRIME: Frame mapped successfully\n");
     return 0;
 
 err:

@@ -706,14 +706,24 @@ static void init_avctx(struct mp_filter *vd)
 
     if (ctx->use_hwdec) {
         lavc_codec = ctx->hwdec.codec;
+        MP_VERBOSE(vd, "FFmpeg: Using hwdec codec '%s' for %s\n", 
+                   lavc_codec ? lavc_codec->name : "NULL", 
+                   ctx->decoder);
     } else {
         lavc_codec = avcodec_find_decoder_by_name(ctx->decoder);
+        MP_VERBOSE(vd, "FFmpeg: Using software decoder '%s'\n", ctx->decoder);
     }
-    if (!lavc_codec)
+    if (!lavc_codec) {
+        MP_VERBOSE(vd, "FFmpeg: Failed to find codec '%s'\n", ctx->decoder);
         return;
+    }
 
     const AVCodecDescriptor *desc = avcodec_descriptor_get(lavc_codec->id);
     ctx->intra_only = desc && (desc->props & AV_CODEC_PROP_INTRA_ONLY);
+    
+    MP_VERBOSE(vd, "FFmpeg: Codec '%s' (ID=%d) %s intra-only\n",
+               lavc_codec->name, lavc_codec->id,
+               ctx->intra_only ? "is" : "is not");
 
     ctx->codec_timebase = mp_get_codec_timebase(ctx->codec);
 
@@ -721,11 +731,16 @@ static void init_avctx(struct mp_filter *vd)
     ctx->hwdec_request_reinit = false;
     ctx->avctx = avcodec_alloc_context3(lavc_codec);
     AVCodecContext *avctx = ctx->avctx;
-    if (!ctx->avctx)
+    if (!ctx->avctx) {
+        MP_VERBOSE(vd, "FFmpeg: Failed to allocate codec context\n");
         goto error;
+    }
     avctx->codec_type = AVMEDIA_TYPE_VIDEO;
     avctx->codec_id = lavc_codec->id;
     avctx->pkt_timebase = ctx->codec_timebase;
+    
+    MP_VERBOSE(vd, "FFmpeg: Codec context allocated, timebase=%d/%d\n",
+               ctx->codec_timebase.num, ctx->codec_timebase.den);
 
     ctx->pic = av_frame_alloc();
     if (!ctx->pic)
@@ -737,40 +752,59 @@ static void init_avctx(struct mp_filter *vd)
 
     int threads = lavc_param->threads;
     if (ctx->use_hwdec) {
+        MP_VERBOSE(vd, "FFmpeg: Configuring hardware decoding\n");
         avctx->opaque = vd;
         avctx->hwaccel_flags |= AV_HWACCEL_FLAG_IGNORE_LEVEL;
-        if (!lavc_param->check_hw_profile)
+        if (!lavc_param->check_hw_profile) {
             avctx->hwaccel_flags |= AV_HWACCEL_FLAG_ALLOW_PROFILE_MISMATCH;
+            MP_VERBOSE(vd, "FFmpeg: Allowing hwdec profile mismatch\n");
+        }
 
 #ifdef AV_HWACCEL_FLAG_UNSAFE_OUTPUT
         avctx->hwaccel_flags |= AV_HWACCEL_FLAG_UNSAFE_OUTPUT;
+        MP_VERBOSE(vd, "FFmpeg: Using unsafe output flag for hwdec\n");
 #endif
 
         if (ctx->hwdec.use_hw_device) {
-            if (ctx->hwdec_dev)
+            if (ctx->hwdec_dev) {
                 avctx->hw_device_ctx = av_buffer_ref(ctx->hwdec_dev);
-            if (!avctx->hw_device_ctx)
+                MP_VERBOSE(vd, "FFmpeg: Using hardware device context\n");
+            }
+            if (!avctx->hw_device_ctx) {
+                MP_VERBOSE(vd, "FFmpeg: Failed to reference hw_device_ctx\n");
                 goto error;
+            }
         }
         if (ctx->hwdec.use_hw_frames) {
-            if (!ctx->hwdec_dev)
+            if (!ctx->hwdec_dev) {
+                MP_VERBOSE(vd, "FFmpeg: hwdec requires hw_frames but no device\n");
                 goto error;
+            }
+            MP_VERBOSE(vd, "FFmpeg: Using hardware frames\n");
         }
 
-        if (ctx->hwdec.pix_fmt != AV_PIX_FMT_NONE)
+        if (ctx->hwdec.pix_fmt != AV_PIX_FMT_NONE) {
             avctx->get_format = get_format_hwdec;
+            MP_VERBOSE(vd, "FFmpeg: Using hwdec pixel format callback\n");
+        }
 
         // Some APIs benefit from this, for others it's additional bloat.
-        if (ctx->hwdec.copying)
+        if (ctx->hwdec.copying) {
             ctx->max_delay_queue = HWDEC_DELAY_QUEUE_COUNT;
+            MP_VERBOSE(vd, "FFmpeg: Hwdec is copy-back, setting delay queue to %d\n",
+                       HWDEC_DELAY_QUEUE_COUNT);
+        }
         ctx->hw_probing = true;
 
         threads = ctx->opts->hwdec_threads;
+        MP_VERBOSE(vd, "FFmpeg: Using %d threads for hwdec\n", threads);
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(62, 11, 100)
         // Vulkan threading was not safe before 62.11.100
         bstr hwdec_name = bstr0(ctx->hwdec.name);
-        if (bstr_endswith0(hwdec_name, "vulkan") || bstr_endswith0(hwdec_name, "vulkan-copy"))
+        if (bstr_endswith0(hwdec_name, "vulkan") || bstr_endswith0(hwdec_name, "vulkan-copy")) {
             threads = 1;
+            MP_VERBOSE(vd, "FFmpeg: Limiting Vulkan hwdec to 1 thread (old FFmpeg)\n");
+        }
 #endif
     }
 
@@ -779,6 +813,7 @@ static void init_avctx(struct mp_filter *vd)
     if (!ctx->use_hwdec && ctx->vo && lavc_param->dr) {
         avctx->opaque = vd;
         avctx->get_buffer2 = get_buffer2_direct;
+        MP_VERBOSE(vd, "FFmpeg: Using direct rendering (DR)\n");
     }
 
     avctx->flags |= lavc_param->bitexact ? AV_CODEC_FLAG_BITEXACT : 0;
@@ -835,8 +870,12 @@ static void init_avctx(struct mp_filter *vd)
     }
 
     /* open it */
-    if (avcodec_open2(avctx, lavc_codec, NULL) < 0)
+    MP_VERBOSE(vd, "FFmpeg: Opening codec '%s'\n", lavc_codec->name);
+    if (avcodec_open2(avctx, lavc_codec, NULL) < 0) {
+        MP_VERBOSE(vd, "FFmpeg: Failed to open codec\n");
         goto error;
+    }
+    MP_VERBOSE(vd, "FFmpeg: Codec opened successfully\n");
 
     // Sometimes, the first packet contains information required for correct
     // decoding of the rest of the stream. The only currently known case is the
@@ -913,8 +952,13 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
     vd_ffmpeg_ctx *ctx = vd->priv;
     AVBufferRef *new_frames_ctx = NULL;
 
-    if (!ctx->hwdec.use_hw_frames)
+    MP_VERBOSE(vd, "FFmpeg: Initializing hwaccel for format %s\n",
+               av_get_pix_fmt_name(hw_fmt));
+
+    if (!ctx->hwdec.use_hw_frames) {
+        MP_VERBOSE(vd, "FFmpeg: hwdec does not use hw_frames\n");
         return 0;
+    }
 
     if (!ctx->hwdec_dev) {
         MP_ERR(ctx, "Missing device context.\n");
@@ -929,20 +973,36 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
     }
 
     AVHWFramesContext *new_fctx = (void *)new_frames_ctx->data;
+    
+    MP_VERBOSE(vd, "FFmpeg: HW frames context: format=%s sw_format=%s size=%dx%d pool=%d\n",
+               av_get_pix_fmt_name(new_fctx->format),
+               av_get_pix_fmt_name(new_fctx->sw_format),
+               new_fctx->width, new_fctx->height,
+               new_fctx->initial_pool_size);
 
-    if (ctx->opts->hwdec_image_format)
+    if (ctx->opts->hwdec_image_format) {
         new_fctx->sw_format = imgfmt2pixfmt(ctx->opts->hwdec_image_format);
+        MP_VERBOSE(vd, "FFmpeg: Overriding sw_format to %s\n",
+                   av_get_pix_fmt_name(new_fctx->sw_format));
+    }
 
     // 1 surface is already included by libavcodec. The field is 0 if the
     // hwaccel supports dynamic surface allocation.
-    if (new_fctx->initial_pool_size)
+    if (new_fctx->initial_pool_size) {
+        int old_size = new_fctx->initial_pool_size;
         new_fctx->initial_pool_size += ctx->opts->hwdec_extra_frames - 1;
+        MP_VERBOSE(vd, "FFmpeg: Adjusting pool size from %d to %d (+%d extra)\n",
+                   old_size, new_fctx->initial_pool_size, 
+                   ctx->opts->hwdec_extra_frames - 1);
+    }
 
     const struct hwcontext_fns *fns =
         hwdec_get_hwcontext_fns(new_fctx->device_ctx->type);
 
-    if (fns && fns->refine_hwframes)
+    if (fns && fns->refine_hwframes) {
+        MP_VERBOSE(vd, "FFmpeg: Refining hwframes with device-specific callback\n");
         fns->refine_hwframes(new_frames_ctx);
+    }
 
     // We might be able to reuse a previously allocated frame pool.
     if (ctx->cached_hw_frames_ctx) {
@@ -952,11 +1012,16 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
             new_fctx->sw_format         != old_fctx->sw_format ||
             new_fctx->width             != old_fctx->width ||
             new_fctx->height            != old_fctx->height ||
-            new_fctx->initial_pool_size != old_fctx->initial_pool_size)
+            new_fctx->initial_pool_size != old_fctx->initial_pool_size) {
+            MP_VERBOSE(vd, "FFmpeg: HW frames context changed, releasing cached context\n");
             av_buffer_unref(&ctx->cached_hw_frames_ctx);
+        } else {
+            MP_VERBOSE(vd, "FFmpeg: Reusing cached HW frames context\n");
+        }
     }
 
     if (!ctx->cached_hw_frames_ctx) {
+        MP_VERBOSE(vd, "FFmpeg: Initializing new HW frames context\n");
         if (av_hwframe_ctx_init(new_frames_ctx) < 0) {
             MP_ERR(ctx, "Failed to allocate hw frames.\n");
             goto error;
@@ -967,13 +1032,18 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
     }
 
     avctx->hw_frames_ctx = av_buffer_ref(ctx->cached_hw_frames_ctx);
-    if (!avctx->hw_frames_ctx)
+    if (!avctx->hw_frames_ctx) {
+        MP_VERBOSE(vd, "FFmpeg: Failed to reference HW frames context\n");
         goto error;
+    }
+    
+    MP_VERBOSE(vd, "FFmpeg: HW frames context configured successfully\n");
 
     av_buffer_unref(&new_frames_ctx);
     return 0;
 
 error:
+    MP_VERBOSE(vd, "FFmpeg: Failed to initialize generic hwaccel\n");
     av_buffer_unref(&new_frames_ctx);
     av_buffer_unref(&ctx->cached_hw_frames_ctx);
     return -1;
