@@ -202,7 +202,7 @@ static struct ra_tex *tex_create_pl(struct ra *ra,
                                     const struct ra_tex_params *params)
 {
     pl_gpu gpu = get_gpu(ra);
-    
+
     MP_VERBOSE(ra, "libplacebo: Creating texture %dx%dx%d format=%s caps=%s%s%s%s\n",
                params->w, params->h, params->d,
                params->format->name,
@@ -210,7 +210,7 @@ static struct ra_tex *tex_create_pl(struct ra *ra,
                params->render_dst ? " render_dst" : "",
                params->storage_dst ? " storage" : "",
                params->host_mutable ? " host_mutable" : "");
-    
+
     pl_tex pltex = pl_tex_create(gpu, &(struct pl_tex_params) {
         .w = params->w,
         .h = params->dimensions >= 2 ? params->h : 0,

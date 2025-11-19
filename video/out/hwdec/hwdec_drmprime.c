@@ -130,7 +130,7 @@ static int init(struct ra_hwdec *hw)
     MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_P210));
 #endif
     MP_TARRAY_APPEND(p, p->formats, num_formats, 0); // terminate it
-    
+
     MP_VERBOSE(hw, "DRM PRIME: Configured %d supported formats\n", num_formats);
 
     p->hwctx.hw_imgfmt = IMGFMT_DRMPRIME;
@@ -223,10 +223,10 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     const AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)mapper->src->planes[0];
     p->desc.nb_layers = desc->nb_layers;
     p->desc.nb_objects = desc->nb_objects;
-    
+
     MP_VERBOSE(mapper, "DRM PRIME: Frame has %d layers, %d objects\n",
                desc->nb_layers, desc->nb_objects);
-    
+
     for (int i = 0; i < desc->nb_layers; i++) {
         p->desc.layers[i].format = desc->layers[i].format;
         p->desc.layers[i].nb_planes = desc->layers[i].nb_planes;
@@ -285,7 +285,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
                p->desc.nb_layers, num_returned_planes, p->num_planes);
         goto err;
     }
-    
+
     MP_VERBOSE(mapper, "DRM PRIME: Calling interop_map for %d planes\n", num_returned_planes);
 
     if (!p_owner->dmabuf_interop.interop_map(mapper, &p_owner->dmabuf_interop,

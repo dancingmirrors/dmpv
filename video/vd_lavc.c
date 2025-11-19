@@ -706,8 +706,8 @@ static void init_avctx(struct mp_filter *vd)
 
     if (ctx->use_hwdec) {
         lavc_codec = ctx->hwdec.codec;
-        MP_VERBOSE(vd, "FFmpeg: Using hwdec codec '%s' for %s\n", 
-                   lavc_codec ? lavc_codec->name : "NULL", 
+        MP_VERBOSE(vd, "FFmpeg: Using hwdec codec '%s' for %s\n",
+                   lavc_codec ? lavc_codec->name : "NULL",
                    ctx->decoder);
     } else {
         lavc_codec = avcodec_find_decoder_by_name(ctx->decoder);
@@ -720,7 +720,7 @@ static void init_avctx(struct mp_filter *vd)
 
     const AVCodecDescriptor *desc = avcodec_descriptor_get(lavc_codec->id);
     ctx->intra_only = desc && (desc->props & AV_CODEC_PROP_INTRA_ONLY);
-    
+
     MP_VERBOSE(vd, "FFmpeg: Codec '%s' (ID=%d) %s intra-only\n",
                lavc_codec->name, lavc_codec->id,
                ctx->intra_only ? "is" : "is not");
@@ -738,7 +738,7 @@ static void init_avctx(struct mp_filter *vd)
     avctx->codec_type = AVMEDIA_TYPE_VIDEO;
     avctx->codec_id = lavc_codec->id;
     avctx->pkt_timebase = ctx->codec_timebase;
-    
+
     MP_VERBOSE(vd, "FFmpeg: Codec context allocated, timebase=%d/%d\n",
                ctx->codec_timebase.num, ctx->codec_timebase.den);
 
@@ -973,7 +973,7 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
     }
 
     AVHWFramesContext *new_fctx = (void *)new_frames_ctx->data;
-    
+
     MP_VERBOSE(vd, "FFmpeg: HW frames context: format=%s sw_format=%s size=%dx%d pool=%d\n",
                av_get_pix_fmt_name(new_fctx->format),
                av_get_pix_fmt_name(new_fctx->sw_format),
@@ -992,7 +992,7 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
         int old_size = new_fctx->initial_pool_size;
         new_fctx->initial_pool_size += ctx->opts->hwdec_extra_frames - 1;
         MP_VERBOSE(vd, "FFmpeg: Adjusting pool size from %d to %d (+%d extra)\n",
-                   old_size, new_fctx->initial_pool_size, 
+                   old_size, new_fctx->initial_pool_size,
                    ctx->opts->hwdec_extra_frames - 1);
     }
 
@@ -1036,7 +1036,7 @@ static int init_generic_hwaccel(struct AVCodecContext *avctx, enum AVPixelFormat
         MP_VERBOSE(vd, "FFmpeg: Failed to reference HW frames context\n");
         goto error;
     }
-    
+
     MP_VERBOSE(vd, "FFmpeg: HW frames context configured successfully\n");
 
     av_buffer_unref(&new_frames_ctx);

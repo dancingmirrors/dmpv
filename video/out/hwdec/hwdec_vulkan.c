@@ -71,7 +71,7 @@ static int vulkan_init(struct ra_hwdec *hw)
         MP_MSG(hw, level, "Failed to obtain pl_gpu.\n");
         return 0;
     }
-    
+
     MP_VERBOSE(hw, "Vulkan: Got pl_gpu handle, checking extensions\n");
 
     /*
@@ -121,7 +121,7 @@ static int vulkan_init(struct ra_hwdec *hw)
     }
 
     vkGetPhysicalDeviceQueueFamilyProperties2(vk->vulkan->phys_device, &num_qf, qf);
-    
+
     // Log queue family information
     for (int i = 0; i < num_qf; i++) {
         VkQueueFlags flags = qf[i].queueFamilyProperties.queueFlags;
@@ -141,7 +141,7 @@ static int vulkan_init(struct ra_hwdec *hw)
         MP_VERBOSE(hw, "Vulkan: Failed to allocate AVHWDeviceContext\n");
         goto error;
     }
-    
+
     MP_VERBOSE(hw, "Vulkan: Allocated AVHWDeviceContext\n");
 
     AVHWDeviceContext *device_ctx = (void *)hw_device_ctx->data;
@@ -193,7 +193,7 @@ static int vulkan_init(struct ra_hwdec *hw)
                 .video_caps = qf_vid[i].videoCodecOperations,
             };
             MP_VERBOSE(hw, "Vulkan: Video decode queue: family=%d count=%d caps=0x%x\n",
-                       i, qf[i].queueFamilyProperties.queueCount, 
+                       i, qf[i].queueFamilyProperties.queueCount,
                        qf_vid[i].videoCodecOperations);
         }
     }
@@ -270,7 +270,7 @@ static int mapper_init(struct ra_hwdec_mapper *mapper)
     mapper->dst_params.hw_subfmt = 0;
 
     mp_image_set_params(&p->layout, &mapper->dst_params);
-    
+
     MP_VERBOSE(mapper, "Vulkan: Mapper dst format=%s size=%dx%d\n",
                mp_imgfmt_to_name(mapper->dst_params.imgfmt),
                mapper->dst_params.w, mapper->dst_params.h);
@@ -280,7 +280,7 @@ static int mapper_init(struct ra_hwdec_mapper *mapper)
         MP_VERBOSE(mapper, "Vulkan: Failed to get image format descriptor\n");
         return -1;
     }
-    
+
     MP_VERBOSE(mapper, "Vulkan: Mapper initialized with %d planes\n", desc.num_planes);
 
     return 0;

@@ -515,7 +515,7 @@ static void determine_working_formats(struct ra_hwdec *hw)
     status = vaQueryConfigProfiles(p->display, profiles, &num_profiles);
     if (!CHECK_VA_STATUS(hw, "vaQueryConfigProfiles()"))
         num_profiles = 0;
-    
+
     MP_VERBOSE(hw, "VA-API: Found %d profiles\n", num_profiles);
 
     /*
