@@ -230,7 +230,7 @@ check("glibc-thread-name*",
 check("bsd-thread-name*",
       fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],
                     expr = 'pthread_set_name_np(pthread_self(), "ducks");')
-                  or check_cc(include = "pthread.h", expr = 'char name; pthread_setname_np(pthread_self(), "%s", name);'))
+                  or check_cc(include = "pthread.h", expr = 'pthread_setname_np(pthread_self(), "ducks", NULL);'))
 
 check("bsd-fstatfs*",
       desc      = "BSD fstatfs",
