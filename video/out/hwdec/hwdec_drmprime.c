@@ -236,7 +236,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
             p->desc.layers[i].planes[j].object_index = desc->layers[i].planes[j].object_index;
             p->desc.layers[i].planes[j].offset = desc->layers[i].planes[j].offset;
             p->desc.layers[i].planes[j].pitch = desc->layers[i].planes[j].pitch;
-            MP_VERBOSE(mapper, "DRM PRIME:   Plane %d: object=%d offset=%d pitch=%d\n",
+            MP_VERBOSE(mapper, "DRM PRIME:   Plane %d: object=%d offset=%td pitch=%td\n",
                        j, desc->layers[i].planes[j].object_index,
                        desc->layers[i].planes[j].offset,
                        desc->layers[i].planes[j].pitch);
@@ -245,7 +245,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     for (int i = 0; i < desc->nb_objects; i++) {
         p->desc.objects[i].format_modifier = desc->objects[i].format_modifier;
         p->desc.objects[i].size = desc->objects[i].size;
-        MP_VERBOSE(mapper, "DRM PRIME: Object %d: size=%u modifier=0x%lx fd=%d\n",
+        MP_VERBOSE(mapper, "DRM PRIME: Object %d: size=%zu modifier=0x%lx fd=%d\n",
                    i, desc->objects[i].size,
                    (unsigned long)desc->objects[i].format_modifier,
                    desc->objects[i].fd);
