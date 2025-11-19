@@ -177,14 +177,18 @@ static int init(struct ra_hwdec *hw)
         return -1;
     }
 
+    MP_VERBOSE(hw, "VA-API: Creating native display\n");
     p->display = create_native_va_display(hw->ra_ctx->ra, hw->log);
     if (!p->display) {
         MP_VERBOSE(hw, "Could not create a VA display.\n");
         return -1;
     }
+    MP_VERBOSE(hw, "VA-API: Display created successfully\n");
 
+    MP_VERBOSE(hw, "VA-API: Initializing VA context\n");
     p->ctx = va_initialize(p->display, hw->log, true);
     if (!p->ctx) {
+        MP_VERBOSE(hw, "VA-API: Failed to initialize VA context\n");
         vaTerminate(p->display);
         return -1;
     }
@@ -192,6 +196,7 @@ static int init(struct ra_hwdec *hw)
         MP_VERBOSE(hw, "libavutil VA-API code rejected the driver?\n");
         return -1;
     }
+    MP_VERBOSE(hw, "VA-API: Context initialized successfully\n");
 
     if (hw->probing && va_guess_if_emulated(p->ctx)) {
         return -1;
@@ -494,6 +499,7 @@ static void determine_working_formats(struct ra_hwdec *hw)
     VAEntrypoint *entrypoints = NULL;
 
     MP_VERBOSE(hw, "Reticulating splines...\n");
+    MP_VERBOSE(hw, "VA-API: Probing supported formats\n");
     p->probing_formats = true;
 
     AVVAAPIHWConfig *hwconfig = av_hwdevice_hwconfig_alloc(p->ctx->av_device_ref);
@@ -509,6 +515,8 @@ static void determine_working_formats(struct ra_hwdec *hw)
     status = vaQueryConfigProfiles(p->display, profiles, &num_profiles);
     if (!CHECK_VA_STATUS(hw, "vaQueryConfigProfiles()"))
         num_profiles = 0;
+    
+    MP_VERBOSE(hw, "VA-API: Found %d profiles\n", num_profiles);
 
     /*
      * We need to find one declared format to bootstrap probing. So find a valid
@@ -530,11 +538,13 @@ static void determine_working_formats(struct ra_hwdec *hw)
                    vaErrorStr(status), (int)profile);
             continue;
         }
+        MP_VERBOSE(hw, "VA-API: Profile %d has %d entrypoints\n", (int)profile, num_ep);
         for (int ep = 0; ep < num_ep; ep++) {
             if (entrypoints[ep] != VAEntrypointVLD) {
                 // We are only interested in decoding entrypoints.
                 continue;
             }
+            MP_VERBOSE(hw, "VA-API: Testing profile %d with VLD entrypoint\n", (int)profile);
             VAConfigID config = VA_INVALID_ID;
             status = vaCreateConfig(p->display, profile, entrypoints[ep],
                                     NULL, 0, &config);
@@ -549,6 +559,7 @@ static void determine_working_formats(struct ra_hwdec *hw)
 
             vaDestroyConfig(p->display, config);
             if (p->formats && p->formats[0]) {
+                MP_VERBOSE(hw, "VA-API: Found working formats, stopping probe\n");
                 goto done;
             }
         }

@@ -58,6 +58,8 @@ static int vulkan_init(struct ra_hwdec *hw)
     struct vulkan_hw_priv *p = hw->priv;
     int level = hw->probing ? MSGL_V : MSGL_ERR;
 
+    MP_VERBOSE(hw, "Vulkan: Initializing hardware decode support\n");
+
     struct dmpvk_ctx *vk = ra_vk_ctx_get(hw->ra_ctx);
     if (!vk) {
         MP_WARN(hw, "This is not a libplacebo Vulkan GPU API context.\n");
@@ -69,15 +71,20 @@ static int vulkan_init(struct ra_hwdec *hw)
         MP_MSG(hw, level, "Failed to obtain pl_gpu.\n");
         return 0;
     }
+    
+    MP_VERBOSE(hw, "Vulkan: Got pl_gpu handle, checking extensions\n");
 
     /*
      * Check if the required video decode extensions are enabled.
      * FFmpeg will fail with cryptic errors if they're not available.
      */
     bool has_video_decode_queue = false;
+    MP_VERBOSE(hw, "Vulkan: Checking for video decode extensions (%d total extensions)\n",
+               vk->vulkan->num_extensions);
     for (int i = 0; i < vk->vulkan->num_extensions; i++) {
         if (strcmp(vk->vulkan->extensions[i], "VK_KHR_video_decode_queue") == 0) {
             has_video_decode_queue = true;
+            MP_VERBOSE(hw, "Vulkan: Found VK_KHR_video_decode_queue extension\n");
             break;
         }
     }
@@ -95,8 +102,11 @@ static int vulkan_init(struct ra_hwdec *hw)
     VkQueueFamilyProperties2 *qf = NULL;
     VkQueueFamilyVideoPropertiesKHR *qf_vid = NULL;
     vkGetPhysicalDeviceQueueFamilyProperties2(vk->vulkan->phys_device, &num_qf, NULL);
-    if (!num_qf)
+    MP_VERBOSE(hw, "Vulkan: Found %u queue families\n", num_qf);
+    if (!num_qf) {
+        MP_VERBOSE(hw, "Vulkan: No queue families found\n");
         goto error;
+    }
 
     qf = talloc_array(NULL, VkQueueFamilyProperties2, num_qf);
     qf_vid = talloc_array(NULL, VkQueueFamilyVideoPropertiesKHR, num_qf);
@@ -111,10 +121,28 @@ static int vulkan_init(struct ra_hwdec *hw)
     }
 
     vkGetPhysicalDeviceQueueFamilyProperties2(vk->vulkan->phys_device, &num_qf, qf);
+    
+    // Log queue family information
+    for (int i = 0; i < num_qf; i++) {
+        VkQueueFlags flags = qf[i].queueFamilyProperties.queueFlags;
+        MP_VERBOSE(hw, "Vulkan: Queue family %d: count=%u flags=0x%x%s%s%s%s\n",
+                   i, qf[i].queueFamilyProperties.queueCount, flags,
+                   (flags & VK_QUEUE_GRAPHICS_BIT) ? " GRAPHICS" : "",
+                   (flags & VK_QUEUE_COMPUTE_BIT) ? " COMPUTE" : "",
+                   (flags & VK_QUEUE_TRANSFER_BIT) ? " TRANSFER" : "",
+                   (flags & VK_QUEUE_VIDEO_DECODE_BIT_KHR) ? " VIDEO_DECODE" : "");
+        if (flags & VK_QUEUE_VIDEO_DECODE_BIT_KHR) {
+            MP_VERBOSE(hw, "Vulkan:   Video codec ops=0x%x\n", qf_vid[i].videoCodecOperations);
+        }
+    }
 
     hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VULKAN);
-    if (!hw_device_ctx)
+    if (!hw_device_ctx) {
+        MP_VERBOSE(hw, "Vulkan: Failed to allocate AVHWDeviceContext\n");
         goto error;
+    }
+    
+    MP_VERBOSE(hw, "Vulkan: Allocated AVHWDeviceContext\n");
 
     AVHWDeviceContext *device_ctx = (void *)hw_device_ctx->data;
     AVVulkanDeviceContext *device_hwctx = device_ctx->hwctx;
@@ -133,22 +161,29 @@ static int vulkan_init(struct ra_hwdec *hw)
     device_hwctx->nb_enabled_dev_extensions = vk->vulkan->num_extensions;
 
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(59, 34, 100)
+    MP_VERBOSE(hw, "Vulkan: Using new queue family API (FFmpeg >= 59.34.100)\n");
     device_hwctx->nb_qf = 0;
     device_hwctx->qf[device_hwctx->nb_qf++] = (AVVulkanDeviceQueueFamily) {
         .idx = vk->vulkan->queue_graphics.index,
         .num = vk->vulkan->queue_graphics.count,
         .flags = VK_QUEUE_GRAPHICS_BIT,
     };
+    MP_VERBOSE(hw, "Vulkan: Graphics queue: family=%d count=%d\n",
+               vk->vulkan->queue_graphics.index, vk->vulkan->queue_graphics.count);
     device_hwctx->qf[device_hwctx->nb_qf++] = (AVVulkanDeviceQueueFamily) {
         .idx = vk->vulkan->queue_transfer.index,
         .num = vk->vulkan->queue_transfer.count,
         .flags = VK_QUEUE_TRANSFER_BIT,
     };
+    MP_VERBOSE(hw, "Vulkan: Transfer queue: family=%d count=%d\n",
+               vk->vulkan->queue_transfer.index, vk->vulkan->queue_transfer.count);
     device_hwctx->qf[device_hwctx->nb_qf++] = (AVVulkanDeviceQueueFamily) {
         .idx = vk->vulkan->queue_compute.index,
         .num = vk->vulkan->queue_compute.count,
         .flags = VK_QUEUE_COMPUTE_BIT,
     };
+    MP_VERBOSE(hw, "Vulkan: Compute queue: family=%d count=%d\n",
+               vk->vulkan->queue_compute.index, vk->vulkan->queue_compute.count);
     for (int i = 0; i < num_qf; i++) {
         if ((qf[i].queueFamilyProperties.queueFlags) & VK_QUEUE_VIDEO_DECODE_BIT_KHR) {
             device_hwctx->qf[device_hwctx->nb_qf++] = (AVVulkanDeviceQueueFamily) {
@@ -157,29 +192,46 @@ static int vulkan_init(struct ra_hwdec *hw)
                 .flags = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
                 .video_caps = qf_vid[i].videoCodecOperations,
             };
+            MP_VERBOSE(hw, "Vulkan: Video decode queue: family=%d count=%d caps=0x%x\n",
+                       i, qf[i].queueFamilyProperties.queueCount, 
+                       qf_vid[i].videoCodecOperations);
         }
     }
+    MP_VERBOSE(hw, "Vulkan: Configured %d queue families for FFmpeg\n", device_hwctx->nb_qf);
 #else
+    MP_VERBOSE(hw, "Vulkan: Using legacy queue family API (FFmpeg < 59.34.100)\n");
     int decode_index = -1;
     for (int i = 0; i < num_qf; i++) {
-        if ((qf[i].queueFamilyProperties.queueFlags) & VK_QUEUE_VIDEO_DECODE_BIT_KHR)
+        if ((qf[i].queueFamilyProperties.queueFlags) & VK_QUEUE_VIDEO_DECODE_BIT_KHR) {
             decode_index = i;
+            MP_VERBOSE(hw, "Vulkan: Found decode queue at family %d\n", i);
+        }
     }
     device_hwctx->queue_family_index = vk->vulkan->queue_graphics.index;
     device_hwctx->nb_graphics_queues = vk->vulkan->queue_graphics.count;
+    MP_VERBOSE(hw, "Vulkan: Graphics: family=%d count=%d\n",
+               device_hwctx->queue_family_index, device_hwctx->nb_graphics_queues);
     device_hwctx->queue_family_tx_index = vk->vulkan->queue_transfer.index;
     device_hwctx->nb_tx_queues = vk->vulkan->queue_transfer.count;
+    MP_VERBOSE(hw, "Vulkan: Transfer: family=%d count=%d\n",
+               device_hwctx->queue_family_tx_index, device_hwctx->nb_tx_queues);
     device_hwctx->queue_family_comp_index = vk->vulkan->queue_compute.index;
     device_hwctx->nb_comp_queues = vk->vulkan->queue_compute.count;
+    MP_VERBOSE(hw, "Vulkan: Compute: family=%d count=%d\n",
+               device_hwctx->queue_family_comp_index, device_hwctx->nb_comp_queues);
     device_hwctx->queue_family_decode_index = decode_index;
     device_hwctx->nb_decode_queues = decode_index >= 0 ? qf[decode_index].queueFamilyProperties.queueCount : 0;
+    MP_VERBOSE(hw, "Vulkan: Decode: family=%d count=%d\n",
+               device_hwctx->queue_family_decode_index, device_hwctx->nb_decode_queues);
 #endif
 
+    MP_VERBOSE(hw, "Vulkan: Initializing FFmpeg device context\n");
     ret = av_hwdevice_ctx_init(hw_device_ctx);
     if (ret < 0) {
         MP_MSG(hw, level, "av_hwdevice_ctx_init failed\n");
         goto error;
     }
+    MP_VERBOSE(hw, "Vulkan: FFmpeg device context initialized successfully\n");
 
     p->hwctx = (struct mp_hwdec_ctx) {
         .driver_name = hw->driver->name,
@@ -211,15 +263,25 @@ static int mapper_init(struct ra_hwdec_mapper *mapper)
 {
     struct vulkan_mapper_priv *p = mapper->priv;
 
+    MP_VERBOSE(mapper, "Vulkan: Initializing mapper\n");
+
     mapper->dst_params = mapper->src_params;
     mapper->dst_params.imgfmt = mapper->src_params.hw_subfmt;
     mapper->dst_params.hw_subfmt = 0;
 
     mp_image_set_params(&p->layout, &mapper->dst_params);
+    
+    MP_VERBOSE(mapper, "Vulkan: Mapper dst format=%s size=%dx%d\n",
+               mp_imgfmt_to_name(mapper->dst_params.imgfmt),
+               mapper->dst_params.w, mapper->dst_params.h);
 
     struct ra_imgfmt_desc desc = {0};
-    if (!ra_get_imgfmt_desc(mapper->ra, mapper->dst_params.imgfmt, &desc))
+    if (!ra_get_imgfmt_desc(mapper->ra, mapper->dst_params.imgfmt, &desc)) {
+        MP_VERBOSE(mapper, "Vulkan: Failed to get image format descriptor\n");
         return -1;
+    }
+    
+    MP_VERBOSE(mapper, "Vulkan: Mapper initialized with %d planes\n", desc.num_planes);
 
     return 0;
 }
