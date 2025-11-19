@@ -29,6 +29,8 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
 {
     mp_assert(gpu);
 
+    MP_VERBOSE(log, "libplacebo: Creating RA wrapper for pl_gpu\n");
+
     struct ra *ra = talloc_zero(NULL, struct ra);
     ra->log = log;
     ra->fns = &ra_fns_pl;
@@ -40,39 +42,72 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
     ra->glsl_vulkan = gpu->glsl.vulkan;
     ra->glsl_es = gpu->glsl.gles;
 
+    MP_VERBOSE(log, "libplacebo: GLSL version=%d vulkan=%d es=%d\n",
+               gpu->glsl.version, gpu->glsl.vulkan, gpu->glsl.gles);
+
     ra->caps = RA_CAP_DIRECT_UPLOAD | RA_CAP_NESTED_ARRAY | RA_CAP_FRAGCOORD;
 
-    if (gpu->glsl.compute)
+    if (gpu->glsl.compute) {
         ra->caps |= RA_CAP_COMPUTE | RA_CAP_NUM_GROUPS;
-    if (gpu->limits.compute_queues > gpu->limits.fragment_queues)
+        MP_VERBOSE(log, "libplacebo: GPU supports compute shaders\n");
+    }
+    if (gpu->limits.compute_queues > gpu->limits.fragment_queues) {
         ra->caps |= RA_CAP_PARALLEL_COMPUTE;
-    if (gpu->limits.max_variable_comps)
+        MP_VERBOSE(log, "libplacebo: GPU supports parallel compute\n");
+    }
+    if (gpu->limits.max_variable_comps) {
         ra->caps |= RA_CAP_GLOBAL_UNIFORM;
-    if (!gpu->limits.host_cached)
+        MP_VERBOSE(log, "libplacebo: GPU supports global uniforms (max=%d)\n",
+                   gpu->limits.max_variable_comps);
+    }
+    if (!gpu->limits.host_cached) {
         ra->caps |= RA_CAP_SLOW_DR;
+        MP_VERBOSE(log, "libplacebo: GPU does not have host-cached memory\n");
+    }
 
-    if (gpu->limits.max_tex_1d_dim)
+    if (gpu->limits.max_tex_1d_dim) {
         ra->caps |= RA_CAP_TEX_1D;
-    if (gpu->limits.max_tex_3d_dim)
+        MP_VERBOSE(log, "libplacebo: 1D textures supported (max=%d)\n",
+                   gpu->limits.max_tex_1d_dim);
+    }
+    if (gpu->limits.max_tex_3d_dim) {
         ra->caps |= RA_CAP_TEX_3D;
-    if (gpu->limits.max_ubo_size)
+        MP_VERBOSE(log, "libplacebo: 3D textures supported (max=%d)\n",
+                   gpu->limits.max_tex_3d_dim);
+    }
+    if (gpu->limits.max_ubo_size) {
         ra->caps |= RA_CAP_BUF_RO;
-    if (gpu->limits.max_ssbo_size)
+        MP_VERBOSE(log, "libplacebo: UBO supported (max=%zu bytes)\n",
+                   gpu->limits.max_ubo_size);
+    }
+    if (gpu->limits.max_ssbo_size) {
         ra->caps |= RA_CAP_BUF_RW;
-    if (gpu->glsl.min_gather_offset && gpu->glsl.max_gather_offset)
+        MP_VERBOSE(log, "libplacebo: SSBO supported (max=%zu bytes)\n",
+                   gpu->limits.max_ssbo_size);
+    }
+    if (gpu->glsl.min_gather_offset && gpu->glsl.max_gather_offset) {
         ra->caps |= RA_CAP_GATHER;
+        MP_VERBOSE(log, "libplacebo: Texture gather supported\n");
+    }
 
     // Semi-hack: assume all textures are blittable if r8 is
     pl_fmt r8 = pl_find_named_fmt(gpu, "r8");
-    if (r8->caps & PL_FMT_CAP_BLITTABLE)
+    if (r8->caps & PL_FMT_CAP_BLITTABLE) {
         ra->caps |= RA_CAP_BLIT;
+        MP_VERBOSE(log, "libplacebo: Blit operations supported\n");
+    }
 
     ra->max_texture_wh = gpu->limits.max_tex_2d_dim;
     ra->max_pushc_size = gpu->limits.max_pushc_size;
     ra->max_compute_group_threads = gpu->glsl.max_group_threads;
     ra->max_shmem = gpu->glsl.max_shmem_size;
 
+    MP_VERBOSE(log, "libplacebo: Limits: max_tex_2d=%d pushc=%zu compute_threads=%d shmem=%zu\n",
+               ra->max_texture_wh, ra->max_pushc_size,
+               ra->max_compute_group_threads, ra->max_shmem);
+
     // Set up format wrappers
+    MP_VERBOSE(log, "libplacebo: Enumerating %d GPU formats\n", gpu->num_formats);
     for (int i = 0; i < gpu->num_formats; i++) {
         pl_fmt plfmt = gpu->formats[i];
         static const enum ra_ctype fmt_type_map[PL_FMT_TYPE_COUNT] = {
@@ -107,6 +142,8 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
         MP_TARRAY_APPEND(ra, ra->formats, ra->num_formats, rafmt);
     }
 
+    MP_VERBOSE(log, "libplacebo: Registered %d usable formats\n", ra->num_formats);
+
     return ra;
 }
 
@@ -128,8 +165,14 @@ static struct ra_format *map_fmt(struct ra *ra, pl_fmt plfmt)
 
 bool mppl_wrap_tex(struct ra *ra, pl_tex pltex, struct ra_tex *out_tex)
 {
-    if (!pltex)
+    if (!pltex) {
+        MP_VERBOSE(ra, "libplacebo: Cannot wrap NULL texture\n");
         return false;
+    }
+
+    MP_VERBOSE(ra, "libplacebo: Wrapping pl_tex %dx%d format=%s\n",
+               pltex->params.w, pltex->params.h,
+               pltex->params.format->name);
 
     *out_tex = (struct ra_tex) {
         .params = {
@@ -159,6 +202,15 @@ static struct ra_tex *tex_create_pl(struct ra *ra,
                                     const struct ra_tex_params *params)
 {
     pl_gpu gpu = get_gpu(ra);
+    
+    MP_VERBOSE(ra, "libplacebo: Creating texture %dx%dx%d format=%s caps=%s%s%s%s\n",
+               params->w, params->h, params->d,
+               params->format->name,
+               params->render_src ? " render_src" : "",
+               params->render_dst ? " render_dst" : "",
+               params->storage_dst ? " storage" : "",
+               params->host_mutable ? " host_mutable" : "");
+    
     pl_tex pltex = pl_tex_create(gpu, &(struct pl_tex_params) {
         .w = params->w,
         .h = params->dimensions >= 2 ? params->h : 0,
@@ -174,10 +226,16 @@ static struct ra_tex *tex_create_pl(struct ra *ra,
         .initial_data = params->initial_data,
     });
 
+    if (!pltex) {
+        MP_VERBOSE(ra, "libplacebo: Failed to create texture\n");
+        return NULL;
+    }
+
     struct ra_tex *ratex = talloc_ptrtype(NULL, ratex);
     if (!mppl_wrap_tex(ra, pltex, ratex)) {
         pl_tex_destroy(gpu, &pltex);
         talloc_free(ratex);
+        MP_VERBOSE(ra, "libplacebo: Failed to wrap texture\n");
         return NULL;
     }
 
