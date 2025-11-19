@@ -57,7 +57,7 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
     }
     if (gpu->limits.max_variable_comps) {
         ra->caps |= RA_CAP_GLOBAL_UNIFORM;
-        mp_verbose(log, "libplacebo: GPU supports global uniforms (max=%d)\n",
+        mp_verbose(log, "libplacebo: GPU supports global uniforms (max=%zu)\n",
                    gpu->limits.max_variable_comps);
     }
     if (!gpu->limits.host_cached) {
@@ -102,7 +102,7 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
     ra->max_compute_group_threads = gpu->glsl.max_group_threads;
     ra->max_shmem = gpu->glsl.max_shmem_size;
 
-    mp_verbose(log, "libplacebo: Limits: max_tex_2d=%d pushc=%zu compute_threads=%d shmem=%zu\n",
+    mp_verbose(log, "libplacebo: Limits: max_tex_2d=%d pushc=%zu compute_threads=%zu shmem=%zu\n",
                ra->max_texture_wh, ra->max_pushc_size,
                ra->max_compute_group_threads, ra->max_shmem);
 
