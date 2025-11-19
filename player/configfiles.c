@@ -515,7 +515,7 @@ bool mp_load_playback_resume(struct MPContext *mpctx, const char *file)
 
         // Never apply the saved start position to following files
         m_config_backup_opt(mpctx->mconfig, "start");
-        MP_INFO(mpctx, "Resuming playback. This behavior can "
+        MP_INFO(mpctx, "INFO: Resuming playback. This behavior can "
                "be disabled with --no-resume-playback.\n");
         try_load_config(mpctx, fname, M_SETOPT_PRESERVE_CMDLINE, MSGL_V);
         resume = true;
