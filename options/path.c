@@ -39,7 +39,6 @@
 #include "osdep/path.h"
 #include "misc/ctype.h"
 
-// In order of decreasing priority: the first has highest priority.
 static const mp_get_platform_path_cb path_resolvers[] = {
     mp_get_platform_path_unix,
 };
