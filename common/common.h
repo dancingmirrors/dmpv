@@ -35,46 +35,43 @@
 
 // Min/max macros with sign-compare warning suppression
 // Note: These use statement expressions and can't be used in static initializers
+#if defined(__GNUC__) || defined(__clang__)
 #define MPMAX(a, b) \
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \
         _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
-        _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wsign-compare\"") \
         __typeof__(a) a_ = (a); \
         __typeof__(b) b_ = (b); \
         __typeof__(a_) result_ = a_ > b_ ? a_ : b_; \
         _Pragma("GCC diagnostic pop") \
-        _Pragma("clang diagnostic pop") \
         result_; \
     })
 #define MPMIN(a, b) \
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \
         _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
-        _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wsign-compare\"") \
         __typeof__(a) a_ = (a); \
         __typeof__(b) b_ = (b); \
         __typeof__(a_) result_ = a_ > b_ ? b_ : a_; \
         _Pragma("GCC diagnostic pop") \
-        _Pragma("clang diagnostic pop") \
         result_; \
     })
 #define MPCLAMP(a, min, max) \
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \
         _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
-        _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wsign-compare\"") \
         __typeof__(a) a_ = (a); \
         __typeof__(min) min_ = (min); \
         __typeof__(max) max_ = (max); \
         __typeof__(a_) result_ = a_ < min_ ? min_ : (a_ > max_ ? max_ : a_); \
         _Pragma("GCC diagnostic pop") \
-        _Pragma("clang diagnostic pop") \
         result_; \
     })
+#else
+#define MPMAX(a, b) ((a) > (b) ? (a) : (b))
+#define MPMIN(a, b) ((a) > (b) ? (b) : (a))
+#define MPCLAMP(a, min, max) (((a) < (min)) ? (min) : (((a) > (max)) ? (max) : (a)))
+#endif
 #define MPSWAP(type, a, b) \
     do { type SWAP_tmp = b; b = a; a = SWAP_tmp; } while (0)
 #define MP_ARRAY_SIZE(s) (sizeof(s) / sizeof((s)[0]))
