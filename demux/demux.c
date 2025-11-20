@@ -2534,8 +2534,14 @@ static void update_opts(struct demux_internal *in)
 // Make demuxing progress. Return whether progress was made.
 static bool thread_work(struct demux_internal *in)
 {
-    if (m_config_cache_update(in->opts_cache))
+    struct demux_opts *opts = in->opts;
+    int64_t old_max_bytes = opts->max_bytes;
+    int64_t old_max_bytes_bw = opts->max_bytes_bw;
+    if (m_config_cache_update(in->opts_cache)) {
         update_opts(in);
+        if (opts->max_bytes + opts->max_bytes_bw < old_max_bytes + old_max_bytes_bw)
+            demux_packet_pool_clear(in->packet_pool);
+    }
     if (in->tracks_switched) {
         execute_trackswitch(in);
         return true;
