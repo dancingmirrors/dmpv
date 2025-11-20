@@ -142,7 +142,7 @@ uint64_t demux_cache_get_size(struct demux_cache *cache)
 
 static bool do_seek(struct demux_cache *cache, uint64_t pos)
 {
-    if (cache->file_pos == pos)
+    if (cache->file_pos == (int64_t)pos)
         return true;
 
     off_t res = lseek(cache->fd, pos, SEEK_SET);
@@ -171,7 +171,7 @@ static bool write_raw(struct demux_cache *cache, void *ptr, size_t len)
 
     // Should never happen, unless the disk is full, or someone succeeded to
     // trick us to write into a pipe or a socket.
-    if (res != len) {
+    if (res != (ssize_t)len) {
         MP_ERR(cache, "Could not write all data.\n");
         return false;
     }
@@ -192,7 +192,7 @@ static bool read_raw(struct demux_cache *cache, void *ptr, size_t len)
 
     // Should never happen, unless the file was cut short, or someone succeeded
     // to rick us to write into a pipe or a socket.
-    if (res != len) {
+    if (res != (ssize_t)len) {
         MP_ERR(cache, "Could not read all data.\n");
         return false;
     }

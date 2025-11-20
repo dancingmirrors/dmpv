@@ -279,7 +279,7 @@ static void pretty_print_module(FILE* stream, const char *prefix, bool use_color
     if (use_color) {
         size_t prefix_len = strlen(prefix);
         unsigned int mod = 0;
-        for (int i = 0; i < prefix_len; ++i)
+        for (size_t i = 0; i < prefix_len; ++i)
             mod = mod * 33 + prefix[i];
         set_term_color(stream, (mod + 1) % 15 + 1);
     }
@@ -456,7 +456,7 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
                 print_terminal_line(log, lev, text, "\r");
         } else if (text[0]) {
             int size = strlen(text) + 1;
-            if (talloc_get_size(log->partial) < size)
+            if ((int)talloc_get_size(log->partial) < size)
                 log->partial = talloc_realloc(NULL, log->partial, char, size);
             memcpy(log->partial, text, size);
         }
@@ -959,7 +959,7 @@ const int mp_dmpv_log_levels[MSGL_MAX + 1] = {
 
 int mp_msg_find_level(const char *s)
 {
-    for (int n = 0; n < MP_ARRAY_SIZE(mp_log_levels); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(mp_log_levels); n++) {
         if (mp_log_levels[n] && !strcasecmp(s, mp_log_levels[n]))
             return n;
     }

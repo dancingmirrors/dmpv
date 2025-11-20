@@ -63,7 +63,7 @@ static const struct ao_driver * const audio_out_drivers[] = {
 
 static bool get_desc(struct m_obj_desc *dst, int index)
 {
-    if (index >= MP_ARRAY_SIZE(audio_out_drivers))
+    if (index >= (int)MP_ARRAY_SIZE(audio_out_drivers))
         return false;
     const struct ao_driver *ao = audio_out_drivers[index];
     *dst = (struct m_obj_desc) {
@@ -268,7 +268,7 @@ struct ao *ao_init_best(struct dmpv_global *global,
     }
 
     if (autoprobe) {
-        for (int n = 0; n < MP_ARRAY_SIZE(audio_out_drivers); n++) {
+        for (int n = 0; n < (int)MP_ARRAY_SIZE(audio_out_drivers); n++) {
             const struct ao_driver *driver = audio_out_drivers[n];
             if (driver == &audio_out_null)
                 break;
@@ -476,7 +476,7 @@ struct ao_device_list *ao_hotplug_get_device_list(struct ao_hotplug *hp,
         }
     }
 
-    for (int n = 0; n < MP_ARRAY_SIZE(audio_out_drivers); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(audio_out_drivers); n++) {
         const struct ao_driver *d = audio_out_drivers[n];
         if (d == &audio_out_null)
             break; // don't add unsafe/special entries

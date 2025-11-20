@@ -76,7 +76,7 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
                     break;
                 bstr data = (bstr){(unsigned char *)buf, len};
                 int pos = bstrchr(data, '\n');
-                data = bstr_splice(data, 0, pos < 0 ? data.len : pos + 1);
+                data = bstr_splice(data, 0, pos < 0 ? (int)data.len : pos + 1);
                 bstr fname = bstr_strip(data);
                 if (fname.len) {
                     if (bstrchr(fname, '\0') >= 0) {
@@ -135,7 +135,7 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
             return NULL;
         }
 
-        for (int i = 0; i < gg.gl_pathc; i++) {
+        for (size_t i = 0; i < gg.gl_pathc; i++) {
             if (mp_path_isdir(gg.gl_pathv[i]))
                 continue;
             mf_add(mf, gg.gl_pathv[i]);
@@ -180,7 +180,7 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
     mp_info(log, "search expr: %s\n", filename);
 
     while (error_count < 5) {
-        if (snprintf(fname, fname_avail, filename, count++) >= fname_avail) {
+        if (snprintf(fname, fname_avail, filename, count++) >= (int)fname_avail) {
             mp_err(log, "format result too long: '%s'\n", filename);
             goto exit_mf;
         }

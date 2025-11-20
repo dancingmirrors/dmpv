@@ -4233,7 +4233,7 @@ static void dump_cache(struct demux_internal *in, double start, double end)
     // (only in pathological cases there might be more ranges than allowed)
     struct demux_cached_range *ranges[MAX_SEEK_RANGES];
     int num_ranges = 0;
-    for (int n = 0; n < MPMIN(MP_ARRAY_SIZE(ranges), in->num_ranges); n++)
+    for (int n = 0; n < (int)MPMIN(MP_ARRAY_SIZE(ranges), in->num_ranges); n++)
         ranges[num_ranges++] = in->ranges[n];
     qsort(ranges, num_ranges, sizeof(ranges[0]), range_time_compare);
 
@@ -4522,7 +4522,7 @@ void demux_get_reader_state(struct demuxer *demuxer, struct demux_reader_state *
         .ts_last = in->demux_ts,
         .bytes_per_second = in->bytes_per_second,
         .byte_level_seeks = in->byte_level_seeks,
-        .file_cache_bytes = in->cache ? demux_cache_get_size(in->cache) : -1,
+        .file_cache_bytes = in->cache ? (int64_t)demux_cache_get_size(in->cache) : -1,
     };
     bool any_packets = false;
     for (int n = 0; n < in->num_streams; n++) {

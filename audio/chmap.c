@@ -217,7 +217,7 @@ void mp_chmap_fill_na(struct mp_chmap *map, int num)
 void mp_chmap_from_channels(struct mp_chmap *dst, int num_channels)
 {
     *dst = (struct mp_chmap) {0};
-    if (num_channels >= 0 && num_channels < MP_ARRAY_SIZE(default_layouts))
+    if (num_channels >= 0 && num_channels < (int)MP_ARRAY_SIZE(default_layouts))
         *dst = default_layouts[num_channels];
     if (!dst->num)
         mp_chmap_set_unknown(dst, num_channels);

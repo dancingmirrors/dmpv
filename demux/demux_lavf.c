@@ -294,7 +294,7 @@ static bool matches_avinputformat_name(struct lavf_priv *priv,
         if (!next)
             return !strcmp(avifname, name);
         int len = next - avifname;
-        if (len == strlen(name) && !memcmp(avifname, name, len))
+        if (len == (int)strlen(name) && !memcmp(avifname, name, len))
             return true;
         avifname = next + 1;
     }
@@ -905,7 +905,7 @@ static void handle_new_stream(demuxer_t *demuxer, int i)
 static void add_new_streams(demuxer_t *demuxer)
 {
     lavf_priv_t *priv = demuxer->priv;
-    while (priv->num_streams < priv->avfc->nb_streams)
+    while (priv->num_streams < (int)priv->avfc->nb_streams)
         handle_new_stream(demuxer, priv->num_streams);
 }
 
@@ -1161,7 +1161,7 @@ static int demux_open_lavf(demuxer_t *demuxer, enum demux_check check)
                    " bytes.\n", stream_tell(priv->stream));
     }
 
-    for (int i = 0; i < avfc->nb_chapters; i++) {
+    for (unsigned int i = 0; i < avfc->nb_chapters; i++) {
         AVChapter *c = avfc->chapters[i];
         t = av_dict_get(c->metadata, "title", NULL, 0);
         int index = demuxer_add_chapter(demuxer, t ? t->value : "",
@@ -1194,7 +1194,7 @@ static int demux_open_lavf(demuxer_t *demuxer, enum demux_check check)
     // only accurate to the 6th decimal place. This is probably a lavf bug.
     double total_duration = -1;
     double av_duration = -1;
-    for (int n = 0; n < priv->avfc->nb_streams; n++) {
+    for (unsigned int n = 0; n < priv->avfc->nb_streams; n++) {
         AVStream *st = priv->avfc->streams[n];
         if (st->duration <= 0)
             continue;

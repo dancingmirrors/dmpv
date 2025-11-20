@@ -207,7 +207,7 @@ void check_library_versions(struct mp_log *log, int v)
     mp_msg(log, v, "FFmpeg version: %s\n", av_version_info());
     mp_msg(log, v, "FFmpeg library versions:\n");
 
-    for (int n = 0; n < MP_ARRAY_SIZE(libs); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(libs); n++) {
         const struct lib *l = &libs[n];
         mp_msg(log, v, "%-15s %d.%d.%d", l->name, V(l->buildv));
         if (l->buildv != l->runv)

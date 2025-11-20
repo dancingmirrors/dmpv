@@ -116,7 +116,7 @@ static void map_audio_pcm_tag(struct mp_codec_params *c)
 
         // WAVEFORMATEXTENSIBLE.SubFormat
         unsigned char *subformat = c->extradata + 6;
-        for (int i = 0; i < MP_ARRAY_SIZE(guid_ext_base); i++) {
+        for (int i = 0; i < (int)MP_ARRAY_SIZE(guid_ext_base); i++) {
             if (memcmp(subformat + 4, guid_ext_base[i] + 4, 12) == 0) {
                 c->codec_tag = AV_RL32(subformat);
                 c->codec = lookup_tag(c->type, c->codec_tag);
@@ -126,7 +126,7 @@ static void map_audio_pcm_tag(struct mp_codec_params *c)
 
         // extra subformat, not a base one
         if (c->codec_tag == 0xfffe) {
-            for (int i = 0; i < MP_ARRAY_SIZE(guid_ext_other); i++) {
+            for (int i = 0; i < (int)MP_ARRAY_SIZE(guid_ext_other); i++) {
                 if (memcmp(subformat, &guid_ext_other[i].guid, 16) == 0) {
                     c->codec = guid_ext_other[i].codec;
                     c->codec_tag = mp_codec_to_av_codec_id(c->codec);

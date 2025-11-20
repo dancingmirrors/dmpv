@@ -166,7 +166,7 @@ static void build_timeline(struct timeline *tl)
     struct cue_track *tracks = NULL;
     size_t track_count = 0;
 
-    for (size_t n = 0; n < p->f->num_tracks; n++) {
+    for (int n = 0; n < (int)p->f->num_tracks; n++) {
         struct cue_track *track = &p->f->tracks[n];
         if (track->filename) {
             MP_TARRAY_APPEND(ctx, tracks, track_count, *track);
@@ -215,7 +215,7 @@ static void build_timeline(struct timeline *tl)
     struct demux_chapter *chapters = talloc_array_ptrtype(tl, chapters,
                                                           track_count);
     double starttime = 0;
-    for (int i = 0; i < track_count; i++) {
+    for (size_t i = 0; i < track_count; i++) {
         struct demuxer *source = tl->sources[1 + tracks[i].source];
         double duration;
         if (i + 1 < track_count && tracks[i].source == tracks[i + 1].source) {

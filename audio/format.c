@@ -77,7 +77,7 @@ static const int planar_formats[][2] = {
 
 bool af_fmt_is_planar(int format)
 {
-    for (int n = 0; n < MP_ARRAY_SIZE(planar_formats); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(planar_formats); n++) {
         if (planar_formats[n][0] == format)
             return true;
     }
@@ -89,7 +89,7 @@ bool af_fmt_is_planar(int format)
 // return it.
 int af_fmt_to_planar(int format)
 {
-    for (int n = 0; n < MP_ARRAY_SIZE(planar_formats); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(planar_formats); n++) {
         if (planar_formats[n][1] == format)
             return planar_formats[n][0];
     }
@@ -101,7 +101,7 @@ int af_fmt_to_planar(int format)
 // return it.
 int af_fmt_from_planar(int format)
 {
-    for (int n = 0; n < MP_ARRAY_SIZE(planar_formats); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(planar_formats); n++) {
         if (planar_formats[n][0] == format)
             return planar_formats[n][1];
     }

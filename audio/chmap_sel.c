@@ -74,7 +74,7 @@ static bool test_preferred_remix(const struct mp_chmap *src,
     struct mp_chmap src_p = *src, dst_p = *dst;
     mp_chmap_remove_na(&src_p);
     mp_chmap_remove_na(&dst_p);
-    for (int n = 0; n < MP_ARRAY_SIZE(preferred_remix); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(preferred_remix); n++) {
         if (mp_chmap_equals_reordered(&src_p, &preferred_remix[n][0]) &&
             mp_chmap_equals_reordered(&dst_p, &preferred_remix[n][1]))
             return true;
@@ -193,7 +193,7 @@ bool mp_chmap_sel_adjust(const struct mp_chmap_sel *s, struct mp_chmap *map)
     if (mp_chmap_sel_fallback(s, map))
         return true;
 
-    for (int i = 0; i < MP_ARRAY_SIZE(speaker_replacements); i++) {
+    for (int i = 0; i < (int)MP_ARRAY_SIZE(speaker_replacements); i++) {
         struct mp_chmap  t = *map;
         struct mp_chmap *r = (struct mp_chmap *)speaker_replacements[i];
         if (replace_speakers(&t, r) && test_layout(s, &t)) {

@@ -226,7 +226,7 @@ int ao_read_data_converted(struct ao *ao, struct ao_convert_fmt *fmt,
     int dst_plane_size = plane_samples * fmt->dst_bits / 8;
 
     int needed = src_plane_size * planes;
-    if (needed > talloc_get_size(p->convert_buffer) || !p->convert_buffer) {
+    if (needed > (int)talloc_get_size(p->convert_buffer) || !p->convert_buffer) {
         talloc_free(p->convert_buffer);
         p->convert_buffer = talloc_size(NULL, needed);
     }

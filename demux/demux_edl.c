@@ -190,7 +190,7 @@ static struct tl_root *parse_edl(bstr str, struct mp_log *log)
             bstr name, val;
             // Check if it's of the form "name=..."
             int next = bstrcspn(str, "=%,;\n");
-            if (next > 0 && next < str.len && str.start[next] == '=') {
+            if (next > 0 && next < (int)str.len && str.start[next] == '=') {
                 name = bstr_splice(str, 0, next);
                 str = bstr_cut(str, next + 1);
             } else if (is_header) {
@@ -202,7 +202,7 @@ static struct tl_root *parse_edl(bstr str, struct mp_log *log)
             }
             if (bstr_eatstart0(&str, "%")) {
                 int len = bstrtoll(str, &str, 0);
-                if (!bstr_startswith0(str, "%") || (len > str.len - 1))
+                if (!bstr_startswith0(str, "%") || (len > (int)str.len - 1))
                     goto error;
                 val = bstr_splice(str, 1, len + 1);
                 str = bstr_cut(str, len + 1);
