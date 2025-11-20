@@ -189,7 +189,7 @@ static bool pl_eof(struct pl_parser *p)
 
 static bool maybe_text(bstr d)
 {
-    for (int n = 0; n < d.len; n++) {
+    for (size_t n = 0; n < d.len; n++) {
         unsigned char c = d.start[n];
         if (c < 32 && c != '\n' && c != '\r' && c != '\t')
             return false;
@@ -464,7 +464,7 @@ static const struct pl_format formats[] = {
 static const struct pl_format *probe_pl(struct pl_parser *p)
 {
     int64_t start = stream_tell(p->s);
-    for (int n = 0; n < MP_ARRAY_SIZE(formats); n++) {
+    for (int n = 0; n < (int)MP_ARRAY_SIZE(formats); n++) {
         const struct pl_format *fmt = &formats[n];
         stream_seek(p->s, start);
         if (check_mimetype(p->s, fmt->mime_types)) {

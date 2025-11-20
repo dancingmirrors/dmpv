@@ -360,7 +360,7 @@ static void setup_packed_packer(struct mp_repack *rp)
         num_real_components++;
     }
 
-    int depth = desc.comps[0].size + MPMIN(0, desc.comps[0].pad);
+    int depth = desc.comps[0].size + MPMIN(0, (int)desc.comps[0].pad);
 
     static const int reorder_gbrp[] = {0, 3, 1, 2, 4};
     static const int reorder_yuv[] = {0, 1, 2, 3, 4};
@@ -479,9 +479,9 @@ static void setup_fringe_rgb_packer(struct mp_repack *rp)
             return;
 
         if (rp->flags & REPACK_CREATE_ROUND_DOWN) {
-            depth = MPMIN(depth, c->size);
+            depth = MPMIN(depth, (int)c->size);
         } else {
-            depth = MPMAX(depth, c->size);
+            depth = MPMAX(depth, (int)c->size);
         }
     }
     if (rp->flags & REPACK_CREATE_EXPAND_8BIT)

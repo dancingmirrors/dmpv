@@ -33,6 +33,8 @@
 #define MP_CONCAT_(a, b) a ## b
 #define MP_CONCAT(a, b) MP_CONCAT_(a, b)
 
+// Min/max macros with sign-compare warning suppression
+// Note: These use statement expressions and can't be used in static initializers
 #define MPMAX(a, b) \
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \

@@ -669,7 +669,7 @@ void mp_image_clear(struct mp_image *img, int x0, int y0, int x1, int y1)
             int plane_bits = fmt->bpp[cd->plane] * misery;
             if (plane_bits <= 64 && plane_bits % 8u == 0 && cd->size) {
                 plane_size[cd->plane] = plane_bits / 8u;
-                int depth = cd->size + MPMIN(cd->pad, 0);
+                int depth = cd->size + MPMIN((int)cd->pad, 0);
                 double m, o;
                 mp_get_csp_uint_mul(area.params.color.space,
                                     area.params.color.levels,

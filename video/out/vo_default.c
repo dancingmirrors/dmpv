@@ -431,7 +431,7 @@ static int plane_data_from_imgfmt(struct pl_plane_data out_data[4],
             struct pl_bit_encoding bits = {
                 .sample_depth = data->component_size[c],
                 .color_depth = sorted[c].size - abs(sorted[c].pad),
-                .bit_shift = MPMAX(sorted[c].pad, 0),
+                .bit_shift = MPMAX((int)sorted[c].pad, 0),
             };
 
             if (!has_bits) {

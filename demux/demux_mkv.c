@@ -284,7 +284,7 @@ static int aac_get_sample_rate_index(uint32_t sample_rate)
         23004, 18783, 13856, 11502, 9391, 0
     };
     int i = 0;
-    while (sample_rate < srates[i])
+    while (sample_rate < (uint32_t)srates[i])
         i++;
     return i;
 }
@@ -355,7 +355,7 @@ static bstr demux_mkv_decode(struct mp_log *log, mkv_track_t *track,
             /* lzo encoded track */
             int out_avail;
             int maxlen = INT_MAX - AV_LZO_OUTPUT_PADDING;
-            if (size >= maxlen / 3)
+            if (size >= (uint32_t)maxlen / 3)
                 goto error;
             int dstlen = size * 3;
 
@@ -1249,7 +1249,7 @@ static struct header_elem *get_header_element(struct demuxer *demuxer,
         // SEEKHEAD is the only element that can happen multiple times.
         // Other elements might be duplicated (or attempted to be read twice,
         // even if it's only once in the file), but only the first is used.
-        if (elem->id == id && (id != MATROSKA_ID_SEEKHEAD ||
+        if (elem->id == (uint32_t)id && ((uint32_t)id != MATROSKA_ID_SEEKHEAD ||
                                elem->pos == element_filepos))
             return elem;
     }
@@ -1347,7 +1347,7 @@ static int read_deferred_element(struct demuxer *demuxer,
         MP_WARN(demuxer, "Failed to seek when reading header element.\n");
         return 0;
     }
-    if (ebml_read_id(s) != elem->id) {
+    if (ebml_read_id(s) != (int32_t)elem->id) {
         MP_ERR(demuxer, "Expected element 0x%"PRIx32" not found\n",
                elem->id);
         return 0;
@@ -1595,7 +1595,7 @@ static void parse_vorbis_chmap(struct mp_chmap *channels, unsigned char *data,
     uint32_t num_headers = AV_RL32(data);
     size -= 4;
     data += 4;
-    for (int n = 0; n < num_headers; n++) {
+    for (uint32_t n = 0; n < num_headers; n++) {
         if (size < 4)
             return;
         uint32_t len = AV_RL32(data);
@@ -1636,7 +1636,7 @@ static void parse_flac_chmap(struct mp_chmap *channels, unsigned char *data,
         unsigned bsize = AV_RB24(data + 1);
         data += 4;
         size -= 4;
-        if (bsize > size)
+        if (bsize > (unsigned)size)
             return;
         if (btype == 4) // VORBIS_COMMENT
             parse_vorbis_chmap(channels, data, bsize);
@@ -1739,7 +1739,7 @@ static int demux_mkv_open_audio(demuxer_t *demuxer, mkv_track_t *track)
         int offset = 0;
         if (version == 4) {
             offset += RAPROPERTIES4_SIZE;
-            if (offset + 1 > track->private_size)
+            if (offset + 1 > (int)track->private_size)
                 goto error;
             offset += (src[offset] + 1) * 2 + 3;
         } else {
@@ -1752,11 +1752,11 @@ static int demux_mkv_open_audio(demuxer_t *demuxer, mkv_track_t *track)
         if (track->coded_framesize > 0x40000000)
             goto error;
 
-        if (offset + 4 > track->private_size)
+        if (offset + 4 > (int)track->private_size)
             goto error;
         uint32_t codecdata_length = AV_RB32(src + offset);
         offset += 4;
-        if (offset > track->private_size ||
+        if (offset > (int)track->private_size ||
             codecdata_length > track->private_size - offset)
             goto error;
         extradata_len = codecdata_length;
@@ -3372,7 +3372,7 @@ static void probe_last_timestamp(struct demuxer *demuxer, int64_t start_pos)
             if (block.track && block.track->stream) {
                 enum stream_type type = block.track->stream->type;
                 uint64_t endtime = block.timecode + block.duration;
-                if (last_ts[type] < endtime)
+                if (last_ts[type] < (int64_t)endtime)
                     last_ts[type] = endtime;
             }
             free_block(&block);

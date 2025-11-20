@@ -192,8 +192,8 @@ static bool write_lavc(struct image_writer_ctx *ctx, mp_image_t *image, FILE *fp
      */
     if (memcmp(image->fmt.bpp, ctx->original_format.bpp, sizeof(image->fmt.bpp))) {
         int depth = 0;
-        for (int i = 0; i < MP_ARRAY_SIZE(ctx->original_format.comps); i++)
-            depth = MPMAX(depth, ctx->original_format.comps[i].size);
+        for (int i = 0; i < (int)MP_ARRAY_SIZE(ctx->original_format.comps); i++)
+            depth = MPMAX(depth, (int)ctx->original_format.comps[i].size);
         avctx->bits_per_raw_sample = depth;
     }
 

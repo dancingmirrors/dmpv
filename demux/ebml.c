@@ -171,7 +171,7 @@ int ebml_read_skip(struct mp_log *log, int64_t end, stream_t *s)
         goto invalid;
 
     int64_t pos2 = stream_tell(s);
-    if (len >= INT64_MAX - pos2 || (end > 0 && pos2 + len > end))
+    if (len >= (uint64_t)(INT64_MAX - pos2) || (end > 0 && pos2 + (int64_t)len > end))
         goto invalid;
 
     if (!stream_seek_skip(s, pos2 + len))
@@ -267,7 +267,7 @@ static uint64_t ebml_parse_length(uint8_t *data, size_t data_len, int *length)
     int num_allones = 0;
     if (r == len_mask - 1)
         num_allones++;
-    for (int i = 1; i < len; i++) {
+    for (int i = 1; i < (int)len; i++) {
         if (data == end)
             return -1;
         if (*data == 255)
@@ -360,7 +360,7 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
                 break;
             }
 
-        if (length > end - p) {
+        if (length > (uint64_t)(end - p)) {
             if (field_idx >= 0 && type->fields[field_idx].desc->type
                 != EBML_TYPE_SUBELEMENTS) {
                 MP_ERR(ctx, "Subelement content goes "
@@ -389,7 +389,7 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
             switch (type->fields[i].desc->type) {
             case EBML_TYPE_SUBELEMENTS: {
                 size_t max = 1000000000 / type->fields[i].desc->size;
-                if (num_elems[i] > max) {
+                if (num_elems[i] > (int)max) {
                     MP_ERR(ctx, "Too many subelements.\n");
                     num_elems[i] = max;
                 }
@@ -437,12 +437,12 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
         }
         data += len;
         uint64_t length = ebml_parse_length(data, end - data, &len);
-        if (len < 0 || len > end - data) {
+        if (len < 0 || len > (int64_t)(end - data)) {
             MP_ERR(ctx, "Error parsing subelement length\n");
             break;
         }
         data += len;
-        if (length > end - data) {
+        if (length > (uint64_t)(end - data)) {
             // Try to parse what is possible from inside this partial element
             length = end - data;
             MP_ERR(ctx, "Next subelement content goes "
@@ -569,7 +569,7 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
             uint32_t *idptr;
             GETPTR(idptr, uint32_t);
             *idptr = ebml_parse_id(data, end - data, &len);
-            if (len != length) {
+            if ((int)len != length) {
                 MP_ERR(ctx, "ebml_id broken value\n");
                 goto error;
             }
@@ -606,7 +606,7 @@ int ebml_read_element(struct stream *s, struct ebml_parse_ctx *ctx,
     }
     ctx->talloc_ctx = talloc_size(NULL, length);
     int read_len = stream_read(s, ctx->talloc_ctx, length);
-    if (read_len < length)
+    if (read_len < (int)length)
         MP_MSG(ctx, msglevel, "Unexpected end of file - partial or corrupt file?\n");
     ebml_parse_element(ctx, target, ctx->talloc_ctx, read_len, desc, 0);
     if (ctx->has_errors)
