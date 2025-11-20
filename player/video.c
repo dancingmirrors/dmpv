@@ -1026,8 +1026,8 @@ static void calculate_frame_duration(struct MPContext *mpctx)
     mpctx->past_frames[0].duration = duration;
     mpctx->past_frames[0].approx_duration = approx_duration;
 
-    MP_STATS(mpctx, "value %f frame-duration", MPMAX(0, duration));
-    MP_STATS(mpctx, "value %f frame-duration-approx", MPMAX(0, approx_duration));
+    MP_STATS(mpctx, "value %f frame-duration", MPMAX(0.0, duration));
+    MP_STATS(mpctx, "value %f frame-duration-approx", MPMAX(0.0, approx_duration));
 }
 
 void write_video(struct MPContext *mpctx)

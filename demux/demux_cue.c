@@ -171,7 +171,7 @@ static void build_timeline(struct timeline *tl)
         if (track->filename) {
             MP_TARRAY_APPEND(ctx, tracks, track_count, *track);
         } else {
-            MP_WARN(tl->demuxer, "No file specified for track entry %zd. "
+            MP_WARN(tl->demuxer, "No file specified for track entry %d. "
                     "It will be removed\n", n + 1);
         }
     }

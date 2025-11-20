@@ -40,32 +40,35 @@
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \
         _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
-        __typeof__(a) a_ = (a); \
-        __typeof__(b) b_ = (b); \
-        __typeof__(a_) result_ = a_ > b_ ? a_ : b_; \
+        _Pragma("GCC diagnostic ignored \"-Wshadow\"") \
+        __typeof__(a) mpmax_eval_a__ = (a); \
+        __typeof__(b) mpmax_eval_b__ = (b); \
+        __typeof__(mpmax_eval_a__) mpmax_eval_ret__ = mpmax_eval_a__ > mpmax_eval_b__ ? mpmax_eval_a__ : mpmax_eval_b__; \
         _Pragma("GCC diagnostic pop") \
-        result_; \
+        mpmax_eval_ret__; \
     })
 #define MPMIN(a, b) \
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \
         _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
-        __typeof__(a) a_ = (a); \
-        __typeof__(b) b_ = (b); \
-        __typeof__(a_) result_ = a_ > b_ ? b_ : a_; \
+        _Pragma("GCC diagnostic ignored \"-Wshadow\"") \
+        __typeof__(a) mpmin_eval_a__ = (a); \
+        __typeof__(b) mpmin_eval_b__ = (b); \
+        __typeof__(mpmin_eval_a__) mpmin_eval_ret__ = mpmin_eval_a__ > mpmin_eval_b__ ? mpmin_eval_b__ : mpmin_eval_a__; \
         _Pragma("GCC diagnostic pop") \
-        result_; \
+        mpmin_eval_ret__; \
     })
 #define MPCLAMP(a, min, max) \
     __extension__ ({ \
         _Pragma("GCC diagnostic push") \
         _Pragma("GCC diagnostic ignored \"-Wsign-compare\"") \
-        __typeof__(a) a_ = (a); \
-        __typeof__(min) min_ = (min); \
-        __typeof__(max) max_ = (max); \
-        __typeof__(a_) result_ = a_ < min_ ? min_ : (a_ > max_ ? max_ : a_); \
+        _Pragma("GCC diagnostic ignored \"-Wshadow\"") \
+        __typeof__(a) mpclamp_eval_a__ = (a); \
+        __typeof__(min) mpclamp_eval_min__ = (min); \
+        __typeof__(max) mpclamp_eval_max__ = (max); \
+        __typeof__(mpclamp_eval_a__) mpclamp_eval_ret__ = mpclamp_eval_a__ < mpclamp_eval_min__ ? mpclamp_eval_min__ : (mpclamp_eval_a__ > mpclamp_eval_max__ ? mpclamp_eval_max__ : mpclamp_eval_a__); \
         _Pragma("GCC diagnostic pop") \
-        result_; \
+        mpclamp_eval_ret__; \
     })
 #else
 #define MPMAX(a, b) ((a) > (b) ? (a) : (b))
