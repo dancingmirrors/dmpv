@@ -529,21 +529,6 @@ check("-jpeg*",
                                  check_cc(include = ["stdio.h", "jpeglib.h"],
                                           link = "-ljpeg")))
 
-check("shaderc*",
-      desc      = "libshaderc SPIR-V compiler",
-      fn        = lambda: check_pkg_config("shaderc >= 2023.8.1"),
-      sources   = "video/out/gpu/spirv_shaderc.c")
-check("-spirv-cross-shared",
-      desc      = "SPIRV-Cross SPIR-V shader converter (shared library)",
-      fn        = lambda: check_pkg_config("spirv-cross-c-shared"))
-check("-spirv-cross-static",
-      desc      = "SPIRV-Cross SPIR-V shader converter (static library)",
-      deps_neg  = "spirv-cross-shared",
-      fn        = lambda: check_pkg_config("spirv-cross"))
-check("spirv-cross*",
-      desc      = "SPIRV-Cross SPIR-V shader converter",
-      deps_any  = ["spirv-cross-shared", "spirv-cross-static"])
-
 check(deps      = ["drm", "egl", "gbm", "gl"],
       sources   = "video/out/hwdec/dmabuf_interop_gl.c")
 
@@ -709,7 +694,6 @@ add_sources(
     "video/out/gpu/osd.c",
     "video/out/gpu/ra.c",
     "video/out/gpu/shader_cache.c",
-    "video/out/gpu/spirv.c",
     "video/out/gpu/user_shaders.c",
     "video/out/gpu/utils.c",
     "video/out/gpu/video.c",

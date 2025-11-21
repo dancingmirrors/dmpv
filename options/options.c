@@ -78,7 +78,6 @@ extern const struct m_sub_options ao_conf;
 
 extern const struct m_sub_options opengl_conf;
 extern const struct m_sub_options vulkan_conf;
-extern const struct m_sub_options spirv_conf;
 extern const struct m_sub_options wayland_conf;
 extern const struct m_sub_options vaapi_conf;
 extern const struct m_sub_options egl_conf;
@@ -743,7 +742,6 @@ static const m_option_t mp_opts[] = {
 
     {"", OPT_SUBSTRUCT(ra_ctx_opts, ra_ctx_conf)},
     {"", OPT_SUBSTRUCT(gl_video_opts, gl_video_conf)},
-    {"", OPT_SUBSTRUCT(spirv_opts, spirv_conf)},
 
 #if HAVE_GL
     {"", OPT_SUBSTRUCT(opengl_opts, opengl_conf)},

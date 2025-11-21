@@ -30,7 +30,6 @@
 #include "video/out/vo.h"
 
 #include "context.h"
-#include "spirv.h"
 
 extern const struct ra_ctx_fns ra_ctx_vulkan_wayland;
 extern const struct ra_ctx_fns ra_ctx_vulkan_xlib;
@@ -219,9 +218,6 @@ void ra_ctx_destroy(struct ra_ctx **ctx_ptr)
     struct ra_ctx *ctx = *ctx_ptr;
     if (!ctx)
         return;
-
-    if (ctx->spirv && ctx->spirv->fns->uninit)
-        ctx->spirv->fns->uninit(ctx);
 
     ctx->fns->uninit(ctx);
     talloc_free(ctx);

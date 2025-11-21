@@ -344,7 +344,6 @@ typedef struct MPOpts {
     struct gl_video_opts *gl_video_opts;
     struct opengl_opts *opengl_opts;
     struct vulkan_opts *vulkan_opts;
-    struct spirv_opts *spirv_opts;
     struct drm_opts *drm_opts;
     struct wayland_opts *wayland_opts;
     struct vaapi_opts *vaapi_opts;
