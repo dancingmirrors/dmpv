@@ -8,6 +8,7 @@ extern const struct spirv_compiler_fns spirv_shaderc;
 
 // in probe-order
 enum {
+    SPIRV_NO = -1,
     SPIRV_AUTO = 0,
     SPIRV_SHADERC, // generally preferred, but not packaged everywhere
 };
@@ -24,6 +25,7 @@ static const struct m_opt_choice_alternatives compiler_choices[] = {
 #if HAVE_SHADERC
     {"shaderc",     SPIRV_SHADERC},
 #endif
+    {"no",          SPIRV_NO},
     {0}
 };
 
@@ -46,6 +48,13 @@ bool spirv_compiler_init(struct ra_ctx *ctx)
     struct spirv_opts *opts = mp_get_config_group(tmp, ctx->global, &spirv_conf);
     int compiler = opts->compiler;
     talloc_free(tmp);
+
+    // If user explicitly disabled SPIR-V, return success without initializing
+    if (compiler == SPIRV_NO) {
+        MP_VERBOSE(ctx, "SPIR-V compiler disabled by user\n");
+        ctx->spirv = NULL;
+        return true;
+    }
 
     for (int i = SPIRV_AUTO+1; i < MP_ARRAY_SIZE(compilers); i++) {
         if (compiler != SPIRV_AUTO && i != compiler)
