@@ -29,7 +29,7 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
     struct dmabuf_interop_priv *p = mapper->priv;
     pl_gpu gpu = ra_pl_get(mapper->ra);
 
-    MP_VERBOSE(mapper, "DMA-buf: Mapping %d planes via libplacebo\n", p->num_planes);
+    MP_DBG(mapper, "DMA-buf: Mapping %d planes via libplacebo\n", p->num_planes);
 
     struct ra_imgfmt_desc desc = {0};
     if (!ra_get_imgfmt_desc(mapper->ra, mapper->dst_params.imgfmt, &desc)) {
@@ -50,7 +50,7 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
         uint32_t offset = p->desc.layers[layer].planes[layer_plane].offset;
         uint32_t pitch = p->desc.layers[layer].planes[layer_plane].pitch;
 
-        MP_VERBOSE(mapper, "DMA-buf: Plane %d: object=%d fd=%d size=%u offset=%u pitch=%u\n",
+        MP_DBG(mapper, "DMA-buf: Plane %d: object=%d fd=%d size=%u offset=%u pitch=%u\n",
                    n, id, fd, size, offset, pitch);
 
         // AMD drivers do not return the size in the surface description, so we
@@ -89,7 +89,7 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
             },
         };
 
-        MP_VERBOSE(mapper, "DMA-buf: Creating texture %dx%d format=%s modifier=0x%lx\n",
+        MP_DBG(mapper, "DMA-buf: Creating texture %dx%d format=%s modifier=0x%lx\n",
                    tex_params.w, tex_params.h, format->name,
                    (unsigned long)p->desc.objects[id].format_modifier);
 
@@ -120,7 +120,7 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
             layer++;
         }
     }
-    MP_VERBOSE(mapper, "DMA-buf: Successfully mapped all %d planes\n", p->num_planes);
+    MP_DBG(mapper, "DMA-buf: Successfully mapped all %d planes\n", p->num_planes);
     return true;
 }
 

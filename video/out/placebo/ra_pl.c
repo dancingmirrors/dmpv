@@ -170,7 +170,7 @@ bool mppl_wrap_tex(struct ra *ra, pl_tex pltex, struct ra_tex *out_tex)
         return false;
     }
 
-    MP_VERBOSE(ra, "libplacebo: Wrapping pl_tex %dx%d format=%s\n",
+    MP_DBG(ra, "libplacebo: Wrapping pl_tex %dx%d format=%s\n",
                pltex->params.w, pltex->params.h,
                pltex->params.format->name);
 
