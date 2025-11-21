@@ -63,6 +63,10 @@ check("gpl*",
       desc      = "GPL (version 2 or later) build",
       deps_neg  = "lgpl")
 
+check("-libdmpv-shared*",
+      desc      = "libdmpv shared library",
+      default   = False)
+
 check(desc      = "whether the compiler works",
       required  = "C compiler: missing or broken",
       fn        = lambda: check_program("CC") and check_cc(link = []))

@@ -723,6 +723,11 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     for d in dirs_to_create:
         os.makedirs(d, exist_ok=True)
 
+    # Check if we're building a shared library and add -fPIC if needed
+    libdmpv_enabled = _G.dep_enabled.get("libdmpv-shared", False)
+    if libdmpv_enabled and "-fPIC" not in cflags_str:
+        cflags_str = cflags_str + " -fPIC"
+
     # Define variables
     ninja_content += f"builddir = {build_dir}\n"
     ninja_content += f"root = {root_dir}\n"
@@ -752,6 +757,13 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     ninja_content += "rule link\n"
     ninja_content += "  command = $cc @$out.rsp $ldflags -o $out\n"
+    ninja_content += "  description = LINK $out\n"
+    ninja_content += "  rspfile = $out.rsp\n"
+    ninja_content += "  rspfile_content = $in\n"
+    ninja_content += "\n"
+
+    ninja_content += "rule linkshared\n"
+    ninja_content += "  command = $cc @$out.rsp $ldflags -shared -fPIC -Wl,-soname,libdmpv.so.2 -o $out\n"
     ninja_content += "  description = LINK $out\n"
     ninja_content += "  rspfile = $out.rsp\n"
     ninja_content += "  rspfile_content = $in\n"
@@ -914,29 +926,86 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     ninja_content += "\n"
 
-    # Link target
-    target = f"$builddir/dmpv$exesuf"
-    # Add version.h as order-only dependency to ensure link runs when version changes
-    # Use | to specify order-only dependency so it's not included in $in (and thus not in the response file)
-    ninja_content += f"build {target}: link {' '.join(objects)} | $builddir/generated/version.h\n"
-    ninja_content += "\n"
-
-    # Default target
-    ninja_content += f"default {target}\n"
+    # Link targets
+    prefix = _G.install_paths.get("PREFIX", "/usr/local")
+    
+    # Check if libdmpv shared library is enabled
+    libdmpv_enabled = _G.dep_enabled.get("libdmpv-shared", False)
+    
+    if libdmpv_enabled:
+        # Build shared library
+        lib_target = "$builddir/libdmpv.so.2.1.0"
+        lib_soname = "$builddir/libdmpv.so.2"
+        lib_linker = "$builddir/libdmpv.so"
+        
+        ninja_content += f"build {lib_target}: linkshared {' '.join(objects)} | $builddir/generated/version.h\n"
+        ninja_content += "\n"
+        
+        # Create symlinks for soname
+        ninja_content += "rule symlink\n"
+        ninja_content += "  command = ln -sf $(basename $in) $out\n"
+        ninja_content += "  description = SYMLINK $out\n"
+        ninja_content += "\n"
+        
+        ninja_content += f"build {lib_soname}: symlink {lib_target}\n"
+        ninja_content += f"build {lib_linker}: symlink {lib_soname}\n"
+        ninja_content += "\n"
+        
+        # Default target is the library
+        ninja_content += f"default {lib_target} {lib_soname} {lib_linker}\n"
+    else:
+        # Build executable
+        target = f"$builddir/dmpv$exesuf"
+        # Add version.h as order-only dependency to ensure link runs when version changes
+        # Use | to specify order-only dependency so it's not included in $in (and thus not in the response file)
+        ninja_content += f"build {target}: link {' '.join(objects)} | $builddir/generated/version.h\n"
+        ninja_content += "\n"
+        
+        # Default target
+        ninja_content += f"default {target}\n"
+    
     ninja_content += "\n"
 
     # Install/uninstall/clean rules
-    prefix = _G.install_paths.get("PREFIX", "/usr/local")
-
-    ninja_content += "rule install_rule\n"
-    ninja_content += f"  command = mkdir -p {prefix}/bin {prefix}/share/icons/hicolor/16x16/apps {prefix}/share/icons/hicolor/32x32/apps {prefix}/share/icons/hicolor/64x64/apps {prefix}/share/icons/hicolor/128x128/apps {prefix}/share/icons/hicolor/scalable/apps {prefix}/share/icons/hicolor/symbolic/apps {prefix}/share/applications {prefix}/etc && install -v -m 0755 $builddir/dmpv{exesuf} {prefix}/bin/dmpv{exesuf} && install -v -m 0644 $root/etc/dmpv-icon-8bit-16x16.png {prefix}/share/icons/hicolor/16x16/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-32x32.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-64x64.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-128x128.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv.svg {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg && install -v -m 0644 $root/etc/dmpv-symbolic.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg && install -v -m 0644 $root/etc/dmpv.desktop {prefix}/share/applications/dmpv.desktop && install -v -m 0644 $root/etc/dmpv.conf {prefix}/etc/dmpv.conf\n"
-    ninja_content += "  description = INSTALL\n"
-    ninja_content += "\n"
-
-    ninja_content += "rule uninstall_rule\n"
-    ninja_content += f"  command = rm -fv {prefix}/bin/dmpv{exesuf} {prefix}/share/icons/hicolor/16x16/apps/dmpv.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg {prefix}/share/applications/dmpv.desktop {prefix}/etc/dmpv.conf\n"
-    ninja_content += "  description = UNINSTALL\n"
-    ninja_content += "\n"
+    
+    if libdmpv_enabled:
+        # Install rule for library
+        ninja_content += "rule install_rule\n"
+        install_cmd = f"mkdir -p {prefix}/lib {prefix}/include/mpv {prefix}/lib/pkgconfig"
+        install_cmd += f" && install -v -m 0755 $builddir/libdmpv.so.2.1.0 {prefix}/lib/libdmpv.so.2.1.0"
+        install_cmd += f" && ln -sf libdmpv.so.2.1.0 {prefix}/lib/libdmpv.so.2"
+        install_cmd += f" && ln -sf libdmpv.so.2 {prefix}/lib/libdmpv.so"
+        install_cmd += f" && install -v -m 0644 $root/include/mpv/client.h {prefix}/include/mpv/client.h"
+        install_cmd += f" && install -v -m 0644 $root/include/mpv/render.h {prefix}/include/mpv/render.h"
+        install_cmd += f" && install -v -m 0644 $root/include/mpv/render_gl.h {prefix}/include/mpv/render_gl.h"
+        install_cmd += f" && install -v -m 0644 $root/include/mpv/stream_cb.h {prefix}/include/mpv/stream_cb.h"
+        install_cmd += f" && install -v -m 0644 $builddir/libdmpv.pc {prefix}/lib/pkgconfig/libdmpv.pc"
+        ninja_content += f"  command = {install_cmd}\n"
+        ninja_content += "  description = INSTALL\n"
+        ninja_content += "\n"
+        
+        # Uninstall rule for library
+        ninja_content += "rule uninstall_rule\n"
+        uninstall_cmd = f"rm -fv {prefix}/lib/libdmpv.so.2.1.0 {prefix}/lib/libdmpv.so.2 {prefix}/lib/libdmpv.so"
+        uninstall_cmd += f" {prefix}/include/mpv/client.h {prefix}/include/mpv/render.h"
+        uninstall_cmd += f" {prefix}/include/mpv/render_gl.h {prefix}/include/mpv/stream_cb.h"
+        uninstall_cmd += f" {prefix}/lib/pkgconfig/libdmpv.pc"
+        uninstall_cmd += f" && rmdir --ignore-fail-on-non-empty {prefix}/include/mpv"
+        ninja_content += f"  command = {uninstall_cmd}\n"
+        ninja_content += "  description = UNINSTALL\n"
+        ninja_content += "\n"
+    else:
+        # Install rule for executable
+        ninja_content += "rule install_rule\n"
+        ninja_content += f"  command = mkdir -p {prefix}/bin {prefix}/share/icons/hicolor/16x16/apps {prefix}/share/icons/hicolor/32x32/apps {prefix}/share/icons/hicolor/64x64/apps {prefix}/share/icons/hicolor/128x128/apps {prefix}/share/icons/hicolor/scalable/apps {prefix}/share/icons/hicolor/symbolic/apps {prefix}/share/applications {prefix}/etc && install -v -m 0755 $builddir/dmpv{exesuf} {prefix}/bin/dmpv{exesuf} && install -v -m 0644 $root/etc/dmpv-icon-8bit-16x16.png {prefix}/share/icons/hicolor/16x16/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-32x32.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-64x64.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-128x128.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv.svg {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg && install -v -m 0644 $root/etc/dmpv-symbolic.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg && install -v -m 0644 $root/etc/dmpv.desktop {prefix}/share/applications/dmpv.desktop && install -v -m 0644 $root/etc/dmpv.conf {prefix}/etc/dmpv.conf\n"
+        ninja_content += "  description = INSTALL\n"
+        ninja_content += "\n"
+        
+        # Uninstall rule for executable
+        ninja_content += "rule uninstall_rule\n"
+        ninja_content += f"  command = rm -fv {prefix}/bin/dmpv{exesuf} {prefix}/share/icons/hicolor/16x16/apps/dmpv.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg {prefix}/share/applications/dmpv.desktop {prefix}/etc/dmpv.conf\n"
+        ninja_content += "  description = UNINSTALL\n"
+        ninja_content += "\n"
 
     ninja_content += "rule clean\n"
     ninja_content += f"  command = rm -rf $builddir\n"
@@ -1082,6 +1151,26 @@ def finish():
 
     with open(os.path.join(_G.build_dir, "config.mak"), "w") as f:
         f.write("# Generated by configure.\n\n" + _G.config_mak)
+
+    # Generate pkg-config file if libdmpv is enabled
+    libdmpv_enabled = _G.dep_enabled.get("libdmpv-shared", False)
+    if libdmpv_enabled:
+        prefix = _G.install_paths.get("PREFIX", "/usr/local")
+        pc_content = f"""prefix={prefix}
+exec_prefix=${{prefix}}
+libdir=${{prefix}}/lib
+includedir=${{prefix}}/include
+
+Name: libdmpv
+Description: dmpv media player client library
+Version: 2.1.0
+Libs: -L${{libdir}} -ldmpv
+Cflags: -I${{includedir}}
+"""
+        pc_file = os.path.join(_G.build_dir, "libdmpv.pc")
+        with open(pc_file, "w") as f:
+            f.write(pc_content)
+        print(f"Generated {pc_file}")
 
     # Generate build.ninja for Ninja backend (use deduplicated sources)
     cflags_str = " ".join(_G.cflags) + " " + os.environ.get("CPPFLAGS", "") + " " + os.environ.get("CFLAGS", "")
