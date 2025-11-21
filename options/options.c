@@ -458,6 +458,7 @@ static const m_option_t mp_opts[] = {
         M_RANGE(0, INT_MAX)},
 
     {"pause", OPT_BOOL(pause)},
+    {"pause-images", OPT_BOOL(pause_images)},
     {"keep-open", OPT_CHOICE(keep_open,
         {"no", 0},
         {"yes", 1},
@@ -828,6 +829,7 @@ static const struct MPOpts mp_default_opts = {
     .play_frames = -1,
     .rebase_start_time = true,
     .keep_open_pause = true,
+    .pause_images = true,
     .image_display_duration = 5.0,
     .stream_id = { { [STREAM_AUDIO] = -1,
                      [STREAM_VIDEO] = -1,

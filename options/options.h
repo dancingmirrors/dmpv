@@ -253,6 +253,7 @@ typedef struct MPOpts {
     char *watch_later_directory;
     char **watch_later_options;
     bool pause;
+    bool pause_images;
     int keep_open;
     bool keep_open_pause;
     double image_display_duration;
