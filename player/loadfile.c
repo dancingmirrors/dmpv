@@ -1727,6 +1727,12 @@ static void play_current_file(struct MPContext *mpctx)
 
     update_playback_speed(mpctx);
 
+    // Pause for images if --pause-images is enabled
+    struct track *vid_track = mpctx->current_track[0][STREAM_VIDEO];
+    if (vid_track && vid_track->image && opts->pause_images && !opts->pause) {
+        set_pause_state(mpctx, true);
+    }
+
     reinit_video_chain(mpctx);
     reinit_audio_chain(mpctx);
     reinit_sub_all(mpctx);
