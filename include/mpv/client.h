@@ -14,7 +14,7 @@
 /* Map mpv_* types and functions to dmpv_* equivalents */
 #define mpv_handle dmpv_handle
 #define mpv_error dmpv_error
-#define mpv_format dmpv_format  
+#define mpv_format dmpv_format
 #define mpv_node dmpv_node
 #define mpv_node_list dmpv_node_list
 #define mpv_byte_array dmpv_byte_array

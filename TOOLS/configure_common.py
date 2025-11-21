@@ -6,6 +6,13 @@ import subprocess
 import sys
 import tempfile
 
+# Library version information (must match DMPV_CLIENT_API_VERSION in misc/client.h)
+LIBDMPV_VERSION_MAJOR = 2
+LIBDMPV_VERSION_MINOR = 1
+LIBDMPV_VERSION_PATCH = 0
+LIBDMPV_VERSION = f"{LIBDMPV_VERSION_MAJOR}.{LIBDMPV_VERSION_MINOR}.{LIBDMPV_VERSION_PATCH}"
+LIBDMPV_SOVERSION = str(LIBDMPV_VERSION_MAJOR)
+
 NoneType = type(None)
 function = type(lambda: 0)
 
@@ -763,7 +770,8 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += "\n"
 
     ninja_content += "rule linkshared\n"
-    ninja_content += "  command = $cc @$out.rsp $ldflags -shared -fPIC -Wl,-soname,libdmpv.so.2 -o $out\n"
+    soname = f"libdmpv.so.{LIBDMPV_SOVERSION}"
+    ninja_content += f"  command = $cc @$out.rsp $ldflags -shared -fPIC -Wl,-soname,{soname} -o $out\n"
     ninja_content += "  description = LINK $out\n"
     ninja_content += "  rspfile = $out.rsp\n"
     ninja_content += "  rspfile_content = $in\n"
@@ -928,29 +936,31 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     # Link targets
     prefix = _G.install_paths.get("PREFIX", "/usr/local")
-    
+
     # Check if libdmpv shared library is enabled
     libdmpv_enabled = _G.dep_enabled.get("libdmpv-shared", False)
-    
+
     if libdmpv_enabled:
         # Build shared library
-        lib_target = "$builddir/libdmpv.so.2.1.0"
-        lib_soname = "$builddir/libdmpv.so.2"
+        lib_filename = f"libdmpv.so.{LIBDMPV_VERSION}"
+        lib_soname_filename = f"libdmpv.so.{LIBDMPV_SOVERSION}"
+        lib_target = f"$builddir/{lib_filename}"
+        lib_soname = f"$builddir/{lib_soname_filename}"
         lib_linker = "$builddir/libdmpv.so"
-        
+
         ninja_content += f"build {lib_target}: linkshared {' '.join(objects)} | $builddir/generated/version.h\n"
         ninja_content += "\n"
-        
+
         # Create symlinks for soname
         ninja_content += "rule symlink\n"
         ninja_content += "  command = ln -sf $(basename $in) $out\n"
         ninja_content += "  description = SYMLINK $out\n"
         ninja_content += "\n"
-        
+
         ninja_content += f"build {lib_soname}: symlink {lib_target}\n"
         ninja_content += f"build {lib_linker}: symlink {lib_soname}\n"
         ninja_content += "\n"
-        
+
         # Default target is the library
         ninja_content += f"default {lib_target} {lib_soname} {lib_linker}\n"
     else:
@@ -960,21 +970,24 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         # Use | to specify order-only dependency so it's not included in $in (and thus not in the response file)
         ninja_content += f"build {target}: link {' '.join(objects)} | $builddir/generated/version.h\n"
         ninja_content += "\n"
-        
+
         # Default target
         ninja_content += f"default {target}\n"
-    
+
     ninja_content += "\n"
 
     # Install/uninstall/clean rules
-    
+
     if libdmpv_enabled:
         # Install rule for library
+        lib_filename = f"libdmpv.so.{LIBDMPV_VERSION}"
+        lib_soname_filename = f"libdmpv.so.{LIBDMPV_SOVERSION}"
+
         ninja_content += "rule install_rule\n"
         install_cmd = f"mkdir -p {prefix}/lib {prefix}/include/mpv {prefix}/lib/pkgconfig"
-        install_cmd += f" && install -v -m 0755 $builddir/libdmpv.so.2.1.0 {prefix}/lib/libdmpv.so.2.1.0"
-        install_cmd += f" && ln -sf libdmpv.so.2.1.0 {prefix}/lib/libdmpv.so.2"
-        install_cmd += f" && ln -sf libdmpv.so.2 {prefix}/lib/libdmpv.so"
+        install_cmd += f" && install -v -m 0755 $builddir/{lib_filename} {prefix}/lib/{lib_filename}"
+        install_cmd += f" && ln -sf {lib_filename} {prefix}/lib/{lib_soname_filename}"
+        install_cmd += f" && ln -sf {lib_soname_filename} {prefix}/lib/libdmpv.so"
         install_cmd += f" && install -v -m 0644 $root/include/mpv/client.h {prefix}/include/mpv/client.h"
         install_cmd += f" && install -v -m 0644 $root/include/mpv/render.h {prefix}/include/mpv/render.h"
         install_cmd += f" && install -v -m 0644 $root/include/mpv/render_gl.h {prefix}/include/mpv/render_gl.h"
@@ -983,10 +996,10 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         ninja_content += f"  command = {install_cmd}\n"
         ninja_content += "  description = INSTALL\n"
         ninja_content += "\n"
-        
+
         # Uninstall rule for library
         ninja_content += "rule uninstall_rule\n"
-        uninstall_cmd = f"rm -fv {prefix}/lib/libdmpv.so.2.1.0 {prefix}/lib/libdmpv.so.2 {prefix}/lib/libdmpv.so"
+        uninstall_cmd = f"rm -fv {prefix}/lib/{lib_filename} {prefix}/lib/{lib_soname_filename} {prefix}/lib/libdmpv.so"
         uninstall_cmd += f" {prefix}/include/mpv/client.h {prefix}/include/mpv/render.h"
         uninstall_cmd += f" {prefix}/include/mpv/render_gl.h {prefix}/include/mpv/stream_cb.h"
         uninstall_cmd += f" {prefix}/lib/pkgconfig/libdmpv.pc"
@@ -1000,7 +1013,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         ninja_content += f"  command = mkdir -p {prefix}/bin {prefix}/share/icons/hicolor/16x16/apps {prefix}/share/icons/hicolor/32x32/apps {prefix}/share/icons/hicolor/64x64/apps {prefix}/share/icons/hicolor/128x128/apps {prefix}/share/icons/hicolor/scalable/apps {prefix}/share/icons/hicolor/symbolic/apps {prefix}/share/applications {prefix}/etc && install -v -m 0755 $builddir/dmpv{exesuf} {prefix}/bin/dmpv{exesuf} && install -v -m 0644 $root/etc/dmpv-icon-8bit-16x16.png {prefix}/share/icons/hicolor/16x16/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-32x32.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-64x64.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv-icon-8bit-128x128.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png && install -v -m 0644 $root/etc/dmpv.svg {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg && install -v -m 0644 $root/etc/dmpv-symbolic.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg && install -v -m 0644 $root/etc/dmpv.desktop {prefix}/share/applications/dmpv.desktop && install -v -m 0644 $root/etc/dmpv.conf {prefix}/etc/dmpv.conf\n"
         ninja_content += "  description = INSTALL\n"
         ninja_content += "\n"
-        
+
         # Uninstall rule for executable
         ninja_content += "rule uninstall_rule\n"
         ninja_content += f"  command = rm -fv {prefix}/bin/dmpv{exesuf} {prefix}/share/icons/hicolor/16x16/apps/dmpv.png {prefix}/share/icons/hicolor/32x32/apps/dmpv.png {prefix}/share/icons/hicolor/64x64/apps/dmpv.png {prefix}/share/icons/hicolor/128x128/apps/dmpv.png {prefix}/share/icons/hicolor/scalable/apps/dmpv.svg {prefix}/share/icons/hicolor/symbolic/apps/dmpv-symbolic.svg {prefix}/share/applications/dmpv.desktop {prefix}/etc/dmpv.conf\n"
@@ -1163,7 +1176,7 @@ includedir=${{prefix}}/include
 
 Name: libdmpv
 Description: dmpv media player client library
-Version: 2.1.0
+Version: {LIBDMPV_VERSION}
 Libs: -L${{libdir}} -ldmpv
 Cflags: -I${{includedir}}
 """
