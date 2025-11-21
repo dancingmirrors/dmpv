@@ -1,0 +1,77 @@
+/* Copyright (C) 2018 the mpv developers
+ * SPDX-License-Identifier: ISC
+ *
+ * This header provides compatibility layer for applications expecting
+ * standard libmpv render API while using libdmpv implementation.
+ */
+
+#ifndef MPV_CLIENT_API_RENDER_H_
+#define MPV_CLIENT_API_RENDER_H_
+
+#include "client.h"
+
+/* Include the actual dmpv render API */
+#include "../../misc/render.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Map types */
+#define mpv_render_context dmpv_render_context
+#define mpv_render_param_type dmpv_render_param_type
+#define mpv_render_param dmpv_render_param
+#define mpv_render_frame_info_flag dmpv_render_frame_info_flag
+#define mpv_render_frame_info dmpv_render_frame_info
+#define mpv_render_update_fn dmpv_render_update_fn
+#define mpv_render_update_flag dmpv_render_update_flag
+#define mpv_render_context_flag dmpv_render_context_flag
+
+/* Map constants */
+#define MPV_RENDER_PARAM_INVALID DMPV_RENDER_PARAM_INVALID
+#define MPV_RENDER_PARAM_API_TYPE DMPV_RENDER_PARAM_API_TYPE
+#define MPV_RENDER_PARAM_OPENGL_INIT_PARAMS DMPV_RENDER_PARAM_OPENGL_INIT_PARAMS
+#define MPV_RENDER_PARAM_OPENGL_FBO DMPV_RENDER_PARAM_OPENGL_FBO
+#define MPV_RENDER_PARAM_FLIP_Y DMPV_RENDER_PARAM_FLIP_Y
+#define MPV_RENDER_PARAM_DEPTH DMPV_RENDER_PARAM_DEPTH
+#define MPV_RENDER_PARAM_ICC_PROFILE DMPV_RENDER_PARAM_ICC_PROFILE
+#define MPV_RENDER_PARAM_AMBIENT_LIGHT DMPV_RENDER_PARAM_AMBIENT_LIGHT
+#define MPV_RENDER_PARAM_WL_DISPLAY DMPV_RENDER_PARAM_WL_DISPLAY
+#define MPV_RENDER_PARAM_ADVANCED_CONTROL DMPV_RENDER_PARAM_ADVANCED_CONTROL
+#define MPV_RENDER_PARAM_NEXT_FRAME_INFO DMPV_RENDER_PARAM_NEXT_FRAME_INFO
+#define MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME DMPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME
+#define MPV_RENDER_PARAM_SKIP_RENDERING DMPV_RENDER_PARAM_SKIP_RENDERING
+#define MPV_RENDER_PARAM_DRM_DISPLAY DMPV_RENDER_PARAM_DRM_DISPLAY
+#define MPV_RENDER_PARAM_DRM_DRAW_SURFACE_SIZE DMPV_RENDER_PARAM_DRM_DRAW_SURFACE_SIZE
+#define MPV_RENDER_PARAM_DRM_DISPLAY_V2 DMPV_RENDER_PARAM_DRM_DISPLAY_V2
+#define MPV_RENDER_PARAM_SW_SIZE DMPV_RENDER_PARAM_SW_SIZE
+#define MPV_RENDER_PARAM_SW_FORMAT DMPV_RENDER_PARAM_SW_FORMAT
+#define MPV_RENDER_PARAM_SW_STRIDE DMPV_RENDER_PARAM_SW_STRIDE
+#define MPV_RENDER_PARAM_SW_POINTER DMPV_RENDER_PARAM_SW_POINTER
+#define MPV_RENDER_PARAM_DRM_OSD_SIZE DMPV_RENDER_PARAM_DRM_OSD_SIZE
+
+#define MPV_RENDER_API_TYPE_OPENGL DMPV_RENDER_API_TYPE_OPENGL
+#define MPV_RENDER_API_TYPE_SW DMPV_RENDER_API_TYPE_SW
+
+#define MPV_RENDER_FRAME_INFO_PRESENT DMPV_RENDER_FRAME_INFO_PRESENT
+#define MPV_RENDER_FRAME_INFO_REDRAW DMPV_RENDER_FRAME_INFO_REDRAW
+#define MPV_RENDER_FRAME_INFO_REPEAT DMPV_RENDER_FRAME_INFO_REPEAT
+#define MPV_RENDER_FRAME_INFO_BLOCK_VSYNC DMPV_RENDER_FRAME_INFO_BLOCK_VSYNC
+
+#define MPV_RENDER_UPDATE_FRAME DMPV_RENDER_UPDATE_FRAME
+
+/* Map functions */
+#define mpv_render_context_create dmpv_render_context_create
+#define mpv_render_context_set_parameter dmpv_render_context_set_parameter
+#define mpv_render_context_get_info dmpv_render_context_get_info
+#define mpv_render_context_set_update_callback dmpv_render_context_set_update_callback
+#define mpv_render_context_update dmpv_render_context_update
+#define mpv_render_context_render dmpv_render_context_render
+#define mpv_render_context_report_swap dmpv_render_context_report_swap
+#define mpv_render_context_free dmpv_render_context_free
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
