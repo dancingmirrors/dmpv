@@ -276,10 +276,6 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
         vo_c->is_coverart = !!track->attached_picture;
         vo_c->is_sparse = track->stream->still_image || vo_c->is_coverart;
 
-        if (vo_c->is_sparse && mpctx->opts->pause_images && !mpctx->opts->pause) {
-            set_pause_state(mpctx, true);
-        }
-
         if (vo_c->is_coverart)
             mp_decoder_wrapper_set_coverart_flag(track->dec, true);
 
