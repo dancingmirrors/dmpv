@@ -953,7 +953,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
         # Create symlinks for soname
         ninja_content += "rule symlink\n"
-        ninja_content += "  command = ln -sf $(basename $in) $out\n"
+        ninja_content += "  command = cd $(dirname $out) && ln -sf $(basename $in) $(basename $out)\n"
         ninja_content += "  description = SYMLINK $out\n"
         ninja_content += "\n"
 
@@ -1003,7 +1003,8 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         uninstall_cmd += f" {prefix}/include/mpv/client.h {prefix}/include/mpv/render.h"
         uninstall_cmd += f" {prefix}/include/mpv/render_gl.h {prefix}/include/mpv/stream_cb.h"
         uninstall_cmd += f" {prefix}/lib/pkgconfig/libdmpv.pc"
-        uninstall_cmd += f" && rmdir --ignore-fail-on-non-empty {prefix}/include/mpv"
+        # BSD-compatible: use rmdir without GNU-specific flags
+        uninstall_cmd += f" ; rmdir {prefix}/include/mpv 2>/dev/null || true"
         ninja_content += f"  command = {uninstall_cmd}\n"
         ninja_content += "  description = UNINSTALL\n"
         ninja_content += "\n"
