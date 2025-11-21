@@ -6,7 +6,10 @@ import subprocess
 import sys
 import tempfile
 
-# Library version information (must match DMPV_CLIENT_API_VERSION in misc/client.h)
+# Library version information
+# IMPORTANT: Must match DMPV_CLIENT_API_VERSION in misc/client.h
+# API version from misc/client.h: DMPV_MAKE_VERSION(2, 1) = major 2, minor 1
+# We add patch version for library versioning: 2.1.0
 LIBDMPV_VERSION_MAJOR = 2
 LIBDMPV_VERSION_MINOR = 1
 LIBDMPV_VERSION_PATCH = 0

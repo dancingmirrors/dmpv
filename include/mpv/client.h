@@ -8,7 +8,10 @@
 #ifndef MPV_CLIENT_API_H_
 #define MPV_CLIENT_API_H_
 
-/* Include the actual dmpv client API */
+/* Include the actual dmpv client API
+ * Note: This relative path assumes the standard dmpv source tree structure
+ * where include/mpv/ is at the root level alongside misc/
+ */
 #include "../../misc/client.h"
 
 /* Map mpv_* types and functions to dmpv_* equivalents */
