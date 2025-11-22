@@ -250,6 +250,20 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
             mp_input_disable_section(mpctx->input, "vo_default");
         }
 #endif
+
+        // Enable vo_drm-specific input bindings if using vo_drm
+        if (strcmp(mpctx->video_out->driver->name, "drm") == 0) {
+            mp_input_enable_section(mpctx->input, "vo_drm", 0);
+        } else {
+            mp_input_disable_section(mpctx->input, "vo_drm");
+        }
+
+        // Enable vo_dmabuf_wayland-specific input bindings if using vo_dmabuf_wayland
+        if (strcmp(mpctx->video_out->driver->name, "dmabuf-wayland") == 0) {
+            mp_input_enable_section(mpctx->input, "vo_dmabuf_wayland", 0);
+        } else {
+            mp_input_disable_section(mpctx->input, "vo_dmabuf_wayland");
+        }
     }
 
     update_window_title(mpctx, true);

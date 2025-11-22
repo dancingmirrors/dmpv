@@ -220,6 +220,14 @@ static const char builtin_input_vo_default_conf[] =
 ;
 #endif
 
+static const char builtin_input_vo_drm_conf[] =
+#include "generated/etc/input_vo_drm.conf.inc"
+;
+
+static const char builtin_input_vo_dmabuf_wayland_conf[] =
+#include "generated/etc/input_vo_dmabuf_wayland.conf.inc"
+;
+
 static bool test_rect(struct mp_rect *rc, int x, int y)
 {
     return x >= rc->x0 && y >= rc->y0 && x < rc->x1 && y < rc->y1;
@@ -1378,6 +1386,46 @@ void mp_input_load_config(struct input_ctx *ictx)
         talloc_free(tmp);
     }
 #endif
+
+    // Define vo_drm-specific bindings in a named section
+    // Screenshot keybindings are disabled for this VO as they don't work properly
+    // The section is disabled by default and enabled dynamically when vo_drm is active
+    if (ictx->opts->builtin_bindings) {
+        void *tmp = talloc_new(NULL);
+        char *section_content = talloc_strdup(tmp, "");
+        bstr builtin_vo_drm = bstr0(builtin_input_vo_drm_conf);
+        while (builtin_vo_drm.len) {
+            bstr line = bstr_getline(builtin_vo_drm, &builtin_vo_drm);
+            bstr_eatstart0(&line, "#");
+            if (!bstr_startswith0(line, " ")) {
+                section_content = talloc_asprintf_append(section_content, "%.*s\n",
+                                                         BSTR_P(line));
+            }
+        }
+        mp_input_define_section(ictx, "vo_drm", "<builtin-vo-drm>",
+                               section_content, true, NULL);
+        talloc_free(tmp);
+    }
+
+    // Define vo_dmabuf_wayland-specific bindings in a named section
+    // Screenshot keybindings are disabled for this VO as they don't work properly
+    // The section is disabled by default and enabled dynamically when vo_dmabuf_wayland is active
+    if (ictx->opts->builtin_bindings) {
+        void *tmp = talloc_new(NULL);
+        char *section_content = talloc_strdup(tmp, "");
+        bstr builtin_vo_dmabuf_wayland = bstr0(builtin_input_vo_dmabuf_wayland_conf);
+        while (builtin_vo_dmabuf_wayland.len) {
+            bstr line = bstr_getline(builtin_vo_dmabuf_wayland, &builtin_vo_dmabuf_wayland);
+            bstr_eatstart0(&line, "#");
+            if (!bstr_startswith0(line, " ")) {
+                section_content = talloc_asprintf_append(section_content, "%.*s\n",
+                                                         BSTR_P(line));
+            }
+        }
+        mp_input_define_section(ictx, "vo_dmabuf_wayland", "<builtin-vo-dmabuf-wayland>",
+                               section_content, true, NULL);
+        talloc_free(tmp);
+    }
 
     bool config_ok = false;
     if (ictx->opts->config_file && ictx->opts->config_file[0])
