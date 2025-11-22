@@ -646,5 +646,6 @@ void mp_force_video_refresh(struct MPContext *mpctx);
 void uninit_video_out(struct MPContext *mpctx);
 void uninit_video_chain(struct MPContext *mpctx);
 double calc_average_frame_duration(struct MPContext *mpctx);
+void update_vo_input_sections(struct MPContext *mpctx);
 
 #endif /* MPLAYER_MP_CORE_H */
