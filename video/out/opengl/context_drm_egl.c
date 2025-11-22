@@ -663,14 +663,19 @@ static bool drm_egl_init(struct ra_ctx *ctx)
 
     mpegl_load_functions(&p->gl, ctx->vo->log);
     
-    // Create initial buffers by performing multiple swaps.
-    // GBM creates buffers on-demand, so we need to swap multiple times
-    // to ensure there are enough free buffers available when the first
-    // real frame is rendered. We do swapchain_depth swaps to match the
-    // configured buffer count.
-    for (int i = 0; i < ctx->vo->opts->swapchain_depth; i++) {
+    // Pre-create GBM buffers by doing multiple swaps and releases
+    // This ensures there are free buffers available for rendering
+    // the first real frame. We need at least 2 buffers: one for display
+    // and one for rendering.
+    for (int i = 0; i < 2; i++) {
         eglSwapBuffers(p->egl.display, p->egl.surface);
+        struct gbm_bo *bo = gbm_surface_lock_front_buffer(p->gbm.surface);
+        if (bo)
+            gbm_surface_release_buffer(p->gbm.surface, bo);
     }
+    
+    // Now create the buffer that will be used for initial display
+    eglSwapBuffers(p->egl.display, p->egl.surface);
 
     MP_VERBOSE(ctx, "Preparing framebuffer\n");
     struct gbm_bo *new_bo = gbm_surface_lock_front_buffer(p->gbm.surface);
