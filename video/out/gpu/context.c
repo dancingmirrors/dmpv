@@ -205,7 +205,7 @@ struct ra_ctx *ra_ctx_create_by_name(struct vo *vo, const char *name)
             .fns = contexts[i],
         };
 
-        MP_VERBOSE(ctx, "Initializing GPU context '%s'\n", ctx->fns->name);
+        MP_INFO(ctx, "Initializing GPU context '%s'\n", ctx->fns->name);
         if (contexts[i]->init(ctx))
             return ctx;
         talloc_free(ctx);
