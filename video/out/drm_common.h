@@ -57,7 +57,6 @@ struct drm_opts {
     char *device_path;
     char *connector_spec;
     char *mode_spec;
-    int drm_atomic;
     int draw_plane;
     int drmprime_video_plane;
     int drm_format;
