@@ -32,6 +32,7 @@ other_env_vars = [
     ("CFLAGS",      "User C compiler flags to append."),
     ("CPPFLAGS",    "Also treated as C compiler flags."),
     ("LDFLAGS",     "C compiler flags for link command."),
+    ("CCACHE",      "Set to 'no' to disable automatic ccache detection."),
     ("TARGET",      "Prefix for default build tools (for cross compilation)"),
     ("CROSS_COMPILE", "Same as TARGET."),
 ]
@@ -595,7 +596,6 @@ def check_program(env_name):
     for name, default in programs_info:
         if name == env_name:
             val = os.environ.get(env_name, None)
-            user_set_cc = val is not None  # Remember if user explicitly set CC
             if val is None:
                 prefix = os.environ.get("TARGET", None)
                 if prefix is None:
@@ -607,17 +607,28 @@ def check_program(env_name):
                 val = prefix + default
 
             # Auto-detect and enable ccache for C compiler if available
-            # Only do this if user hasn't explicitly set CC and we're checking CC
-            if env_name == "CC" and not user_set_cc:
-                # Check if ccache is available
-                try:
-                    if _run_process(["ccache", "-V"]) is not None:
-                        # ccache is available, wrap the compiler with it
-                        val = "ccache " + val
-                        _G.log_file.write("--- ccache detected, enabling automatic caching\n")
-                except OSError:
-                    # ccache not available, continue without it
-                    _G.log_file.write("--- ccache not found, proceeding without caching\n")
+            # Check if ccache should be auto-enabled (unless explicitly disabled or already present)
+            if env_name == "CC":
+                # Check if user explicitly disabled ccache via CCACHE=no/0/false
+                ccache_disabled = os.environ.get("CCACHE", "").lower() in {"no", "0", "false"}
+                # Check if CC already contains ccache to avoid double-wrapping
+                val_parts = val.split()
+                already_has_ccache = val_parts and os.path.basename(val_parts[0]) == "ccache"
+
+                if not ccache_disabled and not already_has_ccache:
+                    # Check if ccache is available
+                    try:
+                        if _run_process(["ccache", "-V"]) is not None:
+                            # ccache is available, wrap the compiler with it
+                            val = "ccache " + val
+                            _G.log_file.write("--- ccache detected, enabling automatic caching\n")
+                    except OSError:
+                        # ccache not available, continue without it
+                        _G.log_file.write("--- ccache not found, proceeding without caching\n")
+                elif ccache_disabled:
+                    _G.log_file.write("--- ccache explicitly disabled via CCACHE=no\n")
+                elif already_has_ccache:
+                    _G.log_file.write("--- ccache already present in CC, not adding again\n")
 
             # Interleave with output. Sort of unkosher, but dare to stop me.
             sys.stdout.write("(%s) " % val)
