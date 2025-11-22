@@ -7,7 +7,8 @@
 #
 # Build performance tips:
 # - Ninja automatically uses parallel builds
-# - Use ccache for faster rebuilds: CC="ccache gcc" ./configure && ninja -v -C build
+# - ccache is automatically detected and enabled if installed (works with both gcc and clang)
+# - To disable ccache: CC="gcc" ./configure (or CC="clang" for clang)
 # - Disable debug symbols for faster compilation: ./configure --disable-debug-build && ninja -v -C build
 #
 # Note: Direct 'make' usage is no longer supported. All make commands now redirect to ninja with verbose output.

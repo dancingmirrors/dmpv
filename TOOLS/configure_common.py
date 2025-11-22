@@ -541,7 +541,9 @@ def check_cc(include = None, decl = None, expr = None, defined = None,
     link = normalize_list_arg(link)
 
     outfile = os.path.join(_G.temp_path, "test")
-    args = [get_program("CC"), source]
+    # Split CC in case it contains multiple parts (e.g., "ccache gcc")
+    cc_parts = get_program("CC").split()
+    args = cc_parts + [source]
     args += _G.cflags + flags
     if use_linking:
         args += _G.ldflags + link
@@ -593,6 +595,7 @@ def check_program(env_name):
     for name, default in programs_info:
         if name == env_name:
             val = os.environ.get(env_name, None)
+            user_set_cc = val is not None  # Remember if user explicitly set CC
             if val is None:
                 prefix = os.environ.get("TARGET", None)
                 if prefix is None:
@@ -602,11 +605,29 @@ def check_program(env_name):
                 if prefix and default == "cc":
                     default = "gcc"
                 val = prefix + default
+            
+            # Auto-detect and enable ccache for C compiler if available
+            # Only do this if user hasn't explicitly set CC and we're checking CC
+            if env_name == "CC" and not user_set_cc:
+                # Check if ccache is available
+                try:
+                    ccache_check = _run_process(["ccache", "--version"])
+                    if ccache_check is not None:
+                        # ccache is available, wrap the compiler with it
+                        val = "ccache " + val
+                        _G.log_file.write("--- ccache detected, enabling automatic caching\n")
+                except (OSError, TypeError):
+                    # ccache not available, continue without it
+                    _G.log_file.write("--- ccache not found, proceeding without caching\n")
+            
             # Interleave with output. Sort of unkosher, but dare to stop me.
             sys.stdout.write("(%s) " % val)
             _G.log_file.write("--- Trying '%s' for '%s'...\n" % (val, env_name))
+            
+            # For CC with ccache, we need to test the actual compiler, not "ccache cc" as a single command
+            test_cmd = val.split() if env_name == "CC" and val.startswith("ccache ") else [val]
             try:
-                _run_process([val])
+                _run_process(test_cmd)
             except OSError as err:
                 _G.log_file.write("%s\n" % err)
                 return False
