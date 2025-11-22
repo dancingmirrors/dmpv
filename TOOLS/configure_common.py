@@ -609,11 +609,11 @@ def check_program(env_name):
             # Auto-detect and enable ccache for C compiler if available
             # Check if ccache should be auto-enabled (unless explicitly disabled or already present)
             if env_name == "CC":
-                # Check if user explicitly disabled ccache via CCACHE=no
-                ccache_disabled = os.environ.get("CCACHE", "").lower() in ["no", "0", "false"]
+                # Check if user explicitly disabled ccache via CCACHE=no/0/false
+                ccache_disabled = os.environ.get("CCACHE", "").lower() in {"no", "0", "false"}
                 # Check if CC already contains ccache to avoid double-wrapping
                 val_parts = val.split()
-                already_has_ccache = len(val_parts) > 0 and os.path.basename(val_parts[0]) == "ccache"
+                already_has_ccache = val_parts and os.path.basename(val_parts[0]) == "ccache"
 
                 if not ccache_disabled and not already_has_ccache:
                     # Check if ccache is available
