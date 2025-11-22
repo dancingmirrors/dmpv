@@ -24,6 +24,7 @@
 
 #include "config.h"
 #include "common/common.h"
+#include "common/global.h"
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/m_option.h"
