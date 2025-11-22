@@ -1348,8 +1348,8 @@ void mp_input_update_opts(struct input_ctx *ictx)
 }
 
 // Helper function to define a VO-specific input section
-static void define_vo_section(struct input_ctx *ictx, const char *section_name,
-                               const char *location, const char *builtin_conf)
+static void define_vo_section(struct input_ctx *ictx, char *section_name,
+                               char *location, const char *builtin_conf)
 {
     if (!ictx->opts->builtin_bindings)
         return;
