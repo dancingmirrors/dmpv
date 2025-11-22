@@ -85,7 +85,6 @@ const struct m_sub_options drm_conf = {
             .help = drm_connector_opt_help},
         {"drm-mode", OPT_STRING_VALIDATE(mode_spec, drm_validate_mode_opt),
             .help = drm_mode_opt_help},
-        {"drm-atomic", OPT_CHOICE(drm_atomic, {"no", 0}, {"auto", 1})},
         {"drm-draw-plane", OPT_CHOICE(draw_plane,
             {"primary", DRM_OPTS_PRIMARY_PLANE},
             {"overlay", DRM_OPTS_OVERLAY_PLANE}),
@@ -107,7 +106,6 @@ const struct m_sub_options drm_conf = {
     },
     .defaults = &(const struct drm_opts) {
         .mode_spec = "preferred",
-        .drm_atomic = 0,
         .draw_plane = DRM_OPTS_PRIMARY_PLANE,
         .drmprime_video_plane = DRM_OPTS_OVERLAY_PLANE,
         .drm_format = DRM_OPTS_FORMAT_XRGB8888,
