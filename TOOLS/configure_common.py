@@ -596,7 +596,6 @@ def check_program(env_name):
     for name, default in programs_info:
         if name == env_name:
             val = os.environ.get(env_name, None)
-            user_set_cc = val is not None  # Remember if user explicitly set CC
             if val is None:
                 prefix = os.environ.get("TARGET", None)
                 if prefix is None:
