@@ -443,7 +443,11 @@ static void drm_egl_swap_buffers(struct ra_swapchain *sw)
     enqueue_bo(ctx, new_bo);
     new_fence(ctx);
 
-    while (drain || p->gbm.num_bos > ctx->vo->opts->swapchain_depth ||
+    // If we have queued buffers beyond the one currently being displayed,
+    // we need to flip to show them. This is especially important for the first
+    // frame after initialization where we have a blank buffer [0] being displayed
+    // and the first real frame at [1].
+    while (drain || p->gbm.num_bos > 1 ||
            !gbm_surface_has_free_buffers(p->gbm.surface)) {
         if (drm->waiting_for_flip) {
             vo_drm_wait_on_flip(drm);
