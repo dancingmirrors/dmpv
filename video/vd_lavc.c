@@ -560,7 +560,7 @@ static void select_and_set_hwdec(struct mp_filter *vd)
                 // to avoid filter graph creation issues
                 if (vf_in_use && !hwdec->copying) {
                     if (!vf_requested_copy) {
-                        MP_INFO(vd, "Video filters are active, switching to %s-copy for compatibility.\n",
+                        MP_INFO(vd, "INFO: Video filters are active, switching to %s-copy for compatibility.\n",
                                 hwdec->method_name);
                         vf_requested_copy = true;
                     }
