@@ -611,7 +611,7 @@ def check_program(env_name):
             if env_name == "CC" and not user_set_cc:
                 # Check if ccache is available
                 try:
-                    if _run_process(["ccache", "--version"]) is not None:
+                    if _run_process(["ccache", "-V"]) is not None:
                         # ccache is available, wrap the compiler with it
                         val = "ccache " + val
                         _G.log_file.write("--- ccache detected, enabling automatic caching\n")
@@ -624,9 +624,11 @@ def check_program(env_name):
             _G.log_file.write("--- Trying '%s' for '%s'...\n" % (val, env_name))
             
             # For CC with ccache, we need to test the actual compiler, not "ccache cc" as a single command
-            # Check if first part of CC contains ccache (handles both "ccache" and "/usr/bin/ccache")
+            # Check if first part of CC is ccache (handles both "ccache" and "/usr/bin/ccache")
             val_parts = val.split()
-            test_cmd = val_parts if env_name == "CC" and len(val_parts) > 1 and "ccache" in val_parts[0] else [val]
+            is_ccache = (env_name == "CC" and len(val_parts) > 1 and 
+                        os.path.basename(val_parts[0]) == "ccache")
+            test_cmd = val_parts if is_ccache else [val]
             try:
                 _run_process(test_cmd)
             except OSError as err:
