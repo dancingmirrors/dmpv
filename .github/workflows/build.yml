@@ -17,6 +17,17 @@ jobs:
         run: |
           ./TOOLS/check-whitespace.sh
 
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          # Use commit SHA as primary key to ensure fresh cache per commit
+          # restore-keys allows falling back to the most recent cache from any previous commit
+          # This is the recommended approach for ccache to accumulate cache over time
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
       - name: dependencies
         run: |
           sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
@@ -57,6 +68,19 @@ jobs:
           sudo ninja -C build install
 
           sudo ldconfig
+
+      - name: Configure ccache
+        run: |
+          # Verify ccache is available
+          if ! command -v ccache &> /dev/null; then
+            echo "Error: ccache is not installed"
+            exit 1
+          fi
+          ccache --version
+          ccache --set-config=cache_dir=$HOME/.ccache
+          ccache --set-config=max_size=500M
+          ccache --set-config=compression=true
+          ccache --zero-stats
 
       - name: configure, build, install, test (GCC and clang)
         run: |
@@ -190,3 +214,12 @@ jobs:
           sudo ninja -C build install
           ldd /usr/local/bin/dmpv
           /usr/local/bin/dmpv
+
+      - name: Show ccache statistics
+        if: always()
+        run: |
+          if command -v ccache &> /dev/null; then
+            ccache --show-stats
+          else
+            echo "ccache not available"
+          fi
