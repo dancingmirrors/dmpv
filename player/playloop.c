@@ -1031,14 +1031,7 @@ int handle_force_window(struct MPContext *mpctx, bool force)
             goto err;
         mpctx->mouse_cursor_visible = true;
 
-#if HAVE_LIBPLACEBO
-        // Enable vo_default-specific input bindings if using vo_default
-        if (strcmp(mpctx->video_out->driver->name, "default") == 0) {
-            mp_input_enable_section(mpctx->input, "vo_default", 0);
-        } else {
-            mp_input_disable_section(mpctx->input, "vo_default");
-        }
-#endif
+        update_vo_input_sections(mpctx);
     }
 
     if (!mpctx->video_out->config_ok || force) {

@@ -242,14 +242,7 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
         }
         mpctx->mouse_cursor_visible = true;
 
-#if HAVE_LIBPLACEBO
-        // Enable vo_default-specific input bindings if using vo_default
-        if (strcmp(mpctx->video_out->driver->name, "default") == 0) {
-            mp_input_enable_section(mpctx->input, "vo_default", 0);
-        } else {
-            mp_input_disable_section(mpctx->input, "vo_default");
-        }
-#endif
+        update_vo_input_sections(mpctx);
     }
 
     update_window_title(mpctx, true);
@@ -1297,4 +1290,38 @@ error:
     error_on_track(mpctx, track);
     handle_force_window(mpctx, true);
     mp_wakeup_core(mpctx);
+}
+
+// Enable or disable VO-specific input sections based on the active video output.
+// This function checks the current VO driver name and enables/disables the
+// corresponding input section, allowing for VO-specific key bindings.
+void update_vo_input_sections(struct MPContext *mpctx)
+{
+    if (!mpctx->video_out)
+        return;
+
+    const char *vo_name = mpctx->video_out->driver->name;
+
+#if HAVE_LIBPLACEBO
+    // Enable vo_default-specific input bindings if using vo_default
+    if (strcmp(vo_name, "default") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_default", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_default");
+    }
+#endif
+
+    // Enable vo_drm-specific input bindings if using vo_drm
+    if (strcmp(vo_name, "drm") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_drm", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_drm");
+    }
+
+    // Enable vo_dmabuf_wayland-specific input bindings if using vo_dmabuf_wayland
+    if (strcmp(vo_name, "dmabuf-wayland") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_dmabuf_wayland", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_dmabuf_wayland");
+    }
 }
