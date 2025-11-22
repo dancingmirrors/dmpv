@@ -1292,7 +1292,9 @@ error:
     mp_wakeup_core(mpctx);
 }
 
-// Helper function to enable/disable VO-specific input sections
+// Enable or disable VO-specific input sections based on the active video output.
+// This function checks the current VO driver name and enables/disables the
+// corresponding input section, allowing for VO-specific key bindings.
 void update_vo_input_sections(struct MPContext *mpctx)
 {
     if (!mpctx->video_out)

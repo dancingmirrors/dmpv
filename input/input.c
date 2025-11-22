@@ -1353,7 +1353,7 @@ static void define_vo_section(struct input_ctx *ictx, const char *section_name,
 {
     if (!ictx->opts->builtin_bindings)
         return;
-    
+
     void *tmp = talloc_new(NULL);
     char *section_content = talloc_strdup(tmp, "");
     bstr builtin = bstr0(builtin_conf);
