@@ -173,7 +173,7 @@ struct ra_ctx *ra_ctx_create(struct vo *vo, struct ra_ctx_opts opts)
             .fns = contexts[i],
         };
 
-        MP_INFO(ctx, "Initializing GPU context '%s'\n", ctx->fns->name);
+        MP_INFO(vo, "Initializing gpu context %s\n", ctx->fns->name);
         if (contexts[i]->init(ctx)) {
             vo->probing = old_probing;
             return ctx;
@@ -205,7 +205,7 @@ struct ra_ctx *ra_ctx_create_by_name(struct vo *vo, const char *name)
             .fns = contexts[i],
         };
 
-        MP_INFO(ctx, "Initializing GPU context '%s'\n", ctx->fns->name);
+        MP_INFO(vo, "Initializing gpu context %s\n", ctx->fns->name);
         if (contexts[i]->init(ctx))
             return ctx;
         talloc_free(ctx);
