@@ -78,7 +78,7 @@ jobs:
           fi
           ccache --version
           ccache --set-config=cache_dir=$HOME/.ccache
-          ccache --set-config=max_size=500M
+          ccache --set-config=max_size=999M
           ccache --set-config=compression=true
           ccache --zero-stats
 
