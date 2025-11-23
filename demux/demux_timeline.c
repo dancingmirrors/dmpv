@@ -1,21 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <limits.h>
 
 #include "common/common.h"
@@ -220,6 +220,7 @@ static void reopen_lazy_segments(struct demuxer *demuxer,
         .init_fragment = src->tl->init_fragment,
         .skip_lavf_probing = src->tl->dash,
         .stream_flags = demuxer->stream_origin,
+        .depth = demuxer->depth + 1,
     };
     src->current->d = demux_open_url(src->current->url, &params,
                                      demuxer->cancel, demuxer->global);
@@ -595,7 +596,7 @@ static bool add_tl(struct demuxer *demuxer, struct timeline_par *tl)
             .sh = new,
         };
         MP_TARRAY_APPEND(p, p->streams, p->num_streams, vs);
-        assert(demux_get_stream(demuxer, p->num_streams - 1) == new);
+        mp_assert(demux_get_stream(demuxer, p->num_streams - 1) == new);
         MP_TARRAY_APPEND(src, src->streams, src->num_streams, vs);
     }
 
@@ -610,7 +611,7 @@ static bool add_tl(struct demuxer *demuxer, struct timeline_par *tl)
         }
 
         if (!part->source)
-            assert(tl->dash || tl->delay_open);
+            mp_assert(tl->dash || tl->delay_open);
 
         struct segment *seg = talloc_ptrtype(src, seg);
         *seg = (struct segment){

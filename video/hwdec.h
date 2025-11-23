@@ -2,10 +2,19 @@
 #define MP_HWDEC_H_
 
 #include <libavutil/buffer.h>
+#include <libavutil/hwcontext.h>
 
 #include "options/m_option.h"
 
 struct mp_image_pool;
+
+struct mp_conversion_filter {
+    // Name of the conversion filter.
+    const char *name;
+
+    // Arguments for the conversion filter.
+    char **args;
+};
 
 struct mp_hwdec_ctx {
     const char *driver_name; // NULL if unknown/not loaded
@@ -18,6 +27,16 @@ struct mp_hwdec_ctx {
     const int *supported_formats;
     // HW format used by the hwdec
     int hw_imgfmt;
+
+    // Getter for conversion filter description, or NULL.
+    // This will be used for hardware conversion of frame formats.
+    // If available the talloc allocated mp_conversion_filter is returned,
+    // Caller is responsible to free the allocation.
+    struct mp_conversion_filter *(*get_conversion_filter)(int imgfmt);
+
+    // The libavutil hwconfig to be used when querying constraints for the
+    // conversion filter. Can be NULL if no special config is required.
+    void *conversion_config;
 };
 
 // Used to communicate hardware decoder device handles from VO to video decoder.
@@ -26,8 +45,9 @@ struct mp_hwdec_devices;
 struct mp_hwdec_devices *hwdec_devices_create(void);
 void hwdec_devices_destroy(struct mp_hwdec_devices *devs);
 
-struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt(struct mp_hwdec_devices *devs,
-                                                 int hw_imgfmt);
+struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt_and_type(struct mp_hwdec_devices *devs,
+                                                          int hw_imgfmt,
+                                                          enum AVHWDeviceType device_type);
 
 // For code which still strictly assumes there is 1 (or none) device.
 struct mp_hwdec_ctx *hwdec_devices_get_first(struct mp_hwdec_devices *devs);
@@ -65,7 +85,7 @@ void hwdec_devices_request_for_img_fmt(struct mp_hwdec_devices *devs,
 char *hwdec_devices_get_names(struct mp_hwdec_devices *devs);
 
 struct mp_image;
-struct mpv_global;
+struct dmpv_global;
 
 struct hwcontext_create_dev_params {
     bool probing;   // if true, don't log errors if unavailable
@@ -78,7 +98,7 @@ struct hwcontext_fns {
     // Fill in special format-specific requirements.
     void (*refine_hwframes)(struct AVBufferRef *hw_frames_ctx);
     // Returns a AVHWDeviceContext*. Used for copy hwdecs.
-    struct AVBufferRef *(*create_dev)(struct mpv_global *global,
+    struct AVBufferRef *(*create_dev)(struct dmpv_global *global,
                                       struct mp_log *log,
                                       struct hwcontext_create_dev_params *params);
     // Return whether this is using some sort of sub-optimal emulation layer.
@@ -89,10 +109,7 @@ struct hwcontext_fns {
 // recursive includes). May return NULL for unknown device types.
 const struct hwcontext_fns *hwdec_get_hwcontext_fns(int av_hwdevice_type);
 
-extern const struct hwcontext_fns hwcontext_fns_cuda;
-extern const struct hwcontext_fns hwcontext_fns_d3d11;
 extern const struct hwcontext_fns hwcontext_fns_drmprime;
-extern const struct hwcontext_fns hwcontext_fns_dxva2;
 extern const struct hwcontext_fns hwcontext_fns_vaapi;
 extern const struct hwcontext_fns hwcontext_fns_vdpau;
 

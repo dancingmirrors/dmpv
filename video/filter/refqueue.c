@@ -1,21 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/buffer.h>
 
@@ -86,7 +86,7 @@ void mp_refqueue_add_in_format(struct mp_refqueue *q, int fmt, int subfmt)
 // The minimum number of frames required before and after the current frame.
 void mp_refqueue_set_refs(struct mp_refqueue *q, int past, int future)
 {
-    assert(past >= 0 && future >= 0);
+    mp_assert(past >= 0 && future >= 0);
     q->needed_past_frames = past;
     q->needed_future_frames = MPMAX(future, 1); // at least 1 for determining PTS
 }
@@ -140,12 +140,12 @@ void mp_refqueue_flush(struct mp_refqueue *q)
 
 static void mp_refqueue_add_input(struct mp_refqueue *q, struct mp_image *img)
 {
-    assert(img);
+    mp_assert(img);
 
     MP_TARRAY_INSERT_AT(q, q->queue, q->num_queue, 0, img);
     q->pos++;
 
-    assert(q->pos >= 0 && q->pos < q->num_queue);
+    mp_assert(q->pos >= 0 && q->pos < q->num_queue);
 }
 
 static bool mp_refqueue_need_input(struct mp_refqueue *q)
@@ -167,7 +167,7 @@ static bool output_next_field(struct mp_refqueue *q)
     if (!mp_refqueue_should_deint(q))
         return false;
 
-    assert(q->pos >= 0);
+    mp_assert(q->pos >= 0);
 
     // If there's no (reasonable) timestamp, also skip the field.
     if (q->pos == 0)
@@ -196,16 +196,16 @@ static void mp_refqueue_next(struct mp_refqueue *q)
     q->pos--;
     q->second_field = false;
 
-    assert(q->pos >= -1 && q->pos < q->num_queue);
+    mp_assert(q->pos >= -1 && q->pos < q->num_queue);
 
     // Discard unneeded past frames.
     while (q->num_queue - (q->pos + 1) > q->needed_past_frames) {
-        assert(q->num_queue > 0);
+        mp_assert(q->num_queue > 0);
         talloc_free(q->queue[q->num_queue - 1]);
         q->num_queue--;
     }
 
-    assert(q->pos >= -1 && q->pos < q->num_queue);
+    mp_assert(q->pos >= -1 && q->pos < q->num_queue);
 }
 
 // Advance current field, depending on interlace flags.

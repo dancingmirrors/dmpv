@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "video/out/gpu/context.h"
@@ -24,7 +24,7 @@
 #include "utils.h"
 
 struct priv {
-    struct mpvk_ctx vk;
+    struct dmpvk_ctx vk;
 };
 
 static bool xlib_check_visible(struct ra_ctx *ctx)
@@ -34,6 +34,12 @@ static bool xlib_check_visible(struct ra_ctx *ctx)
 
 static void xlib_vk_swap_buffers(struct ra_ctx *ctx)
 {
+    /* Defensive check: ensure X11 state is valid */
+    if (!ctx->vo->x11) {
+        MP_WARN(ctx, "X11 state invalid during swap_buffers\n");
+        return;
+    }
+
     if (ctx->vo->x11->use_present)
         present_sync_swap(ctx->vo->x11->present);
 }
@@ -50,24 +56,30 @@ static void xlib_uninit(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
 
     ra_vk_ctx_uninit(ctx);
-    mpvk_uninit(&p->vk);
+    dmpvk_uninit(&p->vk);
     vo_x11_uninit(ctx->vo);
 }
 
 static bool xlib_init(struct ra_ctx *ctx)
 {
     struct priv *p = ctx->priv = talloc_zero(ctx, struct priv);
-    struct mpvk_ctx *vk = &p->vk;
+    struct dmpvk_ctx *vk = &p->vk;
     int msgl = ctx->opts.probing ? MSGL_V : MSGL_ERR;
 
-    if (!mpvk_init(vk, ctx, VK_KHR_XLIB_SURFACE_EXTENSION_NAME))
+    if (!dmpvk_init(vk, ctx, VK_KHR_XLIB_SURFACE_EXTENSION_NAME))
         goto error;
 
     if (!vo_x11_init(ctx->vo))
         goto error;
 
-    if (!vo_x11_create_vo_window(ctx->vo, NULL, "mpvk"))
+    if (!vo_x11_create_vo_window(ctx->vo, NULL, "dmpvk"))
         goto error;
+
+    /* Defensive check: ensure X11 display and window are valid */
+    if (!ctx->vo->x11 || !ctx->vo->x11->display || !ctx->vo->x11->window) {
+        MP_MSG(ctx, msgl, "X11 display or window is NULL, cannot create Vulkan surface\n");
+        goto error;
+    }
 
     VkXlibSurfaceCreateInfoKHR xinfo = {
          .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
@@ -75,7 +87,7 @@ static bool xlib_init(struct ra_ctx *ctx)
          .window = ctx->vo->x11->window,
     };
 
-    struct ra_vk_ctx_params params = {
+    struct ra_ctx_params params = {
         .check_visible = xlib_check_visible,
         .swap_buffers = xlib_vk_swap_buffers,
         .get_vsync = xlib_vk_get_vsync,
@@ -84,7 +96,7 @@ static bool xlib_init(struct ra_ctx *ctx)
     VkInstance inst = vk->vkinst->instance;
     VkResult res = vkCreateXlibSurfaceKHR(inst, &xinfo, NULL, &vk->surface);
     if (res != VK_SUCCESS) {
-        MP_MSG(ctx, msgl, "Failed creating Xlib surface\n");
+        MP_MSG(ctx, msgl, "Failed creating Xlib surface (VkResult: %d)\n", res);
         goto error;
     }
 
@@ -102,6 +114,13 @@ error:
 
 static bool resize(struct ra_ctx *ctx)
 {
+    /* Defensive check: ensure dimensions are reasonable */
+    if (ctx->vo->dwidth <= 0 || ctx->vo->dheight <= 0) {
+        MP_WARN(ctx, "Invalid resize dimensions: %dx%d, skipping resize\n",
+                ctx->vo->dwidth, ctx->vo->dheight);
+        return false;
+    }
+
     return ra_vk_ctx_resize(ctx, ctx->vo->dwidth, ctx->vo->dheight);
 }
 
@@ -126,9 +145,9 @@ static void xlib_wakeup(struct ra_ctx *ctx)
     vo_x11_wakeup(ctx->vo);
 }
 
-static void xlib_wait_events(struct ra_ctx *ctx, int64_t until_time_us)
+static void xlib_wait_events(struct ra_ctx *ctx, int64_t until_time_ns)
 {
-    vo_x11_wait_events(ctx->vo, until_time_us);
+    vo_x11_wait_events(ctx->vo, until_time_ns);
 }
 
 const struct ra_ctx_fns ra_ctx_vulkan_xlib = {

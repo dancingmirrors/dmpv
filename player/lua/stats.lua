@@ -43,9 +43,9 @@ local o = {
     plot_color = "FFFFFF",
 
     -- Text style
-    font = "sans-serif",
+    font = "",
     font_mono = "monospace",   -- monospaced digits are sufficient
-    font_size = 8,
+    font_size = 11,
     font_color = "FFFFFF",
     border_size = 0.8,
     border_color = "262626",
@@ -77,7 +77,7 @@ local o = {
     no_ass_it1 = "\027[3m",
     no_ass_it0 = "\027[0m",
 
-    bindlist = "no",  -- print page 4 to the terminal on startup and quit mpv
+    bindlist = "no",  -- print page 4 to the terminal on startup and quit dmpv
 }
 options.read_options(o)
 
@@ -108,7 +108,7 @@ local function init_buffers()
 end
 local cache_ahead_buf, cache_speed_buf
 local perf_buffers = {}
--- Save all properties known to this version of mpv
+-- Save all properties known to this version of dmpv
 local property_list = {}
 for p in string.gmatch(mp.get_property("property-list"), "([^,]+)") do property_list[p] = true end
 -- Mapping of properties to their deprecated names
@@ -132,9 +132,6 @@ local function compat(p)
     return p
 end
 
--- "\\<U+2060>" in UTF-8 (U+2060 is WORD-JOINER)
-local ESC_BACKSLASH = "\\" .. string.char(0xE2, 0x81, 0xA0)
-
 local function no_ASS(t)
     if not o.use_ass then
         return t
@@ -142,16 +139,7 @@ local function no_ASS(t)
         -- mp.osd_message supports ass-escape using osd-ass-cc/{0|1}
         return ass_stop .. t .. ass_start
     else
-        -- mp.set_osd_ass doesn't support ass-escape. roll our own.
-        -- similar to mpv's sub/osd_libass.c:mangle_ass(...), excluding
-        -- space after newlines because no_ASS is not used with multi-line.
-        -- space at the beginning is replaced with "\\h" because it matters
-        -- at the beginning of a line, and we can't know where our output
-        -- ends up. no issue if it ends up at the middle of a line.
-        return tostring(t)
-               :gsub("\\", ESC_BACKSLASH)
-               :gsub("{", "\\{")
-               :gsub("^ ", "\\h")
+        return mp.command_native({"escape-ass", tostring(t)})
     end
 end
 
@@ -332,7 +320,7 @@ local function append_perfdata(s, dedicated_page)
     -- also one single element.
     s[#s+1] = format("%s%s%s%s{\\fs%s}%s{\\fs%s}",
                      dedicated_page and "" or o.nl, dedicated_page and "" or o.indent,
-                     b("Frame Timings:"), o.prefix_sep, o.font_size * 0.66,
+                     b("Frame Timings:"), o.prefix_sep, o.font_size,
                      "(last/average/peak  μs)", o.font_size)
 
     for _,frame in ipairs(sorted_keys(vo_p)) do  -- ensure fixed display order
@@ -347,7 +335,7 @@ local function append_perfdata(s, dedicated_page)
                 s[#s+1] = format(f, o.nl, o.indent, o.indent,
                                  o.font_mono, pp(pass["last"]),
                                  pp(pass["avg"]), pp(pass["peak"]),
-                                 o.prefix_sep .. o.prefix_sep, p(pass["last"], last_s[frame]),
+                                 o.prefix_sep .. "\\h\\h", p(pass["last"], last_s[frame]),
                                  o.font, o.prefix_sep, o.prefix_sep, pass["desc"])
 
                 if o.plot_perfdata and o.use_ass then
@@ -362,8 +350,8 @@ local function append_perfdata(s, dedicated_page)
             -- Print sum of timing values as "Total"
             s[#s+1] = format(f, o.nl, o.indent, o.indent,
                              o.font_mono, pp(last_s[frame]),
-                             pp(avg_s[frame]), pp(peak_s[frame]), "", "", o.font,
-                             o.prefix_sep, o.prefix_sep, b("Total"))
+                             pp(avg_s[frame]), pp(peak_s[frame]),
+                             o.prefix_sep, b("Total"), o.font, "", "", "")
         else
             -- for the simplified view, we just print the sum of each pass
             s[#s+1] = format(f, o.nl, o.indent, o.indent, o.font_mono,
@@ -393,7 +381,7 @@ local name_prefixes = {
 -- extract a command "subject" from a command string, by removing all
 -- generic prefix tokens and then returning the first interesting sub-word
 -- of the next token. For target-script name we also check another token.
--- The tokenizer works fine for things we care about - valid mpv commands,
+-- The tokenizer works fine for things we care about - valid dmpv commands,
 -- properties and script names, possibly quoted, white-space[s]-separated.
 -- It's decent in practice, and worst case is "incorrect" subject.
 local function cmd_subject(cmd)
@@ -839,7 +827,7 @@ local function keybinding_info(after_scroll)
     if not kbinfo_lines or not after_scroll then
         kbinfo_lines = get_kbinfo_lines()
     end
-    -- up to 20 lines for the terminal - so that mpv can also print
+    -- up to 20 lines for the terminal - so that dmpv can also print
     -- the status line without scrolling, and up to 40 lines for libass
     -- because it can put a big performance toll on libass to process
     -- many lines which end up outside (below) the screen.

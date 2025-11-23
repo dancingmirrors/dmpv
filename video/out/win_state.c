@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "win_state.h"
@@ -69,6 +69,8 @@ static void apply_autofit(int *w, int *h, int scr_w, int scr_h,
 // Does not change *vo.
 //  screen: position of the area on virtual desktop on which the video-content
 //          should be placed (maybe after excluding decorations, taskbars, etc)
+//          can be the same as monitor for platforms that don't try to take into
+//          account decorations, taskbars, etc.
 //  monitor: position of the monitor on virtual desktop (used for pixelaspect).
 //  dpi_scale: the DPI multiplier to get from virtual to real coordinates
 //             (>1 for "hidpi")
@@ -77,17 +79,14 @@ static void apply_autofit(int *w, int *h, int scr_w, int scr_h,
 //       geometry additional to this code. This is to deal with initial window
 //       placement, fullscreen handling, avoiding resize on reconfig() with no
 //       size change, multi-monitor stuff, and possibly more.
-void vo_calc_window_geometry3(struct vo *vo, const struct mp_rect *screen,
-                              const struct mp_rect *monitor,
-                              double dpi_scale, struct vo_win_geometry *out_geo)
+void vo_calc_window_geometry(struct vo *vo, const struct mp_rect *screen,
+                             const struct mp_rect *monitor,
+                             double dpi_scale, struct vo_win_geometry *out_geo)
 {
     struct mp_vo_opts *opts = vo->opts;
 
     *out_geo = (struct vo_win_geometry){0};
 
-    // The case of calling this function even though no video was configured
-    // yet (i.e. vo->params==NULL) happens when vo_gpu creates a hidden window
-    // in order to create a rendering context.
     struct mp_image_params params = { .w = 320, .h = 200 };
     if (vo->params)
         params = *vo->params;
@@ -129,19 +128,6 @@ void vo_calc_window_geometry3(struct vo *vo, const struct mp_rect *screen,
 
     if (opts->geometry.xy_valid || opts->force_window_position)
         out_geo->flags |= VO_WIN_FORCE_POS;
-}
-
-// same as vo_calc_window_geometry3 with monitor assumed same as screen
-void vo_calc_window_geometry2(struct vo *vo, const struct mp_rect *screen,
-                              double dpi_scale, struct vo_win_geometry *out_geo)
-{
-    vo_calc_window_geometry3(vo, screen, screen, dpi_scale, out_geo);
-}
-
-void vo_calc_window_geometry(struct vo *vo, const struct mp_rect *screen,
-                             struct vo_win_geometry *out_geo)
-{
-    vo_calc_window_geometry2(vo, screen, 1.0, out_geo);
 }
 
 // Copy the parameters in *geo to the vo fields.

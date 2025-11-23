@@ -1,11 +1,6 @@
 #include <locale.h>
 #include "osdep/io.h"
 
-#ifdef __APPLE__
-# include <string.h>
-# include <xlocale.h>
-#endif
-
 struct mp_log;
 
 struct mp_archive {

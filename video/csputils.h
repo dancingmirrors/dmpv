@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_CSPUTILS_H
@@ -22,6 +22,16 @@
 #include <stdint.h>
 
 #include "options/m_option.h"
+
+#include "config.h"
+
+#if !HAVE_LIBPLACEBO
+struct pl_hdr_metadata; /* forward declaration for when libplacebo is unavailable */
+
+void pl_hdr_metadata_merge(struct pl_hdr_metadata *dst, const struct pl_hdr_metadata *src);
+int pl_hdr_metadata_equal(const struct pl_hdr_metadata *a, const struct pl_hdr_metadata *b);
+int pl_hdr_metadata_contains(const struct pl_hdr_metadata *hdr, uint32_t flag);
+#endif
 
 /* NOTE: the csp and levels AUTO values are converted to specific ones
  * above vf/vo level. At least vf_scale relies on all valid settings being
@@ -134,10 +144,25 @@ enum mp_stereo3d_mode {
 
 extern const struct m_opt_choice_alternatives mp_stereo3d_names[];
 
-#define MP_STEREO3D_NAME(x) m_opt_choice_str(mp_stereo3d_names, x)
+#define MP_STEREO3D_NAME_DEF(x, def) m_opt_choice_str_def(mp_stereo3d_names, x, def)
 
-#define MP_STEREO3D_NAME_DEF(x, def) \
-    (MP_STEREO3D_NAME(x) ? MP_STEREO3D_NAME(x) : (def))
+struct mp_hdr_metadata {
+    // HDR10
+    // Mastering display metadata
+    float min_luma, max_luma;       // min/max luminance (in cd/m²)
+
+    // Content light level
+    float max_cll;                  // max content light level (in cd/m²)
+    float max_fall;                 // max frame average light level (in cd/m²)
+
+    // HDR10+
+    float scene_max[3];             // maxRGB in cd/m² per component (RGB)
+    float scene_avg;                // average of maxRGB in cd/m²
+
+    // CIE Y
+    float max_pq_y;                 // maximum PQ luminance (in PQ, 0-1)
+    float avg_pq_y;                 // averaged PQ luminance (in PQ, 0-1)
+};
 
 struct mp_colorspace {
     enum mp_csp space;
@@ -209,9 +234,9 @@ extern const struct m_opt_choice_alternatives mp_alpha_names[];
 
 extern const struct m_sub_options mp_csp_equalizer_conf;
 
-struct mpv_global;
+struct dmpv_global;
 struct mp_csp_equalizer_state *mp_csp_equalizer_create(void *ta_parent,
-                                                    struct mpv_global *global);
+                                                    struct dmpv_global *global);
 bool mp_csp_equalizer_state_changed(struct mp_csp_equalizer_state *state);
 void mp_csp_equalizer_state_get(struct mp_csp_equalizer_state *state,
                                 struct mp_csp_params *params);

@@ -1,23 +1,23 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
  * Get path to config dir/file.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,61 +34,40 @@
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/path.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "osdep/io.h"
 #include "osdep/path.h"
 #include "misc/ctype.h"
 
-// In order of decreasing priority: the first has highest priority.
 static const mp_get_platform_path_cb path_resolvers[] = {
-#if HAVE_COCOA
-    mp_get_platform_path_osx,
-#endif
-#if HAVE_DARWIN
-    mp_get_platform_path_darwin,
-#elif !defined(_WIN32) || defined(__CYGWIN__)
     mp_get_platform_path_unix,
-#endif
-#if HAVE_UWP
-    mp_get_platform_path_uwp,
-#elif defined(_WIN32)
-    mp_get_platform_path_win,
-#endif
 };
 
 // from highest (most preferred) to lowest priority
 static const char *const config_dirs[] = {
     "home",
     "old_home",
-    "osxbundle",
-    "exe_dir",
     "global",
-};
-// types that configdir replaces (if set)
-// These are not part of any fallback order so need to be overriden separately.
-static const char *const config_dir_replaces[] = {
-    "state",
-    "cache",
 };
 
 // Return a platform specific path using a path type as defined in osdep/path.h.
 // Keep in mind that the only way to free the return value is freeing talloc_ctx
 // (or its children), as this function can return a statically allocated string.
 static const char *mp_get_platform_path(void *talloc_ctx,
-                                        struct mpv_global *global,
+                                        struct dmpv_global *global,
                                         const char *type)
 {
-    assert(talloc_ctx);
+    mp_assert(talloc_ctx);
 
-    if (global->configdir) {
+    if (global->configdir && global->configdir[0]) {
+        // Return NULL for all platform paths if --no-config is passed
+        if (!global->configdir[0])
+            return NULL;
+
         // force all others to NULL, only first returns the path
         for (int n = 0; n < MP_ARRAY_SIZE(config_dirs); n++) {
             if (strcmp(config_dirs[n], type) == 0)
-                return (n == 0 && global->configdir[0]) ? global->configdir : NULL;
-        }
-        for (int n = 0; n < MP_ARRAY_SIZE(config_dir_replaces); n++) {
-            if (strcmp(config_dir_replaces[n], type) == 0)
-                return global->configdir[0] ? global->configdir : NULL;
+                return (n == 0) ? global->configdir : NULL;
         }
     }
 
@@ -105,17 +84,17 @@ static const char *mp_get_platform_path(void *talloc_ctx,
     }
 
     if (fallback_type) {
-        assert(strcmp(fallback_type, type) != 0);
+        mp_assert(strcmp(fallback_type, type) != 0);
         return mp_get_platform_path(talloc_ctx, global, fallback_type);
     }
     return NULL;
 }
 
-void mp_init_paths(struct mpv_global *global, struct MPOpts *opts)
+void mp_init_paths(struct dmpv_global *global, struct MPOpts *opts)
 {
     TA_FREEP(&global->configdir);
 
-    const char *force_configdir = getenv("MPV_HOME");
+    const char *force_configdir = getenv("DMPV_HOME");
     if (opts->force_configdir && opts->force_configdir[0])
         force_configdir = opts->force_configdir;
     if (!opts->load_config)
@@ -124,7 +103,7 @@ void mp_init_paths(struct mpv_global *global, struct MPOpts *opts)
     global->configdir = talloc_strdup(global, force_configdir);
 }
 
-char *mp_find_user_file(void *talloc_ctx, struct mpv_global *global,
+char *mp_find_user_file(void *talloc_ctx, struct dmpv_global *global,
                         const char *type, const char *filename)
 {
     void *tmp = talloc_new(NULL);
@@ -137,7 +116,7 @@ char *mp_find_user_file(void *talloc_ctx, struct mpv_global *global,
 }
 
 static char **mp_find_all_config_files_limited(void *talloc_ctx,
-                                               struct mpv_global *global,
+                                               struct dmpv_global *global,
                                                int max_files,
                                                const char *filename)
 {
@@ -153,11 +132,11 @@ static char **mp_find_all_config_files_limited(void *talloc_ctx,
 
             char *file = mp_path_join_bstr(ret, bstr0(dir), fn);
             if (mp_path_exists(file)) {
-                MP_DBG(global, "config path: '%.*s' -> '%s'\n",
+                MP_VERBOSE(global, "config path: '%.*s' -> '%s'\n",
                         BSTR_P(fn), file);
                 MP_TARRAY_APPEND(NULL, ret, num_ret, file);
             } else {
-                MP_DBG(global, "config path: '%.*s' -/-> '%s'\n",
+                MP_VERBOSE(global, "config path: '%.*s' -/-> '%s'\n",
                         BSTR_P(fn), file);
             }
         }
@@ -171,13 +150,13 @@ static char **mp_find_all_config_files_limited(void *talloc_ctx,
     return ret;
 }
 
-char **mp_find_all_config_files(void *talloc_ctx, struct mpv_global *global,
+char **mp_find_all_config_files(void *talloc_ctx, struct dmpv_global *global,
                                 const char *filename)
 {
     return mp_find_all_config_files_limited(talloc_ctx, global, 64, filename);
 }
 
-char *mp_find_config_file(void *talloc_ctx, struct mpv_global *global,
+char *mp_find_config_file(void *talloc_ctx, struct dmpv_global *global,
                           const char *filename)
 {
     char **l = mp_find_all_config_files_limited(talloc_ctx, global, 1, filename);
@@ -186,7 +165,7 @@ char *mp_find_config_file(void *talloc_ctx, struct mpv_global *global,
     return r;
 }
 
-char *mp_get_user_path(void *talloc_ctx, struct mpv_global *global,
+char *mp_get_user_path(void *talloc_ctx, struct dmpv_global *global,
                        const char *path)
 {
     if (!path)
@@ -197,7 +176,7 @@ char *mp_get_user_path(void *talloc_ctx, struct mpv_global *global,
         // parse to "~" <prefix> "/" <rest>
         bstr prefix, rest;
         if (bstr_split_tok(bpath, "/", &prefix, &rest)) {
-            const char *rest0 = rest.start; // ok in this case
+            const char *rest0 = (char *)rest.start; // ok in this case
             if (bstr_equals0(prefix, "~")) {
                 res = mp_find_config_file(talloc_ctx, global, rest0);
                 if (!res) {
@@ -231,16 +210,6 @@ char *mp_basename(const char *path)
 {
     char *s;
 
-#if HAVE_DOS_PATHS
-    if (!mp_is_url(bstr0(path))) {
-        s = strrchr(path, '\\');
-        if (s)
-            path = s + 1;
-        s = strrchr(path, ':');
-        if (s)
-            path = s + 1;
-    }
-#endif
     s = strrchr(path, '/');
     return s ? s + 1 : (char *)path;
 }
@@ -256,13 +225,9 @@ struct bstr mp_dirname(const char *path)
 }
 
 
-#if HAVE_DOS_PATHS
-static const char mp_path_separators[] = "\\/";
-#else
 static const char mp_path_separators[] = "/";
-#endif
 
-// Mutates path and removes a trailing '/' (or '\' on Windows)
+// Mutates path and removes a trailing '/'
 void mp_path_strip_trailing_separator(char *path)
 {
     size_t len = strlen(path);
@@ -272,12 +237,13 @@ void mp_path_strip_trailing_separator(char *path)
 
 char *mp_splitext(const char *path, bstr *root)
 {
-    assert(path);
-    const char *split = strrchr(path, '.');
+    mp_assert(path);
+    int skip = (*path == '.'); // skip leading dot for "hidden" unix files
+    const char *split = strrchr(path + skip, '.');
     if (!split || !split[1] || strchr(split, '/'))
         return NULL;
     if (root)
-        *root = (bstr){(char *)path, split - path};
+        *root = (bstr){(unsigned char *)path, split - path};
     return (char *)split + 1;
 }
 
@@ -286,14 +252,12 @@ bool mp_path_is_absolute(struct bstr path)
     if (path.len && strchr(mp_path_separators, path.start[0]))
         return true;
 
-#if HAVE_DOS_PATHS
     // Note: "X:filename" is a path relative to the current working directory
     //       of drive X, and thus is not an absolute path. It needs to be
     //       followed by \ or /.
     if (path.len >= 3 && path.start[1] == ':' &&
         strchr(mp_path_separators, path.start[2]))
         return true;
-#endif
 
     return false;
 }
@@ -309,11 +273,9 @@ char *mp_path_join_bstr(void *talloc_ctx, struct bstr p1, struct bstr p2)
         return bstrdup0(talloc_ctx, p2);
 
     bool have_separator = strchr(mp_path_separators, p1.start[p1.len - 1]);
-#if HAVE_DOS_PATHS
     // "X:" only => path relative to "X:" current working directory.
     if (p1.len == 2 && p1.start[1] == ':')
         have_separator = true;
-#endif
 
     return talloc_asprintf(talloc_ctx, "%.*s%s%.*s", BSTR_P(p1),
                            have_separator ? "" : "/", BSTR_P(p2));
@@ -339,6 +301,14 @@ char *mp_getcwd(void *talloc_ctx)
         wd = talloc_realloc(talloc_ctx, wd, char, talloc_get_size(wd) * 2);
     }
     return wd;
+}
+
+char *mp_normalize_path(void *talloc_ctx, const char *path)
+{
+    if (mp_is_url(bstr0(path)))
+        return talloc_strdup(talloc_ctx, path);
+
+    return mp_path_join(talloc_ctx, mp_getcwd(talloc_ctx), path);
 }
 
 bool mp_path_exists(const char *path)
@@ -402,7 +372,7 @@ void mp_mkdirp(const char *dir)
     talloc_free(path);
 }
 
-void mp_mk_user_dir(struct mpv_global *global, const char *type, char *subdir)
+void mp_mk_user_dir(struct dmpv_global *global, const char *type, char *subdir)
 {
     char *dir = mp_find_user_file(NULL, global, type, subdir);
     if (dir)

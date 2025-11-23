@@ -21,7 +21,6 @@ struct mp_filter *mp_create_user_filter(struct mp_filter *parent,
 extern const struct mp_user_filter_entry af_lavfi;
 extern const struct mp_user_filter_entry af_lavfi_bridge;
 extern const struct mp_user_filter_entry af_scaletempo;
-extern const struct mp_user_filter_entry af_scaletempo2;
 extern const struct mp_user_filter_entry af_format;
 extern const struct mp_user_filter_entry af_rubberband;
 extern const struct mp_user_filter_entry af_lavcac3enc;
@@ -30,10 +29,6 @@ extern const struct mp_user_filter_entry af_drop;
 extern const struct mp_user_filter_entry vf_lavfi;
 extern const struct mp_user_filter_entry vf_lavfi_bridge;
 extern const struct mp_user_filter_entry vf_sub;
-extern const struct mp_user_filter_entry vf_vapoursynth;
 extern const struct mp_user_filter_entry vf_format;
 extern const struct mp_user_filter_entry vf_vdpaupp;
 extern const struct mp_user_filter_entry vf_vavpp;
-extern const struct mp_user_filter_entry vf_d3d11vpp;
-extern const struct mp_user_filter_entry vf_fingerprint;
-extern const struct mp_user_filter_entry vf_gpu;

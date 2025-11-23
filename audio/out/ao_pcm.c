@@ -3,20 +3,20 @@
  *
  * Original author: Atmosfear
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -25,7 +25,7 @@
 
 #include <libavutil/common.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "options/m_option.h"
 #include "audio/format.h"
@@ -33,12 +33,6 @@
 #include "internal.h"
 #include "common/msg.h"
 #include "osdep/endian.h"
-
-#ifdef __MINGW32__
-// for GetFileType to detect pipes
-#include <windows.h>
-#include <io.h>
-#endif
 
 struct priv {
     char *outputfilename;
@@ -86,7 +80,7 @@ static void write_wave_header(struct ao *ao, FILE *fp, uint64_t data_length)
     fput16le(WAV_ID_FORMAT_EXTENSIBLE, fp);
     fput16le(ao->channels.num, fp);
     fput32le(ao->samplerate, fp);
-    fput32le(ao->bps, fp);
+    fput32le(MPCLAMP(ao->bps, 0, UINT32_MAX), fp);
     fput16le(ao->channels.num * (bits / 8), fp);
     fput16le(bits, fp);
 
@@ -145,7 +139,7 @@ static int init(struct ao *ao)
     if (!ao_chmap_sel_adjust(ao, &sel, &ao->channels))
         return -1;
 
-    ao->bps = ao->channels.num * ao->samplerate * af_fmt_to_bytes(ao->format);
+    ao->bps = ao->channels.num * (int64_t)ao->samplerate * af_fmt_to_bytes(ao->format);
 
     MP_INFO(ao, "File: %s (%s)\nPCM: Samplerate: %d Hz Channels: %d Format: %s\n",
             outputfilename,
@@ -172,12 +166,6 @@ static void uninit(struct ao *ao)
 
     if (priv->waveheader) {    // Rewrite wave header
         bool broken_seek = false;
-#ifdef __MINGW32__
-        // Windows, in its usual idiocy "emulates" seeks on pipes so it always
-        // looks like they work. So we have to detect them brute-force.
-        broken_seek = FILE_TYPE_DISK !=
-            GetFileType((HANDLE)_get_osfhandle(_fileno(priv->fp)));
-#endif
         if (broken_seek || fseek(priv->fp, 0, SEEK_SET) != 0)
             MP_ERR(ao, "Could not seek to start, WAV size headers not updated!\n");
         else {

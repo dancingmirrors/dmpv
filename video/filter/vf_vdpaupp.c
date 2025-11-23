@@ -1,25 +1,24 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <assert.h>
 
 #include <libavutil/hwcontext.h>
 
@@ -74,8 +73,7 @@ static void vf_vdpaupp_process(struct mp_filter *f)
 
     struct mp_image *mpi =
         mp_vdpau_mixed_frame_create(mp_refqueue_get_field(p->queue, 0));
-    if (!mpi)
-        return; // OOM
+    MP_HANDLE_OOM(mpi);
     struct mp_vdpau_mixer_frame *frame = mp_vdpau_mixed_frame_get(mpi);
 
     if (!mp_refqueue_should_deint(p->queue)) {
@@ -137,7 +135,7 @@ static struct mp_filter *vf_vdpaupp_create(struct mp_filter *parent, void *optio
     p->queue = mp_refqueue_alloc(f);
 
     struct mp_hwdec_ctx *hwdec_ctx =
-        mp_filter_load_hwdec_device(f, IMGFMT_VDPAU);
+        mp_filter_load_hwdec_device(f, IMGFMT_VDPAU, AV_HWDEVICE_TYPE_VDPAU);
     if (!hwdec_ctx || !hwdec_ctx->av_device_ref)
         goto error;
     p->ctx = mp_vdpau_get_ctx_from_av(hwdec_ctx->av_device_ref);

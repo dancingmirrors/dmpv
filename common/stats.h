@@ -1,14 +1,14 @@
 #pragma once
 
-struct mpv_global;
-struct mpv_node;
+struct dmpv_global;
+struct dmpv_node;
 struct stats_ctx;
 
-void stats_global_init(struct mpv_global *global);
-void stats_global_query(struct mpv_global *global, struct mpv_node *out);
+void stats_global_init(struct dmpv_global *global);
+void stats_global_query(struct dmpv_global *global, struct dmpv_node *out);
 
 // stats_ctx can be free'd with ta_free(), or by using the ta_parent.
-struct stats_ctx *stats_ctx_create(void *ta_parent, struct mpv_global *global,
+struct stats_ctx *stats_ctx_create(void *ta_parent, struct dmpv_global *global,
                                    const char *prefix);
 
 // A static numeric value.

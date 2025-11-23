@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -21,7 +21,6 @@
 #include <math.h>
 #include <inttypes.h>
 #include <stdarg.h>
-#include <assert.h>
 
 #include <libswscale/swscale.h>
 
@@ -68,7 +67,7 @@ bool mp_sws_supports_input(int imgfmt)
     return sws_isSupportedInput(imgfmt2pixfmt(imgfmt));
 }
 
-static void process(struct mp_filter *f)
+static void sws_process(struct mp_filter *f)
 {
     struct mp_sws_filter *s = f->priv;
 
@@ -124,13 +123,12 @@ static void process(struct mp_filter *f)
 error:
     mp_frame_unref(&frame);
     mp_filter_internal_mark_failed(f);
-    return;
 }
 
 static const struct mp_filter_info sws_filter = {
     .name = "swscale",
     .priv_size = sizeof(struct mp_sws_filter),
-    .process = process,
+    .process = sws_process,
 };
 
 struct mp_sws_filter *mp_sws_filter_create(struct mp_filter *parent)

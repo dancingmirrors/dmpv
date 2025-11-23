@@ -1,1 +1,0 @@
-/* defaults.js for quickjs */

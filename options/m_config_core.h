@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_M_CONFIG_H
@@ -26,7 +26,7 @@ struct mp_dispatch_queue;
 struct m_sub_options;
 struct m_option_type;
 struct m_option;
-struct mpv_global;
+struct dmpv_global;
 
 // This can be used to create and synchronize per-thread option structs,
 // which then can be read without synchronization. No concurrent access to
@@ -66,7 +66,7 @@ struct m_config_cache {
 //  global: option data source
 //  group: the option group to return
 struct m_config_cache *m_config_cache_alloc(void *ta_parent,
-                                            struct mpv_global *global,
+                                            struct dmpv_global *global,
                                             const struct m_sub_options *group);
 
 // If any of the options in the group possibly changes, call this callback. The
@@ -128,14 +128,14 @@ bool m_config_cache_write_opt(struct m_config_cache *cache, void *ptr);
 // Like m_config_cache_alloc(), but return the struct (m_config_cache->opts)
 // directly, with no way to update the config. Basically this returns a copy
 // with a snapshot of the current option values.
-void *mp_get_config_group(void *ta_parent, struct mpv_global *global,
+void *mp_get_config_group(void *ta_parent, struct dmpv_global *global,
                           const struct m_sub_options *group);
 
 // Read a single global option in a thread-safe way. For multiple options,
 // use m_config_cache. The option must exist and match the provided type (the
 // type is used as a sanity check only). Performs semi-expensive lookup.
 // Warning: new code must not use this.
-void mp_read_option_raw(struct mpv_global *global, const char *name,
+void mp_read_option_raw(struct dmpv_global *global, const char *name,
                         const struct m_option_type *type, void *dst);
 
 // Allocate a priv struct that is backed by global options (like AOs and VOs,
@@ -146,7 +146,7 @@ void mp_read_option_raw(struct mpv_global *global, const char *name,
 // Bad function.
 struct m_obj_desc;
 void *m_config_group_from_desc(void *ta_parent, struct mp_log *log,
-        struct mpv_global *global, struct m_obj_desc *desc, const char *name);
+        struct dmpv_global *global, struct m_obj_desc *desc, const char *name);
 
 // Allocate new option shadow storage with all options set to defaults.
 // root must stay valid for the lifetime of the return value.
@@ -181,6 +181,10 @@ const struct m_option *m_config_shadow_get_opt(struct m_config_shadow *shadow,
 // m_config_cache_get_next_opt().
 const char *m_config_shadow_get_opt_name(struct m_config_shadow *shadow,
                                          int32_t id, char *buf, size_t buf_size);
+
+// Resolve alias mapping from opt.
+const char *m_config_shadow_get_alias_from_opt(struct m_config_shadow *shadow, int32_t id,
+                                               char *buf, size_t buf_size);
 
 // Pointer to default value, using m_option.type. NULL if option without data.
 // id must be a valid option ID as returned by m_config_shadow_get_next_opt() or

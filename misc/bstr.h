@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_BSTR_H
@@ -24,7 +24,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "osdep/compiler.h"
 
 /* NOTE: 'len' is size_t, but most string-handling functions below assume
@@ -134,9 +134,9 @@ static inline struct bstr bstr_getline(struct bstr str, struct bstr *rest)
 struct bstr bstr_strip_linebreaks(struct bstr str);
 
 void bstr_xappend(void *talloc_ctx, bstr *s, bstr append);
-void bstr_xappend_asprintf(void *talloc_ctx, bstr *s, const char *fmt, ...)
+int bstr_xappend_asprintf(void *talloc_ctx, bstr *s, const char *fmt, ...)
     PRINTF_ATTRIBUTE(3, 4);
-void bstr_xappend_vasprintf(void *talloc_ctx, bstr *s, const char *fmt, va_list va)
+int bstr_xappend_vasprintf(void *talloc_ctx, bstr *s, const char *fmt, va_list va)
     PRINTF_ATTRIBUTE(3, 0);
 
 // If s starts/ends with prefix, return true and return the rest of the string

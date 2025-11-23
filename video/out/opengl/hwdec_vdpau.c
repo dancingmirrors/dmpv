@@ -1,22 +1,22 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "video/out/gpu/hwdec.h"
 #include "ra_gl.h"
@@ -24,7 +24,7 @@
 #include "video/vdpau_mixer.h"
 
 // This is a GL_NV_vdpau_interop specification bug, and headers (unfortunately)
-// follow it. I'm not sure about the original nvidia headers.
+// follow it. I'm not sure about the original NVIDIA headers.
 #define BRAINDEATH(x) ((void *)(uintptr_t)(x))
 
 struct priv_owner {
@@ -105,7 +105,7 @@ static void mapper_uninit(struct ra_hwdec_mapper *mapper)
     struct vdp_functions *vdp = &p->ctx->vdp;
     VdpStatus vdp_st;
 
-    assert(!p->mapped);
+    mp_assert(!p->mapped);
 
     if (p->vdpgl_surface)
         gl->VDPAUUnregisterSurfaceNV(p->vdpgl_surface);
@@ -239,6 +239,7 @@ const struct ra_hwdec_driver ra_hwdec_vdpau = {
     .name = "vdpau-gl",
     .priv_size = sizeof(struct priv_owner),
     .imgfmts = {IMGFMT_VDPAU, 0},
+    .device_type = AV_HWDEVICE_TYPE_VDPAU,
     .init = init,
     .uninit = uninit,
     .mapper = &(const struct ra_hwdec_mapper_driver){

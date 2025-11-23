@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -20,11 +20,10 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
-#include <pthread.h>
+#include "misc/mp_assert.h"
 #include <stdint.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "osdep/atomic.h"
@@ -38,7 +37,7 @@
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 #include "msg.h"
 #include "msg_control.h"
@@ -54,7 +53,7 @@
 #define EARLY_FILE_BUF 5000
 
 struct mp_log_root {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     pthread_mutex_t lock;
     pthread_mutex_t log_file_lock;
     pthread_cond_t log_file_wakeup;
@@ -83,7 +82,7 @@ struct mp_log_root {
     // --- owner thread only (caller of mp_msg_init() etc.)
     char *log_path;
     char *stats_path;
-    pthread_t log_file_thread;
+    mp_thread log_file_thread;
     // --- owner thread only, but frozen while log_file_thread is running
     FILE *log_file;
     struct mp_log_buffer *log_file_buffer;
@@ -133,7 +132,7 @@ static bool match_mod(const char *name, const char *mod)
 static void update_loglevel(struct mp_log *log)
 {
     struct mp_log_root *root = log->root;
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
     log->level = MSGL_STATUS + root->verbose; // default log level
     if (root->really_quiet)
         log->level = -1;
@@ -155,7 +154,7 @@ static void update_loglevel(struct mp_log *log)
         log->level = MPMAX(log->level, MSGL_STATS);
     log->level = MPMIN(log->level, log->max_level);
     atomic_store(&log->reload_counter, atomic_load(&log->root->reload_counter));
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 }
 
 // Set (numerically) the maximum level that should still be output for this log
@@ -164,9 +163,9 @@ void mp_msg_set_max_level(struct mp_log *log, int lev)
 {
     if (!log->root)
         return;
-    pthread_mutex_lock(&log->root->lock);
+    mp_mutex_lock(&log->root->lock);
     log->max_level = MPCLAMP(lev, -1, MSGL_MAX);
-    pthread_mutex_unlock(&log->root->lock);
+    mp_mutex_unlock(&log->root->lock);
     update_loglevel(log);
 }
 
@@ -233,9 +232,9 @@ static void flush_status_line(struct mp_log_root *root)
 void mp_msg_flush_status_line(struct mp_log *log)
 {
     if (log->root) {
-        pthread_mutex_lock(&log->root->lock);
+        mp_mutex_lock(&log->root->lock);
         flush_status_line(log->root);
-        pthread_mutex_unlock(&log->root->lock);
+        mp_mutex_unlock(&log->root->lock);
     }
 }
 
@@ -243,18 +242,18 @@ void mp_msg_set_term_title(struct mp_log *log, const char *title)
 {
     if (log->root && title) {
         // Lock because printf to terminal is not necessarily atomic.
-        pthread_mutex_lock(&log->root->lock);
+        mp_mutex_lock(&log->root->lock);
         fprintf(stderr, "\e]0;%s\007", title);
-        pthread_mutex_unlock(&log->root->lock);
+        mp_mutex_unlock(&log->root->lock);
     }
 }
 
-bool mp_msg_has_status_line(struct mpv_global *global)
+bool mp_msg_has_status_line(struct dmpv_global *global)
 {
     struct mp_log_root *root = global->log->root;
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
     bool r = root->status_lines > 0;
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
     return r;
 }
 
@@ -315,7 +314,7 @@ static void print_terminal_line(struct mp_log *log, int lev,
         set_msg_color(stream, lev);
 
     if (root->show_time)
-        fprintf(stream, "[%10.6f] ", (mp_time_us() - MP_START_TIME) / 1e6);
+        fprintf(stream, "[%10.6f] ", mp_time_sec());
 
     const char *prefix = log->prefix;
     if ((lev >= MSGL_V) || root->verbose || root->module)
@@ -338,7 +337,7 @@ static void print_terminal_line(struct mp_log *log, int lev,
 
 static struct mp_log_buffer_entry *log_buffer_read(struct mp_log_buffer *buffer)
 {
-    assert(buffer->num_entries);
+    mp_assert(buffer->num_entries);
     struct mp_log_buffer_entry *res = buffer->entries[buffer->entry0];
     buffer->entry0 = (buffer->entry0 + 1) % buffer->capacity;
     buffer->num_entries -= 1;
@@ -351,7 +350,7 @@ static void write_msg_to_buffers(struct mp_log *log, int lev, char *text)
     for (int n = 0; n < root->num_buffers; n++) {
         struct mp_log_buffer *buffer = root->buffers[n];
         bool wakeup = false;
-        pthread_mutex_lock(&buffer->lock);
+        mp_mutex_lock(&buffer->lock);
         int buffer_level = buffer->level;
         if (buffer_level == MP_LOG_BUFFER_MSGL_TERM)
             buffer_level = log->terminal_level;
@@ -365,16 +364,16 @@ static void write_msg_to_buffers(struct mp_log *log, int lev, char *text)
                 while (buffer->num_entries == buffer->capacity && !dead) {
                     // Temporary unlock is OK; buffer->level is immutable, and
                     // buffer can't go away because the global log lock is held.
-                    pthread_mutex_unlock(&buffer->lock);
-                    pthread_mutex_lock(&root->log_file_lock);
+                    mp_mutex_unlock(&buffer->lock);
+                    mp_mutex_lock(&root->log_file_lock);
                     if (root->log_file_thread_active) {
                         pthread_cond_wait(&root->log_file_wakeup,
                                           &root->log_file_lock);
                     } else {
                         dead = true;
                     }
-                    pthread_mutex_unlock(&root->log_file_lock);
-                    pthread_mutex_lock(&buffer->lock);
+                    mp_mutex_unlock(&root->log_file_lock);
+                    mp_mutex_lock(&buffer->lock);
                 }
             }
             if (buffer->num_entries == buffer->capacity) {
@@ -394,7 +393,7 @@ static void write_msg_to_buffers(struct mp_log *log, int lev, char *text)
             if (buffer->wakeup_cb && !buffer->silent)
                 wakeup = true;
         }
-        pthread_mutex_unlock(&buffer->lock);
+        mp_mutex_unlock(&buffer->lock);
         if (wakeup)
             buffer->wakeup_cb(buffer->wakeup_cb_ctx);
     }
@@ -404,7 +403,7 @@ static void dump_stats(struct mp_log *log, int lev, char *text)
 {
     struct mp_log_root *root = log->root;
     if (lev == MSGL_STATS && root->stats_file)
-        fprintf(root->stats_file, "%"PRId64" %s\n", mp_time_us(), text);
+        fprintf(root->stats_file, "%"PRId64" %s\n", mp_time_ns(), text);
 }
 
 void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
@@ -414,7 +413,7 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
 
     struct mp_log_root *root = log->root;
 
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
 
     root->buffer.len = 0;
 
@@ -422,11 +421,14 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
         bstr_xappend_asprintf(root, &root->buffer, "%s", log->partial);
     log->partial[0] = '\0';
 
-    bstr_xappend_vasprintf(root, &root->buffer, format, va);
+    if (unlikely(bstr_xappend_vasprintf(root, &root->buffer, format, va) < 0)) {
+        bstr_xappend(root, &root->buffer, bstr0("format error: "));
+        bstr_xappend(root, &root->buffer, bstr0(format));
+    }
 
-    char *text = root->buffer.start;
+    char *text = (char *)root->buffer.start;
 
-    if (lev == MSGL_STATS) {
+    if (unlikely(lev == MSGL_STATS)) {
         dump_stats(log, lev, text);
     } else if (lev == MSGL_STATUS && !test_terminal_level(log, lev)) {
         /* discard */
@@ -460,7 +462,7 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
         }
     }
 
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 }
 
 static void destroy_log(void *ptr)
@@ -483,7 +485,7 @@ static void destroy_log(void *ptr)
 struct mp_log *mp_log_new(void *talloc_ctx, struct mp_log *parent,
                           const char *name)
 {
-    assert(parent);
+    mp_assert(parent);
     struct mp_log *log = talloc_zero(talloc_ctx, struct mp_log);
     if (!parent->root)
         return log; // same as null_log
@@ -516,9 +518,9 @@ struct mp_log *mp_log_new(void *talloc_ctx, struct mp_log *parent,
     return log;
 }
 
-void mp_msg_init(struct mpv_global *global)
+void mp_msg_init(struct dmpv_global *global)
 {
-    assert(!global->log);
+    mp_assert(!global->log);
 
     struct mp_log_root *root = talloc_zero(NULL, struct mp_log_root);
     *root = (struct mp_log_root){
@@ -536,44 +538,44 @@ void mp_msg_init(struct mpv_global *global)
     global->log = log;
 }
 
-static void *log_file_thread(void *p)
+static MP_THREAD_VOID log_file_thread(void *p)
 {
     struct mp_log_root *root = p;
 
-    mpthread_set_name("log-file");
+    mp_thread_set_name("log-file");
 
-    pthread_mutex_lock(&root->log_file_lock);
+    mp_mutex_lock(&root->log_file_lock);
 
     while (root->log_file_thread_active) {
         struct mp_log_buffer_entry *e =
             mp_msg_log_buffer_read(root->log_file_buffer);
         if (e) {
-            pthread_mutex_unlock(&root->log_file_lock);
+            mp_mutex_unlock(&root->log_file_lock);
             fprintf(root->log_file, "[%8.3f][%c][%s] %s",
-                    (mp_time_us() - MP_START_TIME) / 1e6,
+                    mp_time_sec(),
                     mp_log_levels[e->level][0], e->prefix, e->text);
             fflush(root->log_file);
-            pthread_mutex_lock(&root->log_file_lock);
+            mp_mutex_lock(&root->log_file_lock);
             talloc_free(e);
             // Multiple threads might be blocked if the log buffer was full.
-            pthread_cond_broadcast(&root->log_file_wakeup);
+            mp_cond_broadcast(&root->log_file_wakeup);
         } else {
-            pthread_cond_wait(&root->log_file_wakeup, &root->log_file_lock);
+            mp_cond_wait(&root->log_file_wakeup, &root->log_file_lock);
         }
     }
 
-    pthread_mutex_unlock(&root->log_file_lock);
+    mp_mutex_unlock(&root->log_file_lock);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void wakeup_log_file(void *p)
 {
     struct mp_log_root *root = p;
 
-    pthread_mutex_lock(&root->log_file_lock);
-    pthread_cond_broadcast(&root->log_file_wakeup);
-    pthread_mutex_unlock(&root->log_file_lock);
+    mp_mutex_lock(&root->log_file_lock);
+    mp_cond_broadcast(&root->log_file_wakeup);
+    mp_mutex_unlock(&root->log_file_lock);
 }
 
 // Only to be called from the main thread.
@@ -581,16 +583,16 @@ static void terminate_log_file_thread(struct mp_log_root *root)
 {
     bool wait_terminate = false;
 
-    pthread_mutex_lock(&root->log_file_lock);
+    mp_mutex_lock(&root->log_file_lock);
     if (root->log_file_thread_active) {
         root->log_file_thread_active = false;
-        pthread_cond_broadcast(&root->log_file_wakeup);
+        mp_cond_broadcast(&root->log_file_wakeup);
         wait_terminate = true;
     }
-    pthread_mutex_unlock(&root->log_file_lock);
+    mp_mutex_unlock(&root->log_file_lock);
 
     if (wait_terminate)
-        pthread_join(root->log_file_thread, NULL);
+        mp_thread_join(root->log_file_thread);
 
     mp_msg_log_buffer_destroy(root->log_file_buffer);
     root->log_file_buffer = NULL;
@@ -602,7 +604,7 @@ static void terminate_log_file_thread(struct mp_log_root *root)
 
 // If opt is different from *current_path, update *current_path and return true.
 // No lock must be held; passed values must be accessible without.
-static bool check_new_path(struct mpv_global *global, char *opt,
+static bool check_new_path(struct dmpv_global *global, char *opt,
                            char **current_path)
 {
     void *tmp = talloc_new(NULL);
@@ -616,7 +618,7 @@ static bool check_new_path(struct mpv_global *global, char *opt,
     if (strcmp(old_path, new_path) != 0) {
         talloc_free(*current_path);
         *current_path = NULL;
-        if (new_path && new_path[0])
+        if (new_path[0])
             *current_path = talloc_strdup(NULL, new_path);
         res = true;
     }
@@ -626,11 +628,11 @@ static bool check_new_path(struct mpv_global *global, char *opt,
     return res;
 }
 
-void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
+void mp_msg_update_msglevels(struct dmpv_global *global, struct MPOpts *opts)
 {
     struct mp_log_root *root = global->log->root;
 
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
 
     root->verbose = opts->verbose;
     root->really_quiet = opts->msg_really_quiet;
@@ -644,7 +646,7 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
     m_option_type_msglevels.copy(NULL, &root->msg_levels, &opts->msg_levels);
 
     atomic_fetch_add(&root->reload_counter, 1);
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 
     if (check_new_path(global, opts->log_file, &root->log_path)) {
         terminate_log_file_thread(root);
@@ -654,11 +656,11 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
 
                 // if a logfile is created and the early filebuf still exists,
                 // flush and destroy the early buffer
-                pthread_mutex_lock(&root->lock);
+                mp_mutex_lock(&root->lock);
                 struct mp_log_buffer *earlybuf = root->early_filebuffer;
                 if (earlybuf)
                     root->early_filebuffer = NULL;  // but it still logs msgs
-                pthread_mutex_unlock(&root->lock);
+                mp_mutex_unlock(&root->lock);
 
                 if (earlybuf) {
                     // flush, destroy before creating the normal logfile buf,
@@ -680,7 +682,7 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
                     mp_msg_log_buffer_new(global, FILE_BUF, MP_LOG_BUFFER_MSGL_LOGFILE,
                                           wakeup_log_file, root);
                 root->log_file_thread_active = true;
-                if (pthread_create(&root->log_file_thread, NULL, log_file_thread,
+                if (mp_thread_create(&root->log_file_thread, log_file_thread,
                                    root))
                 {
                     root->log_file_thread_active = false;
@@ -696,7 +698,7 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
     if (check_new_path(global, opts->dump_stats, &root->stats_path)) {
         bool open_error = false;
 
-        pthread_mutex_lock(&root->lock);
+        mp_mutex_lock(&root->lock);
         if (root->stats_file)
             fclose(root->stats_file);
         root->stats_file = NULL;
@@ -704,7 +706,7 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
             root->stats_file = fopen(root->stats_path, "wb");
             open_error = !root->stats_file;
         }
-        pthread_mutex_unlock(&root->lock);
+        mp_mutex_unlock(&root->lock);
 
         if (open_error) {
             mp_err(global->log, "Failed to open stats file '%s'\n",
@@ -713,30 +715,30 @@ void mp_msg_update_msglevels(struct mpv_global *global, struct MPOpts *opts)
     }
 }
 
-void mp_msg_force_stderr(struct mpv_global *global, bool force_stderr)
+void mp_msg_force_stderr(struct dmpv_global *global, bool force_stderr)
 {
     struct mp_log_root *root = global->log->root;
 
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
     root->force_stderr = force_stderr;
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 }
 
 // Only to be called from the main thread.
-bool mp_msg_has_log_file(struct mpv_global *global)
+bool mp_msg_has_log_file(struct dmpv_global *global)
 {
     struct mp_log_root *root = global->log->root;
 
     return !!root->log_file;
 }
 
-void mp_msg_uninit(struct mpv_global *global)
+void mp_msg_uninit(struct dmpv_global *global)
 {
     struct mp_log_root *root = global->log->root;
     terminate_log_file_thread(root);
     mp_msg_log_buffer_destroy(root->early_buffer);
     mp_msg_log_buffer_destroy(root->early_filebuffer);
-    assert(root->num_buffers == 0);
+    mp_assert(root->num_buffers == 0);
     if (root->stats_file)
         fclose(root->stats_file);
     talloc_free(root->stats_path);
@@ -752,7 +754,7 @@ void mp_msg_uninit(struct mpv_global *global)
 // early logging store log messages before they have a known destination.
 // there are two early log buffers which are similar logically, and both cease
 // function (if still exist, independently) once the log destination is known,
-// or mpv init is complete (typically, after all clients/scripts init is done).
+// or dmpv init is complete (typically, after all clients/scripts init is done).
 //
 // - "normal" early_buffer, holds early terminal-level logs, and is handed over
 //   to the first client which requests such log buffer, so that it sees older
@@ -761,40 +763,40 @@ void mp_msg_uninit(struct mpv_global *global)
 //
 // - early_filebuffer - early log-file messages until a log file name is known.
 //   main cases where meaningful messages are accumulated before the filename
-//   is known are when log-file is set at mpv.conf, or from script/client init.
+//   is known are when log-file is set at dmpv.conf, or from script/client init.
 //   once a file name is known, the early buffer is flushed and destroyed.
 //   unlike the "proper" log-file buffer, the early filebuffer is not backed by
 //   a write thread, and hence non-blocking (can overwrite old messages).
 //   it's also bigger than the actual file buffer (early: 5000, actual: 100).
 
-static void mp_msg_set_early_logging_raw(struct mpv_global *global, bool enable,
+static void mp_msg_set_early_logging_raw(struct dmpv_global *global, bool enable,
                                          struct mp_log_buffer **root_logbuf,
                                          int size, int level)
 {
     struct mp_log_root *root = global->log->root;
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
 
     if (enable != !!*root_logbuf) {
         if (enable) {
-            pthread_mutex_unlock(&root->lock);
+            mp_mutex_unlock(&root->lock);
             struct mp_log_buffer *buf =
                 mp_msg_log_buffer_new(global, size, level, NULL, NULL);
-            pthread_mutex_lock(&root->lock);
-            assert(!*root_logbuf); // no concurrent calls to this function
+            mp_mutex_lock(&root->lock);
+            mp_assert(!*root_logbuf); // no concurrent calls to this function
             *root_logbuf = buf;
         } else {
             struct mp_log_buffer *buf = *root_logbuf;
             *root_logbuf = NULL;
-            pthread_mutex_unlock(&root->lock);
+            mp_mutex_unlock(&root->lock);
             mp_msg_log_buffer_destroy(buf);
             return;
         }
     }
 
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 }
 
-void mp_msg_set_early_logging(struct mpv_global *global, bool enable)
+void mp_msg_set_early_logging(struct dmpv_global *global, bool enable)
 {
     struct mp_log_root *root = global->log->root;
 
@@ -806,14 +808,14 @@ void mp_msg_set_early_logging(struct mpv_global *global, bool enable)
                                  EARLY_FILE_BUF, MP_LOG_BUFFER_MSGL_LOGFILE);
 }
 
-struct mp_log_buffer *mp_msg_log_buffer_new(struct mpv_global *global,
+struct mp_log_buffer *mp_msg_log_buffer_new(struct dmpv_global *global,
                                             int size, int level,
                                             void (*wakeup_cb)(void *ctx),
                                             void *wakeup_cb_ctx)
 {
     struct mp_log_root *root = global->log->root;
 
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
 
     if (level == MP_LOG_BUFFER_MSGL_TERM) {
         size = TERM_BUF;
@@ -827,12 +829,12 @@ struct mp_log_buffer *mp_msg_log_buffer_new(struct mpv_global *global,
             root->early_buffer = NULL;
             buffer->wakeup_cb = wakeup_cb;
             buffer->wakeup_cb_ctx = wakeup_cb_ctx;
-            pthread_mutex_unlock(&root->lock);
+            mp_mutex_unlock(&root->lock);
             return buffer;
         }
     }
 
-    assert(size > 0);
+    mp_assert(size > 0);
 
     struct mp_log_buffer *buffer = talloc_ptrtype(NULL, buffer);
     *buffer = (struct mp_log_buffer) {
@@ -849,16 +851,16 @@ struct mp_log_buffer *mp_msg_log_buffer_new(struct mpv_global *global,
     MP_TARRAY_APPEND(root, root->buffers, root->num_buffers, buffer);
 
     atomic_fetch_add(&root->reload_counter, 1);
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 
     return buffer;
 }
 
 void mp_msg_log_buffer_set_silent(struct mp_log_buffer *buffer, bool silent)
 {
-    pthread_mutex_lock(&buffer->lock);
+    mp_mutex_lock(&buffer->lock);
     buffer->silent = silent;
-    pthread_mutex_unlock(&buffer->lock);
+    mp_mutex_unlock(&buffer->lock);
 }
 
 void mp_msg_log_buffer_destroy(struct mp_log_buffer *buffer)
@@ -868,7 +870,7 @@ void mp_msg_log_buffer_destroy(struct mp_log_buffer *buffer)
 
     struct mp_log_root *root = buffer->root;
 
-    pthread_mutex_lock(&root->lock);
+    mp_mutex_lock(&root->lock);
 
     for (int n = 0; n < root->num_buffers; n++) {
         if (root->buffers[n] == buffer) {
@@ -888,7 +890,7 @@ found:
     talloc_free(buffer);
 
     atomic_fetch_add(&root->reload_counter, 1);
-    pthread_mutex_unlock(&root->lock);
+    mp_mutex_unlock(&root->lock);
 }
 
 // Return a queued message, or if the buffer is empty, NULL.
@@ -897,7 +899,7 @@ struct mp_log_buffer_entry *mp_msg_log_buffer_read(struct mp_log_buffer *buffer)
 {
     struct mp_log_buffer_entry *res = NULL;
 
-    pthread_mutex_lock(&buffer->lock);
+    mp_mutex_lock(&buffer->lock);
 
     if (!buffer->silent && buffer->num_entries) {
         if (buffer->dropped) {
@@ -915,7 +917,7 @@ struct mp_log_buffer_entry *mp_msg_log_buffer_read(struct mp_log_buffer *buffer)
         }
     }
 
-    pthread_mutex_unlock(&buffer->lock);
+    mp_mutex_unlock(&buffer->lock);
 
     return res;
 }
@@ -943,22 +945,22 @@ const char *const mp_log_levels[MSGL_MAX + 1] = {
     [MSGL_STATS]        = "stats",
 };
 
-const int mp_mpv_log_levels[MSGL_MAX + 1] = {
-    [MSGL_FATAL]        = MPV_LOG_LEVEL_FATAL,
-    [MSGL_ERR]          = MPV_LOG_LEVEL_ERROR,
-    [MSGL_WARN]         = MPV_LOG_LEVEL_WARN,
-    [MSGL_INFO]         = MPV_LOG_LEVEL_INFO,
+const int mp_dmpv_log_levels[MSGL_MAX + 1] = {
+    [MSGL_FATAL]        = DMPV_LOG_LEVEL_FATAL,
+    [MSGL_ERR]          = DMPV_LOG_LEVEL_ERROR,
+    [MSGL_WARN]         = DMPV_LOG_LEVEL_WARN,
+    [MSGL_INFO]         = DMPV_LOG_LEVEL_INFO,
     [MSGL_STATUS]       = 0, // never used
-    [MSGL_V]            = MPV_LOG_LEVEL_V,
-    [MSGL_DEBUG]        = MPV_LOG_LEVEL_DEBUG,
-    [MSGL_TRACE]        = MPV_LOG_LEVEL_TRACE,
+    [MSGL_V]            = DMPV_LOG_LEVEL_V,
+    [MSGL_DEBUG]        = DMPV_LOG_LEVEL_DEBUG,
+    [MSGL_TRACE]        = DMPV_LOG_LEVEL_TRACE,
     [MSGL_STATS]        = 0, // never used
 };
 
 int mp_msg_find_level(const char *s)
 {
     for (int n = 0; n < MP_ARRAY_SIZE(mp_log_levels); n++) {
-        if (mp_log_levels[n] && !strcmp(s, mp_log_levels[n]))
+        if (mp_log_levels[n] && !strcasecmp(s, mp_log_levels[n]))
             return n;
     }
     return -1;

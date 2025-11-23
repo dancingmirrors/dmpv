@@ -1,19 +1,20 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
@@ -32,7 +33,7 @@
 #include "cookies.h"
 
 #include "misc/bstr.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #define OPT_BASE_STRUCT struct stream_lavf_params
 struct stream_lavf_params {
@@ -68,7 +69,7 @@ const struct m_sub_options stream_lavf_conf = {
     },
     .size = sizeof(struct stream_lavf_params),
     .defaults = &(const struct stream_lavf_params){
-        .useragent = "libmpv",
+        .useragent = "dmpv",
         .timeout = 60,
     },
 };
@@ -142,7 +143,7 @@ static int control(stream_t *s, int cmd, void *arg)
         // return anything helpful to determine seekability upfront, so here's
         // a hardcoded whitelist. Not our fault.
         // In addition we also have to jump through ridiculous hoops just to
-        // get the fucking protocol name.
+        // get the protocol name.
         const char *proto = NULL;
         if (avio->av_class && avio->av_class->child_next) {
             // This usually yields the URLContext (why does it even exist?),
@@ -179,7 +180,7 @@ static int interrupt_cb(void *ctx)
 static const char * const prefix[] = { "lavf://", "ffmpeg://" };
 
 void mp_setup_av_network_options(AVDictionary **dict, const char *target_fmt,
-                                 struct mpv_global *global, struct mp_log *log)
+                                 struct dmpv_global *global, struct mp_log *log)
 {
     void *temp = talloc_new(NULL);
     struct stream_lavf_params *opts =
@@ -322,7 +323,7 @@ static int open_f(stream_t *stream)
     if (err < 0) {
         if (err == AVERROR_PROTOCOL_NOT_FOUND)
             MP_ERR(stream, "Protocol not found. Make sure"
-                   " ffmpeg/Libav is compiled with networking support.\n");
+                   " FFmpeg is compiled with networking support.\n");
         goto out;
     }
 
@@ -331,7 +332,7 @@ static int open_f(stream_t *stream)
     if (avio->av_class) {
         uint8_t *mt = NULL;
         if (av_opt_get(avio, "mime_type", AV_OPT_SEARCH_CHILDREN, &mt) >= 0) {
-            stream->mime_type = talloc_strdup(stream, mt);
+            stream->mime_type = talloc_strdup(stream, (char *)mt);
             av_free(mt);
         }
     }
@@ -381,13 +382,13 @@ static struct mp_tags *read_icy(stream_t *s)
     if ((!icy_header || !icy_header[0]) && (!icy_packet || !icy_packet[0]))
         goto done;
 
-    bstr packet = bstr0(icy_packet);
+    bstr packet = bstr0((char *)icy_packet);
     if (bstr_equals0(packet, "-"))
         goto done;
 
     res = talloc_zero(NULL, struct mp_tags);
 
-    bstr header = bstr0(icy_header);
+    bstr header = bstr0((char *)icy_header);
     while (header.len) {
         bstr line = bstr_strip_linebreaks(bstr_getline(header, &header));
         bstr name, val;
@@ -430,13 +431,13 @@ const stream_info_t stream_info_ffmpeg = {
 // pseudo-demuxer, which in turn gives access to filters that can access the
 // local filesystem.)
 const stream_info_t stream_info_ffmpeg_unsafe = {
-  .name = "ffmpeg",
-  .open = open_f,
-  .protocols = (const char *const[]){
-     "lavf", "ffmpeg", "udp", "ftp", "tcp", "tls", "unix", "sftp", "md5",
-     "concat", "smb",
-     NULL },
-  .stream_origin = STREAM_ORIGIN_UNSAFE,
-  .can_write = true,
+    .name = "ffmpeg",
+    .open = open_f,
+    .protocols = (const char *const[]){
+        "lavf", "ffmpeg", "udp", "ftp", "tcp", "tls", "unix", "sftp", "md5",
+        "concat", "smb",
+        NULL },
+    .stream_origin = STREAM_ORIGIN_UNSAFE,
+    .can_write = true,
 };
 

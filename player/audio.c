@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -20,9 +20,9 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "common/encode.h"
@@ -82,14 +82,14 @@ static void update_speed_filters(struct MPContext *mpctx)
 static int recreate_audio_filters(struct MPContext *mpctx)
 {
     struct ao_chain *ao_c = mpctx->ao_chain;
-    assert(ao_c);
+    mp_assert(ao_c);
 
     if (!mp_output_chain_update_filters(ao_c->filter, mpctx->opts->af_settings))
         goto fail;
 
     update_speed_filters(mpctx);
 
-    mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
 
     return 0;
 
@@ -175,7 +175,7 @@ void audio_update_volume(struct MPContext *mpctx)
     float gain = MPMAX(opts->softvol_volume / 100.0, 0);
     gain = pow(gain, 3);
     gain *= compute_replaygain(mpctx);
-    if (opts->softvol_mute == 1)
+    if (opts->softvol_mute == 1 || mpctx->seek_muted)
         gain = 0.0;
 
     ao_set_gain(ao_c->ao, gain);
@@ -188,30 +188,6 @@ void update_playback_speed(struct MPContext *mpctx)
     mpctx->video_speed = mpctx->opts->playback_speed * mpctx->speed_factor_v;
 
     update_speed_filters(mpctx);
-}
-
-static bool has_video_track(struct MPContext *mpctx)
-{
-    if (mpctx->vo_chain && mpctx->vo_chain->is_coverart)
-        return false;
-
-    for (int n = 0; n < mpctx->num_tracks; n++) {
-        struct track *track = mpctx->tracks[n];
-        if (track->type == STREAM_VIDEO && !track->attached_picture && !track->image)
-            return true;
-    }
-
-    return false;
-}
-
-void audio_update_media_role(struct MPContext *mpctx)
-{
-    if (!mpctx->ao)
-        return;
-
-    enum aocontrol_media_role role = has_video_track(mpctx) ?
-        AOCONTROL_MEDIA_ROLE_MOVIE : AOCONTROL_MEDIA_ROLE_MUSIC;
-    ao_control(mpctx->ao, AOCONTROL_UPDATE_MEDIA_ROLE, &role);
 }
 
 static void ao_chain_reset_state(struct ao_chain *ao_c)
@@ -255,7 +231,7 @@ void uninit_audio_out(struct MPContext *mpctx)
         }
         ao_uninit(mpctx->ao);
 
-        mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
     }
     mpctx->ao = NULL;
     TA_FREEP(&mpctx->ao_filter_fmt);
@@ -265,10 +241,10 @@ static void ao_chain_uninit(struct ao_chain *ao_c)
 {
     struct track *track = ao_c->track;
     if (track) {
-        assert(track->ao_c == ao_c);
+        mp_assert(track->ao_c == ao_c);
         track->ao_c = NULL;
         if (ao_c->dec_src)
-            assert(track->dec->f->pins[0] == ao_c->dec_src);
+            mp_assert(track->dec->f->pins[0] == ao_c->dec_src);
         talloc_free(track->dec->f);
         track->dec = NULL;
     }
@@ -289,7 +265,7 @@ void uninit_audio_chain(struct MPContext *mpctx)
 
         mpctx->audio_status = STATUS_EOF;
 
-        mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+        mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
     }
 }
 
@@ -335,7 +311,7 @@ done:
 static void ao_chain_set_ao(struct ao_chain *ao_c, struct ao *ao)
 {
     if (ao_c->ao != ao) {
-        assert(!ao_c->ao);
+        mp_assert(!ao_c->ao);
         ao_c->ao = ao;
         ao_c->ao_queue = ao_get_queue(ao_c->ao);
         ao_c->queue_filter = mp_async_queue_create_filter(ao_c->ao_filter,
@@ -356,10 +332,10 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
 {
     struct MPOpts *opts = mpctx->opts;
     struct ao_chain *ao_c = mpctx->ao_chain;
-    assert(ao_c);
+    mp_assert(ao_c);
     struct track *track = ao_c->track;
 
-    assert(ao_c->filter->ao_needs_update);
+    mp_assert(ao_c->filter->ao_needs_update);
 
     // The "ideal" filter output format
     struct mp_aframe *out_fmt = mp_aframe_new_ref(ao_c->filter->output_aformat);
@@ -391,11 +367,6 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
         return 0;
     }
 
-    // Wait until all played.
-    if (mpctx->ao && ao_is_playing(mpctx->ao)) {
-        talloc_free(out_fmt);
-        return 0;
-    }
     // Format change during syncing. Force playback start early, then wait.
     if (ao_c->ao_queue && mp_async_queue_get_frames(ao_c->ao_queue) &&
         mpctx->audio_status == STATUS_SYNCING)
@@ -479,12 +450,12 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
         }
 
         MP_ERR(mpctx, "Could not open/initialize audio device -> no sound.\n");
-        mpctx->error_playing = MPV_ERROR_AO_INIT_FAILED;
+        mpctx->error_playing = DMPV_ERROR_AO_INIT_FAILED;
         goto init_error;
     }
 
     char tmp[192];
-    MP_INFO(mpctx, "AO: [%s] %s\n", ao_get_name(mpctx->ao),
+    MP_INFO(mpctx, "INFO: [%s] %s\n", ao_get_name(mpctx->ao),
             audio_config_to_str_buf(tmp, sizeof(tmp), ao_rate, ao_format,
                                     ao_channels));
     MP_VERBOSE(mpctx, "AO: Description: %s\n", ao_get_description(mpctx->ao));
@@ -493,20 +464,19 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
     ao_c->ao_resume_time =
         opts->audio_wait_open > 0 ? mp_time_sec() + opts->audio_wait_open : 0;
 
-    ao_set_paused(mpctx->ao, get_internal_paused(mpctx));
+    bool eof = mpctx->audio_status == STATUS_EOF;
+    ao_set_paused(mpctx->ao, get_internal_paused(mpctx), eof);
 
     ao_chain_set_ao(ao_c, mpctx->ao);
 
     audio_update_volume(mpctx);
-
-    audio_update_media_role(mpctx);
 
     // Almost nonsensical hack to deal with certain format change scenarios.
     if (mpctx->audio_status == STATUS_PLAYING)
         ao_start(mpctx->ao);
 
     mp_wakeup_core(mpctx);
-    mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
 
     return 0;
 
@@ -519,7 +489,7 @@ init_error:
 
 int init_audio_decoder(struct MPContext *mpctx, struct track *track)
 {
-    assert(!track->dec);
+    mp_assert(!track->dec);
     if (!track->stream)
         goto init_error;
 
@@ -564,9 +534,9 @@ static const struct mp_filter_info ao_filter = {
 // (track=NULL creates a blank chain, used for lavfi-complex)
 void reinit_audio_chain_src(struct MPContext *mpctx, struct track *track)
 {
-    assert(!mpctx->ao_chain);
+    mp_assert(!mpctx->ao_chain);
 
-    mp_notify(mpctx, MPV_EVENT_AUDIO_RECONFIG, NULL);
+    mp_notify(mpctx, DMPV_EVENT_AUDIO_RECONFIG, NULL);
 
     struct ao_chain *ao_c = talloc_zero(NULL, struct ao_chain);
     mpctx->ao_chain = ao_c;
@@ -731,7 +701,8 @@ static void ao_process(struct mp_filter *f)
 
         mpctx->shown_aframes += samples;
         double real_samplerate = mp_aframe_get_rate(af) / mpctx->audio_speed;
-        mpctx->delay += samples / real_samplerate;
+        if (mpctx->video_status != STATUS_EOF)
+            mpctx->delay += samples / real_samplerate;
         ao_c->last_out_pts = mp_aframe_end_pts(af);
         update_throttle(mpctx);
 
@@ -869,10 +840,6 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
     if (mpctx->ao && ao_query_and_reset_events(mpctx->ao, AO_EVENT_RELOAD))
         reload_audio_output(mpctx);
 
-    if (mpctx->ao && ao_query_and_reset_events(mpctx->ao,
-                                               AO_EVENT_INITIAL_UNBLOCK))
-        ao_unblock(mpctx->ao);
-
     update_throttle(mpctx);
 
     struct ao_chain *ao_c = mpctx->ao_chain;
@@ -945,7 +912,7 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
             ao_reset(ao_c->ao);
         } else {
             if (!ao_c->ao_underrun) {
-                MP_WARN(mpctx, "Audio device underrun detected.\n");
+                MP_VERBOSE(mpctx, "Audio device underrun detected.\n");
                 ao_c->ao_underrun = true;
                 mp_wakeup_core(mpctx);
                 ao_c->underrun = true;
@@ -971,8 +938,7 @@ void fill_audio_out_buffers(struct MPContext *mpctx)
     if (mpctx->audio_status == STATUS_DRAINING) {
         // Wait until the AO has played all queued data. In the gapless case,
         // we trigger EOF immediately, and let it play asynchronously.
-        if (!ao_c->ao || (!ao_is_playing(ao_c->ao) ||
-                          (opts->gapless_audio && !ao_untimed(ao_c->ao))))
+        if (!ao_c->ao || (!ao_is_playing(ao_c->ao) || opts->gapless_audio))
         {
             MP_VERBOSE(mpctx, "audio EOF reached\n");
             mpctx->audio_status = STATUS_EOF;

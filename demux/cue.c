@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -20,7 +20,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "common/common.h"
@@ -59,7 +59,8 @@ static const struct {
     { CUE_UNUSED, "REM" },
     { CUE_UNUSED, "SONGWRITER" },
     { CUE_UNUSED, "MESSAGE" },
-    { -1 },
+    { CUE_UNUSED, "MCN" },
+    { -1, NULL },
 };
 
 static const uint8_t spaces[] = {' ', '\f', '\n', '\r', '\t', '\v', 0xA0};
@@ -214,6 +215,8 @@ struct cue_file *mp_parse_cue(struct bstr data)
             talloc_free(f);
             return NULL;
         case CUE_TRACK: {
+            if (bstr_find0(param, "AUDIO") == -1)
+                break;
             MP_TARRAY_GROW(f, f->tracks, f->num_tracks);
             f->num_tracks += 1;
             cur_track = &f->tracks[f->num_tracks - 1];
@@ -256,6 +259,8 @@ struct cue_file *mp_parse_cue(struct bstr data)
 
 int mp_check_embedded_cue(struct cue_file *f)
 {
+    if (f->num_tracks == 0)
+        return -1;
     char *fn0 = f->tracks[0].filename;
     for (int n = 1; n < f->num_tracks; n++) {
         char *fn = f->tracks[n].filename;

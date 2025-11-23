@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <math.h>
@@ -25,6 +25,7 @@
 #include "common/msg.h"
 #include "demux/demux.h"
 #include "demux/packet.h"
+#include "demux/packet_pool.h"
 #include "demux/stheader.h"
 
 #include "recorder.h"
@@ -39,8 +40,9 @@
 #define QUEUE_MIN_PACKETS 16
 
 struct mp_recorder {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
+    struct demux_packet_pool *packet_pool;
 
     struct mp_recorder_sink **streams;
     int num_streams;
@@ -75,8 +77,10 @@ struct mp_recorder_sink {
 static int add_stream(struct mp_recorder *priv, struct sh_stream *sh)
 {
     enum AVMediaType av_type = mp_to_av_stream_type(sh->type);
+    int ret = -1;
+    AVCodecParameters *avp = NULL;
     if (av_type == AVMEDIA_TYPE_UNKNOWN)
-        return -1;
+        goto done;
 
     struct mp_recorder_sink *rst = talloc(priv, struct mp_recorder_sink);
     *rst = (struct mp_recorder_sink) {
@@ -88,11 +92,11 @@ static int add_stream(struct mp_recorder *priv, struct sh_stream *sh)
     };
 
     if (!rst->av_stream || !rst->avpkt)
-        return -1;
+        goto done;
 
-    AVCodecParameters *avp = mp_codec_params_to_av(sh->codec);
+    avp = mp_codec_params_to_av(sh->codec);
     if (!avp)
-        return -1;
+        goto done;
 
     // Check if we get the same codec_id for the output format;
     // otherwise clear it to have a chance at muxing
@@ -108,18 +112,23 @@ static int add_stream(struct mp_recorder *priv, struct sh_stream *sh)
         avp->video_delay = 16;
 
     if (avp->codec_id == AV_CODEC_ID_NONE)
-        return -1;
+        goto done;
 
     if (avcodec_parameters_copy(rst->av_stream->codecpar, avp) < 0)
-        return -1;
+        goto done;
 
+    ret = 0;
     rst->av_stream->time_base = mp_get_codec_timebase(sh->codec);
 
     MP_TARRAY_APPEND(priv, priv->streams, priv->num_streams, rst);
-    return 0;
+
+done:
+    if (avp)
+        avcodec_parameters_free(&avp);
+    return ret;
 }
 
-struct mp_recorder *mp_recorder_create(struct mpv_global *global,
+struct mp_recorder *mp_recorder_create(struct dmpv_global *global,
                                        const char *target_file,
                                        struct sh_stream **streams,
                                        int num_streams,
@@ -130,6 +139,7 @@ struct mp_recorder *mp_recorder_create(struct mpv_global *global,
 
     priv->global = global;
     priv->log = mp_log_new(priv, global->log, "recorder");
+    priv->packet_pool = demux_packet_pool_get(global);
 
     if (!num_streams) {
         MP_ERR(priv, "No streams.\n");
@@ -191,8 +201,8 @@ struct mp_recorder *mp_recorder_create(struct mpv_global *global,
     // and mp4 support this directly.
     char version[200];
     snprintf(version, sizeof(version), "%s experimental stream recording "
-             "feature (can generate broken files - please report bugs)",
-             mpv_version);
+             "feature (can generate broken files - please don't report bugs)",
+             dmpv_version);
     av_dict_set(&priv->mux->metadata, "encoding_tool", version, 0);
 
     if (avformat_write_header(priv->mux, NULL) < 0) {
@@ -208,7 +218,7 @@ struct mp_recorder *mp_recorder_create(struct mpv_global *global,
 
     MP_WARN(priv, "This is an experimental feature. Output files might be "
                   "broken or not play correctly with various players "
-                  "(including mpv itself).\n");
+                  "(including dmpv itself).\n");
 
     return priv;
 
@@ -254,6 +264,8 @@ static void mux_packet(struct mp_recorder_sink *rst,
 
     if (av_interleaved_write_frame(priv->mux, new_packet) < 0)
         MP_ERR(priv, "Failed writing packet.\n");
+
+    av_packet_free(&new_packet);
 }
 
 // Write all packets available in the stream queue
@@ -296,7 +308,7 @@ static void check_restart(struct mp_recorder *priv)
             min_ts = MP_PTS_MIN(min_ts, rst->packets[i]->pts);
     }
 
-    // Subtitle only stream (wait longer) or stream without any PTS (fuck it).
+    // Subtitle only stream (wait longer) or stream without any PTS.
     if (min_ts == MP_NOPTS_VALUE)
         return;
 
@@ -403,7 +415,7 @@ void mp_recorder_feed_packet(struct mp_recorder_sink *rst,
         return;
     }
 
-    pkt = demux_copy_packet(pkt);
+    pkt = demux_copy_packet(rst->owner->packet_pool, pkt);
     if (!pkt)
         return;
     MP_TARRAY_APPEND(rst, rst->packets, rst->num_packets, pkt);

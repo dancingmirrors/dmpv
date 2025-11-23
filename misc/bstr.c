@@ -1,28 +1,28 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
 #include <strings.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/common.h"
 #include "misc/ctype.h"
@@ -49,7 +49,7 @@ int bstrcasecmp(struct bstr str1, struct bstr str2)
 {
     int ret = 0;
     if (str1.len && str2.len)
-        ret = strncasecmp(str1.start, str2.start, MPMIN(str1.len, str2.len));
+        ret = strncasecmp((char *)str1.start, (char *)str2.start, MPMIN(str1.len, str2.len));
 
     if (!ret) {
         if (str1.len == str2.len)
@@ -168,7 +168,7 @@ long long bstrtoll(struct bstr str, struct bstr *rest, int base)
     str = bstr_lstrip(str);
     char buf[51];
     int len = MPMIN(str.len, 50);
-    memcpy(buf, str.start, len);
+    memcpy(buf, (char *)str.start, len);
     buf[len] = 0;
     char *endptr;
     long long r = strtoll(buf, &endptr, base);
@@ -182,7 +182,7 @@ double bstrtod(struct bstr str, struct bstr *rest)
     str = bstr_lstrip(str);
     char buf[101];
     int len = MPMIN(str.len, 100);
-    memcpy(buf, str.start, len);
+    memcpy(buf, (char *)str.start, len);
     buf[len] = 0;
     char *endptr;
     double r = strtod(buf, &endptr);
@@ -345,7 +345,7 @@ struct bstr bstr_sanitize_utf8_latin1(void *talloc_ctx, struct bstr s)
 static void resize_append(void *talloc_ctx, bstr *s, size_t append_min)
 {
     size_t size = talloc_get_size(s->start);
-    assert(s->len <= size);
+    mp_assert(s->len <= size);
     if (append_min > size - s->len) {
         if (append_min < size)
             append_min = size; // preallocate in power of 2s
@@ -365,42 +365,41 @@ void bstr_xappend(void *talloc_ctx, bstr *s, bstr append)
     if (!append.len)
         return;
     resize_append(talloc_ctx, s, append.len + 1);
-    memcpy(s->start + s->len, append.start, append.len);
+    memmove(s->start + s->len, append.start, append.len);
     s->len += append.len;
     s->start[s->len] = '\0';
 }
 
-void bstr_xappend_asprintf(void *talloc_ctx, bstr *s, const char *fmt, ...)
+int bstr_xappend_asprintf(void *talloc_ctx, bstr *s, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    bstr_xappend_vasprintf(talloc_ctx, s, fmt, ap);
+    int ret = bstr_xappend_vasprintf(talloc_ctx, s, fmt, ap);
     va_end(ap);
+    return ret;
 }
 
 // Exactly as bstr_xappend(), but with a formatted string.
-void bstr_xappend_vasprintf(void *talloc_ctx, bstr *s, const char *fmt,
-                            va_list ap)
+int bstr_xappend_vasprintf(void *talloc_ctx, bstr *s, const char *fmt,
+                           va_list ap)
 {
     int size;
     va_list copy;
     va_copy(copy, ap);
     size_t avail = talloc_get_size(s->start) - s->len;
-    char *dest = s->start ? s->start + s->len : NULL;
-    char c;
-    if (avail < 1)
-        dest = &c;
-    size = vsnprintf(dest, MPMAX(avail, 1), fmt, copy);
+    char *dest = s->start ? (char *)s->start + s->len : NULL;
+    size = vsnprintf(dest, avail, fmt, copy);
     va_end(copy);
 
     if (size < 0)
-        abort();
+        return size;
 
     if (avail < 1 || size + 1 > avail) {
         resize_append(talloc_ctx, s, size + 1);
-        vsnprintf(s->start + s->len, size + 1, fmt, ap);
+        vsnprintf((char *)s->start + s->len, size + 1, fmt, ap);
     }
     s->len += size;
+    return size;
 }
 
 bool bstr_case_startswith(struct bstr s, struct bstr prefix)
@@ -464,6 +463,6 @@ bool bstr_decode_hex(void *talloc_ctx, struct bstr hex, struct bstr *out)
         arr[len++] = (a << 4) | b;
     }
 
-    *out = (struct bstr){ .start = arr, .len = len };
+    *out = (struct bstr){ .start = (unsigned char *)arr, .len = len };
     return true;
 }

@@ -5,20 +5,20 @@
  * Special thanks go to the xine team and Matthias Hopf, whose video_out_opengl.c
  * gave me lots of good ideas.
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -28,7 +28,7 @@
 #include <strings.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "common.h"
 #include "common/common.h"
@@ -37,7 +37,7 @@
 // This guesses if the current GL context is a suspected software renderer.
 static bool is_software_gl(GL *gl)
 {
-    const char *renderer = gl->GetString(GL_RENDERER);
+    const char *renderer = (const char *)gl->GetString(GL_RENDERER);
     // Note we don't attempt to blacklist Microsoft's fallback implementation.
     // It only provides OpenGL 1.1 and will be skipped anyway.
     return !renderer ||
@@ -51,18 +51,18 @@ static bool is_software_gl(GL *gl)
 // This guesses whether our DR path is fast or slow
 static bool is_fast_dr(GL *gl)
 {
-    const char *vendor = gl->GetString(GL_VENDOR);
+    const char *vendor = (const char *)gl->GetString(GL_VENDOR);
     if (!vendor)
         return false;
 
     return strcasecmp(vendor, "AMD") == 0 ||
            strcasecmp(vendor, "NVIDIA Corporation") == 0 ||
-           strcasecmp(vendor, "ATI Technologies Inc.") == 0;    // AMD on Windows
+           strcasecmp(vendor, "ATI Technologies Inc.") == 0;
 }
 
 static void GLAPIENTRY dummy_glBindFramebuffer(GLenum target, GLuint framebuffer)
 {
-    assert(framebuffer == 0);
+    mp_assert(framebuffer == 0);
 }
 
 #define FN_OFFS(name) offsetof(GL, name)
@@ -398,7 +398,6 @@ static const struct gl_functions gl_functions[] = {
         .provides = MPGL_CAP_NESTED_ARRAY,
     },
     // Swap control, always an OS specific extension
-    // The OSX code loads this manually.
     {
         .extension = "GLX_SGI_swap_control",
         .functions = (const struct gl_function[]) {
@@ -406,19 +405,12 @@ static const struct gl_functions gl_functions[] = {
             {0},
         },
     },
-    // This one overrides GLX_SGI_swap_control on platforms using mesa. The
+    // This one overrides GLX_SGI_swap_control on platforms using Mesa. The
     // only difference is that it supports glXSwapInterval(0).
     {
         .extension = "GLX_MESA_swap_control",
         .functions = (const struct gl_function[]) {
             DEF_FN_NAME(SwapInterval, "glXSwapIntervalMESA"),
-            {0},
-        },
-    },
-    {
-        .extension = "WGL_EXT_swap_control",
-        .functions = (const struct gl_function[]) {
-            DEF_FN_NAME(SwapInterval, "wglSwapIntervalEXT"),
             {0},
         },
     },
@@ -430,7 +422,7 @@ static const struct gl_functions gl_functions[] = {
             {0},
         },
     },
-    // For gl_hwdec_vdpau.c
+    // For hwdec_vdpau.c
     // http://www.opengl.org/registry/specs/NV/vdpau_interop.txt
     {
         .extension = "GL_NV_vdpau_interop",
@@ -448,24 +440,7 @@ static const struct gl_functions gl_functions[] = {
             {0}
         },
     },
-#if HAVE_GL_DXINTEROP
-    {
-        .extension = "WGL_NV_DX_interop",
-        .provides = MPGL_CAP_DXINTEROP,
-        .functions = (const struct gl_function[]) {
-            DEF_FN_NAME(DXSetResourceShareHandleNV, "wglDXSetResourceShareHandleNV"),
-            DEF_FN_NAME(DXOpenDeviceNV, "wglDXOpenDeviceNV"),
-            DEF_FN_NAME(DXCloseDeviceNV, "wglDXCloseDeviceNV"),
-            DEF_FN_NAME(DXRegisterObjectNV, "wglDXRegisterObjectNV"),
-            DEF_FN_NAME(DXUnregisterObjectNV, "wglDXUnregisterObjectNV"),
-            DEF_FN_NAME(DXLockObjectsNV, "wglDXLockObjectsNV"),
-            DEF_FN_NAME(DXUnlockObjectsNV, "wglDXUnlockObjectsNV"),
-            {0}
-        },
-    },
-#endif
     // Apple Packed YUV Formats
-    // For gl_hwdec_vda.c
     // http://www.opengl.org/registry/specs/APPLE/rgb_422.txt
     {
         .extension = "GL_APPLE_rgb_422",
@@ -528,7 +503,7 @@ void mpgl_load_functions2(GL *gl, void *(*get_fn)(void *ctx, const char *n),
     }
 
     int major = 0, minor = 0;
-    const char *version_string = gl->GetString(GL_VERSION);
+    const char *version_string = (const char *)gl->GetString(GL_VERSION);
     if (!version_string) {
         mp_fatal(log, "glGetString(GL_VERSION) returned NULL.\n");
         goto error;
@@ -553,9 +528,9 @@ void mpgl_load_functions2(GL *gl, void *(*get_fn)(void *ctx, const char *n),
         }
     }
 
-    mp_verbose(log, "GL_VENDOR='%s'\n",   gl->GetString(GL_VENDOR));
-    mp_verbose(log, "GL_RENDERER='%s'\n", gl->GetString(GL_RENDERER));
-    const char *shader = gl->GetString(GL_SHADING_LANGUAGE_VERSION);
+    mp_verbose(log, "GL_VENDOR='%s'\n",   (const char *)gl->GetString(GL_VENDOR));
+    mp_verbose(log, "GL_RENDERER='%s'\n", (const char *)gl->GetString(GL_RENDERER));
+    const char *shader = (const char *)gl->GetString(GL_SHADING_LANGUAGE_VERSION);
     if (shader)
         mp_verbose(log, "GL_SHADING_LANGUAGE_VERSION='%s'\n", shader);
 
@@ -569,7 +544,7 @@ void mpgl_load_functions2(GL *gl, void *(*get_fn)(void *ctx, const char *n),
         GLint exts;
         gl->GetIntegerv(GL_NUM_EXTENSIONS, &exts);
         for (int n = 0; n < exts; n++) {
-            const char *ext = gl->GetStringi(GL_EXTENSIONS, n);
+            const char *ext = (const char *)gl->GetStringi(GL_EXTENSIONS, n);
             gl->extensions = talloc_asprintf_append(gl->extensions, " %s", ext);
         }
 
@@ -626,7 +601,7 @@ void mpgl_load_functions2(GL *gl, void *(*get_fn)(void *ctx, const char *n),
                 }
                 break;
             }
-            assert(i < MAX_FN_COUNT);
+            mp_assert(i < MAX_FN_COUNT);
             loaded[i] = ptr;
         }
 

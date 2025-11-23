@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -20,9 +20,9 @@
 #include <inttypes.h>
 #include <math.h>
 #include <limits.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "common/msg_control.h"
@@ -54,9 +54,9 @@ static void sadd_hhmmssff(char **buf, double time, bool fractions)
     talloc_free(s);
 }
 
-static void sadd_percentage(char **buf, int percent) {
-    if (percent >= 0)
-        *buf = talloc_asprintf_append(*buf, " (%d%%)", percent);
+static void sadd_percentage(char **buf, double ratio) {
+    if (ratio >= 0)
+        *buf = talloc_asprintf_append(*buf, " (%.f%%)", ratio * 100);
 }
 
 static char *join_lines(void *ta_ctx, char **parts, int num_parts)
@@ -188,10 +188,15 @@ static char *get_term_status_msg(struct MPContext *mpctx)
         saddf(&line, "(Paused) ");
     }
 
+    if ((mpctx->ao_chain) && (mpctx->vo_chain)) {
+        saddf(&line, "INFO");
+    }
+    else {
     if (mpctx->ao_chain)
-        saddf(&line, "A");
+        saddf(&line, "INFO");
     if (mpctx->vo_chain)
-        saddf(&line, "V");
+        saddf(&line, "INFO");
+    }
     saddf(&line, ": ");
 
     // Playback position
@@ -199,18 +204,11 @@ static char *get_term_status_msg(struct MPContext *mpctx)
     saddf(&line, " / ");
     sadd_hhmmssff(&line, get_time_length(mpctx), opts->osd_fractions);
 
-    sadd_percentage(&line, get_percent_pos(mpctx));
+    sadd_percentage(&line, get_current_pos_ratio(mpctx, false));
 
     // other
     if (opts->playback_speed != 1)
         saddf(&line, " x%4.2f", opts->playback_speed);
-
-    // A-V sync
-    if (mpctx->ao_chain && mpctx->vo_chain && !mpctx->vo_chain->is_sparse) {
-        saddf(&line, " A-V:%7.3f", mpctx->last_av_difference);
-        if (fabs(mpctx->total_avsync_change) > 0.05)
-            saddf(&line, " ct:%7.3f", mpctx->total_avsync_change);
-    }
 
     double position = get_current_pos_ratio(mpctx, true);
     char lavcbuf[80];
@@ -420,6 +418,8 @@ void get_current_osd_sym(struct MPContext *mpctx, char *buf, size_t buf_size)
             sym = OSD_CLOCK;
         } else if (mpctx->paused || mpctx->step_frames) {
             sym = OSD_PAUSE;
+        } else if (mpctx->play_dir < 0 ) {
+            sym = OSD_REV;
         } else {
             sym = OSD_PLAY;
         }
@@ -429,7 +429,7 @@ void get_current_osd_sym(struct MPContext *mpctx, char *buf, size_t buf_size)
 
 static void sadd_osd_status(char **buffer, struct MPContext *mpctx, int level)
 {
-    assert(level >= 0 && level <= 3);
+    mp_assert(level >= 0 && level <= 3);
     if (level == 0)
         return;
     char *msg = mpctx->opts->osd_msg[level - 1];
@@ -453,7 +453,7 @@ static void sadd_osd_status(char **buffer, struct MPContext *mpctx, int level)
             if (level == 3) {
                 saddf(buffer, " / ");
                 sadd_hhmmssff(buffer, get_time_length(mpctx), fractions);
-                sadd_percentage(buffer, get_percent_pos(mpctx));
+                sadd_percentage(buffer, get_current_pos_ratio(mpctx, false));
             }
         }
     }
@@ -472,8 +472,15 @@ static void add_seek_osd_messages(struct MPContext *mpctx)
         // Never in term-osd mode
         bool video_osd = mpctx->video_out && mpctx->opts->video_osd;
         if (video_osd && mpctx->opts->term_osd != 1) {
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wformat-zero-length"
+#endif
             if (set_osd_msg(mpctx, 1, mpctx->opts->osd_duration, ""))
                 mpctx->osd_show_pos = true;
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic pop
+#endif
         }
     }
     if (mpctx->add_osd_seek_info & OSD_SEEK_INFO_CHAPTER_TEXT) {

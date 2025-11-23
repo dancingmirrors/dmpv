@@ -1,20 +1,20 @@
 /*
  * Original author: Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -24,18 +24,19 @@
 #include <limits.h>
 #include <math.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "demux.h"
 #include "timeline.h"
 #include "common/msg.h"
 #include "options/path.h"
 #include "misc/bstr.h"
+#include "misc/mp_assert.h"
 #include "common/common.h"
 #include "common/tags.h"
 #include "stream/stream.h"
 
-#define HEADER "# mpv EDL v0\n"
+#define HEADER "# dmpv EDL v0\n"
 
 struct tl_part {
     char *filename;             // what is stream_open()ed
@@ -289,6 +290,10 @@ static struct tl_root *parse_edl(bstr str, struct mp_log *log)
         } else {
             struct tl_part p = { .length = -1 };
             p.filename = get_param0(&ctx, tl, "file");
+            if (!p.filename || !p.filename[0]) {
+                mp_err(log, "Missing filename in segment.'\n");
+                goto error;
+            }
             p.offset_set = get_param_time(&ctx, "start", &p.offset);
             get_param_time(&ctx, "length", &p.length);
             bstr ts = get_param(&ctx, "timestamps");
@@ -306,10 +311,6 @@ static struct tl_root *parse_edl(bstr str, struct mp_log *log)
                     mp_warn(log, "Unknown layout param: '%.*s'\n", BSTR_P(layout));
                 }
             }
-            if (!p.filename) {
-                mp_err(log, "Missing filename in segment.'\n");
-                goto error;
-            }
             MP_TARRAY_APPEND(tl, tl->parts, tl->num_parts, p);
         }
         if (ctx.error)
@@ -319,7 +320,7 @@ static struct tl_root *parse_edl(bstr str, struct mp_log *log)
                     BSTR_P(ctx.param_names[n]));
         }
     }
-    assert(root->num_pars);
+    mp_assert(root->num_pars);
     for (int n = 0; n < root->num_pars; n++) {
         if (root->pars[n]->num_parts < 1) {
             mp_err(log, "EDL specifies no segments.'\n");
@@ -344,6 +345,7 @@ static struct demuxer *open_source(struct timeline *root,
     struct demuxer_params params = {
         .init_fragment = tl->init_fragment,
         .stream_flags = root->stream_origin,
+        .depth = root->demuxer->depth + 1,
     };
     struct demuxer *d = demux_open_url(filename, &params, root->cancel,
                                        root->global);
@@ -435,6 +437,7 @@ static struct timeline_par *build_timeline(struct timeline *root,
         struct demuxer_params params = {
             .init_fragment = tl->init_fragment,
             .stream_flags = root->stream_origin,
+            .depth = root->demuxer->depth + 1,
         };
         tl->track_layout = demux_open_url("memory://", &params, root->cancel,
                                           root->global);
@@ -557,7 +560,7 @@ static struct timeline_par *build_timeline(struct timeline *root,
     if (root->meta)
         mp_tags_merge(root->meta->metadata, edl_root->tags);
 
-    assert(tl->num_parts == parts->num_parts);
+    mp_assert(tl->num_parts == parts->num_parts);
     return tl;
 
 error:
@@ -567,7 +570,7 @@ error:
 
 static void fix_filenames(struct tl_parts *parts, char *source_path)
 {
-    if (bstr_equals0(mp_split_proto(bstr0(source_path), NULL), "edl"))
+    if (!bstrcasecmp0(mp_split_proto(bstr0(source_path), NULL), "edl"))
         return;
     struct bstr dirname = mp_dirname(source_path);
     for (int n = 0; n < parts->num_parts; n++) {
@@ -579,7 +582,7 @@ static void fix_filenames(struct tl_parts *parts, char *source_path)
     }
 }
 
-static void build_mpv_edl_timeline(struct timeline *tl)
+static void build_dmpv_edl_timeline(struct timeline *tl)
 {
     struct priv *p = tl->demuxer->priv;
 
@@ -647,5 +650,5 @@ const struct demuxer_desc demuxer_desc_edl = {
     .name = "edl",
     .desc = "Edit decision list",
     .open = try_open_file,
-    .load_timeline = build_mpv_edl_timeline,
+    .load_timeline = build_dmpv_edl_timeline,
 };

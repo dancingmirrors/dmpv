@@ -1,20 +1,20 @@
 /*
  * null audio output driver
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "osdep/timer.h"
 #include "options/m_option.h"
@@ -116,10 +116,11 @@ static void uninit(struct ao *ao)
 {
 }
 
-// stop playing and empty buffers (for seeking/pause)
+// stop playing and empty buffers (for seeking)
 static void reset(struct ao *ao)
 {
     struct priv *priv = ao->priv;
+    priv->paused = false;
     priv->buffered = 0;
     priv->playing = false;
 }

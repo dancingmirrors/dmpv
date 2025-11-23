@@ -1,20 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "misc/mp_assert.h"
 #include "options/m_config.h"
 #include "video/out/placebo/ra_pl.h"
 
@@ -29,8 +30,7 @@ struct vulkan_opts {
     bool async_compute;
 };
 
-static int vk_validate_dev(struct mp_log *log, const struct m_option *opt,
-                           struct bstr name, const char **value)
+static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
 {
     struct bstr param = bstr0(*value);
     int ret = M_OPT_INVALID;
@@ -54,7 +54,7 @@ static int vk_validate_dev(struct mp_log *log, const struct m_option *opt,
         goto done;
 
     devices = talloc_array(NULL, VkPhysicalDevice, num);
-    vkEnumeratePhysicalDevices(inst, &num, devices);
+    res = vkEnumeratePhysicalDevices(inst, &num, devices);
     if (res != VK_SUCCESS)
         goto done;
 
@@ -98,7 +98,6 @@ const struct m_sub_options vulkan_conf = {
         {"vulkan-queue-count", OPT_INT(queue_count), M_RANGE(1, 8)},
         {"vulkan-async-transfer", OPT_BOOL(async_transfer)},
         {"vulkan-async-compute", OPT_BOOL(async_compute)},
-        {"vulkan-disable-events", OPT_REMOVED("Unused")},
         {0}
     },
     .size = sizeof(struct vulkan_opts),
@@ -111,15 +110,15 @@ const struct m_sub_options vulkan_conf = {
 };
 
 struct priv {
-    struct mpvk_ctx *vk;
+    struct dmpvk_ctx *vk;
     struct vulkan_opts *opts;
-    struct ra_vk_ctx_params params;
+    struct ra_ctx_params params;
     struct ra_tex proxy_tex;
 };
 
 static const struct ra_swapchain_fns vulkan_swapchain;
 
-struct mpvk_ctx *ra_vk_ctx_get(struct ra_ctx *ctx)
+struct dmpvk_ctx *ra_vk_ctx_get(struct ra_ctx *ctx)
 {
     if (!ctx->swapchain || ctx->swapchain->fns != &vulkan_swapchain)
         return NULL;
@@ -134,7 +133,7 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
         return;
 
     struct priv *p = ctx->swapchain->priv;
-    struct mpvk_ctx *vk = p->vk;
+    struct dmpvk_ctx *vk = p->vk;
 
     if (ctx->ra) {
         pl_gpu_finish(vk->gpu);
@@ -148,8 +147,8 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
     TA_FREEP(&ctx->swapchain);
 }
 
-bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
-                    struct ra_vk_ctx_params params,
+bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
+                    struct ra_ctx_params params,
                     VkPresentModeKHR preferred_mode)
 {
     struct ra_swapchain *sw = ctx->swapchain = talloc_zero(NULL, struct ra_swapchain);
@@ -165,25 +164,36 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
     };
 
-#if HAVE_VULKAN_INTEROP
+#if HAVE_VULKAN
     /*
      * Request the additional extensions and features required to make full use
      * of the ffmpeg Vulkan hwcontext and video decoding capability.
      */
     const char *opt_extensions[] = {
+        /* Base extensions without dependencies */
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
+        VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
+        /* VK_KHR_synchronization2 is required by video decode extensions */
+        "VK_KHR_synchronization2", /* VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME */
+        /* Video decode extensions (depend on synchronization2) */
+        VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_H265_EXTENSION_NAME,
-        VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
-        // This is a literal string as it's not in the official headers yet.
-        "VK_MESA_video_decode_av1",
+        "VK_KHR_video_decode_av1", /* VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME */
+        "VK_KHR_video_maintenance2", /* VK_KHR_VIDEO_MAINTENANCE_2_EXTENSION_NAME */
+    };
+
+    VkPhysicalDeviceShaderObjectFeaturesEXT shader_object_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT,
+        .pNext = NULL,
+        .shaderObject = true,
     };
 
     VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_feature = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
-        .pNext = NULL,
+        .pNext = &shader_object_feature,
         .descriptorBuffer = true,
         .descriptorBufferPushDescriptors = true,
     };
@@ -198,8 +208,8 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
     features.pNext = &atomic_float_feature;
 #endif
 
-    assert(vk->pllog);
-    assert(vk->vkinst);
+    mp_assert(vk->pllog);
+    mp_assert(vk->vkinst);
     vk->vulkan = pl_vulkan_create(vk->pllog, &(struct pl_vulkan_params) {
         .instance = vk->vkinst->instance,
         .get_proc_addr = vk->vkinst->get_proc_addr,
@@ -208,7 +218,7 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
         .async_compute = p->opts->async_compute,
         .queue_count = p->opts->queue_count,
         .device_name = p->opts->device,
-#if HAVE_VULKAN_INTEROP
+#if HAVE_VULKAN
         .extra_queues = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
         .opt_extensions = opt_extensions,
         .num_opt_extensions = MP_ARRAY_SIZE(opt_extensions),
@@ -228,9 +238,6 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
         .surface = vk->surface,
         .present_mode = preferred_mode,
         .swapchain_depth = ctx->vo->opts->swapchain_depth,
-        // mpv already handles resize events, so gracefully allow suboptimal
-        // swapchains to exist in order to make resizing even smoother
-        .allow_suboptimal = true,
     };
 
     if (p->opts->swap_mode >= 0) // user override
@@ -286,7 +293,6 @@ static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
     if (p->params.check_visible)
         visible = p->params.check_visible(sw->ctx);
 
-    // If out_fbo is NULL, this was called from vo_gpu_next. Bail out.
     if (out_fbo == NULL || !visible)
         return visible;
 

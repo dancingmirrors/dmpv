@@ -1,31 +1,31 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_MPCOMMON_H
 #define MPLAYER_MPCOMMON_H
 
-#include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "misc/mp_assert.h"
 #include "osdep/compiler.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 // double should be able to represent this exactly
 #define MP_NOPTS_VALUE (-0x1p+63)
@@ -39,12 +39,16 @@
 #define MPSWAP(type, a, b) \
     do { type SWAP_tmp = b; b = a; a = SWAP_tmp; } while (0)
 #define MP_ARRAY_SIZE(s) (sizeof(s) / sizeof((s)[0]))
+#define MP_DIV_UP(x, y) (((x) + (y) - 1) / (y))
 
 // align must be a power of two (align >= 1), x >= 0
 #define MP_ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
 #define MP_ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
 #define MP_IS_ALIGNED(x, align) (!((x) & ((align) - 1)))
 #define MP_IS_POWER_OF_2(x) ((x) > 0 && !((x) & ((x) - 1)))
+
+// align to non power of two
+#define MP_ALIGN_NPOT(x, align) ((align) ? MP_DIV_UP(x, align) * (align) : (x))
 
 // Return "a", or if that is NOPTS, return "def".
 #define MP_PTS_OR_DEF(a, def) ((a) == MP_NOPTS_VALUE ? (def) : (a))
@@ -88,9 +92,8 @@ enum video_sync {
                        (x) == VS_DISP_VDROP ||          \
                        (x) == VS_DISP_NONE)
 
-extern const char mpv_version[];
-extern const char mpv_builddate[];
-extern const char mpv_copyright[];
+extern const char dmpv_version[];
+extern const char dmpv_copyright[];
 
 char *mp_format_time(double time, bool fractions);
 char *mp_format_time_fmt(const char *fmt, double time);
@@ -112,6 +115,7 @@ int mp_rect_subtract(const struct mp_rect *rc1, const struct mp_rect *rc2,
 
 unsigned int mp_log2(uint32_t v);
 uint32_t mp_round_next_power_of_2(uint32_t v);
+int mp_lcm(int x, int y);
 
 int mp_snprintf_cat(char *str, size_t size, const char *format, ...)
     PRINTF_ATTRIBUTE(3, 4);
@@ -147,7 +151,7 @@ char **mp_dup_str_array(void *tctx, char **s);
 // This macro generally behaves like an assert(), except it will make sure to
 // kill the process even with NDEBUG.
 #define MP_HANDLE_OOM(x) do {   \
-        assert(x);              \
+        mp_assert(x);           \
         if (!(x))               \
             abort();            \
     } while (0)

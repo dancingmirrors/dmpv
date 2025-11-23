@@ -5,12 +5,12 @@
  *
  * This header is based on:
  * - Khronos GLES headers (MIT)
- * - mpv or MPlayer code (LGPL 2.1 or later)
+ * - dmpv or MPlayer code (LGPL 2.1 or later)
  * - probably Mesa GL headers (MIT)
  */
 
-#ifndef MPV_GL_HEADERS_H
-#define MPV_GL_HEADERS_H
+#ifndef DMPV_GL_HEADERS_H
+#define DMPV_GL_HEADERS_H
 
 #include <stdint.h>
 
@@ -21,11 +21,7 @@
 #endif
 
 #ifndef GLAPIENTRY
-#ifdef _WIN32
-#define GLAPIENTRY __stdcall
-#else
 #define GLAPIENTRY
-#endif
 #endif
 
 // Typedefs. This needs to work with system headers too (consider GLX), and
@@ -106,10 +102,6 @@ typedef uint64_t GLuint64;
 
 #define GL_R16                            0x822A
 #define GL_RG16                           0x822C
-
-// --- GL 3.1
-
-#define GL_TEXTURE_RECTANGLE              0x84F5
 
 // --- GL 3.3 or GL_ARB_timer_query
 

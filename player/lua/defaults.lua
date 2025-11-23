@@ -349,7 +349,7 @@ local function process_timers()
                 t0 = now  -- first due callback: always executes, remember t0
             elseif timer.next_deadline > t0 then
                 -- don't block forever with slow callbacks and endless timers.
-                -- we'll continue right after checking mpv events.
+                -- we'll continue right after checking dmpv events.
                 return 0
             end
 
@@ -487,21 +487,8 @@ mp.msg = {
 
 _G.print = mp.msg.info
 
-mp.stats = {
-    value = function(n, v) return mp.raw_stats(1, "u/"..n, v) end,
-    size = function(n, v) return mp.raw_stats(2, "u/"..n, v) end,
-
-    event = function(n) return mp.raw_stats(3, "u/"..n) end,
-    time_start = function(n) return mp.raw_stats(4, "u/"..n) end,
-    time_end =  function(n) return mp.raw_stats(5, "u/"..n) end,
-
-    evloop_on =  function() return mp.raw_stats(6) end,
-    evloop_off =  function() return mp.raw_stats(7) end,
-}
-
 package.loaded["mp"] = mp
 package.loaded["mp.msg"] = mp.msg
-package.loaded["mp.stats"] = mp.stats
 
 function mp.wait_event(t)
     local r = mp.raw_wait_event(t)
@@ -818,35 +805,6 @@ end
 
 function mp_utils.subprocess_detached(t)
     mp.commandv("run", unpack(t.args))
-end
-
-function mp_utils.shared_script_property_set(name, value)
-    if value ~= nil then
-        -- no such thing as change-list with mpv_node, so build a string value
-        mp.commandv("change-list", "shared-script-properties", "append",
-                    name .. "=" .. value)
-    else
-        mp.commandv("change-list", "shared-script-properties", "remove", name)
-    end
-end
-
-function mp_utils.shared_script_property_get(name)
-    local map = mp.get_property_native("shared-script-properties")
-    return map and map[name]
-end
-
--- cb(name, value) on change and on init
-function mp_utils.shared_script_property_observe(name, cb)
-    -- it's _very_ wasteful to observe the mpv core "super" property for every
-    -- shared sub-property, but then again you shouldn't use this
-    mp.observe_property("shared-script-properties", "native", function(_, val)
-        cb(name, val and val[name])
-    end)
-end
-
-local user_init = mp.find_config_file("init.lua")
-if user_init then
-    loadfile(user_init, "t")()
 end
 
 return {}

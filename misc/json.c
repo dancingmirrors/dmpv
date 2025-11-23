@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* JSON parser:
@@ -46,7 +46,6 @@
 #include <math.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <assert.h>
 
 #include "common/common.h"
 #include "misc/bstr.h"
@@ -78,7 +77,7 @@ void json_skip_whitespace(char **src)
     eat_ws(src);
 }
 
-static int read_id(void *ta_parent, struct mpv_node *dst, char **src)
+static int read_id(void *ta_parent, struct dmpv_node *dst, char **src)
 {
     char *start = *src;
     if (!mp_isalpha(**src) && **src != '_')
@@ -91,12 +90,12 @@ static int read_id(void *ta_parent, struct mpv_node *dst, char **src)
     } else {
         start = talloc_strndup(ta_parent, start, *src - start);
     }
-    dst->format = MPV_FORMAT_STRING;
+    dst->format = DMPV_FORMAT_STRING;
     dst->u.string = start;
     return 0;
 }
 
-static int read_str(void *ta_parent, struct mpv_node *dst, char **src)
+static int read_str(void *ta_parent, struct dmpv_node *dst, char **src)
 {
     if (!eat_c(src, '"'))
         return -1; // not a string
@@ -123,14 +122,14 @@ static int read_str(void *ta_parent, struct mpv_node *dst, char **src)
         bstr r = bstr0(str);
         if (!mp_append_escaped_string(ta_parent, &unescaped, &r))
             return -1; // broken escapes
-        str = unescaped.start; // the function guarantees null-termination
+        str = (char *)unescaped.start; // the function guarantees null-termination
     }
-    dst->format = MPV_FORMAT_STRING;
+    dst->format = DMPV_FORMAT_STRING;
     dst->u.string = str;
     return 0;
 }
 
-static int read_sub(void *ta_parent, struct mpv_node *dst, char **src,
+static int read_sub(void *ta_parent, struct dmpv_node *dst, char **src,
                     int max_depth)
 {
     bool is_arr = eat_c(src, '[');
@@ -138,7 +137,7 @@ static int read_sub(void *ta_parent, struct mpv_node *dst, char **src,
     if (!is_arr && !is_obj)
         return -1; // not an array or object
     char term = is_obj ? '}' : ']';
-    struct mpv_node_list *list = talloc_zero(ta_parent, struct mpv_node_list);
+    struct dmpv_node_list *list = talloc_zero(ta_parent, struct dmpv_node_list);
     while (1) {
         eat_ws(src);
         if (eat_c(src, term))
@@ -150,7 +149,7 @@ static int read_sub(void *ta_parent, struct mpv_node *dst, char **src,
         if (eat_c(src, term))
             break;
         if (is_obj) {
-            struct mpv_node keynode;
+            struct dmpv_node keynode;
             // non-standard extension: allow unquoted strings as keys
             if (read_id(list, &keynode, src) < 0 &&
                 read_str(list, &keynode, src) < 0)
@@ -168,7 +167,7 @@ static int read_sub(void *ta_parent, struct mpv_node *dst, char **src,
             return -1;
         list->num++;
     }
-    dst->format = is_obj ? MPV_FORMAT_NODE_MAP : MPV_FORMAT_NODE_ARRAY;
+    dst->format = is_obj ? DMPV_FORMAT_NODE_MAP : DMPV_FORMAT_NODE_ARRAY;
     dst->u.list = list;
     return 0;
 }
@@ -184,7 +183,7 @@ static int read_sub(void *ta_parent, struct mpv_node *dst, char **src,
  * The input string can be mutated in both cases. *dst might contain string
  * elements, which point into the (mutated) input string.
  */
-int json_parse(void *ta_parent, struct mpv_node *dst, char **src, int max_depth)
+int json_parse(void *ta_parent, struct dmpv_node *dst, char **src, int max_depth)
 {
     max_depth -= 1;
     if (max_depth < 0)
@@ -197,16 +196,16 @@ int json_parse(void *ta_parent, struct mpv_node *dst, char **src, int max_depth)
         return -1; // early EOF
     if (c == 'n' && strncmp(*src, "null", 4) == 0) {
         *src += 4;
-        dst->format = MPV_FORMAT_NONE;
+        dst->format = DMPV_FORMAT_NONE;
         return 0;
     } else if (c == 't' && strncmp(*src, "true", 4) == 0) {
         *src += 4;
-        dst->format = MPV_FORMAT_FLAG;
+        dst->format = DMPV_FORMAT_FLAG;
         dst->u.flag = 1;
         return 0;
     } else if (c == 'f' && strncmp(*src, "false", 5) == 0) {
         *src += 5;
-        dst->format = MPV_FORMAT_FLAG;
+        dst->format = DMPV_FORMAT_FLAG;
         dst->u.flag = 0;
         return 0;
     } else if (c == '"') {
@@ -227,13 +226,13 @@ int json_parse(void *ta_parent, struct mpv_node *dst, char **src, int max_depth)
             nsrcf = *src;
         if (nsrci >= nsrcf) {
             *src = nsrci;
-            dst->format = MPV_FORMAT_INT64; // long long is usually 64 bits
+            dst->format = DMPV_FORMAT_INT64; // long long is usually 64 bits
             dst->u.int64 = numi;
             return 0;
         }
         if (nsrcf > *src && isfinite(numf)) {
             *src = nsrcf;
-            dst->format = MPV_FORMAT_DOUBLE;
+            dst->format = DMPV_FORMAT_DOUBLE;
             dst->u.double_ = numf;
             return 0;
         }
@@ -255,6 +254,8 @@ static const char special_escape[] = {
 
 static void write_json_str(bstr *b, unsigned char *str)
 {
+    mp_assert(str);
+
     APPEND(b, "\"");
     while (1) {
         unsigned char *cur = str;
@@ -262,11 +263,11 @@ static void write_json_str(bstr *b, unsigned char *str)
             cur++;
         if (!cur[0])
             break;
-        bstr_xappend(NULL, b, (bstr){str, cur - str});
+        bstr_xappend(NULL, b, (bstr){(unsigned char *)str, cur - str});
         if (cur[0] == '\"') {
-            bstr_xappend(NULL, b, (bstr){"\\\"", 2});
+            bstr_xappend(NULL, b, (bstr){(unsigned char *)"\\\"", 2});
         } else if (cur[0] == '\\') {
-            bstr_xappend(NULL, b, (bstr){"\\\\", 2});
+            bstr_xappend(NULL, b, (bstr){(unsigned char *)"\\\\", 2});
         } else if (cur[0] < sizeof(special_escape) && special_escape[cur[0]]) {
             bstr_xappend_asprintf(NULL, b, "\\%c", special_escape[cur[0]]);
         } else {
@@ -274,7 +275,7 @@ static void write_json_str(bstr *b, unsigned char *str)
         }
         str = cur + 1;
     }
-    APPEND(b, str);
+    APPEND(b, (const char *)str);
     APPEND(b, "\"");
 }
 
@@ -287,33 +288,33 @@ static void add_indent(bstr *b, int indent)
         bstr_xappend(NULL, b, bstr0(" "));
 }
 
-static int json_append(bstr *b, const struct mpv_node *src, int indent)
+static int json_append(bstr *b, const struct dmpv_node *src, int indent)
 {
     switch (src->format) {
-    case MPV_FORMAT_NONE:
+    case DMPV_FORMAT_NONE:
         APPEND(b, "null");
         return 0;
-    case MPV_FORMAT_FLAG:
+    case DMPV_FORMAT_FLAG:
         APPEND(b, src->u.flag ? "true" : "false");
         return 0;
-    case MPV_FORMAT_INT64:
+    case DMPV_FORMAT_INT64:
         bstr_xappend_asprintf(NULL, b, "%"PRId64, src->u.int64);
         return 0;
-    case MPV_FORMAT_DOUBLE: {
+    case DMPV_FORMAT_DOUBLE: {
         const char *px = (isfinite(src->u.double_) || indent == 0) ? "" : "\"";
         bstr_xappend_asprintf(NULL, b, "%s%f%s", px, src->u.double_, px);
         return 0;
     }
-    case MPV_FORMAT_STRING:
+    case DMPV_FORMAT_STRING:
         if (indent == 0)
             APPEND(b, src->u.string);
         else
-            write_json_str(b, src->u.string);
+            write_json_str(b, (unsigned char *)src->u.string);
         return 0;
-    case MPV_FORMAT_NODE_ARRAY:
-    case MPV_FORMAT_NODE_MAP: {
-        struct mpv_node_list *list = src->u.list;
-        bool is_obj = src->format == MPV_FORMAT_NODE_MAP;
+    case DMPV_FORMAT_NODE_ARRAY:
+    case DMPV_FORMAT_NODE_MAP: {
+        struct dmpv_node_list *list = src->u.list;
+        bool is_obj = src->format == DMPV_FORMAT_NODE_MAP;
         APPEND(b, is_obj ? "{" : "[");
         int next_indent = indent >= 0 ? indent + 1 : -1;
         for (int n = 0; n < list->num; n++) {
@@ -321,7 +322,7 @@ static int json_append(bstr *b, const struct mpv_node *src, int indent)
                 APPEND(b, ",");
             add_indent(b, next_indent);
             if (is_obj) {
-                write_json_str(b, list->keys[n]);
+                write_json_str(b, (unsigned char *)list->keys[n]);
                 APPEND(b, ":");
             }
             json_append(b, &list->values[n], next_indent);
@@ -330,15 +331,17 @@ static int json_append(bstr *b, const struct mpv_node *src, int indent)
         APPEND(b, is_obj ? "}" : "]");
         return 0;
     }
+    default:
+        break;
     }
     return -1; // unknown format
 }
 
-static int json_append_str(char **dst, struct mpv_node *src, int indent)
+static int json_append_str(char **dst, struct dmpv_node *src, int indent)
 {
     bstr buffer = bstr0(*dst);
     int r = json_append(&buffer, src, indent);
-    *dst = buffer.start;
+    *dst = (char *)buffer.start;
     return r;
 }
 
@@ -347,13 +350,13 @@ static int json_append_str(char **dst, struct mpv_node *src, int indent)
  * and ta_realloc() to extend the memory allocation of *dst.
  * Returns: 0 on success, <0 on failure.
  */
-int json_write(char **dst, struct mpv_node *src)
+int json_write(char **dst, struct dmpv_node *src)
 {
     return json_append_str(dst, src, -1);
 }
 
 // Same as json_write(), but add whitespace to make it readable.
-int json_write_pretty(char **dst, struct mpv_node *src)
+int json_write_pretty(char **dst, struct dmpv_node *src)
 {
     return json_append_str(dst, src, 0);
 }

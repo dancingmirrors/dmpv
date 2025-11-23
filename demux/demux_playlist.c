@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -37,8 +37,8 @@
 #define PROBE_SIZE (8 * 1024)
 
 enum dir_mode {
-    DIR_RECURSIVE,
     DIR_LAZY,
+    DIR_RECURSIVE,
     DIR_IGNORE,
 };
 
@@ -50,14 +50,14 @@ struct demux_playlist_opts {
 struct m_sub_options demux_playlist_conf = {
     .opts = (const struct m_option[]) {
         {"directory-mode", OPT_CHOICE(dir_mode,
-            {"recursive", DIR_RECURSIVE},
             {"lazy", DIR_LAZY},
+            {"recursive", DIR_RECURSIVE},
             {"ignore", DIR_IGNORE})},
         {0}
     },
     .size = sizeof(struct demux_playlist_opts),
     .defaults = &(const struct demux_playlist_opts){
-        .dir_mode = DIR_RECURSIVE,
+        .dir_mode = DIR_LAZY,
     },
 };
 
@@ -142,7 +142,7 @@ static char *read_line(stream_t *s, char *mem, int max, int utf16)
     int read = 0;
     while (1) {
         // Reserve 1 byte of ptr for terminating \0.
-        int l = read_characters(s, &mem[read], max - read - 1, utf16);
+        int l = read_characters(s, (uint8_t *)&mem[read], max - read - 1, utf16);
         if (l < 0 || memchr(&mem[read], '\0', l)) {
             MP_WARN(s, "error reading line\n");
             return NULL;
@@ -178,7 +178,7 @@ static bstr pl_get_line(struct pl_parser *p)
 static void pl_add(struct pl_parser *p, bstr entry)
 {
     char *s = bstrto0(NULL, entry);
-    playlist_add_file(p->pl, s);
+    playlist_append_file(p->pl, s);
     talloc_free(s);
 }
 
@@ -206,8 +206,8 @@ static int parse_m3u(struct pl_parser *p)
             char *ext = mp_splitext(p->real_stream->url, NULL);
             char probe[PROBE_SIZE];
             int len = stream_read_peek(p->real_stream, probe, sizeof(probe));
-            bstr data = {probe, len};
-            if (ext && data.len > 10 && maybe_text(data)) {
+            bstr data = {(unsigned char *)probe, len};
+            if (ext && data.len >= 2 && maybe_text(data)) {
                 const char *exts[] = {"m3u", "m3u8", NULL};
                 for (int n = 0; exts[n]; n++) {
                     if (strcasecmp(ext, exts[n]) == 0)
@@ -238,7 +238,7 @@ ok:
             talloc_free(fn);
             e->title = talloc_steal(e, title);
             title = NULL;
-            playlist_add(p->pl, e);
+            playlist_insert_at(p->pl, e, NULL);
         }
         line = bstr_strip(pl_get_line(p));
     }
@@ -263,7 +263,7 @@ static int parse_ref_init(struct pl_parser *p)
     bstr burl = bstr0(p->s->url);
     if (bstr_eatstart0(&burl, "http://") && check_mimetype(p->s, mmsh_types)) {
         MP_INFO(p, "Redirecting to mmsh://\n");
-        playlist_add_file(p->pl, talloc_asprintf(p, "mmsh://%.*s", BSTR_P(burl)));
+        playlist_append_file(p->pl, talloc_asprintf(p, "mmsh://%.*s", BSTR_P(burl)));
         return 0;
     }
 
@@ -414,7 +414,7 @@ static bool scan_dir(struct pl_parser *p, char *path,
             scan_dir(p, file, dir_stack, num_dir_stack + 1);
         }
         else {
-            playlist_add_file(p->pl, dir_entries[n].path);
+            playlist_append_file(p->pl, dir_entries[n].path);
         }
     }
 
@@ -451,14 +451,14 @@ struct pl_format {
 };
 
 static const struct pl_format formats[] = {
-    {"directory", parse_dir},
+    {"directory", parse_dir, .mime_types = NULL},
     {"m3u", parse_m3u,
      MIME_TYPES("audio/mpegurl", "audio/x-mpegurl", "application/x-mpegurl")},
-    {"ini", parse_ref_init},
+    {"ini", parse_ref_init, .mime_types = NULL},
     {"pls", parse_pls,
      MIME_TYPES("audio/x-scpls")},
-    {"url", parse_url},
-    {"txt", parse_txt},
+    {"url", parse_url, .mime_types = NULL},
+    {"txt", parse_txt, .mime_types = NULL},
 };
 
 static const struct pl_format *probe_pl(struct pl_parser *p)

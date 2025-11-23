@@ -1,20 +1,20 @@
 /*
  * Original author: Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -25,7 +25,7 @@
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "misc/charset_conv.h"
@@ -80,6 +80,7 @@ static bool try_open(struct timeline *tl, char *filename)
 
     struct demuxer_params p = {
         .stream_flags = tl->stream_origin,
+        .depth = tl->demuxer ? tl->demuxer->depth + 1 : 0,
     };
 
     struct demuxer *d = demux_open_url(filename, &p, tl->cancel, tl->global);
@@ -271,7 +272,7 @@ static int try_open_file(struct demuxer *demuxer, enum demux_check check)
     if (check >= DEMUX_CHECK_UNSAFE) {
         char probe[PROBE_SIZE];
         int len = stream_read_peek(s, probe, sizeof(probe));
-        if (len < 1 || !mp_probe_cue((bstr){probe, len}))
+        if (len < 1 || !mp_probe_cue((bstr){(unsigned char *)probe, len}))
             return -1;
     }
     struct priv *p = talloc_zero(demuxer, struct priv);

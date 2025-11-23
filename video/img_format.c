@@ -1,21 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <string.h>
 
 #include <libavcodec/avcodec.h>
@@ -54,8 +54,8 @@ struct mp_imgfmt_entry {
         .name = dname,                                                      \
         .desc = { .flags = MP_IMGFLAG_COLOR_YUV | MP_IMGFLAG_TYPE_FLOAT,    \
                    .chroma_xs = xs, .chroma_ys = ys,                        \
-                   .comps = { {0, 0, 32}, {1, 0, 32}, {2, 0, 32},           \
-                              {3 * (a), 0, 32 * (a)} }, }}
+                   .comps = { {0, 0, 32, 0}, {1, 0, 32, 0}, {2, 0, 32, 0},           \
+                              {3 * (a), 0, 32 * (a), 0} }, }}
 
 static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
     // not in ffmpeg
@@ -69,21 +69,21 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
         .name = "rgb30",
         .desc = {
             .flags = MP_IMGFLAG_RGB,
-            .comps = { {0, 20, 10}, {0, 10, 10}, {0, 0, 10} },
+            .comps = { {0, 20, 10, 0}, {0, 10, 10, 0}, {0, 0, 10, 0} },
         },
     },
     [IMGFMT_YAP8 - IMGFMT_CUST_BASE] = {
         .name = "yap8",
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV,
-            .comps = { {0, 0, 8}, {0}, {0}, {1, 0, 8} },
+            .comps = { {0, 0, 8, 0}, {0}, {0}, {1, 0, 8, 0} },
         },
     },
     [IMGFMT_YAP16 - IMGFMT_CUST_BASE] = {
         .name = "yap16",
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV,
-            .comps = { {0, 0, 16}, {0}, {0}, {1, 0, 16} },
+            .comps = { {0, 0, 16, 0}, {0}, {0}, {1, 0, 16, 0} },
         },
     },
     [IMGFMT_Y1 - IMGFMT_CUST_BASE] = {
@@ -97,7 +97,7 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
         .name = "grayaf32", // try to mimic ffmpeg naming convention
         .desc = {
             .flags = MP_IMGFLAG_COLOR_YUV | MP_IMGFLAG_TYPE_FLOAT,
-            .comps = { {0, 0, 32}, {0}, {0}, {1, 0, 32} },
+            .comps = { {0, 0, 32, 0}, {0}, {0}, {1, 0, 32, 0} },
         },
     },
     FLOAT_YUV(IMGFMT_444PF,  "yuv444pf",  0, 0, 0),
@@ -119,9 +119,6 @@ static const struct mp_imgfmt_entry mp_imgfmt_list[] = {
     FRINGE_GBRP(IMGFMT_GBRP5, "gbrp5", 5),
     FRINGE_GBRP(IMGFMT_GBRP6, "gbrp6", 6),
     // in FFmpeg, but FFmpeg names have an annoying "_vld" suffix
-    [IMGFMT_VIDEOTOOLBOX - IMGFMT_CUST_BASE] = {
-        .name = "videotoolbox",
-    },
     [IMGFMT_VAAPI - IMGFMT_CUST_BASE] = {
         .name = "vaapi",
     },
@@ -245,8 +242,8 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
         }
 
         int shift = d->shift;
-        // What the fuck: for some inexplicable reason, MONOB uses shift=7
-        // in pixdesc, which is basically out of bounds. Pixdesc bug?
+        // For some inexplicable reason, MONOB uses shift=7 in pixdesc, which is
+        // basically out of bounds. Pixdesc bug?
         // Make it behave like MONOW. (No, the bit-order is not different.)
         if (fmt == AV_PIX_FMT_MONOBLACK)
             shift = 0;
@@ -276,12 +273,12 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
         // pixdesc wants you to perform 3 * 2 byte accesses, and swap each of
         // the read 16 bit words. What you really want is to swap the entire 4
         // byte thing, and then extract the components with bit shifts).
-        // This is complete bullshit, so we transform it into word swaps before
-        // further processing. Care needs to be taken to not change formats like
-        // P010 or YA16 (prefer component accesses for them; P010 isn't even
-        // representable, because endian_shift is for all planes).
-        // As a heuristic, assume that if any components share a byte, the whole
-        // pixel is read as a single memory access and endian swapped at once.
+        // So we transform it into word swaps before further processing. Care
+        // needs to be taken to not change formats like P010 or YA16 (prefer
+        // component accesses for them; P010 isn't even representable, because
+        // endian_shift is for all planes). As a heuristic, assume that if any
+        // components share a byte, the whole pixel is read as a single memory
+        // access and endian swapped at once.
         int access_size = 8;
         if (plane_bits > 8) {
             if (any_shared_bytes) {
@@ -324,11 +321,11 @@ static void fill_pixdesc_layout(struct mp_imgfmt_desc *desc,
             goto fail; // plane doesn't exist
     }
 
-    // What the fuck: this is probably a pixdesc bug, so fix it.
+    // This is probably a pixdesc bug, so fix it.
     if (fmt == AV_PIX_FMT_RGB8) {
-        desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2};
-        desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3};
-        desc->comps[0] = (struct mp_imgfmt_comp_desc){0, 5, 3};
+        desc->comps[2] = (struct mp_imgfmt_comp_desc){0, 0, 2, 0};
+        desc->comps[1] = (struct mp_imgfmt_comp_desc){0, 2, 3, 0};
+        desc->comps[0] = (struct mp_imgfmt_comp_desc){0, 5, 3, 0};
     }
 
     // Overlap test. If any shared bits are happening, this is not a format we
@@ -399,7 +396,8 @@ fail:
     for (int n = 0; n < 4; n++)
         desc->comps[n] = (struct mp_imgfmt_comp_desc){0};
     // Average bit size fallback.
-    desc->num_planes = av_pix_fmt_count_planes(fmt);
+    int num_planes = av_pix_fmt_count_planes(fmt);
+    desc->num_planes = MPCLAMP(num_planes, 0, MP_MAX_PLANES);
     for (int p = 0; p < desc->num_planes; p++) {
         int ls = av_image_get_linesize(fmt, 256, p);
         desc->bpp[p] = ls > 0 ? ls * 8 / 256 : 0;
@@ -479,13 +477,13 @@ bool mp_imgfmt_get_packed_yuv_locations(int imgfmt, uint8_t *luma_offsets)
     if (!(desc.flags & MP_IMGFLAG_PACKED_SS_YUV))
         return false;
 
-    assert(desc.num_planes == 1);
+    mp_assert(desc.num_planes == 1);
 
     // Guess at which positions the additional luma samples are. We iterate
     // starting with the first byte, and then put a luma sample at places
     // not covered by other luma/chroma.
     // Pixdesc does not and can not provide this information. This heuristic
-    // may fail in certain cases. What a load of bullshit, right?
+    // may fail in certain cases. What a load of crap, right?
     int lsize = desc.comps[0].size;
     int cur_offset = 0;
     for (int lsample = 1; lsample < (1 << desc.chroma_xs); lsample++) {

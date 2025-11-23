@@ -1,22 +1,22 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <math.h>
 
 #include <libavcodec/avcodec.h>
@@ -24,7 +24,7 @@
 #include <libavutil/intreadwrite.h>
 #include <libavutil/opt.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "common/msg.h"
 #include "common/av_common.h"
 #include "demux/stheader.h"
@@ -260,8 +260,8 @@ static void read_sub_bitmaps(struct sd *sd, struct sub *sub)
         sub->src_w = MPMAX(sub->src_w, b->x + b->w);
         sub->src_h = MPMAX(sub->src_h, b->y + b->h);
 
-        assert(r->nb_colors > 0);
-        assert(r->nb_colors <= 256);
+        mp_assert(r->nb_colors > 0);
+        mp_assert(r->nb_colors <= 256);
         uint32_t pal[256] = {0};
         memcpy(pal, data[1], r->nb_colors * 4);
         convert_pal(pal, 256, opts->sub_gray);
@@ -301,16 +301,7 @@ static void decode(struct sd *sd, struct demux_packet *packet)
     AVCodecContext *ctx = priv->avctx;
     double pts = packet->pts;
     double endpts = MP_NOPTS_VALUE;
-    double duration = packet->duration;
     AVSubtitle sub;
-
-    // libavformat sets duration==0, even if the duration is unknown. Some files
-    // also have actually subtitle packets with duration explicitly set to 0
-    // (yes, at least some of such mkv files were muxed by libavformat).
-    // Assume there are no bitmap subs that actually use duration==0 for
-    // hidden subtitle events.
-    if (duration == 0)
-        duration = -1;
 
     if (pts == MP_NOPTS_VALUE)
         MP_WARN(sd, "Subtitle with unknown start time.\n");
@@ -335,12 +326,9 @@ static void decode(struct sd *sd, struct demux_packet *packet)
         if (sub.end_display_time > sub.start_display_time &&
             sub.end_display_time != UINT32_MAX)
         {
-            duration = (sub.end_display_time - sub.start_display_time) / 1000.0;
+            endpts = pts + sub.end_display_time / 1000.0;
         }
         pts += sub.start_display_time / 1000.0;
-
-        if (duration >= 0)
-            endpts = pts + duration;
 
         // set end time of previous sub
         struct sub *prev = &priv->subs[0];
@@ -399,7 +387,7 @@ static struct sub *get_current(struct sd_lavc_priv *priv, double pts)
             continue;
         if (pts == MP_NOPTS_VALUE ||
             ((sub->pts == MP_NOPTS_VALUE || pts + 1e-6 >= sub->pts) &&
-             (sub->endpts == MP_NOPTS_VALUE || pts < sub->endpts)))
+             (sub->endpts == MP_NOPTS_VALUE || pts + 1e-6 < sub->endpts)))
         {
             // Ignore "trailing" subtitles with unknown length after 1 minute.
             if (sub->endpts == MP_NOPTS_VALUE && pts >= sub->pts + 60)
@@ -486,14 +474,12 @@ static struct sub_bitmaps *get_bitmaps(struct sd *sd, struct mp_osd_res d,
         for (int n = 0; n < res->num_parts; n++) {
             struct sub_bitmap *sub = &res->parts[n];
 
-            float shit = (opts->sub_scale - 1.0f) / 2;
+            float crap = (opts->sub_scale - 1.0f) / 2;
 
-            // Fortunately VO isn't supposed to give a FUCKING FUCK about
-            // whether the sub might e.g. go outside of the screen.
-            sub->x -= sub->dw * shit;
-            sub->y -= sub->dh * shit;
-            sub->dw += sub->dw * shit * 2;
-            sub->dh += sub->dh * shit * 2;
+            sub->x -= sub->dw * crap;
+            sub->y -= sub->dh * crap;
+            sub->dw += sub->dw * crap * 2;
+            sub->dh += sub->dh * crap * 2;
         }
     }
 
@@ -501,7 +487,7 @@ static struct sub_bitmaps *get_bitmaps(struct sd *sd, struct mp_osd_res d,
         res->change_id++;
 
     if (!res->change_id) {
-        assert(priv->prevret_num == res->num_parts);
+        mp_assert(priv->prevret_num == res->num_parts);
         for (int n = 0; n < priv->prevret_num; n++) {
             struct sub_bitmap *a = &res->parts[n];
             struct sub_bitmap *b = &priv->prevret[n];

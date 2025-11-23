@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_GL_COMMON_H
@@ -33,9 +33,7 @@
 
 #include "gl_headers.h"
 
-#if HAVE_GL_WIN32
-#include <windows.h>
-#endif
+#undef MemoryBarrier
 
 struct GL;
 typedef struct GL GL;
@@ -50,7 +48,6 @@ enum {
     MPGL_CAP_1D_TEX             = (1 << 14),
     MPGL_CAP_3D_TEX             = (1 << 15),
     MPGL_CAP_DEBUG              = (1 << 16),
-    MPGL_CAP_DXINTEROP          = (1 << 17),    // WGL_NV_DX_interop
     MPGL_CAP_EXT16              = (1 << 18),    // GL_EXT_texture_norm16
     MPGL_CAP_ARB_FLOAT          = (1 << 19),    // GL_ARB_texture_float
     MPGL_CAP_EXT_CR_HFLOAT      = (1 << 20),    // GL_EXT_color_buffer_half_float
@@ -229,21 +226,6 @@ struct GL {
     void (GLAPIENTRY *VDPAUSurfaceAccessNV)(GLvdpauSurfaceNV, GLenum);
     void (GLAPIENTRY *VDPAUMapSurfacesNV)(GLsizei, const GLvdpauSurfaceNV *);
     void (GLAPIENTRY *VDPAUUnmapSurfacesNV)(GLsizei, const GLvdpauSurfaceNV *);
-
-#if HAVE_GL_WIN32
-    // The HANDLE type might not be present on non-Win32
-    BOOL (GLAPIENTRY *DXSetResourceShareHandleNV)(void *dxObject,
-        HANDLE shareHandle);
-    HANDLE (GLAPIENTRY *DXOpenDeviceNV)(void *dxDevice);
-    BOOL (GLAPIENTRY *DXCloseDeviceNV)(HANDLE hDevice);
-    HANDLE (GLAPIENTRY *DXRegisterObjectNV)(HANDLE hDevice, void *dxObject,
-        GLuint name, GLenum type, GLenum access);
-    BOOL (GLAPIENTRY *DXUnregisterObjectNV)(HANDLE hDevice, HANDLE hObject);
-    BOOL (GLAPIENTRY *DXLockObjectsNV)(HANDLE hDevice, GLint count,
-        HANDLE *hObjects);
-    BOOL (GLAPIENTRY *DXUnlockObjectsNV)(HANDLE hDevice, GLint count,
-        HANDLE *hObjects);
-#endif
 
     GLint (GLAPIENTRY *GetVideoSync)(GLuint *);
     GLint (GLAPIENTRY *WaitVideoSync)(GLint, GLint, unsigned int *);

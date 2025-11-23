@@ -1,21 +1,19 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <assert.h>
 
 #include <va/va.h>
 #include <va/va_vpp.h>
@@ -159,7 +157,7 @@ static struct mp_image *alloc_out(struct mp_filter *vf)
         return NULL;
 
     AVHWFramesContext *hw_frames = (void *)fmt->hwctx->data;
-    // VAAPI requires the full surface size to match for input and output.
+    // VA-API requires the full surface size to match for input and output.
     int src_w = hw_frames->width;
     int src_h = hw_frames->height;
 
@@ -367,7 +365,7 @@ static bool initialize(struct mp_filter *vf)
 
     VAProcFilterType filters[VAProcFilterCount];
     int num_filters = VAProcFilterCount;
-    status = vaQueryVideoProcFilters(p->display, p->context, filters, &num_filters);
+    status = vaQueryVideoProcFilters(p->display, p->context, filters, (unsigned int *)&num_filters);
     if (!CHECK_VA_STATUS(vf, "vaQueryVideoProcFilters()"))
         return false;
 
@@ -448,7 +446,7 @@ static struct mp_filter *vf_vavpp_create(struct mp_filter *parent, void *options
     p->queue = mp_refqueue_alloc(f);
 
     struct mp_hwdec_ctx *hwdec_ctx =
-        mp_filter_load_hwdec_device(f, IMGFMT_VAAPI);
+        mp_filter_load_hwdec_device(f, IMGFMT_VAAPI, AV_HWDEVICE_TYPE_VAAPI);
     if (!hwdec_ctx || !hwdec_ctx->av_device_ref)
         goto error;
     p->av_device_ref = av_buffer_ref(hwdec_ctx->av_device_ref);

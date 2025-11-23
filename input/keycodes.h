@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_KEYCODES_H
@@ -143,34 +143,6 @@
 
 #define MP_KEY_MOUSE_BTN_COUNT (MP_MBTN_END - MP_MBTN_BASE)
 
-/* game controller keys */
-#define MP_KEY_GAMEPAD                    (MP_KEY_BASE+0xF0)
-#define MP_KEY_GAMEPAD_ACTION_DOWN        (MP_KEY_GAMEPAD+0)
-#define MP_KEY_GAMEPAD_ACTION_RIGHT       (MP_KEY_GAMEPAD+1)
-#define MP_KEY_GAMEPAD_ACTION_LEFT        (MP_KEY_GAMEPAD+2)
-#define MP_KEY_GAMEPAD_ACTION_UP          (MP_KEY_GAMEPAD+3)
-#define MP_KEY_GAMEPAD_BACK               (MP_KEY_GAMEPAD+4)
-#define MP_KEY_GAMEPAD_MENU               (MP_KEY_GAMEPAD+5)
-#define MP_KEY_GAMEPAD_START              (MP_KEY_GAMEPAD+6)
-#define MP_KEY_GAMEPAD_LEFT_SHOULDER      (MP_KEY_GAMEPAD+7)
-#define MP_KEY_GAMEPAD_RIGHT_SHOULDER     (MP_KEY_GAMEPAD+8)
-#define MP_KEY_GAMEPAD_LEFT_TRIGGER       (MP_KEY_GAMEPAD+9)
-#define MP_KEY_GAMEPAD_RIGHT_TRIGGER      (MP_KEY_GAMEPAD+10)
-#define MP_KEY_GAMEPAD_LEFT_STICK         (MP_KEY_GAMEPAD+11)
-#define MP_KEY_GAMEPAD_RIGHT_STICK        (MP_KEY_GAMEPAD+12)
-#define MP_KEY_GAMEPAD_DPAD_UP            (MP_KEY_GAMEPAD+13)
-#define MP_KEY_GAMEPAD_DPAD_DOWN          (MP_KEY_GAMEPAD+14)
-#define MP_KEY_GAMEPAD_DPAD_LEFT          (MP_KEY_GAMEPAD+15)
-#define MP_KEY_GAMEPAD_DPAD_RIGHT         (MP_KEY_GAMEPAD+16)
-#define MP_KEY_GAMEPAD_LEFT_STICK_UP      (MP_KEY_GAMEPAD+17)
-#define MP_KEY_GAMEPAD_LEFT_STICK_DOWN    (MP_KEY_GAMEPAD+18)
-#define MP_KEY_GAMEPAD_LEFT_STICK_LEFT    (MP_KEY_GAMEPAD+19)
-#define MP_KEY_GAMEPAD_LEFT_STICK_RIGHT   (MP_KEY_GAMEPAD+20)
-#define MP_KEY_GAMEPAD_RIGHT_STICK_UP     (MP_KEY_GAMEPAD+21)
-#define MP_KEY_GAMEPAD_RIGHT_STICK_DOWN   (MP_KEY_GAMEPAD+22)
-#define MP_KEY_GAMEPAD_RIGHT_STICK_LEFT   (MP_KEY_GAMEPAD+23)
-#define MP_KEY_GAMEPAD_RIGHT_STICK_RIGHT  (MP_KEY_GAMEPAD+24)
-
 // Reserved area. Can be used for keys that have no explicit names assigned,
 // but should be mappable by the user anyway.
 #define MP_KEY_UNKNOWN_RESERVED_START (MP_KEY_BASE+0x10000)
@@ -206,12 +178,12 @@
 
 // Emit a command even on key-up (normally key-up is ignored). This means by
 // default they binding will be triggered on key-up instead of key-down.
-// This is a fixed part of the keycode, not a modifier than can change.
+// This is a fixed part of the keycode, not a modifier that can change.
 #define MP_KEY_EMIT_ON_UP      (1u<<22)
 
 // Use this when the key shouldn't be auto-repeated (like mouse buttons)
 // Also means both key-down key-up events produce emit bound commands.
-// This is a fixed part of the keycode, not a modifier than can change.
+// This is a fixed part of the keycode, not a modifier that can change.
 #define MP_NO_REPEAT_KEY       (1u<<23)
 
 /* Modifiers added to individual keys */

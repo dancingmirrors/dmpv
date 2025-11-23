@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MP_SUBPROCESS_H_
@@ -65,9 +65,6 @@ struct mp_subprocess_opts {
 
 struct mp_subprocess_result {
     int error;              // one of MP_SUBPROCESS_* (>0 on error)
-    // NB: if WIFEXITED applies, error==0, and this is WEXITSTATUS
-    //     on win32, this can use the full 32 bit
-    //     if started with detach==true, this is always 0
     uint32_t exit_status;   // if error==0==MP_SUBPROCESS_OK, 0 otherwise
 };
 

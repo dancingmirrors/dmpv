@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -28,7 +28,7 @@
 #include "osdep/io.h"
 #include "options/m_config.h"
 #include "options/path.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "video/out/vo.h"
@@ -87,20 +87,19 @@ static bool checked_mkdir(struct vo *vo, const char *buf)
 
 static int reconfig(struct vo *vo, struct mp_image_params *params)
 {
-    struct priv *p = vo->priv;
-    mp_image_unrefp(&p->current);
-
     return 0;
 }
 
-static void draw_image(struct vo *vo, mp_image_t *mpi)
+static void draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
+    if (!frame->current)
+        return;
 
-    p->current = mpi;
+    p->current = frame->current;
 
     struct mp_osd_res dim = osd_res_from_image_params(vo->params);
-    osd_draw_on_image(vo->osd, dim, mpi->pts, OSD_DRAW_SUB_ONLY, p->current);
+    osd_draw_on_image(vo->osd, dim, frame->current->pts, OSD_DRAW_SUB_ONLY, p->current);
 }
 
 static void flip_page(struct vo *vo)
@@ -119,10 +118,9 @@ static void flip_page(struct vo *vo)
         filename = mp_path_join(t, p->opts->outdir, filename);
 
     MP_INFO(vo, "Saving %s\n", filename);
-    write_image(p->current, p->opts->opts, filename, vo->global, vo->log);
+    write_image(p->current, p->opts->opts, filename, vo->global, vo->log, true);
 
     talloc_free(t);
-    mp_image_unrefp(&p->current);
 }
 
 static int query_format(struct vo *vo, int fmt)
@@ -134,9 +132,6 @@ static int query_format(struct vo *vo, int fmt)
 
 static void uninit(struct vo *vo)
 {
-    struct priv *p = vo->priv;
-
-    mp_image_unrefp(&p->current);
 }
 
 static int preinit(struct vo *vo)
@@ -163,7 +158,7 @@ const struct vo_driver video_out_image =
     .query_format = query_format,
     .reconfig = reconfig,
     .control = control,
-    .draw_image = draw_image,
+    .draw_frame = draw_frame,
     .flip_page = flip_page,
     .uninit = uninit,
     .global_opts = &vo_image_conf,

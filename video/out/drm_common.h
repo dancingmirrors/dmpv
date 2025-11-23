@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MP_VT_SWITCHER_H
@@ -23,10 +23,13 @@
 #include <xf86drmMode.h>
 #include "vo.h"
 
-#define DRM_OPTS_FORMAT_XRGB8888    0
-#define DRM_OPTS_FORMAT_XRGB2101010 1
-#define DRM_OPTS_FORMAT_XBGR8888    2
-#define DRM_OPTS_FORMAT_XBGR2101010 3
+enum {
+    DRM_OPTS_FORMAT_XRGB8888,
+    DRM_OPTS_FORMAT_XRGB2101010,
+    DRM_OPTS_FORMAT_XBGR8888,
+    DRM_OPTS_FORMAT_XBGR2101010,
+    DRM_OPTS_FORMAT_YUYV,
+};
 
 struct framebuffer {
     int fd;
@@ -54,7 +57,6 @@ struct drm_opts {
     char *device_path;
     char *connector_spec;
     char *mode_spec;
-    int drm_atomic;
     int draw_plane;
     int drmprime_video_plane;
     int drm_format;
@@ -114,7 +116,7 @@ double vo_drm_get_display_fps(struct vo_drm_state *drm);
 void vo_drm_get_vsync(struct vo *vo, struct vo_vsync_info *info);
 void vo_drm_set_monitor_par(struct vo *vo);
 void vo_drm_uninit(struct vo *vo);
-void vo_drm_wait_events(struct vo *vo, int64_t until_time_us);
+void vo_drm_wait_events(struct vo *vo, int64_t until_time_ns);
 void vo_drm_wait_on_flip(struct vo_drm_state *drm);
 void vo_drm_wakeup(struct vo *vo);
 

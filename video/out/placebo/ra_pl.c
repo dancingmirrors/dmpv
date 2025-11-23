@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 
 #include "ra_pl.h"
 #include "utils.h"
@@ -26,7 +27,9 @@ static pl_timer get_active_timer(const struct ra *ra);
 
 struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
 {
-    assert(gpu);
+    mp_assert(gpu);
+
+    mp_verbose(log, "libplacebo: Creating RA wrapper for pl_gpu\n");
 
     struct ra *ra = talloc_zero(NULL, struct ra);
     ra->log = log;
@@ -39,46 +42,72 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
     ra->glsl_vulkan = gpu->glsl.vulkan;
     ra->glsl_es = gpu->glsl.gles;
 
+    mp_verbose(log, "libplacebo: GLSL version=%d vulkan=%d es=%d\n",
+               gpu->glsl.version, gpu->glsl.vulkan, gpu->glsl.gles);
+
     ra->caps = RA_CAP_DIRECT_UPLOAD | RA_CAP_NESTED_ARRAY | RA_CAP_FRAGCOORD;
 
-    if (gpu->glsl.compute)
+    if (gpu->glsl.compute) {
         ra->caps |= RA_CAP_COMPUTE | RA_CAP_NUM_GROUPS;
-    if (gpu->limits.compute_queues > gpu->limits.fragment_queues)
+        mp_verbose(log, "libplacebo: GPU supports compute shaders\n");
+    }
+    if (gpu->limits.compute_queues > gpu->limits.fragment_queues) {
         ra->caps |= RA_CAP_PARALLEL_COMPUTE;
-#if PL_API_VER >= 180
-    if (gpu->limits.max_variable_comps)
+        mp_verbose(log, "libplacebo: GPU supports parallel compute\n");
+    }
+    if (gpu->limits.max_variable_comps) {
         ra->caps |= RA_CAP_GLOBAL_UNIFORM;
-#else
-    if (gpu->limits.max_variables)
-        ra->caps |= RA_CAP_GLOBAL_UNIFORM;
-#endif
-#if PL_API_VER >= 234
-    if (!gpu->limits.host_cached)
+        mp_verbose(log, "libplacebo: GPU supports global uniforms (max=%zu)\n",
+                   gpu->limits.max_variable_comps);
+    }
+    if (!gpu->limits.host_cached) {
         ra->caps |= RA_CAP_SLOW_DR;
-#endif
+        mp_verbose(log, "libplacebo: GPU does not have host-cached memory\n");
+    }
 
-    if (gpu->limits.max_tex_1d_dim)
+    if (gpu->limits.max_tex_1d_dim) {
         ra->caps |= RA_CAP_TEX_1D;
-    if (gpu->limits.max_tex_3d_dim)
+        mp_verbose(log, "libplacebo: 1D textures supported (max=%d)\n",
+                   gpu->limits.max_tex_1d_dim);
+    }
+    if (gpu->limits.max_tex_3d_dim) {
         ra->caps |= RA_CAP_TEX_3D;
-    if (gpu->limits.max_ubo_size)
+        mp_verbose(log, "libplacebo: 3D textures supported (max=%d)\n",
+                   gpu->limits.max_tex_3d_dim);
+    }
+    if (gpu->limits.max_ubo_size) {
         ra->caps |= RA_CAP_BUF_RO;
-    if (gpu->limits.max_ssbo_size)
+        mp_verbose(log, "libplacebo: UBO supported (max=%zu bytes)\n",
+                   gpu->limits.max_ubo_size);
+    }
+    if (gpu->limits.max_ssbo_size) {
         ra->caps |= RA_CAP_BUF_RW;
-    if (gpu->glsl.min_gather_offset && gpu->glsl.max_gather_offset)
+        mp_verbose(log, "libplacebo: SSBO supported (max=%zu bytes)\n",
+                   gpu->limits.max_ssbo_size);
+    }
+    if (gpu->glsl.min_gather_offset && gpu->glsl.max_gather_offset) {
         ra->caps |= RA_CAP_GATHER;
+        mp_verbose(log, "libplacebo: Texture gather supported\n");
+    }
 
     // Semi-hack: assume all textures are blittable if r8 is
     pl_fmt r8 = pl_find_named_fmt(gpu, "r8");
-    if (r8->caps & PL_FMT_CAP_BLITTABLE)
+    if (r8->caps & PL_FMT_CAP_BLITTABLE) {
         ra->caps |= RA_CAP_BLIT;
+        mp_verbose(log, "libplacebo: Blit operations supported\n");
+    }
 
     ra->max_texture_wh = gpu->limits.max_tex_2d_dim;
     ra->max_pushc_size = gpu->limits.max_pushc_size;
     ra->max_compute_group_threads = gpu->glsl.max_group_threads;
     ra->max_shmem = gpu->glsl.max_shmem_size;
 
+    mp_verbose(log, "libplacebo: Limits: max_tex_2d=%d pushc=%zu compute_threads=%zu shmem=%zu\n",
+               ra->max_texture_wh, ra->max_pushc_size,
+               ra->max_compute_group_threads, ra->max_shmem);
+
     // Set up format wrappers
+    mp_verbose(log, "libplacebo: Enumerating %d GPU formats\n", gpu->num_formats);
     for (int i = 0; i < gpu->num_formats; i++) {
         pl_fmt plfmt = gpu->formats[i];
         static const enum ra_ctype fmt_type_map[PL_FMT_TYPE_COUNT] = {
@@ -113,6 +142,8 @@ struct ra *ra_create_pl(pl_gpu gpu, struct mp_log *log)
         MP_TARRAY_APPEND(ra, ra->formats, ra->num_formats, rafmt);
     }
 
+    mp_verbose(log, "libplacebo: Registered %d usable formats\n", ra->num_formats);
+
     return ra;
 }
 
@@ -134,8 +165,14 @@ static struct ra_format *map_fmt(struct ra *ra, pl_fmt plfmt)
 
 bool mppl_wrap_tex(struct ra *ra, pl_tex pltex, struct ra_tex *out_tex)
 {
-    if (!pltex)
+    if (!pltex) {
+        MP_VERBOSE(ra, "libplacebo: Cannot wrap NULL texture\n");
         return false;
+    }
+
+    MP_DBG(ra, "libplacebo: Wrapping pl_tex %dx%d format=%s\n",
+               pltex->params.w, pltex->params.h,
+               pltex->params.format->name);
 
     *out_tex = (struct ra_tex) {
         .params = {
@@ -165,6 +202,15 @@ static struct ra_tex *tex_create_pl(struct ra *ra,
                                     const struct ra_tex_params *params)
 {
     pl_gpu gpu = get_gpu(ra);
+
+    MP_VERBOSE(ra, "libplacebo: Creating texture %dx%dx%d format=%s caps=%s%s%s%s\n",
+               params->w, params->h, params->d,
+               params->format->name,
+               params->render_src ? " render_src" : "",
+               params->render_dst ? " render_dst" : "",
+               params->storage_dst ? " storage" : "",
+               params->host_mutable ? " host_mutable" : "");
+
     pl_tex pltex = pl_tex_create(gpu, &(struct pl_tex_params) {
         .w = params->w,
         .h = params->dimensions >= 2 ? params->h : 0,
@@ -180,10 +226,16 @@ static struct ra_tex *tex_create_pl(struct ra *ra,
         .initial_data = params->initial_data,
     });
 
+    if (!pltex) {
+        MP_VERBOSE(ra, "libplacebo: Failed to create texture\n");
+        return NULL;
+    }
+
     struct ra_tex *ratex = talloc_ptrtype(NULL, ratex);
     if (!mppl_wrap_tex(ra, pltex, ratex)) {
         pl_tex_destroy(gpu, &pltex);
         talloc_free(ratex);
+        MP_VERBOSE(ra, "libplacebo: Failed to wrap texture\n");
         return NULL;
     }
 
@@ -224,36 +276,7 @@ static bool tex_upload_pl(struct ra *ra, const struct ra_tex_upload_params *para
             };
         }
 
-#if PL_API_VER >= 168
         pl_params.row_pitch = params->stride;
-#else
-        // Older libplacebo uses texel-sized strides, so we have to manually
-        // compensate for possibly misaligned sources (typically rgb24).
-        size_t texel_size = tex->params.format->texel_size;
-        pl_params.stride_w = params->stride / texel_size;
-        size_t stride = pl_params.stride_w * texel_size;
-
-        if (stride != params->stride) {
-            // Fall back to uploading via a staging buffer prepared in CPU
-            int lines = params->rc ? pl_rect_h(pl_params.rc) : tex->params.h;
-            staging = pl_buf_create(gpu, &(struct pl_buf_params) {
-                .size = lines * stride,
-                .memory_type = PL_BUF_MEM_HOST,
-                .host_mapped = true,
-            });
-            if (!staging)
-                return false;
-
-            const uint8_t *src = params->buf ? params->buf->data : params->src;
-            assert(src);
-            for (int y = 0; y < lines; y++)
-                memcpy(staging->data + y * stride, src + y * params->stride, stride);
-
-            pl_params.ptr = NULL;
-            pl_params.buf = staging;
-            pl_params.buf_offset = 0;
-        }
-#endif
     }
 
     bool ok = pl_tex_upload(gpu, &pl_params);
@@ -268,33 +291,10 @@ static bool tex_download_pl(struct ra *ra, struct ra_tex_download_params *params
         .tex = tex,
         .ptr = params->dst,
         .timer = get_active_timer(ra),
+        .row_pitch = params->stride,
     };
 
-#if PL_API_VER >= 168
-    pl_params.row_pitch = params->stride;
     return pl_tex_download(get_gpu(ra), &pl_params);
-#else
-    size_t texel_size = tex->params.format->texel_size;
-    pl_params.stride_w = params->stride / texel_size;
-    size_t stride = pl_params.stride_w * texel_size;
-    uint8_t *staging = NULL;
-    if (stride != params->stride) {
-        staging = talloc_size(NULL, tex->params.h * stride);
-        pl_params.ptr = staging;
-    }
-
-    bool ok = pl_tex_download(get_gpu(ra), &pl_params);
-    if (ok && staging) {
-        for (int y = 0; y < tex->params.h; y++) {
-            memcpy((uint8_t *) params->dst + y * params->stride,
-                   staging + y * stride,
-                   stride);
-        }
-    }
-
-    talloc_free(staging);
-    return ok;
-#endif
 }
 
 static struct ra_buf *buf_create_pl(struct ra *ra,
@@ -509,8 +509,6 @@ static struct ra_renderpass *renderpass_create_pl(struct ra *ra,
         .glsl_shader = params->type == RA_RENDERPASS_TYPE_COMPUTE
                             ? params->compute_shader
                             : params->frag_shader,
-        .cached_program = params->cached_program.start,
-        .cached_program_len = params->cached_program.len,
     };
 
     struct pl_blend_params blend_params;
@@ -520,12 +518,7 @@ static struct ra_renderpass *renderpass_create_pl(struct ra *ra,
         pl_params.vertex_type = PL_PRIM_TRIANGLE_LIST;
         pl_params.vertex_stride = params->vertex_stride;
         pl_params.load_target = !params->invalidate_target;
-
-#if PL_API_VER >= 169
         pl_params.target_format = params->target_format->priv;
-#else
-        pl_params.target_dummy.params.format = params->target_format->priv;
-#endif
 
         if (params->enable_blend) {
             pl_params.blend_params = &blend_params;
@@ -569,11 +562,6 @@ static struct ra_renderpass *renderpass_create_pl(struct ra *ra,
         .priv = talloc_steal(pass, priv),
     };
 
-    pass->params.cached_program = (struct bstr) {
-        .start = (void *) priv->pass->params.cached_program,
-        .len = priv->pass->params.cached_program_len,
-    };
-
     // fall through
 error:
     talloc_free(tmp);
@@ -605,7 +593,7 @@ static void renderpass_run_pl(struct ra *ra,
                 .data = val->data,
             });
         } else {
-            struct pl_desc_binding bind;
+            struct pl_desc_binding bind = {0};
             switch (inp->type) {
             case RA_VARTYPE_TEX:
             case RA_VARTYPE_IMG_W: {
@@ -745,4 +733,3 @@ static struct ra_fns ra_fns_pl = {
     .timer_start            = timer_start_pl,
     .timer_stop             = timer_stop_pl,
 };
-
