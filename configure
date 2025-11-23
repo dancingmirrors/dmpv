@@ -92,7 +92,8 @@ check("-optimize",
       desc      = "optimization")
 check("-debug-build",
       fn        = lambda: chain(add_cflags("-g3"), True),
-      desc      = "-g3")
+      desc      = "-g3",
+      default   = False)
 check("-debug-build-extensive",
       fn        = lambda: chain(add_cflags("-O0", "-g", "-fno-omit-frame-pointer"), True),
       desc      = "-O0, -g, -fno-omit-frame-pointer",
