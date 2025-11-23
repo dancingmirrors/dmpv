@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <string.h>
 #include "misc/mp_assert.h"
 #include <libavutil/common.h>
 #include <libavcodec/avcodec.h>
@@ -1030,8 +1031,15 @@ void mp_csp_equalizer_state_get(struct mp_csp_equalizer_state *state,
 {
     struct m_config_cache *c = (struct m_config_cache *)state;
     m_config_cache_update(c);
-    struct mp_csp_equalizer_opts *opts = c->opts;
-    mp_csp_copy_equalizer_values(params, opts);
+
+    // Make a local copy to prevent torn reads of float values.
+    // Without this, if another thread modifies the values between our reads,
+    // we could get inconsistent values (e.g., old brightness + new saturation).
+    // This is especially problematic under load when threads are more active.
+    struct mp_csp_equalizer_opts local;
+    memcpy(&local, c->opts, sizeof(local));
+
+    mp_csp_copy_equalizer_values(params, &local);
 }
 
 void mp_invert_cmat(struct mp_cmat *out, struct mp_cmat *in)
