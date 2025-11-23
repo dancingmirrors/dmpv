@@ -1,0 +1,36 @@
+dmpv is a fork of mpv, which is a fork of mplayer2, which is a fork of MPlayer.
+
+dmpv is licensed under the GNU General Public License GPL version 2, or the
+GNU Lesser General Public License LGPL version 2 or later if built with
+./configure --enable-lgpl.
+
+Consult LICENSE.GPL and LICENSE.LGPL for details.
+
+Some files are available under more liberal licenses, such as BSD, MIT, ISC, and
+possibly others. Look at the copyright header of each source file, and grep the
+sources for "Copyright" if you need to know details. C source files without
+Copyright notice are usually licensed as LGPLv2.1+. Also see the list of files
+with specific licenses below (not all files can have a standard license
+header). "v2.1+" in this context means "version 2.1 or later".
+
+All new contributions must be LGPLv2.1+ licensed. Using a more liberal license
+compatible with LGPLv2.1+ is also okay.
+
+Changes done to the old GPL code had to come with the implicit/explicit
+agreement that the project could relicense the changes to LGPLv2.1+ at a later
+point without asking the contributor. To add a LGPL mode to mpv, MPlayer code
+had to be relicensed from GPLv2+ to LGPLv2.1+ by asking the MPlayer authors for
+permission.
+
+For information about authors and contributors, consult the git log, which
+contains the complete SVN and CVS history as well.
+
+./configure --enable-lgpl disables the following files and associated features:
+
+audio/out/ao_oss.c
+video/vdpau.c
+video/vdpau.h
+video/vdpau_mixer.c
+video/vdpau_mixer.h
+video/out/x11_common.c
+video/out/x11_common.h
