@@ -4287,7 +4287,9 @@ static const struct property_osd_display {
     {.name = "border", .osd_name = "Border"},
     {.name = "framedrop", .osd_name = "Framedrop"},
     {.name = "deinterlace", .osd_name = "Deinterlace"},
-    {"gamma", "Gamma", .osd_progbar = OSD_BRIGHTNESS },
+    // Note: No dedicated OSD_GAMMA symbol exists; using OSD_CONTRAST as it's
+    // visually similar (both are multiplicative adjustments around 1.0)
+    {"gamma", "Gamma", .osd_progbar = OSD_CONTRAST },
     {"brightness", "Brightness", .osd_progbar = OSD_BRIGHTNESS},
     {"contrast", "Contrast", .osd_progbar = OSD_CONTRAST},
     {"saturation", "Saturation", .osd_progbar = OSD_SATURATION},
