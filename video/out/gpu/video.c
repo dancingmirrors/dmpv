@@ -4119,9 +4119,6 @@ static void gl_video_update_options(struct gl_video *p)
         gl_lcms_update_options(p->cms);
         reinit_from_options(p);
     }
-
-    if (mp_csp_equalizer_state_changed(p->video_eq))
-        p->output_tex_valid = false;
 }
 
 static void reinit_from_options(struct gl_video *p)

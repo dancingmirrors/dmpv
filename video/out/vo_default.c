@@ -1477,20 +1477,25 @@ static int control(struct vo *vo, uint32_t request, void *data)
         return VO_TRUE;
 
     case VOCTRL_UPDATE_RENDER_OPTS: {
-        m_config_cache_update(p->opts_cache);
-        const struct gl_video_opts *opts = p->opts_cache->opts;
-        p->ra_ctx->opts.want_alpha = opts->alpha_mode == ALPHA_YES;
-        if (p->ra_ctx->fns->update_render_opts)
-            p->ra_ctx->fns->update_render_opts(p->ra_ctx);
-        update_render_options(vo);
-        vo->want_redraw = true;
+        // Only update render options if gl_video_opts actually changed.
+        // This avoids expensive reinitialization when only equalizer values
+        // (brightness, contrast, gamma, saturation) change, which are handled
+        // separately in update_options() during rendering.
+        if (m_config_cache_update(p->opts_cache)) {
+            const struct gl_video_opts *opts = p->opts_cache->opts;
+            p->ra_ctx->opts.want_alpha = opts->alpha_mode == ALPHA_YES;
+            if (p->ra_ctx->fns->update_render_opts)
+                p->ra_ctx->fns->update_render_opts(p->ra_ctx);
+            update_render_options(vo);
 
-        // Also re-query the auto profile, in case `update_render_options`
-        // unloaded a manually specified icc profile in favor of
-        // icc-profile-auto
-        int events = 0;
-        update_auto_profile(p, &events);
-        vo_event(vo, events);
+            // Also re-query the auto profile, in case `update_render_options`
+            // unloaded a manually specified icc profile in favor of
+            // icc-profile-auto
+            int events = 0;
+            update_auto_profile(p, &events);
+            vo_event(vo, events);
+        }
+        vo->want_redraw = true;
         return VO_TRUE;
     }
 
