@@ -1727,10 +1727,16 @@ static void play_current_file(struct MPContext *mpctx)
 
     update_playback_speed(mpctx);
 
-    // Pause for images if --pause-images is enabled
+    // Handle pause-images: pause for images, unpause for non-images if pause was set by pause-images
     struct track *vid_track = mpctx->current_track[0][STREAM_VIDEO];
-    if (vid_track && vid_track->image && opts->pause_images && !opts->pause) {
+    bool is_image = vid_track && vid_track->image;
+    if (is_image && opts->pause_images && !opts->pause) {
         set_pause_state(mpctx, true);
+        mpctx->paused_for_image = true;
+    } else if (!is_image && mpctx->paused_for_image) {
+        // Unpause when moving from an image to a non-image
+        set_pause_state(mpctx, false);
+        mpctx->paused_for_image = false;
     }
 
     reinit_video_chain(mpctx);

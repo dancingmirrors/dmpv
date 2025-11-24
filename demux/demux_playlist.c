@@ -438,7 +438,8 @@ static int parse_dir(struct pl_parser *p)
 
     p->add_base = false;
 
-    return p->pl->num_entries > 0 ? 0 : -1;
+    // Always succeed for directories (even if empty), to avoid "unknown format" errors
+    return 0;
 }
 
 #define MIME_TYPES(...) \
