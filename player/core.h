@@ -419,6 +419,7 @@ typedef struct MPContext {
     int remaining_ab_loops;
 
     bool paused_for_cache;
+    bool paused_for_image; // true if pause was triggered by --pause-images
     bool demux_underrun;
     double cache_stop_time;
     int cache_buffer;

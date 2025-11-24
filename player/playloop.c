@@ -158,6 +158,11 @@ void set_pause_state(struct MPContext *mpctx, bool user_pause)
 
     opts->pause = user_pause;
 
+    // If user manually changes pause state, clear the paused_for_image flag
+    // This allows the user to unpause an image and have the next video not auto-unpause
+    if (!user_pause)
+        mpctx->paused_for_image = false;
+
     bool internal_paused = get_internal_paused(mpctx);
     if (internal_paused != mpctx->paused) {
         mpctx->paused = internal_paused;
