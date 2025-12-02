@@ -112,7 +112,8 @@ check(desc      = "warning CFLAGS",
                         "-Wvla",
                         "-Wundef",
                         "-Wtype-limits",
-                        "-Wmissing-field-initializers"]))
+                        "-Wmissing-field-initializers",
+                        "-Wabsolute-value"]))
 
 check("gnuc",
       desc      = "GNU C",
