@@ -142,12 +142,14 @@ check(desc      = "extra GCC warnings",
                         "-Woverflow",
                         "-Wclobbered",
                         "-Wcast-function-type",
-                        "-Wignored-qualifiers"]))
+                        "-Wignored-qualifiers",
+                        "-Wshift-overflow=2"]))
 check(desc      = "extra clang warnings",
       deps      = "clang",
       fn        = lambda: check_cc(flags = [
                         "-fcolor-diagnostics",
-                        "-Wunreachable-code-aggressive"]))
+                        "-Wunreachable-code-aggressive",
+                        "-Wshift-overflow"]))
 
 check("-usan",
       desc      = "undefined sanitizer",
