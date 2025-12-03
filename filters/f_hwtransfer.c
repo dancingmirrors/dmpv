@@ -185,7 +185,7 @@ static void hwupload_process(struct mp_filter *f)
             }
         }
         p->last_source_fmt = src->imgfmt;
-        MP_INFO(f, "upload %s -> %s[%s]\n",
+        MP_VERBOSE(f, "upload %s -> %s[%s]\n",
                 mp_imgfmt_to_name(p->last_source_fmt),
                 mp_imgfmt_to_name(p->hw_imgfmt),
                 mp_imgfmt_to_name(p->last_hw_output_fmt));
