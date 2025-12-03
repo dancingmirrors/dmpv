@@ -23,6 +23,7 @@
 
 #include <libavutil/avutil.h>
 
+#include "misc/bstr.h"
 #include "misc/dmpv_talloc.h"
 
 #include "misc/thread_pool.h"
@@ -1737,6 +1738,13 @@ static void play_current_file(struct MPContext *mpctx)
         // Unpause when moving from an image to a non-image
         set_pause_state(mpctx, false);
         mpctx->paused_for_image = false;
+    }
+
+   if (is_image) {
+        m_config_set_option_cli(mpctx->mconfig, bstr0("vf-append"),
+                                bstr0("format=nv12"),
+                                M_SETOPT_BACKUP);
+        MP_VERBOSE(mpctx, "Detected image input: appending vf=format=nv12.\n");
     }
 
     reinit_video_chain(mpctx);

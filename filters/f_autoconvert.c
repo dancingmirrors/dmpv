@@ -217,7 +217,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
                                                        true);
         if (upload.successful_init) {
             if (upload.f) {
-                mp_info(log, "Converting %s[%s] -> %s[%s]\n",
+                mp_verbose(log, "Converting %s[%s] -> %s[%s]\n",
                         mp_imgfmt_to_name(imgpar.imgfmt),
                         mp_imgfmt_to_name(src_fmt),
                         mp_imgfmt_to_name(imgpar.imgfmt),
@@ -239,7 +239,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
             struct mp_hwupload upload = mp_hwupload_create(conv, fmts[i],
                                                            sw_fmt, false);
             if (upload.successful_init) {
-                mp_info(log, "HW-uploading to %s\n", mp_imgfmt_to_name(fmts[i]));
+                mp_verbose(log, "HW-uploading to %s\n", mp_imgfmt_to_name(fmts[i]));
                 filters[2] = upload.f;
                 hwupload_fmt = upload.selected_sw_imgfmt;
                 fmts = &hwupload_fmt;
@@ -267,7 +267,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
 
     int src_fmt = img->imgfmt;
     if (hw_to_sw) {
-        mp_info(log, "HW-downloading from %s\n", mp_imgfmt_to_name(img->imgfmt));
+        mp_verbose(log, "HW-downloading from %s\n", mp_imgfmt_to_name(img->imgfmt));
         int res_fmt = mp_image_hw_download_get_sw_format(img);
         if (!res_fmt) {
             mp_err(log, "cannot copy surface of this format to CPU memory\n");
@@ -321,7 +321,7 @@ static bool build_image_converter(struct mp_autoconvert *c, struct mp_log *log,
             sws->out_format = out;
             sws->out_params = p->imgparams;
             sws->use_out_params = force_sws_params;
-            mp_info(log, "Converting %s -> %s\n", mp_imgfmt_to_name(src_fmt),
+            mp_verbose(log, "Converting %s -> %s\n", mp_imgfmt_to_name(src_fmt),
                     mp_imgfmt_to_name(sws->out_format));
             filters[1] = sws->f;
         }
