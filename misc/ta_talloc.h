@@ -144,8 +144,10 @@ char *ta_talloc_asprintf_append_buffer(char *s, const char *fmt, ...) TA_PRF(2, 
     do {                                            \
         size_t at_ = (at);                          \
         mp_assert(at_ <= (idxvar));                 \
-        memmove((p) + at_, (p) + at_ + 1,           \
-                ((idxvar) - at_ - 1) * sizeof((p)[0])); \
+        if (at_ + 1 < (idxvar)) {                   \
+            memmove((p) + at_, (p) + at_ + 1,       \
+                    ((idxvar) - at_ - 1) * sizeof((p)[0])); \
+        }                                           \
         (idxvar)--;                                 \
     } while (0)
 
