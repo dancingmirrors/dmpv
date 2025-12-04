@@ -24,10 +24,16 @@
 
 #if HAVE_STDATOMIC
 #include <stdatomic.h>
+// Ensure proper alignment for 64-bit atomics to avoid GCC 11.1+ warnings
+// about alignment changes on 32-bit architectures. Applied unconditionally
+// for consistency across all platforms.
 typedef _Atomic float mp_atomic_float;
-typedef _Atomic double mp_atomic_double;
-typedef _Atomic int64_t mp_atomic_int64;
-typedef _Atomic uint64_t mp_atomic_uint64;
+typedef _Atomic double __attribute__((aligned(8))) mp_atomic_double;
+typedef _Atomic int64_t __attribute__((aligned(8))) mp_atomic_int64;
+typedef _Atomic uint64_t __attribute__((aligned(8))) mp_atomic_uint64;
+
+// Additional atomic types used in the codebase
+typedef _Atomic unsigned long long __attribute__((aligned(8))) atomic_ullong;
 #else
 
 // Emulate the parts of C11 stdatomic.h needed by dmpv.
@@ -36,14 +42,14 @@ typedef struct { unsigned long v;      } atomic_ulong;
 typedef struct { int v;                } atomic_int;
 typedef struct { unsigned int v;       } atomic_uint;
 typedef struct { _Bool v;              } atomic_bool;
-typedef struct { long long v;          } atomic_llong;
+typedef struct { long long v;          } __attribute__((aligned(8))) atomic_llong;
 typedef struct { uint_least32_t v;     } atomic_uint_least32_t;
-typedef struct { unsigned long long v; } atomic_ullong;
+typedef struct { unsigned long long v; } __attribute__((aligned(8))) atomic_ullong;
 
 typedef struct { float v;              } mp_atomic_float;
-typedef struct { double v;             } mp_atomic_double;
-typedef struct { int64_t v;            } mp_atomic_int64;
-typedef struct { uint64_t v;           } mp_atomic_uint64;
+typedef struct { double v;             } __attribute__((aligned(8))) mp_atomic_double;
+typedef struct { int64_t v;            } __attribute__((aligned(8))) mp_atomic_int64;
+typedef struct { uint64_t v;           } __attribute__((aligned(8))) mp_atomic_uint64;
 
 #define ATOMIC_VAR_INIT(x) \
     {.v = (x)}
