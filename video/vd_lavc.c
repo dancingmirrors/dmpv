@@ -150,7 +150,7 @@ const struct m_sub_options vd_lavc_conf = {
         // for example, if a VO increases the number of reference surfaces for
         // interpolation, this value has to be increased too.
         .hwdec_extra_frames = 6,
-        .hwdec_threads = 1,
+        .hwdec_threads = 4,
     },
 };
 
