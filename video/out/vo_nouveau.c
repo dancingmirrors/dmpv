@@ -21,7 +21,7 @@
  */
 
 /*
- * Actual decoding is done in video/decode/vdpau.c
+ * Actual decoding is done in video/vdpau.c
  */
 
 #include <stdio.h>
