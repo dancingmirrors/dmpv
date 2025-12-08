@@ -829,6 +829,17 @@ bool mp_image_params_equal(const struct mp_image_params *p1,
            p1->alpha == p2->alpha;
 }
 
+// Compare only static video parameters, excluding dynamic metadata.
+// In dmpv, since we don't have separate dynamic metadata fields like
+// Dolby Vision or HDR metadata in mp_image_params, this is equivalent
+// to mp_image_params_equal. This function exists for compatibility with
+// upstream.
+bool mp_image_params_static_equal(const struct mp_image_params *p1,
+                                  const struct mp_image_params *p2)
+{
+    return mp_image_params_equal(p1, p2);
+}
+
 // Set most image parameters, but not image format or size.
 // Display size is used to set the PAR.
 void mp_image_set_attributes(struct mp_image *image,
