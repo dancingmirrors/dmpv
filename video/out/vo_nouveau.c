@@ -1035,11 +1035,6 @@ static int preinit(struct vo *vo)
     vc->video_mixer = mp_vdpau_mixer_create(vc->mpvdp, vo->log);
     vc->video_mixer->video_eq = mp_csp_equalizer_create(vo, vo->global);
 
-    if (mp_vdpau_guess_if_emulated(vc->mpvdp)) {
-        MP_WARN(vo, "VDPAU is most likely emulated via VA-API.\n"
-                    "This is inefficient. Use --vo=gpu instead.\n");
-    }
-
     // Mark everything as invalid first so uninit() can tell what has been
     // allocated
     mark_vdpau_objects_uninitialized(vo);
