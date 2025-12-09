@@ -238,6 +238,14 @@ void reinit_video_chain_src(struct MPContext *mpctx, struct track *track)
             MP_FATAL(mpctx, "Error opening/initializing "
                     "the selected video_out (--vo) device.\n");
             mpctx->error_playing = DMPV_ERROR_VO_INIT_FAILED;
+            // If user explicitly specified an invalid VO, make this a fatal error
+            // to avoid looping through entire playlist with the same error.
+            // Valid VOs that fail to initialize will still skip to the next file.
+            struct mp_vo_opts *vo_opts = mp_get_config_group(NULL, mpctx->global, &vo_sub_opts);
+            if (vo_opts->video_driver_list && vo_opts->video_driver_list[0].name) {
+                mpctx->stop_play = PT_QUIT;
+            }
+            talloc_free(vo_opts);
             goto err_out;
         }
         mpctx->mouse_cursor_visible = true;
