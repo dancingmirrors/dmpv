@@ -173,7 +173,7 @@ static int video_to_output_surface(struct vo *vo, struct mp_image *mpi)
     if (frame)
         opts = frame->opts;
 
-    // Apply custom vo_vdpau suboptions.
+    // Apply custom vo_nouveau suboptions.
     opts.chroma_deint |= vc->chroma_deint;
     opts.pullup |= vc->pullup;
     opts.denoise = MPCLAMP(opts.denoise + vc->denoise, 0, 1);
