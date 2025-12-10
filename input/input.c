@@ -117,6 +117,9 @@ struct input_ctx {
     int mouse_hover;  // updated on mouse-enter/leave
     char *mouse_section; // last section to receive mouse event
 
+    // Last mouse position when get_mouse_event_counter was called
+    int last_counter_check_x, last_counter_check_y;
+
     // Mouse position on the producer side (as the VO sees it)
     // Unlike mouse_x/y, this can be used to resolve mouse click bindings.
     int mouse_vo_x, mouse_vo_y;
@@ -883,8 +886,13 @@ unsigned int mp_input_get_mouse_event_counter(struct input_ctx *ictx)
     // Make the frontend always display the mouse cursor (as long as it's not
     // forced invisible) if mouse input is desired.
     input_lock(ictx);
-    if (mp_input_test_mouse_active(ictx, ictx->mouse_x, ictx->mouse_y))
+    bool mouse_moved = (ictx->mouse_x != ictx->last_counter_check_x ||
+                        ictx->mouse_y != ictx->last_counter_check_y);
+    if (mouse_moved && mp_input_test_mouse_active(ictx, ictx->mouse_x, ictx->mouse_y)) {
         ictx->mouse_event_counter++;
+    }
+    ictx->last_counter_check_x = ictx->mouse_x;
+    ictx->last_counter_check_y = ictx->mouse_y;
     int ret = ictx->mouse_event_counter;
     input_unlock(ictx);
     return ret;
