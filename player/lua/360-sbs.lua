@@ -7,7 +7,7 @@ local viewpoint = {
     fov = 120.0
 }
 
-local res = 4.0  -- 1.0 to 6.0
+local res = 4.0 -- 1.0 to 6.0
 
 -- Ranges are limited to prevent seeing edges.
 local FOV_MIN = 30.0
@@ -47,7 +47,7 @@ end
 local function update_filter()
     clip_viewpoint()
 
-    pcall(function() mp.command("no-osd sync vf remove @vrrev") end)
+    pcall(function() mp.command("no-osd sync vf remove @vrrev:v360=") end)
 
     local stereo_param = "in_stereo=sbs"
     local projection_param = "hequirect"
@@ -78,16 +78,15 @@ local function update_filter()
         msg.error("Failed to apply filter: " .. (err or "unknown error"))
     end
 
---    local osd_msg = string.format(
---        "360° View | Yaw: %.1f° | Pitch: %.1f° | FOV: %.1f°",
---        viewpoint.yaw,
---        viewpoint.pitch,
---        viewpoint.fov
---    )
---    mp.osd_message(osd_msg, 1)
+    local osd_msg = string.format(
+        "360° View | Yaw: %.1f° | Pitch: %.1f° | FOV: %.1f°",
+        viewpoint.yaw,
+        viewpoint.pitch,
+        viewpoint.fov
+    )
+    mp.osd_message(osd_msg, 1)
 end
 
--- Navigation controls
 local function adjust_yaw(delta)
     viewpoint.yaw = viewpoint.yaw + delta
     update_filter()
@@ -110,14 +109,13 @@ end
 
 local function reset_viewpoint()
     viewpoint.yaw = 0.0
-    viewpoint.pitch = 0.0
-    viewpoint.fov = 100.0
+    viewpoint.pitch = -20.0
+    viewpoint.fov = 120.0
     res = 4.0
     update_filter()
     mp.osd_message("Viewpoint reset", 1)
 end
 
--- Called when a video is loaded and properties are available.
 local function on_video_loaded()
     update_filter()
     msg.info("INFO: 360 SBS video mode loaded.")
@@ -133,7 +131,7 @@ mp.add_forced_key_binding("+", "360vlc-res-up", function() adjust_res(1.0) end, 
 mp.add_forced_key_binding("_", "360vlc-res-down", function() adjust_res(-1.0) end, {repeatable = true})
 mp.add_forced_key_binding("=", "360vlc-zoom-in", function() adjust_fov(-10.0) end, {repeatable = true})
 mp.add_forced_key_binding("-", "360vlc-zoom-out", function() adjust_fov(10.0) end, {repeatable = true})
-mp.add_forced_key_binding("r", "360vlc-reset", reset_viewpoint)
+mp.add_forced_key_binding("BS", "360vlc-reset", reset_viewpoint)
 
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "auto-copy")
