@@ -12,10 +12,10 @@ local res = 4.0 -- 1.0 to 6.0
 -- Ranges are limited to prevent seeing edges.
 local FOV_MIN = 30.0
 local FOV_MAX = 130.0
-local PITCH_MIN = -40.0
+local PITCH_MIN = -30.0
 local PITCH_MAX = 30.0
-local YAW_MIN = -20.0
-local YAW_MAX = 20.0
+local YAW_MIN = -15.0
+local YAW_MAX = 15.0
 
 local projection_mode = "hequirect"
 local input_stereo = "sbs"
@@ -35,7 +35,7 @@ local function wrap_angle(angle)
 end
 
 local function clip_viewpoint()
-    viewpoint.yaw = wrap_angle(viewpoint.yaw)
+    viewpoint.yaw = clamp(viewpoint.yaw, YAW_MIN, YAW_MAX)
     viewpoint.pitch = clamp(viewpoint.pitch, PITCH_MIN, PITCH_MAX)
     viewpoint.fov = clamp(viewpoint.fov, FOV_MIN, FOV_MAX)
 end
