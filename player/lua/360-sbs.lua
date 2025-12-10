@@ -12,7 +12,7 @@ local res = 4.0 -- 1.0 to 6.0
 -- Ranges are limited to prevent seeing edges.
 local FOV_MIN = 30.0
 local FOV_MAX = 130.0
-local PITCH_MIN = -60.0
+local PITCH_MIN = -40.0
 local PITCH_MAX = 30.0
 local YAW_MIN = -20.0
 local YAW_MAX = 20.0
