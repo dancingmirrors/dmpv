@@ -52,8 +52,8 @@ local function update_filter()
     local stereo_param = "in_stereo=sbs"
     local projection_param = "hequirect"
 
-    local width = res * 180.0
-    local height = res * 180.0
+    local width = res * 160.0
+    local height = res * 160.0
 
     local filter_parts = {
         "no-osd sync vf add @vrrev:v360=",
@@ -118,21 +118,21 @@ end
 
 local function on_video_loaded()
     update_filter()
-    msg.info("INFO: 360 SBS video mode loaded.")
 end
 
-mp.add_forced_key_binding("i", "360vlc-pitch-up", function() adjust_pitch(5.0) end, {repeatable = true})
-mp.add_forced_key_binding("k", "360vlc-pitch-down", function() adjust_pitch(-5.0) end, {repeatable = true})
+mp.add_forced_key_binding("i", "sbs-pitch-up", function() adjust_pitch(5.0) end, {repeatable = false})
+mp.add_forced_key_binding("k", "sbs-pitch-down", function() adjust_pitch(-5.0) end, {repeatable = false})
 
-mp.add_key_binding("j", "360vlc-yaw-left", function() adjust_yaw(-5.0) end, {repeatable = true})
-mp.add_key_binding("l", "360vlc-yaw-right", function() adjust_yaw(5.0) end, {repeatable = true})
+mp.add_key_binding("j", "sbs-yaw-left", function() adjust_yaw(-5.0) end, {repeatable = false})
+mp.add_key_binding("l", "sbs-yaw-right", function() adjust_yaw(5.0) end, {repeatable = false})
 
-mp.add_forced_key_binding("+", "360vlc-res-up", function() adjust_res(1.0) end, {repeatable = true})
-mp.add_forced_key_binding("_", "360vlc-res-down", function() adjust_res(-1.0) end, {repeatable = true})
-mp.add_forced_key_binding("=", "360vlc-zoom-in", function() adjust_fov(-10.0) end, {repeatable = true})
-mp.add_forced_key_binding("-", "360vlc-zoom-out", function() adjust_fov(10.0) end, {repeatable = true})
-mp.add_forced_key_binding("BS", "360vlc-reset", reset_viewpoint)
+mp.add_forced_key_binding("+", "sbs-res-up", function() adjust_res(1.0) end, {repeatable = false})
+mp.add_forced_key_binding("_", "sbs-res-down", function() adjust_res(-1.0) end, {repeatable = false})
+mp.add_forced_key_binding("=", "sbs-zoom-in", function() adjust_fov(-10.0) end, {repeatable = false})
+mp.add_forced_key_binding("-", "sbs-zoom-out", function() adjust_fov(10.0) end, {repeatable = false})
+mp.add_forced_key_binding("BS", "sbs-reset", reset_viewpoint)
 
+-- Some keybindings don't seem to work properly outside fullscreen.
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "auto-copy")
 mp.set_property("sws-fast", "yes")
