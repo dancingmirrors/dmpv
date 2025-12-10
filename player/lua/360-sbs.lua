@@ -134,7 +134,7 @@ mp.add_forced_key_binding("BS", "sbs-reset", reset_viewpoint)
 
 -- Some keybindings don't seem to work properly outside fullscreen.
 mp.set_property("fullscreen", "yes")
-mp.set_property("hwdec", "auto-copy")
+mp.set_property("hwdec", "no")
 mp.set_property("sws-fast", "yes")
 
 mp.register_event("file-loaded", on_video_loaded)
