@@ -187,6 +187,10 @@ static inline int mp_cond_timedwait_until(mp_cond *cond, mp_mutex *mutex, int64_
 
 static inline void mp_thread_set_name(const char *name)
 {
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+#endif
 #if HAVE_GLIBC_THREAD_NAME
     if (pthread_setname_np(pthread_self(), name) == ERANGE) {
         char tname[16]; // glibc-checked kernel limit
@@ -194,6 +198,9 @@ static inline void mp_thread_set_name(const char *name)
         tname[sizeof(tname) - 1] = '\0'; // Ensure null-termination
         pthread_setname_np(pthread_self(), tname);
     }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #elif HAVE_BSD_THREAD_NAME
 #ifdef __NetBSD__
     pthread_setname_np(pthread_self(), name, NULL);
