@@ -151,9 +151,13 @@ check(desc      = "extra clang warnings",
                         "-Wunreachable-code-aggressive",
                         "-Wshift-overflow"]))
 
-check("-usan",
-      desc      = "undefined sanitizer",
+check("-fsanitize=undefined",
+      desc      = "-fsanitize=undefined",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
+# export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-20 or similar
+check("-fsanitize=address",
+      desc      = "-fsanitize=address",
+      fn        = lambda: check_cc(flags = "-fsanitize=address", link = ["-fsanitize=address"]))
 
 def check_git():
     if not check_program("GIT"):
