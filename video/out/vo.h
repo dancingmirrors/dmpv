@@ -478,6 +478,7 @@ struct vo {
     struct m_config_cache *eq_opts_cache;
 
     bool want_redraw;   // redraw as soon as possible
+    int64_t previous_redraw_time;
 
     // current window state
     int dwidth;
