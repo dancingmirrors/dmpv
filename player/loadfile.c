@@ -1740,12 +1740,14 @@ static void play_current_file(struct MPContext *mpctx)
         mpctx->paused_for_image = false;
     }
 
+#if 0
    if (is_image) {
         m_config_set_option_cli(mpctx->mconfig, bstr0("vf-append"),
                                 bstr0("format=nv12"),
                                 M_SETOPT_BACKUP);
         MP_VERBOSE(mpctx, "Detected image input: appending vf=format=nv12.\n");
     }
+#endif
 
     reinit_video_chain(mpctx);
     reinit_audio_chain(mpctx);
