@@ -152,6 +152,7 @@ const struct m_sub_options vd_lavc_conf = {
         .hwdec_extra_frames = 6,
         .hwdec_threads = 4,
     },
+    .change_flags = UPDATE_VD,
 };
 
 struct hwdec_info {
