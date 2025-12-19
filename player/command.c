@@ -7281,6 +7281,27 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
         }
     }
 
+    if (flags & UPDATE_AD) {
+        struct track *track = mpctx->current_track[0][STREAM_AUDIO];
+        if (track && track->dec) {
+            // Reinit audio decoder for options that affect decoding
+            mp_decoder_wrapper_control(track->dec, VDCTRL_REINIT, NULL);
+            mp_wakeup_core(mpctx);
+        }
+    }
+
+    if (flags & UPDATE_VD) {
+        struct track *track = mpctx->current_track[0][STREAM_VIDEO];
+        if (track && track->dec) {
+            // Reinit video decoder for options that affect decoding
+            mp_decoder_wrapper_control(track->dec, VDCTRL_REINIT, NULL);
+            mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
+            double last_pts = mpctx->video_pts;
+            if (last_pts != MP_NOPTS_VALUE)
+                queue_seek(mpctx, MPSEEK_ABSOLUTE, last_pts, MPSEEK_EXACT, 0);
+        }
+    }
+
     if (opt_ptr == &opts->vo->window_scale)
         update_window_scale(mpctx);
 

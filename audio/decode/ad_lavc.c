@@ -77,6 +77,7 @@ const struct m_sub_options ad_lavc_conf = {
         .ac3drc = 0,
         .threads = 1,
     },
+    .change_flags = UPDATE_AD,
 };
 
 static bool init(struct mp_filter *da, struct mp_codec_params *codec,
