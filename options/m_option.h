@@ -451,7 +451,9 @@ char *format_file_size(int64_t size);
 #define UPDATE_HWDEC            (1 << 19) // --hwdec
 #define UPDATE_SUB_HARD         (1 << 20) // subtitle opts. that need full reinit
 #define UPDATE_VIDEO            (1 << 21) // force redraw if needed
-#define UPDATE_OPT_LAST         (1 << 22)
+#define UPDATE_AD               (1 << 22) // audio decoder options
+#define UPDATE_VD               (1 << 23) // video decoder options
+#define UPDATE_OPT_LAST         (1 << 24)
 
 // All bits between _FIRST and _LAST (inclusive)
 #define UPDATE_OPTS_MASK \
