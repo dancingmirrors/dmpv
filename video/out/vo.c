@@ -781,7 +781,7 @@ bool vo_is_ready_for_frame(struct vo *vo, int64_t next_pts)
     return r;
 }
 
-// Check if the VO reports that the mpv window is visible.
+// Check if the VO reports that the dmpv window is visible.
 bool vo_is_visible(struct vo *vo)
 {
     struct vo_internal *in = vo->in;
