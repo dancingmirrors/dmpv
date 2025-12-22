@@ -12,6 +12,8 @@ function = type(lambda: 0)
 programs_info = [
     # env. name     default
     ("CC",          "cc"),
+    ("CLANG",       "clang"),
+    ("GCC",         "gcc"),
     ("PKG_CONFIG",  "pkg-config"),
     ("WINDRES",     "windres"),
     ("WAYSCAN",     "wayland-scanner"),
