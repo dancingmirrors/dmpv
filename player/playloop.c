@@ -279,8 +279,6 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
     if (unlikely(seek.type == MPSEEK_CHAPTER)) {
         mpctx->last_chapter_flag = false;
         seek.type = MPSEEK_ABSOLUTE;
-    } else {
-        mpctx->last_chapter_seek = -2;
     }
 
     bool hr_seek_very_exact = seek.exact == MPSEEK_VERY_EXACT;
@@ -449,6 +447,11 @@ void queue_seek(struct MPContext *mpctx, enum seek_type type, double amount,
 
     if (mpctx->stop_play == AT_END_OF_FILE)
         mpctx->stop_play = KEEP_PLAYING;
+
+    if (type != MPSEEK_CHAPTER) {
+        mpctx->last_chapter_flag = false;
+        mpctx->last_chapter_seek = -2;
+    }
 
     switch (type) {
     case MPSEEK_RELATIVE:
