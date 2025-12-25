@@ -202,6 +202,7 @@ const struct m_sub_options vo_sub_opts = {
         .window_scale = 1.0,
         .unscaled = 2,
 #if HAVE_X11
+        .winname = "dmpv",
         .x11_bypass_compositor = 2,
         .x11_present = 1,
 #endif
@@ -781,6 +782,7 @@ static const struct MPOpts mp_default_opts = {
     .softvol_volume = 100,
     .gapless_audio = -1,
     .wintitle = "dmpv",
+    .media_title = "dmpv",
     .stop_screensaver = 1,
     .cursor_autohide_delay = 1000,
     .video_osd = true,
