@@ -240,10 +240,10 @@ struct autoprobe_info {
 };
 
 const struct autoprobe_info hwdec_autoprobe_info[] = {
-    {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vulkan",          HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vulkan-copy",     HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vaapi",           HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
+    {"vaapi-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vdpau-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"vdpau",           HWDEC_FLAG_AUTO},
     {"no",              HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
