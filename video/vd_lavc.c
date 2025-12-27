@@ -633,17 +633,17 @@ static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
 {
     mp_info(log, "Supported values (if enabled in FFmpeg):\n");
     mp_info(log, "    auto (yes '')\n");
-    #if HAVE_VAAPI
-    mp_info(log, "    vaapi\n");
-    mp_info(log, "    vaapi-copy\n");
-    #endif
     #if HAVE_HWDEC_VULKAN
     mp_info(log, "    vulkan\n");
     mp_info(log, "    vulkan-copy\n");
     #endif
+    #if HAVE_VAAPI
+    mp_info(log, "    vaapi\n");
+    mp_info(log, "    vaapi-copy\n");
+    #endif
     #if HAVE_VDPAU
-    mp_info(log, "    vdpau\n");
     mp_info(log, "    vdpau-copy\n");
+    mp_info(log, "    vdpau\n");
     #endif
     mp_info(log, "    no\n");
     mp_info(log, "    auto-safe\n");
