@@ -8,7 +8,7 @@ struct mp_archive {
     struct mp_log *log;
     struct archive *arch;
     struct stream *primary_src;
-    char buffer[4096];
+    char buffer[65536];
     int flags;
     int num_volumes; // INT_MAX if unknown (initial state)
 
