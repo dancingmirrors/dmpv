@@ -93,6 +93,29 @@ enum demux_event {
 struct demuxer;
 struct timeline;
 
+// Demuxer options (public for access from various parts of code)
+struct demux_opts {
+    int enable_cache;
+    bool disk_cache;
+    int64_t max_bytes;
+    int64_t max_bytes_bw;
+    bool donate_fw;
+    double min_secs;
+    double hyst_secs;
+    bool force_seekable;
+    double min_secs_cache;
+    bool access_references;
+    int seekable_cache;
+    bool create_ccs;
+    char *record_file;
+    int video_back_preroll;
+    int audio_back_preroll;
+    int back_batch[STREAM_TYPE_COUNT];
+    double back_seek_size;
+    char *meta_cp;
+    bool force_retry_eof;
+};
+
 /**
  * Demuxer description structure
  */
@@ -233,6 +256,10 @@ typedef struct demuxer {
     struct mp_log *log, *glog;
     struct demux_packet_pool *packet_pool;
     struct demuxer_params *params;
+
+    // Demuxer options - public for access by demuxer implementations
+    struct demux_opts *opts;
+    struct m_config_cache *opts_cache;
 
     // internal to demux.c
     struct demux_internal *in;
