@@ -82,7 +82,9 @@ static const demuxer_desc_t *const demuxer_list[] = {
     NULL
 };
 
-// XXX: Finish backporting upstream a343666ab5121e7a3388be9aa2d8731d6d1f2f64.
+/* XXX: Finish backporting upstream a343666ab5121e7a3388be9aa2d8731d6d1f2f64.
+ * Update 73e72749f2899eab1a40049fcd27ccb271abf311 accordingly as well.
+ */
 struct demux_opts {
     int enable_cache;
     bool disk_cache;
