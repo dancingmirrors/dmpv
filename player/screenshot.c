@@ -337,6 +337,119 @@ static void add_osd(struct MPContext *mpctx, struct mp_image *image, int mode)
     }
 }
 
+// Apply rotation to image pixels. Returns a new image with rotated pixels.
+// The rotation angle is taken from image->params.rotate.
+static struct mp_image *apply_rotation(struct mp_image *image, struct mp_log *log)
+{
+    if (!image || !image->params.rotate)
+        return mp_image_new_ref(image);
+
+    int angle = image->params.rotate % 360;
+    if (angle < 0)
+        angle += 360;
+
+    if (angle == 0)
+        return mp_image_new_ref(image);
+
+    if (angle != 90 && angle != 180 && angle != 270) {
+        return mp_image_new_ref(image);
+    }
+
+    int src_w = image->w;
+    int src_h = image->h;
+    int dst_w, dst_h;
+
+    if (angle == 90 || angle == 270) {
+        dst_w = src_h;
+        dst_h = src_w;
+    } else {
+        dst_w = src_w;
+        dst_h = src_h;
+    }
+
+    struct mp_image *dst = mp_image_alloc(image->imgfmt, dst_w, dst_h);
+    if (!dst) {
+        mp_err(log, "Failed to allocate image for rotation.\n");
+        // Return original image reference instead of failing completely
+        struct mp_image *ref = mp_image_new_ref(image);
+        if (ref)
+            ref->params.rotate = 0; // Clear rotation to avoid infinite loop
+        return ref ? ref : image;
+    }
+
+    mp_image_copy_attributes(dst, image);
+    dst->params.rotate = 0; // Clear rotation since we're applying it
+
+    if (angle == 90 || angle == 270) {
+        dst->params.w = src_h;
+        dst->params.h = src_w;
+    }
+
+    // Rotate each plane
+    for (int p = 0; p < image->num_planes; p++) {
+        int src_plane_w = mp_image_plane_w(image, p);
+        int src_plane_h = mp_image_plane_h(image, p);
+        int dst_plane_w = mp_image_plane_w(dst, p);
+        int dst_plane_h = mp_image_plane_h(dst, p);
+
+        uint8_t *src = image->planes[p];
+        uint8_t *dst_plane = dst->planes[p];
+        int src_stride = image->stride[p];
+        int dst_stride = dst->stride[p];
+
+        // For most formats, bpp[p] gives bits per pixel for the plane
+        int bytes_per_pixel = image->fmt.bpp[p] / 8;
+
+        // For sub-byte formats or formats with fractional bits per pixel,
+        // fall back to byte-aligned copying
+        if (bytes_per_pixel == 0) {
+            // For these formats, we need to copy entire pixels which may span multiple bits
+            // We'll use 1 byte as minimum unit and handle packed/sub-byte formats
+            bytes_per_pixel = 1;
+        }
+
+        if (angle == 90) {
+            // Rotate 90 degrees clockwise: (x,y) -> (H-1-y, x)
+            for (int y = 0; y < src_plane_h; y++) {
+                uint8_t *src_row = src + y * src_stride;
+                for (int x = 0; x < src_plane_w; x++) {
+                    int dst_x = dst_plane_w - 1 - y;
+                    int dst_y = x;
+                    uint8_t *dst_pixel = dst_plane + dst_y * dst_stride + dst_x * bytes_per_pixel;
+                    uint8_t *src_pixel = src_row + x * bytes_per_pixel;
+                    memcpy(dst_pixel, src_pixel, bytes_per_pixel);
+                }
+            }
+        } else if (angle == 180) {
+            // (x,y) -> (W-1-x, H-1-y)
+            for (int y = 0; y < src_plane_h; y++) {
+                uint8_t *src_row = src + y * src_stride;
+                for (int x = 0; x < src_plane_w; x++) {
+                    int dst_x = dst_plane_w - 1 - x;
+                    int dst_y = dst_plane_h - 1 - y;
+                    uint8_t *dst_pixel = dst_plane + dst_y * dst_stride + dst_x * bytes_per_pixel;
+                    uint8_t *src_pixel = src_row + x * bytes_per_pixel;
+                    memcpy(dst_pixel, src_pixel, bytes_per_pixel);
+                }
+            }
+        } else if (angle == 270) {
+            // (x,y) -> (y, W-1-x)
+            for (int y = 0; y < src_plane_h; y++) {
+                uint8_t *src_row = src + y * src_stride;
+                for (int x = 0; x < src_plane_w; x++) {
+                    int dst_x = y;
+                    int dst_y = dst_plane_h - 1 - x;
+                    uint8_t *dst_pixel = dst_plane + dst_y * dst_stride + dst_x * bytes_per_pixel;
+                    uint8_t *src_pixel = src_row + x * bytes_per_pixel;
+                    memcpy(dst_pixel, src_pixel, bytes_per_pixel);
+                }
+            }
+        }
+    }
+
+    return dst;
+}
+
 static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
                                        bool high_depth)
 {
@@ -383,6 +496,17 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
         if (!nimage)
             return NULL;
         image = nimage;
+    }
+
+    // Apply rotation first if needed (when VO didn't handle it)
+    // This needs to happen before scaling so the dimensions match what VO displays
+    if (image && image->params.rotate) {
+        struct mp_image *rotated = apply_rotation(image, mpctx->screenshot_ctx->log);
+        // apply_rotation always returns a valid image (original or rotated)
+        if (rotated != image) {
+            talloc_free(image);
+        }
+        image = rotated;
     }
 
     if (use_sw && image && scaled) {
