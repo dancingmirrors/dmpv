@@ -1312,12 +1312,13 @@ static void video_screenshot(struct vo *vo, struct voctrl_screenshot *args)
         int src_w = mpi->params.w;
         int src_h = mpi->params.h;
         src = (struct mp_rect) {0, 0, src_w, src_h};
-        dst = (struct mp_rect) {0, 0, w, h};
 
+        // Swap display dimensions for rotated output, but keep src as-is
         if (mpi->params.rotate % 180 == 90) {
             MPSWAP(int, w, h);
-            MPSWAP(int, src_w, src_h);
         }
+
+        dst = (struct mp_rect) {0, 0, w, h};
 
         osd = (struct mp_osd_res) {
             .display_par = 1.0,
@@ -1376,8 +1377,25 @@ static void video_screenshot(struct vo *vo, struct voctrl_screenshot *args)
         target.color = pl_color_space_srgb;
     }
 
-    apply_crop(&image, src, mpi->params.w, mpi->params.h);
-    apply_crop(&target, dst, fbo->params.w, fbo->params.h);
+    // For unscaled screenshots, set crop rectangles directly without rotation adjustments
+    // since we're providing unrotated coordinates
+    if (!args->scaled) {
+        image.crop = (struct pl_rect2df) {
+            .x0 = src.x0,
+            .y0 = src.y0,
+            .x1 = src.x1,
+            .y1 = src.y1,
+        };
+        target.crop = (struct pl_rect2df) {
+            .x0 = dst.x0,
+            .y0 = dst.y0,
+            .x1 = dst.x1,
+            .y1 = dst.y1,
+        };
+    } else {
+        apply_crop(&image, src, mpi->params.w, mpi->params.h);
+        apply_crop(&target, dst, fbo->params.w, fbo->params.h);
+    }
     update_tm_viz(&pars->color_map_params, &target);
 
     int osd_flags = 0;

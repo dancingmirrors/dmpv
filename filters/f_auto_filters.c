@@ -234,7 +234,7 @@ static void rotate_process(struct mp_filter *f)
     }
 
     if (!mp_sws_supports_input(img->imgfmt)) {
-        MP_ERR(f, "Video rotation with this format not supported\n");
+        MP_ERR(f, "Video rotation with this format or angle is unsupported.\n");
         mp_subfilter_continue(&p->sub);
         return;
     }
