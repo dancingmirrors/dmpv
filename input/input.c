@@ -231,6 +231,10 @@ static const char builtin_input_vo_dmabuf_wayland_conf[] =
 #include "generated/etc/input_vo_dmabuf_wayland.conf.inc"
 ;
 
+static const char builtin_input_vo_nouveau_conf[] =
+#include "generated/etc/input_vo_nouveau.conf.inc"
+;
+
 static bool test_rect(struct mp_rect *rc, int x, int y)
 {
     return x >= rc->x0 && y >= rc->y0 && x < rc->x1 && y < rc->y1;
@@ -1395,24 +1399,18 @@ void mp_input_load_config(struct input_ctx *ictx)
     }
 
 #if HAVE_LIBPLACEBO
-    // Define vo_default-specific bindings in a named section
-    // These only work with the default VO which requires libplacebo
-    // The section is disabled by default and enabled dynamically when vo_default is active
     define_vo_section(ictx, "vo_default", "<builtin-vo-default>",
                       builtin_input_vo_default_conf);
 #endif
 
-    // Define vo_drm-specific bindings in a named section
-    // Screenshot keybindings are disabled for this VO as they don't work properly
-    // The section is disabled by default and enabled dynamically when vo_drm is active
     define_vo_section(ictx, "vo_drm", "<builtin-vo-drm>",
                       builtin_input_vo_drm_conf);
 
-    // Define vo_dmabuf_wayland-specific bindings in a named section
-    // Screenshot keybindings are disabled for this VO as they don't work properly
-    // The section is disabled by default and enabled dynamically when vo_dmabuf_wayland is active
     define_vo_section(ictx, "vo_dmabuf_wayland", "<builtin-vo-dmabuf-wayland>",
                       builtin_input_vo_dmabuf_wayland_conf);
+
+    define_vo_section(ictx, "vo_nouveau", "<builtin-vo-nouveau>",
+                      builtin_input_vo_nouveau_conf);
 
     bool config_ok = false;
     if (ictx->opts->config_file && ictx->opts->config_file[0])
