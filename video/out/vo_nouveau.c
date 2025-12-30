@@ -977,6 +977,26 @@ static void destroy_vdpau_objects(struct vo *vo)
 
     free_video_specific(vo);
 
+    // Wait for all queued surfaces to become idle before destroying them.
+    if (vc->flip_queue != VDP_INVALID_HANDLE) {
+        VdpTime dummy;
+        for (int i = 0; i < vc->num_output_surfaces; i++) {
+            if (vc->output_surfaces[i] != VDP_INVALID_HANDLE) {
+                vdp_st = vdp->presentation_queue_block_until_surface_idle(
+                    vc->flip_queue, vc->output_surfaces[i], &dummy);
+                CHECK_VDP_WARNING(vo, "Error waiting for surface idle");
+            }
+        }
+        if (vc->rotation_surface != VDP_INVALID_HANDLE) {
+            vdp_st = vdp->presentation_queue_block_until_surface_idle(
+                vc->flip_queue, vc->rotation_surface, &dummy);
+            CHECK_VDP_WARNING(vo, "Error waiting for rotation surface idle");
+        }
+
+        // Unfortunately VDPAU seems to be inherently racy.
+        mp_sleep_ns(20000);
+    }
+
     if (vc->flip_queue != VDP_INVALID_HANDLE) {
         vdp_st = vdp->presentation_queue_destroy(vc->flip_queue);
         CHECK_VDP_WARNING(vo, "Error when calling vdp_presentation_queue_destroy");
