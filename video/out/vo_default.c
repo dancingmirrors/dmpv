@@ -170,6 +170,8 @@ struct priv {
     bool target_hint;
 
     float corner_rounding;
+    float sharpen;
+    const struct pl_hook *sharpen_hook;
 
     struct pl_hdr_metadata last_hdr_metadata;
 };
@@ -1875,6 +1877,8 @@ static void uninit(struct vo *vo)
         pl_tex_destroy(p->gpu, &p->sub_tex[i]);
     for (int i = 0; i < p->num_user_hooks; i++)
         pl_mpv_user_shader_destroy(&p->user_hooks[i].hook);
+    if (p->sharpen_hook)
+        pl_mpv_user_shader_destroy(&p->sharpen_hook);
 
     if (vo->hwdec_devs) {
         ra_hwdec_mapper_free(&p->hwdec_mapper);
@@ -2202,6 +2206,41 @@ static void update_hook_opts(struct priv *p, char **opts, const char *shaderpath
     }
 }
 
+static const struct pl_hook *create_sharpen_hook(struct priv *p, float param)
+{
+    if (param == 0.0f)
+        return NULL;
+
+    const char *sharpen_shader = talloc_asprintf(p,
+        "//!HOOK MAIN\n"
+        "//!BIND HOOKED\n"
+        "//!DESC Sharpen (unsharp mask)\n"
+        "\n"
+        "vec4 hook()\n"
+        "{\n"
+        "    float st1 = 1.2;\n"
+        "    vec4 p = HOOKED_tex(HOOKED_pos);\n"
+        "    vec4 sum1 = HOOKED_texOff(st1 * vec2(+1.0, +1.0))\n"
+        "              + HOOKED_texOff(st1 * vec2(+1.0, -1.0))\n"
+        "              + HOOKED_texOff(st1 * vec2(-1.0, +1.0))\n"
+        "              + HOOKED_texOff(st1 * vec2(-1.0, -1.0));\n"
+        "    float st2 = 1.5;\n"
+        "    vec4 sum2 = HOOKED_texOff(st2 * vec2(+1.0,  0.0))\n"
+        "              + HOOKED_texOff(st2 * vec2( 0.0, +1.0))\n"
+        "              + HOOKED_texOff(st2 * vec2(-1.0,  0.0))\n"
+        "              + HOOKED_texOff(st2 * vec2( 0.0, -1.0));\n"
+        "    vec4 t = p * 0.859375 + sum2 * -0.1171875 + sum1 * -0.09765625;\n"
+        "    return p + t * %f;\n"
+        "}\n",
+        param);
+
+    const struct pl_hook *hook = pl_mpv_user_shader_parse(p->gpu, sharpen_shader, strlen(sharpen_shader));
+    if (!hook)
+        MP_ERR(p, "Failed to create sharpen shader hook\n");
+
+    return hook;
+}
+
 static void update_render_options(struct vo *vo)
 {
     struct priv *p = vo->priv;
@@ -2352,6 +2391,20 @@ static void update_render_options(struct vo *vo)
         }
     }
 
+    if (p->sharpen != 0.0f) {
+        if (p->sharpen_hook)
+            pl_mpv_user_shader_destroy(&p->sharpen_hook);
+
+        p->sharpen_hook = create_sharpen_hook(p, p->sharpen);
+        if (p->sharpen_hook)
+            MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, p->sharpen_hook);
+    } else {
+        if (p->sharpen_hook) {
+            pl_mpv_user_shader_destroy(&p->sharpen_hook);
+            p->sharpen_hook = NULL;
+        }
+    }
+
     pars->params.hooks = p->hooks;
 }
 
@@ -2398,6 +2451,7 @@ const struct vo_driver video_out_default = {
         {"image-lut-type", OPT_CHOICE_C(image_lut.type, lut_types)},
         {"target-lut", OPT_STRING(target_lut.opt), .flags = M_OPT_FILE},
         {"target-colorspace-hint", OPT_BOOL(target_hint)},
+        {"sharpen", OPT_FLOAT(sharpen)},
         // No `target-lut-type` because we don't support non-RGB targets
         {"libplacebo-opts", OPT_KEYVALUELIST(raw_opts)},
         {0}
