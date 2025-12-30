@@ -256,11 +256,24 @@ static void resize(struct vo *vo)
     vc->out_rect_vid.x1 = dst_rect.x1;
     vc->out_rect_vid.y0 = dst_rect.y0;
     vc->out_rect_vid.y1 = dst_rect.y1;
-    if (vo->params->rotate == 90 || vo->params->rotate == 270) {
+    if (vo->params->rotate == 90) {
         vc->src_rect_vid.y0 = src_rect.x0;
         vc->src_rect_vid.y1 = src_rect.x1;
         vc->src_rect_vid.x0 = src_rect.y0;
         vc->src_rect_vid.x1 = src_rect.y1;
+    } else if (vo->params->rotate == 270) {
+        // For 270-degree: swap x/y and invert x-axis
+        // src_rect is in swapped space; vo->params->w is original unrotated width
+        vc->src_rect_vid.y0 = src_rect.x0;
+        vc->src_rect_vid.y1 = src_rect.x1;
+        vc->src_rect_vid.x0 = vo->params->w - src_rect.y1;
+        vc->src_rect_vid.x1 = vo->params->w - src_rect.y0;
+    } else if (vo->params->rotate == 180) {
+        // For 180-degree rotation, invert both axes
+        vc->src_rect_vid.x0 = vo->params->w - src_rect.x1;
+        vc->src_rect_vid.x1 = vo->params->w - src_rect.x0;
+        vc->src_rect_vid.y0 = vo->params->h - src_rect.y1;
+        vc->src_rect_vid.y1 = vo->params->h - src_rect.y0;
     } else {
         vc->src_rect_vid.x0 = src_rect.x0;
         vc->src_rect_vid.x1 = src_rect.x1;
