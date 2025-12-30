@@ -897,8 +897,15 @@ void vo_x11_uninit(struct vo *vo)
 
     set_screensaver(x11, true);
 
-    if (x11->window != None && x11->window != x11->rootwin)
+    if (x11->window != None && x11->window != x11->rootwin) {
+        // Reset compositor bypass hint before destroying the window to avoid
+        // leaving compositors in a bad state.
+        long hint = 0; // 0 = enable compositor
+        XChangeProperty(x11->display, x11->window, XA(x11, _NET_WM_BYPASS_COMPOSITOR),
+                        XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&hint, 1);
+        XSync(x11->display, False);
         XDestroyWindow(x11->display, x11->window);
+    }
     if (x11->xic)
         XDestroyIC(x11->xic);
     if (x11->colormap != None)
