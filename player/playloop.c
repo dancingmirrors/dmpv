@@ -1287,6 +1287,8 @@ void run_playloop(struct MPContext *mpctx)
     mp_process_input(mpctx);
 
     handle_chapter_change(mpctx);
+
+    handle_force_window(mpctx, false);
 }
 
 void mp_idle(struct MPContext *mpctx)
