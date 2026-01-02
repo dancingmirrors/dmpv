@@ -372,6 +372,19 @@ void mp_output_chain_set_vo(struct mp_output_chain *c, struct vo *vo)
     p->stream_info.rotate90 = vo ? vo->driver->caps & VO_CAP_ROTATE90 : false;
     p->stream_info.dr_vo = vo;
     p->vo = vo;
+
+    // Query max texture size from VO
+    if (vo) {
+        int max_tex = 0;
+        if (vo_control(vo, VOCTRL_GET_MAX_TEXTURE_SIZE, &max_tex) == VO_TRUE && max_tex > 0) {
+            p->stream_info.max_texture_wh = max_tex;
+        } else {
+            p->stream_info.max_texture_wh = 0;
+        }
+    } else {
+        p->stream_info.max_texture_wh = 0;
+    }
+
     update_output_caps(p);
 }
 
@@ -640,6 +653,13 @@ static void create_video_things(struct chain *p)
     struct mp_user_filter *f = create_wrapper_filter(p);
     f->name = "userdeint";
     f->f = mp_deint_create(f->wrapper);
+    if (!f->f)
+        abort();
+    MP_TARRAY_APPEND(p, p->pre_filters, p->num_pre_filters, f);
+
+    f = create_wrapper_filter(p);
+    f->name = "autoscale";
+    f->f = mp_autoscale_create(f->wrapper);
     if (!f->f)
         abort();
     MP_TARRAY_APPEND(p, p->pre_filters, p->num_pre_filters, f);
