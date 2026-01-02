@@ -76,6 +76,10 @@
 
 #include "core.h"
 
+#if HAVE_LIBPLACEBO
+#include <libplacebo/config.h>
+#endif
+
 struct command_ctx {
     // All properties, terminated with a {0} item.
     struct m_property *properties;
@@ -3419,6 +3423,14 @@ static int mp_property_libass_version(void *ctx, struct m_property *prop,
     return m_property_int64_ro(action, arg, ass_library_version());
 }
 
+#if HAVE_LIBPLACEBO
+static int mp_property_libplacebo_version(void *ctx, struct m_property *prop,
+                                          int action, void *arg)
+{
+    return m_property_strdup_ro(action, arg, PL_VERSION);
+}
+#endif
+
 static int mp_property_alias(void *ctx, struct m_property *prop,
                              int action, void *arg)
 {
@@ -4033,6 +4045,9 @@ static const struct m_property mp_properties_base[] = {
     {"dmpv-configuration", .call = mp_property_configuration},
     {"ffmpeg-version", .call = mp_property_ffmpeg},
     {"libass-version", .call = mp_property_libass_version},
+#if HAVE_LIBPLACEBO
+    {"libplacebo-version", .call = mp_property_libplacebo_version},
+#endif
 
     {"options", .call = mp_property_options},
     {"file-local-options", .call = mp_property_local_options},
