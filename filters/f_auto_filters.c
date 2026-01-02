@@ -551,3 +551,148 @@ struct mp_filter *mp_autoaspeed_create(struct mp_filter *parent)
 
     return f;
 }
+
+struct autoscale_priv {
+    struct mp_subfilter sub;
+    int prev_imgfmt;
+    int prev_w, prev_h;
+    bool scale_active;
+};
+
+static void autoscale_process(struct mp_filter *f)
+{
+    struct autoscale_priv *p = f->priv;
+
+    if (!mp_subfilter_read(&p->sub))
+        return;
+
+    struct mp_frame frame = p->sub.frame;
+
+    if (mp_frame_is_signaling(frame)) {
+        mp_subfilter_continue(&p->sub);
+        return;
+    }
+
+    if (frame.type != MP_FRAME_VIDEO) {
+        MP_ERR(f, "video input required!\n");
+        mp_filter_internal_mark_failed(f);
+        return;
+    }
+
+    struct mp_image *img = frame.data;
+
+    // Get max texture size from stream info
+    struct mp_stream_info *info = mp_filter_find_stream_info(f);
+    int max_tex = info ? info->max_texture_wh : 0;
+
+    // If max_tex is unknown or 0, disable scaling
+    bool needs_scale = false;
+    if (max_tex > 0 && (img->w > max_tex || img->h > max_tex)) {
+        needs_scale = true;
+    }
+
+    // Check if we need to recreate the filter
+    bool format_changed = img->imgfmt != p->prev_imgfmt ||
+                         img->w != p->prev_w ||
+                         img->h != p->prev_h ||
+                         needs_scale != p->scale_active;
+
+    if (format_changed) {
+        if (!mp_subfilter_drain_destroy(&p->sub))
+            return;
+
+        mp_assert(!p->sub.filter);
+
+        p->prev_imgfmt = img->imgfmt;
+        p->prev_w = img->w;
+        p->prev_h = img->h;
+        p->scale_active = needs_scale;
+
+        if (needs_scale) {
+            // Calculate target dimensions that fit within max_tex
+            double scale = max_tex / (double)MPMAX(img->w, img->h);
+            int target_w = (int)(img->w * scale);
+            int target_h = (int)(img->h * scale);
+
+            // Ensure dimensions are even (required for many video formats)
+            // and at least 2x2 to avoid zero dimensions
+            target_w = MPMAX(2, target_w & ~1);
+            target_h = MPMAX(2, target_h & ~1);
+
+            // Ensure dimensions don't exceed max_tex after even alignment
+            if (target_w > max_tex)
+                target_w = max_tex & ~1;
+            if (target_h > max_tex)
+                target_h = max_tex & ~1;
+
+            MP_WARN(f, "Image dimensions %dx%d exceed GPU limit of %d; scaling to %dx%d.\n",
+                    img->w, img->h, max_tex, target_w, target_h);
+
+            // Create scale filter with target dimensions
+            char *args[] = {
+                "w", mp_tprintf(16, "%d", target_w),
+                "h", mp_tprintf(16, "%d", target_h),
+                NULL
+            };
+
+            p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "scale", args);
+
+            if (!p->sub.filter) {
+                MP_ERR(f, "Failed to create scale filter! Image will not be displayed correctly.\n");
+                // Well, we tried. This isn't fatal, so continue.
+            }
+        }
+    }
+
+    mp_subfilter_continue(&p->sub);
+}
+
+static void autoscale_reset(struct mp_filter *f)
+{
+    struct autoscale_priv *p = f->priv;
+    mp_subfilter_reset(&p->sub);
+}
+
+static void autoscale_destroy(struct mp_filter *f)
+{
+    struct autoscale_priv *p = f->priv;
+    mp_subfilter_reset(&p->sub);
+}
+
+static bool autoscale_command(struct mp_filter *f, struct mp_filter_command *cmd)
+{
+    struct autoscale_priv *p = f->priv;
+
+    if (cmd->type == MP_FILTER_COMMAND_IS_ACTIVE) {
+        cmd->is_active = !!p->sub.filter;
+        return true;
+    }
+    return false;
+}
+
+static const struct mp_filter_info autoscale_filter = {
+    .name = "autoscale",
+    .priv_size = sizeof(struct autoscale_priv),
+    .command = autoscale_command,
+    .process = autoscale_process,
+    .reset = autoscale_reset,
+    .destroy = autoscale_destroy,
+};
+
+struct mp_filter *mp_autoscale_create(struct mp_filter *parent)
+{
+    struct mp_filter *f = mp_filter_create(parent, &autoscale_filter);
+    if (!f)
+        return NULL;
+
+    struct autoscale_priv *p = f->priv;
+    p->prev_imgfmt = 0;
+    p->prev_w = 0;
+    p->prev_h = 0;
+    p->scale_active = false;
+
+    p->sub.in = mp_filter_add_pin(f, MP_PIN_IN, "in");
+    p->sub.out = mp_filter_add_pin(f, MP_PIN_OUT, "out");
+
+    return f;
+}

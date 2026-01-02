@@ -407,6 +407,7 @@ struct mp_stream_info {
     bool vflip;
     bool rotate90;
     struct vo *dr_vo; // for calling vo_get_image()
+    int max_texture_wh; // Maximum texture width/height supported by GPU
 };
 
 // Search for a parent filter (including f) that has this set, and return it.

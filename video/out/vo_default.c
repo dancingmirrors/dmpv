@@ -1539,6 +1539,13 @@ static int control(struct vo *vo, uint32_t request, void *data)
         *(struct pl_hdr_metadata *) data = p->last_hdr_metadata;
         return true;
 
+    case VOCTRL_GET_MAX_TEXTURE_SIZE:
+        if (p->gpu && p->gpu->limits.max_tex_2d_dim > 0) {
+            *(int *) data = p->gpu->limits.max_tex_2d_dim;
+            return true;
+        }
+        return false;
+
     case VOCTRL_SCREENSHOT:
         video_screenshot(vo, data);
         return true;
