@@ -180,7 +180,7 @@ check("git*",
       fn        = check_git)
 
 check("ninja*",
-      required  = "ninja: missing or not in PATH.",
+      required  = "ninja: missing or not in PATH",
       fn        = lambda: check_program("NINJA"))
 
 check(desc      = "-fstack-protector-strong",
