@@ -295,8 +295,6 @@ struct gl_video {
 };
 
 static const struct gl_video_opts gl_video_opts_def = {
-    .correct_downscaling = 1,
-    .linear_downscaling = 0,
     .dither_algo = DITHER_FRUIT,
     .dither_depth = -1,
     .dither_size = 6,
@@ -308,7 +306,7 @@ static const struct gl_video_opts gl_video_opts_def = {
     .scaler = {
         {{"bilinear", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // scale
-        {{"catmull_rom", .params={NAN, NAN}}, {.params = {NAN, NAN}},
+        {{NULL,       .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // dscale
         {{NULL, .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // cscale
