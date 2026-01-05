@@ -1740,14 +1740,13 @@ static void play_current_file(struct MPContext *mpctx)
         mpctx->paused_for_image = false;
     }
 
-    // XXX
-   if (is_image) {
+    if (is_image) {
         m_config_set_option_cli(mpctx->mconfig, bstr0("correct-downscaling"),
                                 bstr0("yes"),
-                                M_SETOPT_BACKUP);
+                                M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
         m_config_set_option_cli(mpctx->mconfig, bstr0("dscale"),
                                 bstr0("catmull_rom"),
-                                M_SETOPT_BACKUP);
+                                M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
     }
 
     reinit_video_chain(mpctx);
