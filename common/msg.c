@@ -406,6 +406,40 @@ static void dump_stats(struct mp_log *log, int lev, char *text)
         fprintf(root->stats_file, "%"PRId64" %s\n", mp_time_ns(), text);
 }
 
+static void sanitize(bstr *text)
+{
+    for (size_t i = 0; i < text->len; i++) {
+        unsigned char ch = text->start[i];
+
+        // Allow SGR escape sequences only, filter anything else.
+        if (ch == 0x1B && i + 2 < text->len && text->start[i + 1] == '[') {
+            size_t j = i + 2;
+            bool sgr = false;
+
+            while (j < text->len) {
+                unsigned char c = text->start[j];
+                if (c == 'm') {
+                    sgr = true;
+                    i = j;
+                    break;
+                } else if ((c >= '0' && c <= '9') || c == ';' || c == ':') {
+                    j++;
+                } else {
+                    break;
+                }
+            }
+
+            // Nuke everything that is not an SGR sequence
+            if (!sgr)
+                text->start[i] = '?';
+        }
+        // Allow only printable > 0x20 and 0x08-0x0D (backspace, tab, newline, ...)
+        else if (ch < 0x08 || (ch > 0x0D && ch < 0x20)) {
+            text->start[i] = '?';
+        }
+    }
+}
+
 void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
 {
     if (!mp_msg_test(log, lev))
@@ -425,6 +459,8 @@ void mp_msg_va(struct mp_log *log, int lev, const char *format, va_list va)
         bstr_xappend(root, &root->buffer, bstr0("format error: "));
         bstr_xappend(root, &root->buffer, bstr0(format));
     }
+
+    sanitize(&root->buffer);
 
     char *text = (char *)root->buffer.start;
 
