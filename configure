@@ -87,8 +87,7 @@ check(fn        = lambda: check_cc(flags = "-std=c11") or
                           check_cc(flags = "-std=c99"),
       required  = "C11 or C99 compiler: missing, broken, or too old")
 check("-optimize",
-      fn        = lambda: chain(add_cflags("-O3", "-march=native",
-                                "-pipe", "-fno-signed-zeros",
+      fn        = lambda: chain(add_cflags("-O3", "-pipe", "-fno-signed-zeros",
                                 "-fno-trapping-math"), True),
       desc      = "optimization")
 check("-debug-build",
