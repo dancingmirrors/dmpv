@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Whitespace checker for C files, headers, and TOOLS scripts
 # This script checks for accidental whitespace issues:
 # 1. Lines with only whitespace (should be completely empty)
