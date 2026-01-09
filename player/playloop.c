@@ -831,6 +831,9 @@ static void handle_cursor_autohide(struct MPContext *mpctx)
     if (!vo)
         return;
 
+    if (vo->driver->encode)
+        return;
+
     bool mouse_cursor_visible = mpctx->mouse_cursor_visible;
     double now = mp_time_sec();
 
