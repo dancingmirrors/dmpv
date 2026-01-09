@@ -1792,8 +1792,9 @@ static void play_current_file(struct MPContext *mpctx)
 
     MP_VERBOSE(mpctx, "Starting playback...\n");
 
-    // Pre-initialize OSD rendering to avoid lag on first display
-    if (opts->osd_preload && mpctx->osd) {
+    // Pre-initialize OSD rendering to avoid lag on first display except in
+    // encoder mode, which would just hang.
+    if (opts->osd_preload && mpctx->osd && !mpctx->encode_lavc_ctx) {
         MP_VERBOSE(mpctx, "Pre-loading OSD to avoid lag on first display...\n");
         osd_preload(mpctx->osd);
         MP_VERBOSE(mpctx, "OSD pre-loading complete.\n");
