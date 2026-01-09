@@ -75,7 +75,7 @@ const struct m_sub_options ad_lavc_conf = {
     .size = sizeof(struct ad_lavc_params),
     .defaults = &(const struct ad_lavc_params){
         .ac3drc = 0,
-        .threads = 1,
+        .threads = 0,
     },
     .change_flags = UPDATE_AD,
 };
