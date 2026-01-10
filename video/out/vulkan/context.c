@@ -165,7 +165,6 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
     };
 
-#if HAVE_VULKAN
     /*
      * Request the additional extensions and features required to make full use
      * of the ffmpeg Vulkan hwcontext and video decoding capability.
@@ -207,7 +206,6 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
     };
 
     features.pNext = &atomic_float_feature;
-#endif
 
     mp_assert(vk->pllog);
     mp_assert(vk->vkinst);
@@ -219,11 +217,9 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
         .async_compute = p->opts->async_compute,
         .queue_count = p->opts->queue_count,
         .device_name = p->opts->device,
-#if HAVE_VULKAN
         .extra_queues = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
         .opt_extensions = opt_extensions,
         .num_opt_extensions = MP_ARRAY_SIZE(opt_extensions),
-#endif
         .features = &features,
     });
     if (!vk->vulkan)
