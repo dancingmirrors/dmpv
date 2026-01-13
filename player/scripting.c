@@ -74,16 +74,17 @@ static char *script_name_from_filename(void *talloc_ctx, const char *fname)
 
 static void run_script(struct mp_script_args *arg)
 {
-    char name[90];
-    snprintf(name, sizeof(name), "%s (%s)", arg->backend->name,
-             dmpv_client_name(arg->client));
+    char *name = talloc_asprintf(NULL, "%s/%s", arg->backend->name,
+                                 dmpv_client_name(arg->client));
     mp_thread_set_name(name);
+    talloc_free(name);
 
     if (arg->backend->load(arg) < 0)
-        MP_ERR(arg, "Could not load %s %s\n", arg->backend->name, arg->filename);
+        MP_ERR(arg, "Could not load %s script %s\n", arg->backend->name, arg->filename);
 
-    dmpv_destroy(arg->client);
+    dmpv_handle *client = arg->client;
     talloc_free(arg);
+    dmpv_destroy(client);
 }
 
 static MP_THREAD_VOID script_thread(void *p)
