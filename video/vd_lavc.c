@@ -536,6 +536,10 @@ static void select_and_set_hwdec(struct mp_filter *vd)
                 if (!hw_codec || strcmp(hw_codec, codec) != 0)
                     continue;
 
+                if (hwdec_auto && !(hwdec->flags & HWDEC_FLAG_AUTO)) {
+                    continue;
+                }
+
                 if (hwdec_auto_safe && !(hwdec->flags & HWDEC_FLAG_WHITELIST))
                     continue;
 
