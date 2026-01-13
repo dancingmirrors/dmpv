@@ -526,15 +526,6 @@ static void resize(struct vo *vo)
 
     create_shm_pool(vo);
 
-    // Set top-level viewport destination
-    // When libdecor is active, it manages scaling, so use unscaled dimensions
-#if HAVE_LIBDECOR
-    if (wl->libdecor_frame) {
-        wp_viewport_set_destination(wl->viewport,
-                                    lround(width / wl->scaling),
-                                    lround(height / wl->scaling));
-    } else
-#endif
     {
         wp_viewport_set_destination(wl->viewport, width, height);
     }
