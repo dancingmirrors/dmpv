@@ -36,7 +36,6 @@ struct wayland_opts {
     int edge_pixels_pointer;
     int edge_pixels_touch;
     bool present;
-    bool libdecor;
 };
 
 struct vo_wayland_state {
@@ -130,12 +129,6 @@ struct vo_wayland_state {
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
     int requested_decoration;
-
-    /* libdecor */
-#if HAVE_LIBDECOR
-    struct libdecor *libdecor_context;
-    struct libdecor_frame *libdecor_frame;
-#endif
 
     /* xdg-shell */
     struct xdg_wm_base      *wm_base;

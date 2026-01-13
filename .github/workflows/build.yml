@@ -36,7 +36,6 @@ jobs:
                        libplacebo-dev
 
           sudo apt-get build-dep -y libxkbcommon wayland-protocols
-          sudo apt-get install -y libdecor-0-dev
 
           set -x
 

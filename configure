@@ -398,11 +398,6 @@ check("memfd-create*",
       fn        = lambda: check_cc(include = "sys/mman.h", link = [],
                                    expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"))
 
-check("-libdecor*",
-      desc      = "libdecor support",
-      deps      = "wayland",
-      fn        = lambda: check_pkg_config("libdecor-0 >= 0.1.0"))
-
 check("-x11*",
       desc      = "X11 support",
       deps      = "gpl",
