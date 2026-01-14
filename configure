@@ -294,6 +294,10 @@ check(desc      = "FFmpeg",
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
+check("-pulseaudio*",
+      desc      = "PulseAudio audio output",
+      fn        = lambda: check_pkg_config("libpulse >= 16.0"),
+      sources   = "audio/out/ao_pulse.c")
 check("-pipewire*",
       desc      = "PipeWire audio output",
       fn        = lambda: check_pkg_config("libpipewire-0.3 >= 0.3.57"),
