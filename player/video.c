@@ -1317,7 +1317,6 @@ void update_vo_input_sections(struct MPContext *mpctx)
     const char *vo_name = mpctx->video_out->driver->name;
 
 #if HAVE_LIBPLACEBO
-    // Enable vo_default-specific input bindings if using vo_default
     if (strcmp(vo_name, "default") == 0) {
         mp_input_enable_section(mpctx->input, "vo_default", 0);
     } else {
@@ -1325,17 +1324,21 @@ void update_vo_input_sections(struct MPContext *mpctx)
     }
 #endif
 
-    // Enable vo_drm-specific input bindings if using vo_drm
     if (strcmp(vo_name, "drm") == 0) {
         mp_input_enable_section(mpctx->input, "vo_drm", 0);
     } else {
         mp_input_disable_section(mpctx->input, "vo_drm");
     }
 
-    // Enable vo_dmabuf_wayland-specific input bindings if using vo_dmabuf_wayland
     if (strcmp(vo_name, "dmabuf-wayland") == 0) {
         mp_input_enable_section(mpctx->input, "vo_dmabuf_wayland", 0);
     } else {
         mp_input_disable_section(mpctx->input, "vo_dmabuf_wayland");
+    }
+
+    if (strcmp(vo_name, "nouveau") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_nouveau", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_nouveau");
     }
 }
