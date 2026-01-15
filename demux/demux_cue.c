@@ -44,7 +44,6 @@
 
 const struct m_sub_options demux_cue_conf = {
         .opts = (const m_option_t[]) {
-            {"codepage", OPT_REPLACED("metadata-codepage")},
             {0}
         },
 };
