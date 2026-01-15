@@ -527,14 +527,31 @@ static int archive_entry_fill_buffer(stream_t *s, void *buffer, int max_len)
 static int archive_entry_seek(stream_t *s, int64_t newpos)
 {
     struct priv *p = s->priv;
-
-    // For forward seeks, prefer skipping by reading data to avoid reopening
-    // which disrupts hwdec initialization
-    if (newpos >= s->pos) {
+    if (p->mpa && !p->broken_seek) {
+        locale_t oldlocale = uselocale(p->mpa->locale);
+        int r = archive_seek_data(p->mpa->arch, newpos, SEEK_SET);
+        uselocale(oldlocale);
+        if (r >= 0)
+            return 1;
+        MP_WARN(s, "possibly unsupported seeking - switching to reopening\n");
+        p->broken_seek = true;
+        if (reopen_archive(s) < STREAM_OK)
+            return -1;
+    }
+    // libarchive can't seek in most formats.
+    if (newpos < s->pos) {
+        // Hack seeking backwards into working by reopening the archive and
+        // starting over.
+        MP_VERBOSE(s, "trying to reopen archive for performing seek\n");
+        if (reopen_archive(s) < STREAM_OK)
+            return -1;
+    }
+    if (newpos > s->pos) {
         if (!p->mpa && reopen_archive(s) < STREAM_OK)
             return -1;
-        // Skip forward by reading and discarding data
-        char buffer[65536];
+        // For seeking forwards, just keep reading data (there's no libarchive
+        // skip function either).
+        char buffer[4096];
         while (newpos > s->pos) {
             if (mp_cancel_test(s->cancel))
                 return -1;
@@ -561,20 +578,7 @@ static int archive_entry_seek(stream_t *s, int64_t newpos)
             uselocale(oldlocale);
             s->pos += r;
         }
-        return 1;
     }
-
-    // libarchive can't seek backwards in most formats.
-    if (newpos < s->pos) {
-        // Hack seeking backwards into working by reopening the archive and
-        // starting over.
-        MP_VERBOSE(s, "trying to reopen archive for performing seek\n");
-        if (reopen_archive(s) < STREAM_OK)
-            return -1;
-        // Now recursively call to seek forward to the target position
-        return archive_entry_seek(s, newpos);
-    }
-
     return 1;
 }
 
