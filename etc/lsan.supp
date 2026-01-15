@@ -1,2 +1,0 @@
-leak:libavutil.so
-leak:libfontconfig.so
