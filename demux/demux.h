@@ -93,7 +93,8 @@ enum demux_event {
 struct demuxer;
 struct timeline;
 
-// Demuxer options (public for access from various parts of code)
+extern const struct m_sub_options demux_conf;
+
 struct demux_opts {
     int enable_cache;
     bool disk_cache;
