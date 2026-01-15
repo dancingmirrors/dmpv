@@ -533,7 +533,7 @@ static int archive_entry_seek(stream_t *s, int64_t newpos)
         uselocale(oldlocale);
         if (r >= 0)
             return 1;
-        MP_WARN(s, "possibly unsupported seeking - switching to reopening\n");
+        MP_VERBOSE(s, "Possibly broken seeking, so switching to reopening.\n");
         p->broken_seek = true;
         if (reopen_archive(s) < STREAM_OK)
             return -1;
