@@ -59,7 +59,7 @@ struct ao {
     char *redirect;
 
     // Internal events (use ao_request_reload(), ao_hotplug_event())
-    _Atomic uint events_;
+    _Atomic unsigned int events_;
 
     // Float gain multiplicator
     _Atomic float gain;

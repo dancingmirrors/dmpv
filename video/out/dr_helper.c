@@ -17,7 +17,7 @@ struct dr_helper {
     bool thread_valid; // (POSIX defines no "unset" mp_thread value yet)
 
     struct mp_dispatch_queue *dispatch;
-    atomic_ullong dr_in_flight;
+    _Atomic unsigned long long dr_in_flight;
 
     struct mp_image *(*get_image)(void *ctx, int imgfmt, int w, int h,
                                   int stride_align, int flags);
