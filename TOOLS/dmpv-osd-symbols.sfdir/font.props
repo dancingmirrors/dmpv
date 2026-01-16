@@ -1,7 +1,7 @@
 SplineFontDB: 3.2
-FontName: mpv-osd-symbols-Regular
-FullName: mpv-osd-symbols Regular
-FamilyName: mpv-osd-symbols
+FontName: dmpv-osd-symbols-Regular
+FullName: dmpv-osd-symbols Regular
+FamilyName: dmpv-osd-symbols
 Weight: Normal
 Copyright: This is generated file.
 Version: 001.000
@@ -56,7 +56,7 @@ OS2Vendor: 'PfEd'
 OS2CodePages: 00000001.00000000
 OS2UnicodeRanges: 00000000.00000000.00000000.00000000
 DEI: 91125
-LangName: 1033 "" "" "Regular" "1.000;PfEd;mpv-osd-symbols-Regular" "mpv-osd-symbols" "Version 1.000;PS 001.000;hotconv 1.0.70;makeotf.lib2.5.58329"
+LangName: 1033 "" "" "Regular" "1.000;PfEd;dmpv-osd-symbols-Regular" "dmpv-osd-symbols" "Version 1.000;PS 001.000;hotconv 1.0.70;makeotf.lib2.5.58329"
 Encoding: UnicodeBmp
 UnicodeInterp: none
 NameList: AGL For New Fonts
