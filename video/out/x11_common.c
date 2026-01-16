@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include <string.h>
+#include <stdatomic.h>
 #include "misc/mp_assert.h"
 
 #include <X11/Xmd.h>

@@ -39,7 +39,6 @@
 #include "options/m_property.h"
 #include "options/path.h"
 #include "options/parse_configfile.h"
-#include "osdep/atomic.h"
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 #include "osdep/io.h"

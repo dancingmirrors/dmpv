@@ -25,7 +25,6 @@
 #include "misc/dmpv_talloc.h"
 
 #include "config.h"
-#include "osdep/atomic.h"
 #include "osdep/timer.h"
 #include "osdep/threads.h"
 #include "misc/dispatch.h"

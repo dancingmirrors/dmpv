@@ -8,10 +8,10 @@
 #include "misc/node.h"
 #include "msg.h"
 #include "options/m_option.h"
-#include "osdep/atomic.h"
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 #include "stats.h"
+#include <stdatomic.h>
 
 struct stats_base {
     struct dmpv_global *global;

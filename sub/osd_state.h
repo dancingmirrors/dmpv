@@ -3,7 +3,6 @@
 
 #include <pthread.h>
 
-#include "osdep/atomic.h"
 #include "osd.h"
 
 enum mp_osdtype {
@@ -71,7 +70,7 @@ struct osd_state {
     struct osd_object *objs[MAX_OSD_PARTS];
 
     bool render_subs_in_filter;
-    mp_atomic_double force_video_pts;
+    _Atomic double force_video_pts;
 
     bool want_redraw;
     bool want_redraw_notification;

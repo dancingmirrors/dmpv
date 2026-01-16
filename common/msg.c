@@ -22,11 +22,11 @@
 #include <unistd.h>
 #include "misc/mp_assert.h"
 #include <stdint.h>
+#include <stdatomic.h>
 
 #include "misc/dmpv_talloc.h"
 
 #include "misc/bstr.h"
-#include "osdep/atomic.h"
 #include "common/common.h"
 #include "common/global.h"
 #include "misc/bstr.h"

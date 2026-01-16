@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdatomic.h>
 
 #include <libavutil/hwcontext.h>
 
@@ -7,7 +8,6 @@
 #include "common/msg.h"
 #include "demux/packet_pool.h"
 #include "misc/mp_assert.h"
-#include "osdep/atomic.h"
 #include "osdep/threads.h"
 #include "osdep/timer.h"
 #include "video/hwdec.h"
