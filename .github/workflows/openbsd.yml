@@ -1,0 +1,32 @@
+name: OpenBSD
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build on OpenBSD
+        uses: vmactions/openbsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            set -e
+            pkg_add git mpv ninja
+          run: |
+            set -e
+            ./configure
+            ninja -C build
+            ./build/dmpv --version
