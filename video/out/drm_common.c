@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <math.h>
 #include <time.h>
+#include <stdatomic.h>
 #include <drm_fourcc.h>
 
 #include "config.h"

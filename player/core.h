@@ -19,8 +19,8 @@
 #define MPLAYER_MP_CORE_H
 
 #include <stdbool.h>
+#include <stdatomic.h>
 
-#include "osdep/atomic.h"
 #include "osdep/threads.h"
 
 #include "misc/client.h"

@@ -24,7 +24,6 @@
 #include <X11/Xutil.h>
 
 #include "common/common.h"
-#include "osdep/atomic.h"
 
 #include "config.h"
 #if !HAVE_GPL

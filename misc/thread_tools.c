@@ -17,12 +17,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 #include <poll.h>
 
 #include "common/common.h"
 #include "misc/linked_list.h"
-#include "osdep/atomic.h"
 #include "osdep/io.h"
 #include "osdep/threads.h"
 #include "osdep/timer.h"
