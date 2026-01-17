@@ -881,7 +881,7 @@ static void handle_cursor_autohide(struct MPContext *mpctx)
         mouse_cursor_visible = true;
 
     if (mouse_cursor_visible != mpctx->mouse_cursor_visible) {
-        MP_VERBOSE(mpctx, "Cursor visibility changing: %d -> %d\n", mpctx->mouse_cursor_visible, mouse_cursor_visible);
+        MP_DBG(mpctx, "Cursor visibility changing: %d -> %d\n", mpctx->mouse_cursor_visible, mouse_cursor_visible);
         vo_control(vo, VOCTRL_SET_CURSOR_VISIBILITY, &mouse_cursor_visible);
     }
     mpctx->mouse_cursor_visible = mouse_cursor_visible;
