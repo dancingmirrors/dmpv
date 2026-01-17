@@ -853,7 +853,7 @@ static void apply_target_options(struct priv *p, struct pl_frame *target,
     if (src && mp_trc_is_hdr(src->params.color.gamma) && p->icc_profile) {
         const char *trc_name = m_opt_choice_str_def(mp_csp_trc_names,
                                                      src->params.color.gamma, "unknown");
-        MP_VERBOSE(p, "Skipping ICC profile for HDR content (transfer: %s)\n", trc_name);
+        MP_DBG(p, "Skipping ICC profile for HDR content (transfer: %s)\n", trc_name);
         target->icc = NULL;
     } else {
         pl_icc_update(p->pllog, &p->icc_profile, NULL, &p->icc_params);
