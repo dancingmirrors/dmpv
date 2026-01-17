@@ -23,10 +23,10 @@ jobs:
         with:
           usesh: true
           prepare: |
-            set -e
+            set -x
             pkg_add git mpv ninja
           run: |
             set -e
             ./configure
-            ninja -C build
+            make
             ./build/dmpv --version
