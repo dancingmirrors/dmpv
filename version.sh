@@ -14,11 +14,9 @@ for ac_option do
   --versionh=*)
     case "$ac_arg" in
       /*)
-        # Absolute path, use as-is
         version_h="$ac_arg"
         ;;
       *)
-        # Relative path, make it absolute
         version_h="$(pwd)/$ac_arg"
         ;;
     esac
@@ -41,6 +39,10 @@ fi
 
 version="$(git describe --match "v[0-9]*" --always --tags --abbrev=0 | sed 's/^v//')"
 
+if test -z "$version" ; then
+  version="UNKNOWN"
+fi
+
 VERSION="${version}${extra}"
 
 if test "$print" = yes ; then
@@ -52,9 +54,6 @@ NEW_REVISION="#define VERSION \"${VERSION}\""
 OLD_REVISION=$(head -n 1 "$version_h" 2> /dev/null)
 DMPVCOPYRIGHT="#define DMPVCOPYRIGHT \"Copyright © 2000-2026 dmpv/mpv/MPlayer/mplayer2 projects\""
 
-# Update version.h only when version actually changes
-# Don't touch the file if content is the same to avoid permission issues
-# when running build commands with sudo (e.g., during 'sudo make install')
 if test "$NEW_REVISION" != "$OLD_REVISION"; then
     cat <<EOF > "$version_h"
 $NEW_REVISION
