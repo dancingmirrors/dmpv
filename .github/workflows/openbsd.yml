@@ -24,7 +24,7 @@ jobs:
           usesh: true
           prepare: |
             set -x
-            pkg_add ccache git mpv ninja
+            pkg_add ccache git gmake mpv ninja
           run: |
             set -x
             git config --global --add safe.directory "$PWD"
