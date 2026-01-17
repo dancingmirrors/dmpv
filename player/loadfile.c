@@ -1792,12 +1792,9 @@ static void play_current_file(struct MPContext *mpctx)
 
     MP_VERBOSE(mpctx, "Starting playback...\n");
 
-    // Pre-initialize OSD rendering to avoid lag on first display except in
-    // encoder mode, which would just hang.
     if (opts->osd_preload && mpctx->osd && !mpctx->encode_lavc_ctx) {
-        MP_VERBOSE(mpctx, "Pre-loading OSD to avoid lag on first display...\n");
         osd_preload(mpctx->osd);
-        MP_VERBOSE(mpctx, "OSD pre-loading complete.\n");
+        MP_VERBOSE(mpctx, "OSD preload complete.\n");
     }
 
     mpctx->playback_initialized = true;
@@ -1817,7 +1814,7 @@ static void play_current_file(struct MPContext *mpctx)
         goto terminate_playback;
     }
 
-    if (opts->demuxer_cache_wait) {
+    if (opts->demuxer_cache_wait && !mpctx->encode_lavc_ctx) {
         demux_start_prefetch(mpctx->demuxer);
 
         while (!mpctx->stop_play) {
