@@ -1242,8 +1242,11 @@ void write_video(struct MPContext *mpctx)
     if (opts->untimed || (vo->driver->caps & VO_CAP_UNTIMED))
         diff = -1; // disable frame dropping and aspects of frame timing
     if (diff >= 0) {
+        // expected A/V sync correction is ignored
         diff /= mpctx->video_speed;
-        frame->duration = MP_TIME_S_TO_NS(MPCLAMP(diff, 0, 10));
+        if (mpctx->time_frame < 0)
+            diff += mpctx->time_frame;
+        frame->duration = MPCLAMP(diff, 0, 10) * 1e9;
     }
 
     mpctx->video_pts = mpctx->next_frames[0]->pts;
