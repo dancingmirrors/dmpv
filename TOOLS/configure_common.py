@@ -1142,7 +1142,7 @@ def finish():
             print("Not overwriting existing Makefile.")
 
     _G.log_file.write("--- Finishing successfully.\n")
-    print("Done. You can run 'ninja -C %s' (or 'make' for a verbose build) now." % _G.build_dir)
+    print("Done. You can run 'ninja -C %s' now." % _G.build_dir)
 
 # Return whether to actually run configure tests, and whether results of those
 # tests are available.
