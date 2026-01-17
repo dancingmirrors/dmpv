@@ -26,7 +26,8 @@ jobs:
             set -x
             pkg_add ccache git mpv ninja
           run: |
-            set -e
+            set -x
+            git config --global --add safe.directory "$PWD"
             ./configure
             make
             ./build/dmpv --version
