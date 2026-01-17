@@ -24,7 +24,7 @@ jobs:
           usesh: true
           prepare: |
             set -x
-            pkg_add git mpv ninja
+            pkg_add ccache git mpv ninja
           run: |
             set -e
             ./configure
