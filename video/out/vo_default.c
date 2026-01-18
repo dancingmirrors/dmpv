@@ -94,8 +94,8 @@ struct frame_info {
     struct pl_dispatch_info info[VO_PASS_PERF_MAX];
 };
 
-// Threshold for triggering aggressive cache pruning (90% of limit)
-#define CACHE_PRUNE_THRESHOLD 0.9
+#define CACHE_PRUNE_THRESHOLD 0.8
+#define SWAPCHAIN_STABILIZATION_FRAMES 3
 
 struct cache {
     struct mp_log *log;
@@ -174,10 +174,20 @@ struct priv {
     const struct pl_hook *sharpen_hook;
 
     struct pl_hdr_metadata last_hdr_metadata;
+
+    /* While counting down, frames are rendered but playback timing is
+       controlled by the wait_on_vo flag. */
+    int swapchain_ready_count;
 };
 
 static void update_render_options(struct vo *vo);
 static void update_lut(struct priv *p, struct user_lut *lut);
+
+static void initialize_swapchain_wait(struct vo *vo, struct priv *p)
+{
+    p->swapchain_ready_count = SWAPCHAIN_STABILIZATION_FRAMES;
+    vo->want_redraw = true;
+}
 
 static pl_buf get_dr_buf(struct priv *p, const uint8_t *ptr)
 {
@@ -1023,6 +1033,17 @@ static bool draw_frame(struct vo *vo, struct vo_frame *frame)
         return VO_FALSE;
     }
 
+    if (p->swapchain_ready_count > 0) {
+        if (p->swapchain_ready_count == SWAPCHAIN_STABILIZATION_FRAMES) {
+            vo_wait_on_vo(vo, true);
+        }
+        p->swapchain_ready_count--;
+        if (p->swapchain_ready_count == 0) {
+            vo_wait_on_vo(vo, false);
+        }
+    vo->want_redraw = true;
+    }
+
     bool valid = false;
     p->is_interpolated = false;
 
@@ -1229,6 +1250,7 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
         return -1;
 
     resize(vo);
+
     return 0;
 }
 
@@ -1977,6 +1999,8 @@ static int preinit(struct vo *vo)
 
     p->pars = pl_options_alloc(p->pllog);
     update_render_options(vo);
+    initialize_swapchain_wait(vo, p);
+
     return 0;
 
 err_out:
