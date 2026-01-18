@@ -2642,7 +2642,7 @@ bool vo_wayland_reconfig(struct vo *vo)
         wl->pending_vo_events |= VO_EVENT_DPI;
     }
 
-    if (wl->vo_opts->auto_window_resize || !wl->configured)
+    if (!wl->configured)
         set_geometry(wl, false);
 
     if (wl->opts->configure_bounds)

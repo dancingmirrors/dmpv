@@ -1629,6 +1629,17 @@ static void play_current_file(struct MPContext *mpctx)
 
     handle_force_window(mpctx, false);
 
+    if (!mpctx->encode_lavc_ctx) {
+        /* XXX: Terrible hack for playlists with varied aspect ratios.
+           Otherwise we can end up with an ever shrinking or offscreen window.
+           This guarantees a reasonable resolution regardless of playlist.
+           My brain melted trying to properly fix --fs=no, and Wayland just
+           does whatever the compositor feels like anyway. */
+        m_config_set_option_cli(mpctx->mconfig, bstr0("force-window"),
+                                bstr0("yes"),
+                                M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
+    }
+
     if (mpctx->playlist->num_entries > 1 ||
         mpctx->playing->playlist_path)
         MP_INFO(mpctx, "INFO: %s\n", mpctx->filename);
@@ -1742,14 +1753,12 @@ static void play_current_file(struct MPContext *mpctx)
 
     update_playback_speed(mpctx);
 
-    // Handle pause-images: pause for images, unpause for non-images if pause was set by pause-images
     struct track *vid_track = mpctx->current_track[0][STREAM_VIDEO];
     bool is_image = vid_track && vid_track->image;
     if (is_image && opts->pause_images && !opts->pause) {
         set_pause_state(mpctx, true);
         mpctx->paused_for_image = true;
     } else if (!is_image && mpctx->paused_for_image) {
-        // Unpause when moving from an image to a non-image
         set_pause_state(mpctx, false);
         mpctx->paused_for_image = false;
     }
@@ -1786,9 +1795,6 @@ static void play_current_file(struct MPContext *mpctx)
         MP_INFO(mpctx,
             "Displaying cover art. Use --no-audio-display to prevent this.\n");
     }
-
-    if (!mpctx->vo_chain)
-        handle_force_window(mpctx, true);
 
     MP_VERBOSE(mpctx, "Starting playback...\n");
 
