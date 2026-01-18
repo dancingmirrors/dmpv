@@ -94,7 +94,7 @@ struct frame_info {
     struct pl_dispatch_info info[VO_PASS_PERF_MAX];
 };
 
-#define CACHE_PRUNE_THRESHOLD 0.8
+#define CACHE_PRUNE_THRESHOLD 0.7
 #define SWAPCHAIN_STABILIZATION_FRAMES 3
 
 struct cache {
@@ -1866,24 +1866,19 @@ static void cache_prune(struct mp_log *log, struct cache *cache, bool aggressive
     time_t t = time(NULL);
     size_t cache_size = 0;
     size_t cache_limit = cache->size_limit ? cache->size_limit : SIZE_MAX;
+    size_t cache_threshold = (size_t)(cache_limit * CACHE_PRUNE_THRESHOLD);
     for (size_t i = 0; i < num_files; i++) {
         cache_size += files[i].size;
         double rel_use = difftime(t, files[i].atime);
 
         bool should_remove = false;
+        // CACHE_PRUNE_THRESHOLD regardless of age
         if (aggressive) {
-            // Aggressive mode: remove files when over limit, regardless of age
-            // Stop removing once we're back under the limit
-            if (cache_size > cache_limit) {
+            if (cache_size > cache_threshold) {
                 should_remove = true;
             }
         } else {
-            // Lenient mode: only remove files older than one day when over limit
-            // This allows for temporary maintaining a larger cache size while
-            // adjusting the configuration. The cache will be cleared the next day
-            // for unused entries. We don't need to be overly aggressive with cache
-            // cleaning; in most cases, it will not grow much, and in others, it may
-            // actually be useful to cache more.
+            // 1 day
             should_remove = cache_size > cache_limit && rel_use > 60 * 60 * 24;
         }
 
