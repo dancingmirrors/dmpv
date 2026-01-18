@@ -712,7 +712,7 @@ local function add_video(s)
     end
     append(s, r["pixelformat"], {prefix="Pixel Format:"})
     if r["hw-pixelformat"] ~= nil then
-        append(s, r["hw-pixelformat"], {prefix_sep="[", nl="", indent=" ",
+        append(s, r["hw-pixelformat"], {prefix_sep="[", nl="", indent="",
                 suffix="]"})
     end
 
