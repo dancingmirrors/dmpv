@@ -91,6 +91,7 @@ struct vo_internal {
     bool send_reset;                // send VOCTRL_RESET
     bool paused;
     bool visible;
+    bool wait_on_vo;
     bool wakeup_on_done;
     int queued_events;              // event mask for the user
     int internal_events;            // event mask for us
@@ -758,7 +759,7 @@ bool vo_is_ready_for_frame(struct vo *vo, int64_t next_pts)
 {
     struct vo_internal *in = vo->in;
     mp_mutex_lock(&in->lock);
-    bool r = vo->config_ok && !in->frame_queued &&
+    bool r = vo->config_ok && !in->wait_on_vo && !in->frame_queued &&
              (!in->current_frame || in->current_frame->num_vsyncs < 1);
     if (r && next_pts >= 0) {
         // Don't show the frame too early - it would basically freeze the
@@ -817,6 +818,20 @@ void vo_wait_frame(struct vo *vo)
     mp_mutex_lock(&in->lock);
     while (in->frame_queued || in->rendering)
         mp_cond_wait(&in->wakeup, &in->lock);
+    mp_mutex_unlock(&in->lock);
+}
+
+void vo_wait_on_vo(struct vo *vo, bool wait)
+{
+    struct vo_internal *in = vo->in;
+    mp_mutex_lock(&in->lock);
+    bool was_waiting = in->wait_on_vo;
+    in->wait_on_vo = wait;
+    if (was_waiting && !wait) {
+        mp_mutex_unlock(&in->lock);
+        wakeup_core(vo);
+        return;
+    }
     mp_mutex_unlock(&in->lock);
 }
 
