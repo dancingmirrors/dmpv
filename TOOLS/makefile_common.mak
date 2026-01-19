@@ -88,11 +88,6 @@ $(BUILD)/%.o: %.c
 	$(LOG) "CC" "$@"
 	$(Q) $(CC) $(CFLAGS) $< -c -o $@
 
-$(BUILD)/%.o: %.rc
-	$(Q) mkdir -p $(dir $@)
-	$(LOG) "WINRC" "$@"
-	$(Q) $(WINDRES) -I$(ROOT) -I$(BUILD) $< $@
-
 $(BUILD_TARGET): $(BUILD_OBJECTS)
 	$(Q) mkdir -p $(dir $@)
 	$(LOG) "LINK" "$@"

@@ -15,7 +15,6 @@ programs_info = [
     ("CLANG",       "clang"),
     ("GCC",         "gcc"),
     ("PKG_CONFIG",  "pkg-config"),
-    ("WINDRES",     "windres"),
     ("WAYSCAN",     "wayland-scanner"),
     ("GIT",         "git"),
     ("NINJA",       "ninja"),
@@ -727,7 +726,6 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
 
     # Get programs
     cc = _G.programs.get("CC", "cc")
-    windres = _G.programs.get("WINDRES", "windres")
     wayscan = _G.programs.get("WAYSCAN", "wayland-scanner")
 
     # Resolve build and root directories (use absolute paths for Ninja)
@@ -766,7 +764,6 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += f"builddir = {build_dir}\n"
     ninja_content += f"root = {root_dir}\n"
     ninja_content += f"cc = {cc}\n"
-    ninja_content += f"windres = {windres}\n"
     ninja_content += f"wayscan = {wayscan}\n"
     ninja_content += f"cflags = {cflags_str}\n"
     ninja_content += f"ldflags = {ldflags_str}\n"
@@ -782,11 +779,6 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     ninja_content += "  description = CC $out\n"
     ninja_content += "  depfile = $out.d\n"
     ninja_content += "  deps = gcc\n"
-    ninja_content += "\n"
-
-    ninja_content += "rule windres\n"
-    ninja_content += "  command = $windres -I$root -I$builddir $in $out\n"
-    ninja_content += "  description = WINDRES $out\n"
     ninja_content += "\n"
 
     ninja_content += "rule link\n"
@@ -954,8 +946,6 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
                 ninja_content += f"build {obj_path}: cc {src_path} | {' '.join(implicit_deps)}\n"
             else:
                 ninja_content += f"build {obj_path}: cc {src_path}\n"
-        elif src.endswith(".rc"):
-            ninja_content += f"build {obj_path}: windres {src_path}\n"
 
     ninja_content += "\n"
 
