@@ -18,8 +18,6 @@ programs_info = [
     ("WAYSCAN",     "wayland-scanner"),
     ("GIT",         "git"),
     ("NINJA",       "ninja"),
-    ("PULSEAUDIO",  "pulseaudio"),
-    ("PIPEWIRE",    "pipewire"),
 ]
 
 install_paths_info = [
