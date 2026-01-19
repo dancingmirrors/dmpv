@@ -296,11 +296,11 @@ check("-libavdevice*",
 
 check("-pulseaudio*",
       desc      = "PulseAudio audio output",
-      fn        = lambda: check_pkg_config("libpulse >= 16.0"),
+      fn        = lambda: check_pkg_config("libpulse >= 16.0") and check_binary_exists("pulseaudio"),
       sources   = "audio/out/ao_pulse.c")
 check("-pipewire*",
       desc      = "PipeWire audio output",
-      fn        = lambda: check_pkg_config("libpipewire-0.3 >= 0.3.57"),
+      fn        = lambda: check_pkg_config("libpipewire-0.3 >= 0.3.57") and check_binary_exists("pipewire"),
       sources   = "audio/out/ao_pipewire.c")
 check("-alsa*",
       desc      = "ALSA audio output",

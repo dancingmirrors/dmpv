@@ -587,6 +587,20 @@ def get_pkg_config_variable(arg, varname):
         res = res.strip()
     return res
 
+def check_binary_exists(binary_name):
+    typecheck(binary_name, str)
+    _G.log_file.write("--- Checking for binary '%s' in PATH...\n" % binary_name)
+
+    # Find a binary without executing it.
+    binary_path = shutil.which(binary_name)
+
+    if binary_path:
+        _G.log_file.write("--- Found '%s' at '%s'\n" % (binary_name, binary_path))
+        return True
+    else:
+        _G.log_file.write("--- Binary '%s' not found in PATH\n" % binary_name)
+        return False
+
 # Check for a specific build tool. You pass in a symbolic name (e.g. "CC"),
 # which is then resolved to a full name and added as variable to config.mak.
 # The function returns a bool for success. You're not supposed to use the
