@@ -1629,17 +1629,6 @@ static void play_current_file(struct MPContext *mpctx)
 
     handle_force_window(mpctx, false);
 
-    if (!mpctx->encode_lavc_ctx) {
-        /* XXX: Terrible hack for playlists with varied aspect ratios.
-           Otherwise we can end up with an ever shrinking or offscreen window.
-           This guarantees a reasonable resolution regardless of playlist.
-           My brain melted trying to properly fix --fs=no, and Wayland just
-           does whatever the compositor feels like anyway. */
-        m_config_set_option_cli(mpctx->mconfig, bstr0("force-window"),
-                                bstr0("yes"),
-                                M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
-    }
-
     if (mpctx->playlist->num_entries > 1 ||
         mpctx->playing->playlist_path)
         MP_INFO(mpctx, "INFO: %s\n", mpctx->filename);
@@ -1691,6 +1680,26 @@ static void play_current_file(struct MPContext *mpctx)
     enable_demux_thread(mpctx, mpctx->demuxer);
 
     add_demuxer_tracks(mpctx, mpctx->demuxer);
+
+    if (!mpctx->encode_lavc_ctx) {
+        /* XXX: Terrible hack for playlists with varied aspect ratios.
+           Otherwise we can end up with an ever shrinking or offscreen window.
+           This guarantees a reasonable resolution regardless of playlist.
+           My brain melted trying to properly fix --fs=no, and Wayland just
+           does whatever the compositor feels like anyway. */
+        bool has_video = false;
+        for (int n = 0; n < mpctx->num_tracks; n++) {
+            if (mpctx->tracks[n]->type == STREAM_VIDEO) {
+                has_video = true;
+                break;
+            }
+        }
+        if (has_video) {
+            m_config_set_option_cli(mpctx->mconfig, bstr0("force-window"),
+                                    bstr0("yes"),
+                                    M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
+        }
+    }
 
     load_external_opts(mpctx);
     if (mpctx->stop_play)
