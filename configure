@@ -411,7 +411,8 @@ check("-x11*",
                                            "xinerama    >= 1.0.0",
                                            "xpresent    >= 1.0.0",
                                            "xrandr      >= 1.2.0"),
-      sources   = "video/out/x11_common.c")
+      sources   = ["video/out/x11_common.c",
+                   "video/out/vo_x11.c"])
 
 check("-vulkan*",
       desc      = "Vulkan context support (libplacebo)",
