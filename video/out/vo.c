@@ -449,7 +449,18 @@ static void update_vsync_timing_after_swap(struct vo *vo,
     }
 
     in->num_successive_vsyncs++;
-    if (in->num_successive_vsyncs <= DELAY_VSYNC_SAMPLES)
+    if (in->num_successive_vsyncs <= DELAY_VSYNC_SAMPLES) {
+        in->base_vsync = vsync_time;
+        return;
+    }
+
+    if (vsync_time <= 0 || vsync_time <= prev_vsync) {
+        in->prev_vsync = 0;
+        in->base_vsync = 0;
+        return;
+    }
+
+    if (prev_vsync <= 0)
         return;
 
     if (in->num_vsync_samples >= MAX_VSYNC_SAMPLES)
@@ -465,8 +476,10 @@ static void update_vsync_timing_after_swap(struct vo *vo,
     }
 
     double avg = 0;
-    for (int n = 0; n < in->num_vsync_samples; n++)
+    for (int n = 0; n < in->num_vsync_samples; n++) {
+        mp_assert(in->vsync_samples[n] > 0);
         avg += in->vsync_samples[n];
+    }
     in->estimated_vsync_interval = avg / in->num_vsync_samples;
     in->estimated_vsync_jitter =
         vsync_stddef(vo, in->vsync_interval) / in->vsync_interval;
