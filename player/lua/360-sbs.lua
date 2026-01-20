@@ -4,7 +4,7 @@ local utils = require 'mp.utils'
 local viewpoint = {
     yaw = 0.0,
     pitch = -20.0,
-    fov = 120.0
+    fov = 105.0
 }
 
 local res = 4.0 -- 1.0 to 6.0
@@ -52,8 +52,8 @@ local function update_filter()
     local stereo_param = "in_stereo=sbs"
     local projection_param = "hequirect"
 
-    local width = res * 160.0
-    local height = res * 160.0
+    local width = res * 180.0
+    local height = res * 180.0
 
     local filter_parts = {
         "no-osd sync vf add @vrrev:v360=",
@@ -110,7 +110,7 @@ end
 local function reset_viewpoint()
     viewpoint.yaw = 0.0
     viewpoint.pitch = -20.0
-    viewpoint.fov = 120.0
+    viewpoint.fov = 105.0
     res = 4.0
     update_filter()
     mp.osd_message("Viewpoint reset", 1)
@@ -135,6 +135,5 @@ mp.add_forced_key_binding("BS", "sbs-reset", reset_viewpoint)
 -- Some keybindings don't seem to work properly outside fullscreen.
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "no")
-mp.set_property("sws-fast", "yes")
 
 mp.register_event("file-loaded", on_video_loaded)
