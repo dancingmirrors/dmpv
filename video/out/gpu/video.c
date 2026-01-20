@@ -306,11 +306,11 @@ static const struct gl_video_opts gl_video_opts_def = {
     .scaler = {
         {{"bilinear", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // scale
-        {{NULL,       .params={NAN, NAN}}, {.params = {NAN, NAN}},
+        {{"bilinear",       .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // dscale
-        {{NULL, .params={NAN, NAN}}, {.params = {NAN, NAN}},
+        {{"bilinear", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // cscale
-        {{"mitchell", .params={NAN, NAN}}, {.params = {NAN, NAN}},
+        {{"bilinear", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .clamp = 1, }, // tscale
     },
     .scaler_resizes_only = true,
