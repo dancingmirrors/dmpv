@@ -294,14 +294,14 @@ check(desc      = "FFmpeg",
 check("-libavdevice*",
       fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
 
-check("-pulseaudio*",
-      desc      = "PulseAudio audio output",
-      fn        = lambda: check_pkg_config("libpulse >= 16.0") and check_binary_exists("pulseaudio"),
-      sources   = "audio/out/ao_pulse.c")
 check("-pipewire*",
       desc      = "PipeWire audio output",
       fn        = lambda: check_pkg_config("libpipewire-0.3 >= 0.3.57") and check_binary_exists("pipewire"),
       sources   = "audio/out/ao_pipewire.c")
+check("-pulseaudio*",
+      desc      = "PulseAudio audio output",
+      fn        = lambda: check_pkg_config("libpulse >= 16.0") and check_binary_exists("pulseaudio"),
+      sources   = "audio/out/ao_pulse.c")
 check("-alsa*",
       desc      = "ALSA audio output",
       fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
