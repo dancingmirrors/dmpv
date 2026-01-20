@@ -192,7 +192,6 @@ check(fn        = lambda: check_cc(include = "unistd.h",
                                    defined = "_POSIX_VERSION"),
       required  = "POSIX system: required (must define _POSIX_VERSION)",
       sources   = ["osdep/language-posix.c",
-                   "osdep/polldev.c",
                    "sub/filter_regex.c",
                    "osdep/path-unix.c"])
 
