@@ -17,20 +17,23 @@
  * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
+
 #include "misc/mp_assert.h"
 
+#include <poll.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include "osdep/io.h"
 #include "osdep/threads.h"
-#include "osdep/polldev.h"
 
 #include "common/common.h"
 #include "misc/bstr.h"
@@ -38,6 +41,10 @@
 #include "input/keycodes.h"
 #include "misc/ctype.h"
 #include "terminal.h"
+
+static int polldev(struct pollfd fds[], nfds_t nfds, int timeout) {
+    return poll(fds, nfds, timeout);
+}
 
 // Timeout in ms after which the (normally ambiguous) ESC key is detected.
 #define ESC_TIMEOUT 100
