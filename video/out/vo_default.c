@@ -94,7 +94,7 @@ struct frame_info {
     struct pl_dispatch_info info[VO_PASS_PERF_MAX];
 };
 
-#define CACHE_PRUNE_THRESHOLD 0.7
+#define CACHE_PRUNE_THRESHOLD 1.0
 #define SWAPCHAIN_STABILIZATION_FRAMES 3
 
 struct cache {
@@ -1729,7 +1729,7 @@ static void cache_init(struct vo *vo, struct cache *cache, const char *dir_opt)
 {
     struct priv *p = vo->priv;
     const char *name = cache == &p->shader_cache ? "shader" : "icc";
-    const size_t limit = cache == &p->shader_cache ? 1024 << 20 : 1024 << 20;
+    const size_t limit = cache == &p->shader_cache ? 1280 << 20 : 1280 << 20;
 
     char *dir;
     if (dir_opt && dir_opt[0]) {
