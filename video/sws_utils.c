@@ -77,7 +77,7 @@ const struct m_sub_options sws_conf = {
     },
     .size = sizeof(struct sws_opts),
     .defaults = &(const struct sws_opts){
-        .scaler = SWS_LANCZOS,
+        .scaler = SWS_BILINEAR,
     },
 };
 
@@ -86,7 +86,7 @@ static const int mp_sws_hq_flags = SWS_FULL_CHR_H_INT | SWS_FULL_CHR_H_INP |
                                    SWS_ACCURATE_RND;
 
 // Fast, lossy.
-const int mp_sws_fast_flags = SWS_BILINEAR;
+const int mp_sws_fast_flags = SWS_FAST_BILINEAR;
 
 // Set ctx parameters to global command line flags.
 static void mp_sws_update_from_cmdline(struct mp_sws_context *ctx)
