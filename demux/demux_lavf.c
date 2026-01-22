@@ -218,11 +218,7 @@ struct stream_info {
     double ts_offset;
 };
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 10, 100)
-    #define HAVE_IO_CLOSE2 1
-#else
-    #define HAVE_IO_CLOSE2 0
-#endif
+#define HAVE_IO_CLOSE2 1
 
 typedef struct lavf_priv {
     struct stream *stream;
