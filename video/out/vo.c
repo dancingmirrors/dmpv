@@ -806,7 +806,7 @@ bool vo_is_ready_for_frame(struct vo *vo, int64_t next_pts)
         // time.
         next_pts -= in->timing_offset;
         next_pts -= in->flip_queue_offset;
-        int64_t now = mp_time_us();
+        int64_t now = mp_time_ns();
         if (next_pts > now)
             r = false;
         if (!in->wakeup_pts || next_pts < in->wakeup_pts) {
@@ -879,8 +879,8 @@ static void wait_until(struct vo *vo, int64_t target)
 {
     struct vo_internal *in = vo->in;
     mp_mutex_lock(&in->lock);
-    while (target > mp_time_us()) {
-        if (mp_cond_timedwait_until(&in->wakeup, &in->lock, MP_TIME_US_TO_NS(target)))
+    while (target > mp_time_ns()) {
+        if (mp_cond_timedwait_until(&in->wakeup, &in->lock, target))
             break;
     }
     mp_mutex_unlock(&in->lock);
@@ -915,7 +915,7 @@ static bool render_frame(struct vo *vo)
         frame->duration = -1;
     }
 
-    int64_t now = mp_time_us();
+    int64_t now = mp_time_ns();
     int64_t pts = frame->pts;
     int64_t duration = frame->duration;
     int64_t end_time = pts + duration;
@@ -1296,11 +1296,11 @@ void vo_get_src_dst_rects(struct vo *vo, struct mp_rect *out_src,
                          out_src, out_dst, out_osd);
 }
 
-void vo_set_queue_params(struct vo *vo, int64_t offset_us, int num_req_frames)
+void vo_set_queue_params(struct vo *vo, int64_t offset_ns, int num_req_frames)
 {
     struct vo_internal *in = vo->in;
     mp_mutex_lock(&in->lock);
-    in->flip_queue_offset = offset_us;
+    in->flip_queue_offset = offset_ns;
     in->req_frames = MPCLAMP(num_req_frames, 1, VO_MAX_REQ_FRAMES);
     mp_mutex_unlock(&in->lock);
 }

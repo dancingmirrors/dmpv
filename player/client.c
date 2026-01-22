@@ -2138,7 +2138,7 @@ void dmpv_free(void *data)
 
 int64_t dmpv_get_time_us(dmpv_handle *ctx)
 {
-    return mp_time_us();
+    return mp_time_ns() / 1000;
 }
 
 static void do_kill(void *ptr)

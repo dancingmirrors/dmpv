@@ -292,7 +292,7 @@ static void resize(struct vo *vo)
     vc->flip_offset_us = vo->opts->fullscreen ?
                          1000LL * vc->flip_offset_fs :
                          1000LL * vc->flip_offset_window;
-    vo_set_queue_params(vo, vc->flip_offset_us, 1);
+    vo_set_queue_params(vo, MP_TIME_US_TO_NS(vc->flip_offset_us), 1);
 
     if (vc->output_surface_w < vo->dwidth || vc->output_surface_h < vo->dheight ||
         vc->rotation != vo->params->rotate)
@@ -767,7 +767,7 @@ static void flip_page(struct vo *vo)
     struct vdp_functions *vdp = vc->vdp;
     VdpStatus vdp_st;
 
-    int64_t pts_us = vc->current_pts;
+    int64_t pts_ns = vc->current_pts;
     int duration = vc->current_duration;
 
     vc->dropped_frame = true; // changed at end if false
@@ -783,20 +783,15 @@ static void flip_page(struct vo *vo)
     }
     vc->vsync_interval = MPMAX(vc->vsync_interval, 1);
 
-    if (duration > INT_MAX / 1000)
-        duration = -1;
-    else
-        duration *= 1000;
-
     if (vc->vsync_interval == 1)
-        duration = -1;  // Make sure drop logic is disabled
+        duration = -1; // Make sure drop logic is disabled
 
     VdpTime vdp_time = 0;
     vdp_st = vdp->presentation_queue_get_time(vc->flip_queue, &vdp_time);
     CHECK_VDP_WARNING(vo, "Error when calling vdp_presentation_queue_get_time");
 
-    int64_t rel_pts_ns = (pts_us - mp_time_us()) * 1000;
-    if (!pts_us || rel_pts_ns < 0)
+    int64_t rel_pts_ns = pts_ns - mp_time_ns();
+    if (!pts_ns || rel_pts_ns < 0)
         rel_pts_ns = 0;
 
     uint64_t now = vdp_time;
@@ -811,7 +806,7 @@ static void flip_page(struct vo *vo)
      *   give some additional room by doubling the time.
      * - The last vsync can never be in the future.
      */
-    int64_t max_pts_ahead = vc->flip_offset_us * 1000 * 2;
+    int64_t max_pts_ahead = MP_TIME_US_TO_NS(vc->flip_offset_us) * 2;
     if (vc->last_queue_time > now + max_pts_ahead ||
         vc->recent_vsync_time > now)
     {
