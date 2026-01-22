@@ -218,13 +218,13 @@ int main(void)
 {
     mp_time_init();
     struct ctx *k = calloc(1,sizeof(struct ctx));
-    int64_t s = mp_time_us();
+    int64_t s = mp_time_ns();
     makegauss(k, 6);
     makeuniform(k);
     print(k);
     fsck(k);
-    int64_t l = mp_time_us() - s;
-    printf("time: %f ms\n", l / 1000.0);
+    int64_t l = mp_time_ns() - s;
+    printf("time: %f ms\n", l / 1000000.0);
     return 0;
 }
 
