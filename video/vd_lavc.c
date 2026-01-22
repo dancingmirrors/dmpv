@@ -91,6 +91,7 @@ struct vd_lavc_params {
     int hwdec_image_format;
     int hwdec_extra_frames;
     int hwdec_threads;
+    int hwdec_max_size;
 };
 
 static const struct m_opt_choice_alternatives discard_names[] = {
@@ -119,6 +120,8 @@ const struct m_sub_options vd_lavc_conf = {
         {"vd-lavc-assume-old-x264", OPT_BOOL(old_x264)},
         {"vd-lavc-check-hw-profile", OPT_BOOL(check_hw_profile)},
         {"hwdec-threads", OPT_INT(hwdec_threads), M_RANGE(0, DBL_MAX)},
+        {"hwdec-max-size", OPT_INT(hwdec_max_size), M_RANGE(0, INT_MAX),
+            .flags = UPDATE_HWDEC},
         {"vd-lavc-software-fallback", OPT_CHOICE(software_fallback,
             {"no", INT_MAX}, {"yes", 1}), M_RANGE(1, INT_MAX)},
         {"vd-lavc-o", OPT_KEYVALUELIST(avopts)},
@@ -151,6 +154,7 @@ const struct m_sub_options vd_lavc_conf = {
         // interpolation, this value has to be increased too.
         .hwdec_extra_frames = 6,
         .hwdec_threads = 4,
+        .hwdec_max_size = 4096,
     },
     .change_flags = UPDATE_VD,
 };
@@ -492,6 +496,14 @@ static void select_and_set_hwdec(struct mp_filter *vd)
         } else if (!hwdec_codec_allowed(vd, codec)) {
             MP_VERBOSE(vd, "Not trying to use hardware decoding: codec %s is not "
                     "on whitelist.\n", codec);
+            break;
+        } else if (ctx->opts->hwdec_max_size > 0 &&
+                   (ctx->codec->disp_w > ctx->opts->hwdec_max_size ||
+                    ctx->codec->disp_h > ctx->opts->hwdec_max_size)) {
+            MP_VERBOSE(vd, "Not trying to use hardware decoding: "
+                           "video resolution %dx%d exceeds maximum %d.\n",
+                       ctx->codec->disp_w, ctx->codec->disp_h,
+                       ctx->opts->hwdec_max_size);
             break;
         } else {
             bool hwdec_name_supported = false;  // relevant only if !hwdec_auto
