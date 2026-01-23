@@ -80,7 +80,7 @@ struct priv {
     struct dmpv_opengl_drm_draw_surface_size draw_surface_size;
 };
 
-// Not general. Limited to only the formats being used in this module
+// Not general. Limited to only the formats being used in this module.
 static const char *gbm_format_to_string(uint32_t format)
 {
     switch (format) {
@@ -426,7 +426,7 @@ static void drm_egl_swap_buffers(struct ra_swapchain *sw)
     struct ra_ctx *ctx = sw->ctx;
     struct priv *p = ctx->priv;
     struct vo_drm_state *drm = ctx->vo->drm;
-    const bool drain = drm->paused || drm->still;  // True when we need to drain the swapchain
+    const bool drain = drm->paused || drm->still; // True when we need to drain the swapchain
 
     if (!drm->active)
         return;
@@ -488,7 +488,7 @@ static void drm_egl_uninit(struct ra_ctx *ctx)
     vo_drm_uninit(ctx->vo);
 
     if (p) {
-        // According to GBM documentation all BO:s must be released
+        // According to GBM documentation all BOs must be released
         // before gbm_surface_destroy can be called on the surface.
         while (p->gbm.num_bos) {
             swapchain_step(ctx);
