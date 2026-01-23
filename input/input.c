@@ -235,6 +235,10 @@ static const char builtin_input_vo_nouveau_conf[] =
 #include "generated/etc/input_vo_nouveau.conf.inc"
 ;
 
+static const char builtin_input_vo_x11_conf[] =
+#include "generated/etc/input_vo_x11.conf.inc"
+;
+
 static bool test_rect(struct mp_rect *rc, int x, int y)
 {
     return x >= rc->x0 && y >= rc->y0 && x < rc->x1 && y < rc->y1;
@@ -1413,6 +1417,9 @@ void mp_input_load_config(struct input_ctx *ictx)
 
     define_vo_section(ictx, "vo_nouveau", "<builtin-vo-nouveau>",
                       builtin_input_vo_nouveau_conf);
+
+    define_vo_section(ictx, "vo_x11", "<builtin-vo-x11>",
+                      builtin_input_vo_x11_conf);
 
     bool config_ok = false;
     if (ictx->opts->config_file && ictx->opts->config_file[0])
