@@ -37,6 +37,10 @@
 #include "common/msg.h"
 #include "osdep/endian.h"
 
+#if HAVE_ZIMG
+#include "zimg.h"
+#endif
+
 //global sws_flags from the command line
 struct sws_opts {
     int scaler;
@@ -48,6 +52,7 @@ struct sws_opts {
     float lum_sharpen;
     bool fast;
     bool bitexact;
+    bool zimg;
 };
 
 #define OPT_BASE_STRUCT struct sws_opts
@@ -73,11 +78,13 @@ const struct m_sub_options sws_conf = {
         {"cs", OPT_FLOAT(chr_sharpen), M_RANGE(-100.0, 100.0)},
         {"fast", OPT_BOOL(fast)},
         {"bitexact", OPT_BOOL(bitexact)},
+        {"allow-zimg", OPT_BOOL(zimg)},
         {0}
     },
     .size = sizeof(struct sws_opts),
     .defaults = &(const struct sws_opts){
         .scaler = SWS_BILINEAR,
+        .zimg = true,
     },
 };
 
@@ -106,6 +113,8 @@ static void mp_sws_update_from_cmdline(struct mp_sws_context *ctx)
         ctx->flags |= mp_sws_hq_flags;
     if (opts->bitexact)
         ctx->flags |= SWS_BITEXACT;
+
+    ctx->allow_zimg = opts->zimg;
 }
 
 bool mp_sws_supported_format(int imgfmt)
@@ -116,6 +125,14 @@ bool mp_sws_supported_format(int imgfmt)
         && sws_isSupportedOutput(av_format);
 }
 
+#if HAVE_ZIMG
+static bool allow_zimg(struct mp_sws_context *ctx)
+{
+    return ctx->force_scaler == MP_SWS_ZIMG ||
+           (ctx->force_scaler == MP_SWS_AUTO && ctx->allow_zimg);
+}
+#endif
+
 static bool allow_sws(struct mp_sws_context *ctx)
 {
     return ctx->force_scaler == MP_SWS_SWS || ctx->force_scaler == MP_SWS_AUTO;
@@ -124,6 +141,14 @@ static bool allow_sws(struct mp_sws_context *ctx)
 bool mp_sws_supports_formats(struct mp_sws_context *ctx,
                              int imgfmt_out, int imgfmt_in)
 {
+#if HAVE_ZIMG
+    if (allow_zimg(ctx)) {
+        if (mp_zimg_supports_in_format(imgfmt_in) &&
+            mp_zimg_supports_out_format(imgfmt_out))
+            return true;
+    }
+#endif
+
     return allow_sws(ctx) &&
            sws_isSupportedInput(imgfmt2pixfmt(imgfmt_in)) &&
            sws_isSupportedOutput(imgfmt2pixfmt(imgfmt_out));
@@ -144,6 +169,7 @@ static bool cache_valid(struct mp_sws_context *ctx)
     return mp_image_params_equal(&ctx->src, &old->src) &&
            mp_image_params_equal(&ctx->dst, &old->dst) &&
            ctx->flags == old->flags &&
+           ctx->allow_zimg == old->allow_zimg &&
            ctx->force_scaler == old->force_scaler &&
            (!ctx->opts_cache || !m_config_cache_update(ctx->opts_cache));
 }
@@ -172,6 +198,11 @@ struct mp_sws_context *mp_sws_alloc(void *talloc_ctx)
     };
     talloc_set_destructor(ctx, free_mp_sws);
 
+#if HAVE_ZIMG
+    ctx->zimg = mp_zimg_alloc();
+    talloc_steal(ctx, ctx->zimg);
+#endif
+
     return ctx;
 }
 
@@ -189,6 +220,10 @@ void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct dmpv_global *
     ctx->opts_cache = m_config_cache_alloc(ctx, g, &sws_conf);
     ctx->force_reload = true;
     mp_sws_update_from_cmdline(ctx);
+
+#if HAVE_ZIMG
+    mp_zimg_enable_cmdline_opts(ctx->zimg, g);
+#endif
 }
 
 // Reinitialize (if needed) - return error code.
@@ -206,8 +241,25 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
 
     sws_freeContext(ctx->sws);
     ctx->sws = NULL;
+    ctx->zimg_ok = false;
     TA_FREEP(&ctx->aligned_src);
     TA_FREEP(&ctx->aligned_dst);
+
+#if HAVE_ZIMG
+    if (allow_zimg(ctx)) {
+        ctx->zimg->log = ctx->log;
+        ctx->zimg->src = src;
+        ctx->zimg->dst = dst;
+        if (ctx->zimg_opts)
+            ctx->zimg->opts = *ctx->zimg_opts;
+        if (mp_zimg_config(ctx->zimg)) {
+            ctx->zimg_ok = true;
+            MP_VERBOSE(ctx, "Using zimg.\n");
+            goto success;
+        }
+        MP_WARN(ctx, "Not using zimg; falling back to swscale.\n");
+    }
+#endif
 
     if (!allow_sws(ctx)) {
         MP_ERR(ctx, "No scaler.\n");
@@ -257,6 +309,7 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
     int cr_src = mp_chroma_location_to_av(src.chroma_location);
     int cr_dst = mp_chroma_location_to_av(dst.chroma_location);
     int cr_xpos, cr_ypos;
+
     if (av_chroma_location_enum_to_pos(&cr_xpos, &cr_ypos, cr_src) >= 0) {
         av_opt_set_int(ctx->sws, "src_h_chr_pos", cr_xpos, 0);
         av_opt_set_int(ctx->sws, "src_v_chr_pos", cr_ypos, 0);
@@ -276,6 +329,10 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
 
     if (sws_init_context(ctx->sws, ctx->src_filter, ctx->dst_filter) < 0)
         return -1;
+
+#if HAVE_ZIMG
+success:
+#endif
 
     ctx->force_reload = false;
     *ctx->cached = *ctx;
@@ -332,6 +389,11 @@ int mp_sws_scale(struct mp_sws_context *ctx, struct mp_image *dst,
         MP_ERR(ctx, "libswscale initialization failed.\n");
         return r;
     }
+
+#if HAVE_ZIMG
+    if (ctx->zimg_ok)
+        return mp_zimg_convert(ctx->zimg, dst, src) ? 0 : -1;
+#endif
 
     if (src->params.color.space == MP_CSP_XYZ && dst->params.color.space != MP_CSP_XYZ) {
         // swsscale has hardcoded gamma 2.2 internally and 2.6 for XYZ
