@@ -52,6 +52,10 @@
 #include "client.h"
 #include "misc/client.h"
 
+#ifdef __OpenBSD__
+extern char **environ;
+#endif
+
 // List of builtin modules and their contents as strings.
 // All these are generated from player/lua/*.lua
 static const char * const builtin_lua_scripts[][2] = {
