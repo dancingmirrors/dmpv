@@ -336,10 +336,7 @@ typedef struct MPOpts {
     char *ipc_path;
     char *ipc_client;
 
-    int wingl_dwm_flush;
-
     struct mp_resample_opts *resample_opts;
-
     struct ra_ctx_opts *ra_ctx_opts;
     struct gl_video_opts *gl_video_opts;
     struct opengl_opts *opengl_opts;
@@ -348,6 +345,7 @@ typedef struct MPOpts {
     struct wayland_opts *wayland_opts;
     struct vaapi_opts *vaapi_opts;
     struct sws_opts *sws_opts;
+    struct zimg_opts *zimg_opts;
     struct egl_opts *egl_opts;
 } MPOpts;
 
