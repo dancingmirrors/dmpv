@@ -52,7 +52,7 @@
 #include "client.h"
 #include "misc/client.h"
 
-#ifdef __OpenBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
 extern char **environ;
 #endif
 
