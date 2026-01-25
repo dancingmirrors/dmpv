@@ -262,14 +262,7 @@ static bool wrap_buffer(struct mp_zimg_state *st, struct mp_zimg_repack *r,
                         struct mp_image *a_mpi)
 {
     zimg_image_buffer *buf = &r->zbuf;
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#endif
-    *buf = (zimg_image_buffer){ZIMG_API_VERSION};
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+    *buf = (zimg_image_buffer){.version = ZIMG_API_VERSION};
     struct mp_image *mpi = a_mpi;
     if (r->pack) {
         mpi = &r->cropped_tmp;
@@ -654,14 +647,7 @@ static void do_convert(struct mp_zimg_state *st)
 
     // An annoyance.
     zimg_image_buffer *zsrc = &st->src->zbuf;
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#endif
-    zimg_image_buffer_const zsrc_c = {ZIMG_API_VERSION};
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+    zimg_image_buffer_const zsrc_c = {.version = ZIMG_API_VERSION};
     for (int n = 0; n < MP_ARRAY_SIZE(zsrc_c.plane); n++) {
         zsrc_c.plane[n].data = zsrc->plane[n].data;
         zsrc_c.plane[n].stride = zsrc->plane[n].stride;
