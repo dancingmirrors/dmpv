@@ -32,6 +32,6 @@ video/vdpau.c
 video/vdpau.h
 video/vdpau_mixer.c
 video/vdpau_mixer.h
-video/out/vo_nouveau.c
+video/out/vo_vdpau.c
 video/out/x11_common.c
 video/out/x11_common.h

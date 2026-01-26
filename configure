@@ -494,7 +494,7 @@ check("-vdpau*",
       sources   = ["video/filter/vf_vdpaupp.c",
                    "video/vdpau.c",
                    "video/vdpau_mixer.c",
-                   "video/out/vo_nouveau.c"])
+                   "video/out/vo_vdpau.c"])
 check("-vdpau-gl-x11*",
       desc      = "VDPAU with OpenGL/X11",
       deps      = ["vdpau", "gl-x11"],

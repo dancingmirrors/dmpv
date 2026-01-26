@@ -173,7 +173,7 @@ static int video_to_output_surface(struct vo *vo, struct mp_image *mpi)
     if (frame)
         opts = frame->opts;
 
-    // Apply custom vo_nouveau suboptions.
+    // Apply custom vo_vdpau suboptions.
     opts.chroma_deint |= vc->chroma_deint;
     opts.pullup |= vc->pullup;
     opts.denoise = MPCLAMP(opts.denoise + vc->denoise, 0, 1);
@@ -1122,9 +1122,9 @@ static int control(struct vo *vo, uint32_t request, void *data)
 
 #define OPT_BASE_STRUCT struct vdpctx
 
-const struct vo_driver video_out_nouveau = {
+const struct vo_driver video_out_vdpau = {
     .description = "VDPAU with X11",
-    .name = "nouveau",
+    .name = "vdpau",
     .caps = VO_CAP_FRAMEDROP | VO_CAP_ROTATE90,
     .preinit = preinit,
     .query_format = query_format,
@@ -1153,5 +1153,5 @@ const struct vo_driver video_out_nouveau = {
         {"force-yuv", OPT_BOOL(force_yuv)},
         {0},
     },
-    .options_prefix = "nouveau",
+    .options_prefix = "vdpau",
 };
