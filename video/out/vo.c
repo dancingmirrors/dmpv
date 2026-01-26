@@ -47,7 +47,7 @@
 
 extern const struct vo_driver video_out_default;
 extern const struct vo_driver video_out_dmabuf_wayland;
-extern const struct vo_driver video_out_nouveau;
+extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_drm;
 extern const struct vo_driver video_out_null;
@@ -63,7 +63,7 @@ static const struct vo_driver *const video_out_drivers[] =
     &video_out_dmabuf_wayland,
 #endif
 #if HAVE_VDPAU
-    &video_out_nouveau,
+    &video_out_vdpau,
 #endif
 #if HAVE_X11
     &video_out_x11,

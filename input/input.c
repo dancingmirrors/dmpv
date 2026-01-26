@@ -231,8 +231,8 @@ static const char builtin_input_vo_dmabuf_wayland_conf[] =
 #include "generated/etc/input_vo_dmabuf_wayland.conf.inc"
 ;
 
-static const char builtin_input_vo_nouveau_conf[] =
-#include "generated/etc/input_vo_nouveau.conf.inc"
+static const char builtin_input_vo_vdpau_conf[] =
+#include "generated/etc/input_vo_vdpau.conf.inc"
 ;
 
 static const char builtin_input_vo_x11_conf[] =
@@ -1415,8 +1415,8 @@ void mp_input_load_config(struct input_ctx *ictx)
     define_vo_section(ictx, "vo_dmabuf_wayland", "<builtin-vo-dmabuf-wayland>",
                       builtin_input_vo_dmabuf_wayland_conf);
 
-    define_vo_section(ictx, "vo_nouveau", "<builtin-vo-nouveau>",
-                      builtin_input_vo_nouveau_conf);
+    define_vo_section(ictx, "vo_vdpau", "<builtin-vo-vdpau>",
+                      builtin_input_vo_vdpau_conf);
 
     define_vo_section(ictx, "vo_x11", "<builtin-vo-x11>",
                       builtin_input_vo_x11_conf);

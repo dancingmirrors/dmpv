@@ -851,7 +851,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         ("etc/input_vo_default.conf", "$builddir/generated/etc/input_vo_default.conf.inc"),
         ("etc/input_vo_drm.conf", "$builddir/generated/etc/input_vo_drm.conf.inc"),
         ("etc/input_vo_dmabuf_wayland.conf", "$builddir/generated/etc/input_vo_dmabuf_wayland.conf.inc"),
-        ("etc/input_vo_nouveau.conf", "$builddir/generated/etc/input_vo_nouveau.conf.inc"),
+        ("etc/input_vo_vdpau.conf", "$builddir/generated/etc/input_vo_vdpau.conf.inc"),
         ("etc/input_vo_x11.conf", "$builddir/generated/etc/input_vo_x11.conf.inc"),
         ("etc/builtin.conf", "$builddir/generated/etc/builtin.conf.inc"),
         ("etc/dmpv-icon-8bit-16x16.png", "$builddir/generated/etc/dmpv-icon-8bit-16x16.png.inc"),
@@ -926,7 +926,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
             implicit_deps.append("$builddir/generated/etc/input_vo_default.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_drm.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_dmabuf_wayland.conf.inc")
-            implicit_deps.append("$builddir/generated/etc/input_vo_nouveau.conf.inc")
+            implicit_deps.append("$builddir/generated/etc/input_vo_vdpau.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_x11.conf.inc")
         if "player/main.c" in src:
             implicit_deps.append("$builddir/generated/etc/builtin.conf.inc")

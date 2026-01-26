@@ -1339,9 +1339,9 @@ void update_vo_input_sections(struct MPContext *mpctx)
         mp_input_disable_section(mpctx->input, "vo_dmabuf_wayland");
     }
 
-    if (strcmp(vo_name, "nouveau") == 0) {
-        mp_input_enable_section(mpctx->input, "vo_nouveau", 0);
+    if (strcmp(vo_name, "vdpau") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_vdpau", 0);
     } else {
-        mp_input_disable_section(mpctx->input, "vo_nouveau");
+        mp_input_disable_section(mpctx->input, "vo_vdpau");
     }
 }
