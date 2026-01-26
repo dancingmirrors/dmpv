@@ -28,6 +28,6 @@ jobs:
           run: |
             set -x
             git config --global --add safe.directory "$PWD"
-            ./configure
-            gmake
+            CFLAGS="-Werror" ./configure
+            CFLAGS="-Werror" ninja -C build
             ./build/dmpv --version
