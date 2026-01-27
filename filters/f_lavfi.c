@@ -34,8 +34,16 @@
 #include <libavfilter/buffersrc.h>
 
 #include "config.h"
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
+#endif
 #if HAVE_LIBPLACEBO
 #include <libplacebo/utils/libav.h>
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
 #endif
 
 #include "common/common.h"
