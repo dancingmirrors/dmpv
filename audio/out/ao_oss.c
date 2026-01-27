@@ -285,6 +285,8 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
             return CONTROL_ERROR;
         }
         return CONTROL_OK;
+    default:
+        return CONTROL_UNKNOWN;
     }
 
     return CONTROL_UNKNOWN;
