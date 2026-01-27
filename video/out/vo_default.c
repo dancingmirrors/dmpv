@@ -28,7 +28,14 @@
 #include <libplacebo/renderer.h>
 #include <libplacebo/shaders/lut.h>
 #include <libplacebo/shaders/icc.h>
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
+#endif
 #include <libplacebo/utils/libav.h>
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <libplacebo/utils/frame_queue.h>
 
 #include "config.h"
