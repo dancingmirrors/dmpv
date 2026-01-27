@@ -153,6 +153,9 @@ check(desc      = "extra clang warnings",
 check("-fsanitize=undefined",
       desc      = "-fsanitize=undefined",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
+check("-fsanitize-minimal-runtime",
+      desc      = "-fsanitize-minimal-runtime",
+      fn        = lambda: check_cc(flags = "-fsanitize-minimal-runtime", link = ["-fsanitize-minimal-runtime"]))
 # export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-20 or similar
 # export LSAN_OPTIONS="suppressions=/usr/local/etc/lsan.supp:print_suppressions=0" or similar
 #check("-fsanitize=address",
