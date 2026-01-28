@@ -72,6 +72,10 @@ static void image_description_ready(void *data, struct wp_image_description_v1 *
                                     uint32_t info_identity);
 static const struct wp_image_description_info_v1_listener image_description_info_listener;
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
 static const struct wp_image_description_v1_listener image_description_listener = {
     image_description_failed,
     image_description_ready,
@@ -83,6 +87,9 @@ static void surface_feedback_preferred_changed(void *data,
 static const struct wp_color_management_surface_feedback_v1_listener surface_feedback_listener = {
     surface_feedback_preferred_changed,
 };
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 static void image_description_failed(void *data, struct wp_image_description_v1 *image_description,
                                      uint32_t reason, const char *message)
