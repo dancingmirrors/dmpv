@@ -500,13 +500,13 @@ static void select_and_set_hwdec(struct mp_filter *vd)
         } else if (ctx->opts->hwdec_max_size > 0 &&
                    (ctx->codec->disp_w > ctx->opts->hwdec_max_size ||
                     ctx->codec->disp_h > ctx->opts->hwdec_max_size)) {
-            MP_VERBOSE(vd, "Not trying to use hardware decoding: "
+            MP_INFO(vd, "Not trying to use hardware decoding: "
                            "video resolution %dx%d exceeds maximum %d.\n",
                        ctx->codec->disp_w, ctx->codec->disp_h,
                        ctx->opts->hwdec_max_size);
             break;
         } else {
-            bool hwdec_name_supported = false;  // relevant only if !hwdec_auto
+            bool hwdec_name_supported = false; // relevant only if !hwdec_auto
             for (int n = 0; n < num_hwdecs; n++) {
                 struct hwdec_info *hwdec = &hwdecs[n];
 
