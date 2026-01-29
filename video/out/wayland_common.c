@@ -150,14 +150,14 @@ static void info_primaries(void *data, struct wp_image_description_info_v1 *imag
                            int32_t w_x, int32_t w_y)
 {
     struct vo_wayland_state *wl = data;
-    /* Wayland gives primaries as fixed-point XY (probably 1/10000 or similar).
+    /* XXX: Wayland gives primaries as fixed-point XY (probably 1/10000 or similar).
      * Our mp_colorspace stores primary id (enum) rather than direct xy values.
      * Store white point into sig_peak as a heuristic and flag update.
      * A more complete implementation would convert XY->primaries enum.
      */
     (void)image_description_info;
     wl->target_params.color.sig_peak = 0; /* unknown */
-    /* Mark that colour info arrived */
+    /* Mark that color info arrived */
     wl->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
 }
 
@@ -165,7 +165,7 @@ static void info_primaries_named(void *data, struct wp_image_description_info_v1
                                  uint32_t primaries)
 {
     struct vo_wayland_state *wl = data;
-    /* Conservatively cast compositor's primaries id into our enum.
+    /* XXX: Conservatively cast compositor's primaries id into our enum.
      * This may need a mapping table if values differ.
      */
     wl->target_params.color.primaries = (enum mp_csp_prim)primaries;
@@ -213,7 +213,7 @@ static void info_target_primaries(void *data, struct wp_image_description_info_v
                                   int32_t w_x, int32_t w_y)
 {
     struct vo_wayland_state *wl = data;
-    /* We don't have a direct place for target primaries XY in mp_colorspace;
+    /* XXX: We don't have a direct place for target primaries XY in mp_colorspace;
      * keep this as a no-op for now but flag the change.
      */
     wl->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
