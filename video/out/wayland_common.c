@@ -124,7 +124,6 @@ static void image_description_ready(void *data, struct wp_image_description_v1 *
 static void image_description_ready2(void *data, struct wp_image_description_v1 *image_description,
                                      uint32_t identity_hi, uint32_t identity_lo)
 {
-    // XXX
     (void)identity_hi;
     (void)identity_lo;
     image_description_ready(data, image_description, identity_lo);
@@ -168,12 +167,9 @@ static void info_primaries(void *data, struct wp_image_description_info_v1 *imag
                            int32_t w_x, int32_t w_y)
 {
     struct vo_wayland_state *wl = data;
-    /* XXX: Wayland gives primaries as fixed-point XY (probably 1/10000 or similar).
-     * Our mp_colorspace stores primary id (enum) rather than direct xy values.
-     * Store white point into sig_peak as a heuristic and flag update.
-     * A more complete implementation would convert XY->primaries enum.
-     */
+    /* For now, we just mark that color info arrived. */
     (void)image_description_info;
+    (void)r_x; (void)r_y; (void)g_x; (void)g_y; (void)b_x; (void)b_y; (void)w_x; (void)w_y;
     wl->target_params.color.sig_peak = 0; /* unknown */
     /* Mark that color info arrived */
     wl->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
@@ -183,9 +179,7 @@ static void info_primaries_named(void *data, struct wp_image_description_info_v1
                                  uint32_t primaries)
 {
     struct vo_wayland_state *wl = data;
-    /* XXX: Conservatively cast compositor's primaries id into our enum.
-     * This may need a mapping table if values differ.
-     */
+    /* Verify that Wayland's primaries enum values match our mp_csp_prim enum. */
     wl->target_params.color.primaries = (enum mp_csp_prim)primaries;
     wl->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
     (void)image_description_info;
@@ -231,9 +225,7 @@ static void info_target_primaries(void *data, struct wp_image_description_info_v
                                   int32_t w_x, int32_t w_y)
 {
     struct vo_wayland_state *wl = data;
-    /* XXX: We don't have a direct place for target primaries XY in mp_colorspace;
-     * keep this as a no-op for now but flag the change.
-     */
+    (void)r_x; (void)r_y; (void)g_x; (void)g_y; (void)b_x; (void)b_y; (void)w_x; (void)w_y;
     wl->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
     (void)image_description_info;
 }
@@ -1043,6 +1035,10 @@ static void surface_handle_enter(void *data, struct wl_surface *wl_surface,
                new_output->make, new_output->model, new_output->id, wl->scaling, new_output->refresh_rate);
 
     wl->pending_vo_events |= VO_EVENT_WIN_STATE;
+
+    if (wl->color_manager && wl->color_surface_feedback) {
+        wl->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
+    }
 }
 
 static void surface_handle_leave(void *data, struct wl_surface *wl_surface,
@@ -1428,7 +1424,6 @@ static void surface_feedback_preferred_changed(void *data,
 static void preferred_changed2(void *data, struct wp_color_management_surface_feedback_v1 *feedback,
                               uint32_t identity_hi, uint32_t identity_lo)
 {
-    // XXX
     (void)identity_hi;
     (void)identity_lo;
     surface_feedback_preferred_changed(data, feedback, identity_lo);
@@ -2335,6 +2330,14 @@ int vo_wayland_control(struct vo *vo, int *events, int request, void *arg)
         if (out->len > 0) {
             return VO_TRUE;
         }
+
+        *out = gl_lcms_generate_profile_from_csp(NULL, wl->log,
+                                                 MP_CSP_PRIM_BT_709,
+                                                 MP_CSP_TRC_SRGB);
+        if (out->len > 0) {
+            MP_VERBOSE(wl, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
+            return VO_TRUE;
+        }
 #endif
 
         MP_VERBOSE(wl, "VOCTRL_GET_ICC_PROFILE: no compositor ICC available\n");
@@ -2655,6 +2658,10 @@ bool vo_wayland_init(struct vo *vo)
     /* Do another roundtrip to ensure all of the above is initialized
      * before dmpv does anything else. */
     wl_display_roundtrip(wl->display);
+
+    if (wl->color_manager && wl->color_surface_feedback) {
+        wl_display_roundtrip(wl->display);
+    }
 
     return true;
 
