@@ -28,7 +28,7 @@
 
 #include "options/options.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "osdep/compiler.h"
 #include "osdep/timer.h"
 #include "osdep/threads.h"

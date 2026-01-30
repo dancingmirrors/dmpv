@@ -33,14 +33,14 @@
 #include "misc/bstr.h"
 #include "misc/thread_tools.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "options/path.h"
 #include "osdep/timer.h"
 #include "stream.h"
 
 #include "options/m_option.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 
 extern const stream_info_t stream_info_null;
 extern const stream_info_t stream_info_memory;

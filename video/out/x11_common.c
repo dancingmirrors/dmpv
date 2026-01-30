@@ -46,7 +46,7 @@
 
 #include "misc/bstr.h"
 #include "options/options.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "input/input.h"

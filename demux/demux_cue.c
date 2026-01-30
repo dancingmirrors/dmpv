@@ -31,7 +31,7 @@
 #include "misc/charset_conv.h"
 #include "common/msg.h"
 #include "demux/demux.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/path.h"
 #include "common/common.h"

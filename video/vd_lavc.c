@@ -33,7 +33,7 @@
 #include "misc/dmpv_talloc.h"
 #include "common/global.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "misc/bstr.h"
 #include "common/av_common.h"

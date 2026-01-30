@@ -26,7 +26,7 @@
 #include "misc/mp_assert.h"
 #include "misc/thread_pool.h"
 #include "misc/thread_tools.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "repack.h"
 #include "video/fmt-conversion.h"

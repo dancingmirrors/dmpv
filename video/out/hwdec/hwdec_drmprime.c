@@ -29,7 +29,7 @@
 #include "config.h"
 
 #include "misc/render_gl.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "video/fmt-conversion.h"
 #include "video/out/drm_common.h"
 #include "video/out/gpu/hwdec.h"

@@ -29,7 +29,7 @@
 #include "common/msg.h"
 #include "input/input.h"
 #include "input/keycodes.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "osdep/io.h"
 #include "osdep/timer.h"
 #include "present_sync.h"

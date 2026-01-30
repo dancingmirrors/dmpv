@@ -20,7 +20,7 @@
 
 #include "common/common.h"
 #include "common/playlist.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "stream/stream.h"
 #include "misc/natural_sort.h"
 #include "demux.h"

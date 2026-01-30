@@ -24,7 +24,7 @@
 
 #include "common/common.h"
 #include "options/options.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "common/msg.h"
 #include "common/playlist.h"
 #include "misc/thread_tools.h"

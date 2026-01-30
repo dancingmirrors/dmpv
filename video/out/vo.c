@@ -35,7 +35,7 @@
 #include "aspect.h"
 #include "dr_helper.h"
 #include "input/input.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "common/msg.h"
 #include "common/global.h"
 #include "common/stats.h"

@@ -24,7 +24,7 @@
 #include "context.h"
 #include "config.h"
 #include "common/common.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "video/out/placebo/utils.h"
 #include "video/out/gpu/video.h"
 

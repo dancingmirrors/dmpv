@@ -5,7 +5,7 @@
 #include "common/common.h"
 #include "common/msg.h"
 #include "misc/mp_assert.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "video/filter/refqueue.h"
 #include "video/mp_image.h"

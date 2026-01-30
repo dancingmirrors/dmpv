@@ -15,7 +15,7 @@
  * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "context.h"
 #include "ra_gl.h"
 #include "utils.h"

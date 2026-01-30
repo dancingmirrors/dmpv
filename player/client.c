@@ -34,7 +34,7 @@
 #include "misc/node.h"
 #include "misc/rendezvous.h"
 #include "misc/thread_tools.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/m_property.h"
 #include "options/path.h"

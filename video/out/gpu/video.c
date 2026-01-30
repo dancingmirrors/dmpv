@@ -28,7 +28,7 @@
 
 #include "misc/bstr.h"
 #include "misc/mp_assert.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/path.h"
 #include "common/global.h"
 #include "options/options.h"

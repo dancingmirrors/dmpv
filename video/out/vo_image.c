@@ -26,7 +26,7 @@
 
 #include "misc/bstr.h"
 #include "osdep/io.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/path.h"
 #include "misc/dmpv_talloc.h"
 #include "common/common.h"

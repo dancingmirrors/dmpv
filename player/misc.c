@@ -28,7 +28,7 @@
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/m_property.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "common/common.h"
 #include "common/global.h"
 #include "common/encode.h"

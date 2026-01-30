@@ -36,7 +36,7 @@
 #include <math.h>
 
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "ao.h"
 #include "audio/format.h"

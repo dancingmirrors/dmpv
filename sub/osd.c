@@ -29,7 +29,7 @@
 #include "osdep/timer.h"
 
 #include "misc/dmpv_talloc.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "common/global.h"
 #include "common/msg.h"

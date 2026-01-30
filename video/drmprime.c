@@ -18,7 +18,7 @@
 #include <libavutil/hwcontext.h>
 
 #include "hwdec.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "video/out/drm_common.h"
 
 extern const struct m_sub_options drm_conf;
