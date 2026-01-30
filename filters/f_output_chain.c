@@ -1,3 +1,22 @@
+/*
+ * This file is part of dmpv.
+ *
+ * dmpv is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * dmpv is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <string.h>
+
 #include "audio/aframe.h"
 #include "audio/out/ao.h"
 #include "common/global.h"
@@ -383,6 +402,37 @@ void mp_output_chain_set_vo(struct mp_output_chain *c, struct vo *vo)
         }
     } else {
         p->stream_info.max_texture_wh = 0;
+    }
+
+    // XXX: Some kind of alignment issue with yuv420p.
+    if (p->type == MP_OUTPUT_CHAIN_VIDEO && vo && vo->driver &&
+        strcmp(vo->driver->name, "dmabuf-wayland") == 0) {
+        bool has_format_filter = false;
+        for (int n = 0; n < p->num_pre_filters; n++) {
+            if (p->pre_filters[n]->name &&
+                strcmp(p->pre_filters[n]->name, "format_nv12_dmabuf") == 0) {
+                has_format_filter = true;
+                break;
+            }
+        }
+
+        if (!has_format_filter) {
+            struct mp_user_filter *f = create_wrapper_filter(p);
+            f->name = "format_nv12_dmabuf";
+            f->label = NULL;
+
+            char *args[] = {"fmt", "nv12", "convert", "yes", NULL};
+            f->f = mp_create_user_filter(f->wrapper, p->type, "format", args);
+
+            if (f->f) {
+                MP_TARRAY_APPEND(p, p->pre_filters, p->num_pre_filters, f);
+                MP_VERBOSE(p, "dmabuf-wayland: nv12 hack\n");
+                relink_filter_list(p);
+            } else {
+                MP_WARN(p, "dmabuf-wayland: nv12 hack failed\n");
+                talloc_free(f->wrapper);
+            }
+        }
     }
 
     update_output_caps(p);
