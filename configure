@@ -404,6 +404,12 @@ check("-wayland*",
           "video/out/wldmabuf/ra_wldmabuf.c"
       ],
 )
+
+check("-wayland-protocols-147*",
+      desc      = "wayland-protocols >= 1.47",
+      deps      = "wayland",
+      fn        = lambda: check_pkg_config("wayland-protocols >= 1.47"))
+
 check("memfd-create*",
       desc      = "memfd_create() for Wayland",
       deps      = "wayland",
