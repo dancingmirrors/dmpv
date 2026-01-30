@@ -70,23 +70,31 @@ static void image_description_failed(void *data, struct wp_image_description_v1 
                                      uint32_t reason, const char *message);
 static void image_description_ready(void *data, struct wp_image_description_v1 *image_description,
                                     uint32_t info_identity);
+#if HAVE_WAYLAND_PROTOCOLS_147
+static void image_description_ready2(void *data, struct wp_image_description_v1 *image_description,
+                                     uint32_t identity_hi, uint32_t identity_lo);
+#endif
 static const struct wp_image_description_info_v1_listener image_description_info_listener;
 
 static const struct wp_image_description_v1_listener image_description_listener = {
     image_description_failed,
     image_description_ready,
 #if HAVE_WAYLAND_PROTOCOLS_147
-    0,
+    image_description_ready2,
 #endif
 };
 
 static void surface_feedback_preferred_changed(void *data,
                                               struct wp_color_management_surface_feedback_v1 *feedback,
                                               uint32_t identity);
+#if HAVE_WAYLAND_PROTOCOLS_147
+static void preferred_changed2(void *data, struct wp_color_management_surface_feedback_v1 *feedback,
+                              uint32_t identity_hi, uint32_t identity_lo);
+#endif
 static const struct wp_color_management_surface_feedback_v1_listener surface_feedback_listener = {
     surface_feedback_preferred_changed,
 #if HAVE_WAYLAND_PROTOCOLS_147
-    0,
+    preferred_changed2,
 #endif
 };
 
@@ -111,6 +119,17 @@ static void image_description_ready(void *data, struct wp_image_description_v1 *
     }
     wp_image_description_v1_destroy(image_description);
 }
+
+#if HAVE_WAYLAND_PROTOCOLS_147
+static void image_description_ready2(void *data, struct wp_image_description_v1 *image_description,
+                                     uint32_t identity_hi, uint32_t identity_lo)
+{
+    // XXX
+    (void)identity_hi;
+    (void)identity_lo;
+    image_description_ready(data, image_description, identity_lo);
+}
+#endif
 
 static void info_done(void *data, struct wp_image_description_info_v1 *image_description_info)
 {
@@ -1404,6 +1423,17 @@ static void surface_feedback_preferred_changed(void *data,
         wp_image_description_v1_add_listener(desc, &image_description_listener, wl);
     }
 }
+
+#if HAVE_WAYLAND_PROTOCOLS_147
+static void preferred_changed2(void *data, struct wp_color_management_surface_feedback_v1 *feedback,
+                              uint32_t identity_hi, uint32_t identity_lo)
+{
+    // XXX
+    (void)identity_hi;
+    (void)identity_lo;
+    surface_feedback_preferred_changed(data, feedback, identity_lo);
+}
+#endif
 
 static const struct wp_presentation_feedback_listener feedback_listener = {
     feedback_sync_output,
