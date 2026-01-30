@@ -179,6 +179,7 @@ struct priv {
     float corner_rounding;
     float sharpen;
     const struct pl_hook *sharpen_hook;
+    const struct pl_hook *alpha_checkerboard_hook;
 
     struct pl_hdr_metadata last_hdr_metadata;
 
@@ -1923,6 +1924,8 @@ static void uninit(struct vo *vo)
         pl_mpv_user_shader_destroy(&p->user_hooks[i].hook);
     if (p->sharpen_hook)
         pl_mpv_user_shader_destroy(&p->sharpen_hook);
+    if (p->alpha_checkerboard_hook)
+        pl_mpv_user_shader_destroy(&p->alpha_checkerboard_hook);
 
     if (vo->hwdec_devs) {
         ra_hwdec_mapper_free(&p->hwdec_mapper);
@@ -2289,6 +2292,30 @@ static const struct pl_hook *create_sharpen_hook(struct priv *p, float param)
     return hook;
 }
 
+static const struct pl_hook *create_alpha_checkerboard_hook(struct priv *p)
+{
+    const char *checkerboard_shader =
+        "//!HOOK OUTPUT\n"
+        "//!BIND HOOKED\n"
+        "//!DESC Alpha checkerboard pattern\n"
+        "\n"
+        "vec4 hook()\n"
+        "{\n"
+        "    vec4 color = HOOKED_tex(HOOKED_pos);\n"
+        "    bvec2 tile = lessThan(fract(gl_FragCoord.xy * 1.0/32.0), vec2(0.5));\n"
+        "    vec3 background = vec3(tile.x == tile.y ? 0.93 : 0.87);\n"
+        "    color.rgb += background.rgb * (1.0 - color.a);\n"
+        "    color.a = 1.0;\n"
+        "    return color;\n"
+        "}\n";
+
+    const struct pl_hook *hook = pl_mpv_user_shader_parse(p->gpu, checkerboard_shader, strlen(checkerboard_shader));
+    if (!hook)
+        MP_ERR(p, "Failed to create alpha checkerboard shader hook\n");
+
+    return hook;
+}
+
 static void update_render_options(struct vo *vo)
 {
     struct priv *p = vo->priv;
@@ -2297,7 +2324,13 @@ static void update_render_options(struct vo *vo)
     pars->params.background_color[0] = opts->background.r / 255.0;
     pars->params.background_color[1] = opts->background.g / 255.0;
     pars->params.background_color[2] = opts->background.b / 255.0;
-    pars->params.background_transparency = 1.0 - opts->background.a / 255.0;
+
+    if (opts->alpha_mode == ALPHA_BLEND_TILES) {
+        pars->params.background_transparency = 1.0;
+    } else {
+        pars->params.background_transparency = 1.0 - opts->background.a / 255.0;
+    }
+
     pars->params.skip_anti_aliasing = !opts->correct_downscaling;
     pars->params.disable_linear_scaling = !opts->linear_downscaling && !opts->linear_upscaling;
     pars->params.disable_fbos = opts->dumb_mode == 1;
@@ -2447,6 +2480,20 @@ static void update_render_options(struct vo *vo)
         if (p->sharpen_hook) {
             pl_mpv_user_shader_destroy(&p->sharpen_hook);
             p->sharpen_hook = NULL;
+        }
+    }
+
+    if (opts->alpha_mode == ALPHA_BLEND_TILES) {
+        if (p->alpha_checkerboard_hook)
+            pl_mpv_user_shader_destroy(&p->alpha_checkerboard_hook);
+
+        p->alpha_checkerboard_hook = create_alpha_checkerboard_hook(p);
+        if (p->alpha_checkerboard_hook)
+            MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, p->alpha_checkerboard_hook);
+    } else {
+        if (p->alpha_checkerboard_hook) {
+            pl_mpv_user_shader_destroy(&p->alpha_checkerboard_hook);
+            p->alpha_checkerboard_hook = NULL;
         }
     }
 
