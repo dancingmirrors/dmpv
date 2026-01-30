@@ -274,11 +274,6 @@ void reset_playback_state(struct MPContext *mpctx)
     mpctx->paused_for_cache = false;
     mpctx->cache_buffer = 100;
     mpctx->cache_update_pts = MP_NOPTS_VALUE;
-    // Reset seek mute state and update volume if needed
-    if (mpctx->seek_muted) {
-        mpctx->seek_muted = false;
-        audio_update_volume(mpctx);
-    }
 
     encode_lavc_discontinuity(mpctx->encode_lavc_ctx);
 
@@ -411,6 +406,11 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
     if (!(seek.flags & MPSEEK_FLAG_NOFLUSH))
         clear_audio_output_buffers(mpctx);
 
+    if (likely(opts->seek_mute && !mpctx->seek_muted)) {
+        mpctx->seek_muted = true;
+        audio_update_volume(mpctx);
+    }
+
     reset_playback_state(mpctx);
 
     demux_block_reading(mpctx->demuxer, false);
@@ -442,13 +442,6 @@ static void mp_seek(MPContext *mpctx, struct seek_params seek)
             if (dec && hrseek_framedrop)
                 mp_decoder_wrapper_set_start_pts(dec, mpctx->hrseek_pts);
         }
-    }
-
-    // Mute audio during seek if --seek-mute is enabled
-    // Check !mpctx->seek_muted to avoid redundant volume updates on consecutive seeks
-    if (likely(opts->seek_mute && !mpctx->seek_muted)) {
-        mpctx->seek_muted = true;
-        audio_update_volume(mpctx);
     }
 
     if (mpctx->stop_play == AT_END_OF_FILE)
