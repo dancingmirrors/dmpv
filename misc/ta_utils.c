@@ -17,7 +17,6 @@
 #include <string.h>
 #include <stdio.h>
 #include "misc/mp_assert.h"
-#include "osdep/strnlen.h"
 
 #define TA_NO_WRAPPERS
 #include "ta.h"
