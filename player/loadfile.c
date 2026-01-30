@@ -1682,11 +1682,7 @@ static void play_current_file(struct MPContext *mpctx)
     add_demuxer_tracks(mpctx, mpctx->demuxer);
 
     if (!mpctx->encode_lavc_ctx) {
-        /* XXX: Terrible hack for playlists with varied aspect ratios.
-           Otherwise we can end up with an ever shrinking or offscreen window.
-           This guarantees a reasonable resolution regardless of playlist.
-           My brain melted trying to properly fix --fs=no, and Wayland just
-           does whatever the compositor feels like anyway. */
+        // --force-window
         bool has_video = false;
         for (int n = 0; n < mpctx->num_tracks; n++) {
             if (mpctx->tracks[n]->type == STREAM_VIDEO) {
