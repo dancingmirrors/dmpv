@@ -72,7 +72,6 @@ static void context_state_cb(pa_context *c, void *userdata)
     case PA_CONTEXT_READY:
     case PA_CONTEXT_TERMINATED:
     case PA_CONTEXT_FAILED:
-    // XXX
     default:
         pa_threaded_mainloop_signal(priv->mainloop, 0);
         break;
@@ -112,7 +111,6 @@ static void stream_state_cb(pa_stream *s, void *userdata)
         break;
     case PA_STREAM_READY:
     case PA_STREAM_TERMINATED:
-    // XXX
     default:
         pa_threaded_mainloop_signal(priv->mainloop, 0);
         break;
