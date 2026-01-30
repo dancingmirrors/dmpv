@@ -1289,7 +1289,6 @@ static bool update_auto_profile(struct priv *p, int *events)
 
     if (r != VO_NOTAVAIL) {
         if (r == VO_FALSE) {
-            // XXX
             MP_WARN(p, "Could not retrieve an ICC profile.\n");
         } else if (r == VO_NOTIMPL) {
             MP_ERR(p, "icc-profile-auto not implemented on this platform.\n");
