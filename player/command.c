@@ -55,7 +55,6 @@
 #include "options/m_property.h"
 #include "options/m_config_frontend.h"
 #include "options/parse_configfile.h"
-#include "osdep/getpid.h"
 #include "video/out/vo.h"
 #include "video/csputils.h"
 #include "video/hwdec.h"
@@ -79,6 +78,8 @@
 #if HAVE_LIBPLACEBO
 #include <libplacebo/config.h>
 #endif
+
+#define mp_getpid() getpid()
 
 struct command_ctx {
     // All properties, terminated with a {0} item.
