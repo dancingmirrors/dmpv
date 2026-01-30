@@ -38,7 +38,6 @@
 #include "osdep/io.h"
 #include "osdep/terminal.h"
 #include "osdep/timer.h"
-#include "osdep/main-fn.h"
 
 #include "common/av_log.h"
 #include "common/codecs.h"
@@ -395,7 +394,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     return 0;
 }
 
-int dmpv_main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     struct MPContext *mpctx = mp_create();
     if (!mpctx)

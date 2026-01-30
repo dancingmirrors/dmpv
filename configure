@@ -650,7 +650,6 @@ add_sources(
     "options/parse_commandline.c",
     "options/parse_configfile.c",
     "options/path.c",
-    "osdep/main-fn-unix.c",
     "osdep/io.c",
     "osdep/subprocess.c",
     "osdep/subprocess-posix.c",
