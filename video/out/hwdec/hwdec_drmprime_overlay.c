@@ -27,7 +27,7 @@
 
 #include "video/hwdec.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "misc/render_gl.h"
 #include "video/out/drm_atomic.h"
 #include "video/out/drm_common.h"

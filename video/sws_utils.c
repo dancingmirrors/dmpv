@@ -28,7 +28,7 @@
 #include "sws_utils.h"
 
 #include "common/common.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "video/mp_image.h"
 #include "video/img_format.h"

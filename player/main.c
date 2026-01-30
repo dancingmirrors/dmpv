@@ -43,7 +43,7 @@
 #include "common/av_log.h"
 #include "common/codecs.h"
 #include "common/encode.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/m_property.h"
 #include "common/common.h"

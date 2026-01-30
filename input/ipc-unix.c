@@ -33,7 +33,7 @@
 #include "common/msg.h"
 #include "input/input.h"
 #include "misc/client.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "options/path.h"
 #include "player/client.h"

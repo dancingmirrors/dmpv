@@ -41,7 +41,7 @@
 #include "config.h"
 #include "common/common.h"
 #include "misc/bstr.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/path.h"
 #include "osdep/io.h"

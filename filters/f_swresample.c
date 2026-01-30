@@ -30,7 +30,7 @@
 #include "common/av_common.h"
 #include "common/msg.h"
 #include "misc/mp_assert.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 
 #include "f_swresample.h"

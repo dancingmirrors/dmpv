@@ -31,7 +31,7 @@
 #include "config.h"
 
 #include "options.h"
-#include "m_config.h"
+#include "m_config_core.h"
 #include "m_option.h"
 #include "common/common.h"
 #include "input/event.h"

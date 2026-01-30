@@ -26,7 +26,6 @@
 
 #include "misc/client.h"
 
-#include "m_config.h"
 #include "m_config_frontend.h"
 #include "options/m_option.h"
 #include "common/common.h"

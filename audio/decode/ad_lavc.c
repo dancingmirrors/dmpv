@@ -39,7 +39,7 @@
 #include "demux/stheader.h"
 #include "filters/f_decoder_wrapper.h"
 #include "filters/filter_internal.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 
 struct priv {

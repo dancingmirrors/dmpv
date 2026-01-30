@@ -25,7 +25,7 @@
 #include "mp_image.h"
 #include "img_format.h"
 #include "mp_image_pool.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>

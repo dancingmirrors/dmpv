@@ -30,7 +30,7 @@
 
 #include "cache.h"
 #include "config.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "misc/dmpv_talloc.h"
 #include "common/av_common.h"

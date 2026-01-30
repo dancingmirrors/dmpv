@@ -38,7 +38,7 @@
 #include "common/msg_control.h"
 #include "common/global.h"
 #include "options/path.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/parse_configfile.h"
 #include "common/playlist.h"
 #include "options/options.h"

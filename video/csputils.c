@@ -30,7 +30,7 @@
 
 #include "mp_image.h"
 #include "csputils.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 
 #if !HAVE_LIBPLACEBO

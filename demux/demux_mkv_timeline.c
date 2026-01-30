@@ -34,7 +34,7 @@
 #include "demux/demux.h"
 #include "demux/timeline.h"
 #include "demux/matroska.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "options/path.h"
 #include "misc/bstr.h"

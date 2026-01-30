@@ -27,7 +27,7 @@
 #include "common/msg.h"
 #include "misc/ctype.h"
 #include "m_option.h"
-#include "m_config.h"
+#include "m_config_core.h"
 #include "stream/stream.h"
 
 // Skip whitespace and comments (assuming there are no line breaks)

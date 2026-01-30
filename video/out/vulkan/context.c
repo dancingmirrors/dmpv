@@ -16,7 +16,7 @@
  */
 
 #include "misc/mp_assert.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "video/out/placebo/ra_pl.h"
 
 #include "context.h"

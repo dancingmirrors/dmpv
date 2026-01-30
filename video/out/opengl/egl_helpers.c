@@ -16,7 +16,7 @@
  */
 
 #include "config.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 
 #if HAVE_LIBDL
 #include <dlfcn.h>
