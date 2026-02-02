@@ -5419,6 +5419,25 @@ static void cmd_playlist_next_prev_playlist(void *p)
         mpctx->add_osd_seek_info |= OSD_SEEK_INFO_CURRENT_FILE;
 }
 
+static void cmd_playlist_next_prev_archive(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    struct MPContext *mpctx = cmd->mpctx;
+    int direction = *(int *)cmd->priv;
+
+    struct playlist_entry *entry =
+        playlist_get_next_archive(mpctx->playlist, direction);
+
+    if (!entry) {
+        cmd->success = false;
+        return;
+    }
+
+    mp_set_playlist_entry(mpctx, entry);
+    if (cmd->on_osd & MP_ON_OSD_MSG)
+        mpctx->add_osd_seek_info |= OSD_SEEK_INFO_CURRENT_FILE;
+}
+
 static void cmd_playlist_play_index(void *p)
 {
     struct mp_cmd_ctx *cmd = p;
@@ -6592,6 +6611,10 @@ const struct mp_cmd_def mp_cmds[] = {
     { "playlist-next-playlist", cmd_playlist_next_prev_playlist,
         .priv = &(const int){1} },
     { "playlist-prev-playlist", cmd_playlist_next_prev_playlist,
+        .priv = &(const int){-1} },
+    { "next-archive", cmd_playlist_next_prev_archive,
+        .priv = &(const int){1} },
+    { "prev-archive", cmd_playlist_next_prev_archive,
         .priv = &(const int){-1} },
     { "playlist-play-index", cmd_playlist_play_index,
         {

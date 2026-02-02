@@ -299,6 +299,60 @@ exit:
     return entry;
 }
 
+// Helper function to extract the archive base path from an archive:// URL
+// Returns NULL if not an archive URL or extraction fails
+// Format: archive://path/to/file.zip|/internal_file.jpg -> path/to/file.zip
+static char *get_archive_base_path(void *ctx, const char *filename)
+{
+    if (!filename)
+        return NULL;
+
+    if (strncmp(filename, "archive://", 10) != 0)
+        return NULL;
+
+    const char *pipe = strchr(filename + 10, '|');
+    if (!pipe)
+        return NULL;
+
+    return talloc_strndup(ctx, filename + 10, pipe - (filename + 10));
+}
+
+struct playlist_entry *playlist_get_next_archive(struct playlist *pl, int direction)
+{
+    if (!pl->current)
+        return NULL;
+
+    void *tmp = talloc_new(NULL);
+    char *current_archive = get_archive_base_path(tmp, pl->current->filename);
+
+    // XXX
+    if (!current_archive) {
+        talloc_free(tmp);
+        return NULL;
+    }
+
+    struct playlist_entry *entry = playlist_entry_get_rel(pl->current, direction);
+
+    // Skip entries from the same archive
+    while (entry) {
+        char *entry_archive = get_archive_base_path(tmp, entry->filename);
+
+        if (!entry_archive) {
+            break;
+        }
+
+        if (strcmp(entry_archive, current_archive) != 0) {
+            talloc_free(tmp);
+            return entry;
+        }
+
+        entry = playlist_entry_get_rel(entry, direction);
+    }
+
+    talloc_free(tmp);
+    return entry;
+}
+
 void playlist_add_base_path(struct playlist *pl, bstr base_path)
 {
     if (base_path.len == 0 || bstrcmp0(base_path, ".") == 0)
