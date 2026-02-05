@@ -404,7 +404,7 @@ void mp_output_chain_set_vo(struct mp_output_chain *c, struct vo *vo)
         p->stream_info.max_texture_wh = 0;
     }
 
-    // XXX: Some kind of alignment issue with yuv420p.
+    // XXX: Alignment issues with formats that have separate U and V planes.
     if (p->type == MP_OUTPUT_CHAIN_VIDEO && vo && vo->driver &&
         strcmp(vo->driver->name, "dmabuf-wayland") == 0) {
         bool has_format_filter = false;

@@ -164,6 +164,9 @@ static struct mp_image *alloc_out(struct mp_filter *vf)
     int src_w = hw_frames->width;
     int src_h = hw_frames->height;
 
+    /* XXX: We hardcode nv12 for dmabuf-wayland, but if we didn't this would
+     * create slight video aspect inconsistencies when the formats don't match.
+     */
     if (!mp_update_av_hw_frames_pool(&p->hw_pool, p->av_device_ref,
                                      IMGFMT_VAAPI, IMGFMT_NV12, src_w, src_h,
                                      false))
