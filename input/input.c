@@ -223,12 +223,12 @@ static const char builtin_input_vo_default_conf[] =
 ;
 #endif
 
-static const char builtin_input_vo_drm_conf[] =
-#include "generated/etc/input_vo_drm.conf.inc"
-;
-
 static const char builtin_input_vo_dmabuf_wayland_conf[] =
 #include "generated/etc/input_vo_dmabuf_wayland.conf.inc"
+;
+
+static const char builtin_input_vo_wlshm_conf[] =
+#include "generated/etc/input_vo_wlshm.conf.inc"
 ;
 
 static const char builtin_input_vo_vdpau_conf[] =
@@ -237,6 +237,10 @@ static const char builtin_input_vo_vdpau_conf[] =
 
 static const char builtin_input_vo_x11_conf[] =
 #include "generated/etc/input_vo_x11.conf.inc"
+;
+
+static const char builtin_input_vo_drm_conf[] =
+#include "generated/etc/input_vo_drm.conf.inc"
 ;
 
 static bool test_rect(struct mp_rect *rc, int x, int y)
@@ -1409,17 +1413,20 @@ void mp_input_load_config(struct input_ctx *ictx)
                       builtin_input_vo_default_conf);
 #endif
 
-    define_vo_section(ictx, "vo_drm", "<builtin-vo-drm>",
-                      builtin_input_vo_drm_conf);
-
     define_vo_section(ictx, "vo_dmabuf_wayland", "<builtin-vo-dmabuf-wayland>",
                       builtin_input_vo_dmabuf_wayland_conf);
+
+    define_vo_section(ictx, "vo_wlshm", "<builtin-vo-wlshm>",
+                      builtin_input_vo_wlshm_conf);
 
     define_vo_section(ictx, "vo_vdpau", "<builtin-vo-vdpau>",
                       builtin_input_vo_vdpau_conf);
 
     define_vo_section(ictx, "vo_x11", "<builtin-vo-x11>",
                       builtin_input_vo_x11_conf);
+
+    define_vo_section(ictx, "vo_drm", "<builtin-vo-drm>",
+                      builtin_input_vo_drm_conf);
 
     bool config_ok = false;
     if (ictx->opts->config_file && ictx->opts->config_file[0])

@@ -47,6 +47,7 @@
 
 extern const struct vo_driver video_out_default;
 extern const struct vo_driver video_out_dmabuf_wayland;
+extern const struct vo_driver video_out_wlshm;
 extern const struct vo_driver video_out_vdpau;
 extern const struct vo_driver video_out_x11;
 extern const struct vo_driver video_out_drm;
@@ -61,6 +62,9 @@ static const struct vo_driver *const video_out_drivers[] =
 #endif
 #if HAVE_VAAPI_WAYLAND
     &video_out_dmabuf_wayland,
+#endif
+#if HAVE_MEMFD_CREATE
+    &video_out_wlshm,
 #endif
 #if HAVE_VDPAU
     &video_out_vdpau,
