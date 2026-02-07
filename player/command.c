@@ -5638,7 +5638,7 @@ static void cmd_loadlist(void *p)
     struct playlist *pl = playlist_parse_file(filename, cmd->abort->cancel,
                                               mpctx->global);
     if (pl) {
-        prepare_playlist(mpctx, pl);
+        prepare_playlist(mpctx, pl, true);
         struct playlist_entry *new = pl->current;
         if (action.type == LOAD_TYPE_REPLACE)
             playlist_clear(mpctx->playlist);
