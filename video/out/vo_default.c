@@ -28,6 +28,7 @@
 #include <libplacebo/renderer.h>
 #include <libplacebo/shaders/lut.h>
 #include <libplacebo/shaders/icc.h>
+#include <libplacebo/shaders/deinterlacing.h>
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch"
@@ -623,6 +624,15 @@ static bool map_frame(pl_gpu gpu, pl_tex *tex, const struct pl_source_frame *src
         .rotation = par->rotate / 90,
         .user_data = mpi,
     };
+
+    if (mpi->fields & MP_IMGFIELD_INTERLACED) {
+        bool tff = mpi->fields & MP_IMGFIELD_TOP_FIRST;
+        frame->field = tff ? PL_FIELD_TOP : PL_FIELD_BOTTOM;
+        frame->first_field = tff ? PL_FIELD_TOP : PL_FIELD_BOTTOM;
+    } else {
+        frame->field = PL_FIELD_NONE;
+        frame->first_field = PL_FIELD_NONE;
+    }
 
     // mp_image, like AVFrame, likes communicating RGB/XYZ/YCbCr status
     // implicitly via the image format, rather than the actual tagging.
@@ -2358,6 +2368,10 @@ static void update_render_options(struct vo *vo)
     pars->params.sigmoid_params = opts->sigmoid_upscaling ? &pars->sigmoid_params : NULL;
     pars->sigmoid_params.center = opts->sigmoid_center;
     pars->sigmoid_params.slope = opts->sigmoid_slope;
+
+    // FFmpeg's bwdif_vulkan is unreliable.
+    pars->params.deinterlace_params = &pars->deinterlace_params;
+    pars->deinterlace_params.algo = PL_DEINTERLACE_YADIF;
 
     pars->params.peak_detect_params = opts->tone_map.compute_peak >= 0 ? &pars->peak_detect_params : NULL;
     pars->peak_detect_params.smoothing_period = opts->tone_map.decay_rate;
