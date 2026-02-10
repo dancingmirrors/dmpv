@@ -367,7 +367,7 @@ static double vsync_stddef(struct vo *vo, double ref_vsync)
     return sqrt(jitter / in->num_vsync_samples);
 }
 
-#define MAX_VSYNC_SAMPLES 1000
+#define MAX_VSYNC_SAMPLES 200
 #define DELAY_VSYNC_SAMPLES 10
 
 // Check if we should switch to measured average display FPS if it seems
