@@ -726,6 +726,7 @@ add_sources(
     "video/out/gpu/video.c",
     "video/out/gpu/video_shaders.c",
     "video/out/vo.c",
+    "video/out/vo_gpu.c",
     "video/out/vo_image.c",
     "video/out/vo_lavc.c",
     "video/out/vo_null.c",
