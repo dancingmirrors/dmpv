@@ -568,7 +568,7 @@ check(deps      = ["vulkan", "wayland"],
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
-check(deps      = ["gl", "egl"],
+check(deps      = ["gl", "egl", "egl-helpers"],
       sources   = "video/filter/vf_gpu.c")
 
 add_sources(
