@@ -150,12 +150,12 @@ check(desc      = "extra clang warnings",
                         "-Wunreachable-code-aggressive",
                         "-Wshift-overflow"]))
 
-check("-fsanitize-minimal-runtime",
-      desc      = "-fsanitize-minimal-runtime",
-      fn        = lambda: check_cc(flags = "-fsanitize-minimal-runtime", link = ["-fsanitize-minimal-runtime"]))
 check("-fsanitize-undefined",
       desc      = "-fsanitize=undefined",
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
+check("-fsanitize-minimal-runtime",
+      desc      = "-fsanitize-minimal-runtime",
+      fn        = lambda: check_cc(flags = "-fsanitize-minimal-runtime", link = ["-fsanitize-minimal-runtime"]))
 check("-fsanitize-address",
       desc      = "-fsanitize=address",
       default   = False,
