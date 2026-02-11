@@ -1321,6 +1321,12 @@ void update_vo_input_sections(struct MPContext *mpctx)
 
     const char *vo_name = mpctx->video_out->driver->name;
 
+    if (strcmp(vo_name, "gpu") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_gpu", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_gpu");
+    }
+
 #if HAVE_LIBPLACEBO
     if (strcmp(vo_name, "default") == 0) {
         mp_input_enable_section(mpctx->input, "vo_default", 0);

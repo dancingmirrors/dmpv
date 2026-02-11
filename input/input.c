@@ -217,6 +217,10 @@ static const char builtin_input_conf[] =
 #include "generated/etc/input.conf.inc"
 ;
 
+static const char builtin_input_vo_gpu_conf[] =
+#include "generated/etc/input_vo_gpu.conf.inc"
+;
+
 #if HAVE_LIBPLACEBO
 static const char builtin_input_vo_default_conf[] =
 #include "generated/etc/input_vo_default.conf.inc"
@@ -1407,6 +1411,9 @@ void mp_input_load_config(struct input_ctx *ictx)
         if (!bstr_startswith0(line, " "))
             parse_config(ictx, true, line, "<builtin>", NULL);
     }
+
+    define_vo_section(ictx, "vo_gpu", "<builtin-vo-gpu>",
+                      builtin_input_vo_gpu_conf);
 
 #if HAVE_LIBPLACEBO
     define_vo_section(ictx, "vo_default", "<builtin-vo-default>",
