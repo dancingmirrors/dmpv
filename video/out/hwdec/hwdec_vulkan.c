@@ -22,6 +22,7 @@
 #include "video/out/vulkan/context.h"
 #include "video/out/placebo/ra_pl.h"
 
+#include <pthread.h>
 #include <string.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
@@ -29,26 +30,41 @@
 struct vulkan_hw_priv {
     struct mp_hwdec_ctx hwctx;
     pl_gpu gpu;
+    struct queue_lock_ctx *lock_ctx;
 };
 
 struct vulkan_mapper_priv {
     struct mp_image layout;
     AVVkFrame *vkf;
     pl_tex tex[4];
+    VkImage img[4];
+    VkImageLayout img_layout[4];
+    VkSemaphore sem[4];
+    uint64_t sem_value[4];
+    int num_images;
+};
+
+struct queue_lock_ctx {
+    pl_vulkan vulkan;
+    pthread_mutex_t mutex;
 };
 
 static void lock_queue(struct AVHWDeviceContext *ctx,
                        uint32_t queue_family, uint32_t index)
 {
-    pl_vulkan vulkan = ctx->user_opaque;
-    vulkan->lock_queue(vulkan, queue_family, index);
+    struct queue_lock_ctx *lock_ctx = ctx->user_opaque;
+
+    pthread_mutex_lock(&lock_ctx->mutex);
+    lock_ctx->vulkan->lock_queue(lock_ctx->vulkan, queue_family, index);
 }
 
 static void unlock_queue(struct AVHWDeviceContext *ctx,
                          uint32_t queue_family, uint32_t index)
 {
-    pl_vulkan vulkan = ctx->user_opaque;
-    vulkan->unlock_queue(vulkan, queue_family, index);
+    struct queue_lock_ctx *lock_ctx = ctx->user_opaque;
+
+    lock_ctx->vulkan->unlock_queue(lock_ctx->vulkan, queue_family, index);
+    pthread_mutex_unlock(&lock_ctx->mutex);
 }
 
 static int vulkan_init(struct ra_hwdec *hw)
@@ -147,7 +163,15 @@ static int vulkan_init(struct ra_hwdec *hw)
     AVHWDeviceContext *device_ctx = (void *)hw_device_ctx->data;
     AVVulkanDeviceContext *device_hwctx = device_ctx->hwctx;
 
-    device_ctx->user_opaque = (void *)vk->vulkan;
+    p->lock_ctx = talloc_zero(hw, struct queue_lock_ctx);
+    if (!p->lock_ctx) {
+        MP_MSG(hw, level, "Failed to allocate queue lock context!\n");
+        goto error;
+    }
+    p->lock_ctx->vulkan = vk->vulkan;
+    pthread_mutex_init(&p->lock_ctx->mutex, NULL);
+
+    device_ctx->user_opaque = (void *)p->lock_ctx;
     device_hwctx->lock_queue = lock_queue;
     device_hwctx->unlock_queue = unlock_queue;
     device_hwctx->get_proc_addr = vk->vkinst->get_proc_addr;
@@ -257,6 +281,12 @@ static void vulkan_uninit(struct ra_hwdec *hw)
 
     hwdec_devices_remove(hw->devs, &p->hwctx);
     av_buffer_unref(&p->hwctx.av_device_ref);
+
+    if (p->lock_ctx) {
+        pthread_mutex_destroy(&p->lock_ctx->mutex);
+        talloc_free(p->lock_ctx);
+        p->lock_ctx = NULL;
+    }
 }
 
 static int mapper_init(struct ra_hwdec_mapper *mapper)
@@ -302,8 +332,11 @@ static void mapper_unmap(struct ra_hwdec_mapper *mapper)
     const AVVulkanFramesContext *vkfc = hwfc->hwctx;
     AVVkFrame *vkf = p->vkf;
 
-    int num_images;
-    for (num_images = 0; (vkf->img[num_images] != VK_NULL_HANDLE); num_images++);
+    int num_images = p->num_images;
+
+    VkImageLayout new_layout[4] = {0};
+    uint64_t new_sem_value[4] = {0};
+    bool ok[4] = {false};
 
     for (int i = 0; (p->tex[i] != NULL); i++) {
         pl_tex *tex = &p->tex[i];
@@ -315,21 +348,28 @@ static void mapper_unmap(struct ra_hwdec_mapper *mapper)
         int index = p->layout.num_planes > 1 && num_images == 1 ? 0 : i;
 
         // Update AVVkFrame state to reflect current layout
-        bool ok = pl_vulkan_hold_ex(p_owner->gpu, pl_vulkan_hold_params(
+        ok[index] = pl_vulkan_hold_ex(p_owner->gpu, pl_vulkan_hold_params(
             .tex = *tex,
-            .out_layout = &vkf->layout[index],
+            .out_layout = &new_layout[index],
             .qf = VK_QUEUE_FAMILY_IGNORED,
             .semaphore = (pl_vulkan_sem) {
-                .sem = vkf->sem[index],
-                .value = vkf->sem_value[index] + 1,
+                .sem = p->sem[index],
+                .value = p->sem_value[index] + 1,
             },
         ));
 
-        vkf->access[index] = 0;
-        vkf->sem_value[index] += !!ok;
+        new_sem_value[index] = p->sem_value[index] + !!ok[index];
         *tex = NULL;
     }
 
+    vkfc->lock_frame(hwfc, vkf);
+    for (int i = 0; i < num_images && i < 4; i++) {
+        if (ok[i]) {
+            vkf->layout[i] = new_layout[i];
+            vkf->sem_value[i] = new_sem_value[i];
+        }
+        vkf->access[i] = 0;
+    }
     vkfc->unlock_frame(hwfc, vkf);
 
  end:
@@ -363,10 +403,18 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     mp_image_set_size(&raw_layout, hwfc->width, hwfc->height);
 
     int num_images;
-    for (num_images = 0; (vkf->img[num_images] != VK_NULL_HANDLE); num_images++);
     const VkFormat *vk_fmt = av_vkfmt_from_pixfmt(hwfc->sw_format);
 
     vkfc->lock_frame(hwfc, vkf);
+    for (num_images = 0; num_images < 4 && (vkf->img[num_images] != VK_NULL_HANDLE); num_images++);
+    for (int i = 0; i < num_images && i < 4; i++) {
+        p->img[i] = vkf->img[i];
+        p->img_layout[i] = vkf->layout[i];
+        p->sem[i] = vkf->sem[i];
+        p->sem_value[i] = vkf->sem_value[i];
+    }
+    p->num_images = num_images;
+    vkfc->unlock_frame(hwfc, vkf);
 
     for (int i = 0; i < p->layout.num_planes; i++) {
         pl_tex *tex = &p->tex[i];
@@ -394,7 +442,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
         }
 
         *tex = pl_vulkan_wrap(p_owner->gpu, pl_vulkan_wrap_params(
-            .image = vkf->img[index],
+            .image = p->img[index],
             .width = mp_image_plane_w(&raw_layout, i),
             .height = mp_image_plane_h(&raw_layout, i),
             .format = vk_fmt[i],
@@ -406,11 +454,11 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
 
         pl_vulkan_release_ex(p_owner->gpu, pl_vulkan_release_params(
             .tex = p->tex[i],
-            .layout = vkf->layout[index],
+            .layout = p->img_layout[index],
             .qf = VK_QUEUE_FAMILY_IGNORED,
             .semaphore = (pl_vulkan_sem) {
-                .sem = vkf->sem[index],
-                .value = vkf->sem_value[index],
+                .sem = p->sem[index],
+                .value = p->sem_value[index],
             },
         ));
 
@@ -428,7 +476,6 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     return 0;
 
  error:
-    vkfc->unlock_frame(hwfc, vkf);
     mapper_unmap(mapper);
     return -1;
 }
