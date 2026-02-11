@@ -357,7 +357,6 @@ check("gbm",
 
 check("-libplacebo*",
       desc      = "libplacebo support",
-      required  = "libplacebo >= 6.338.2 not found or broken",
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c",
