@@ -118,7 +118,6 @@ enum mp_voctrl {
     VOCTRL_GET_WINDOW_ID,               // int64_t*
     VOCTRL_GET_MAX_TEXTURE_SIZE,        // int* (max texture width/height)
 
-    /* private to vo_default */
     VOCTRL_EXTERNAL_RESIZE,
 
     VOCTRL_HDR_METADATA,            // struct mp_hdr_metadata*
