@@ -55,10 +55,8 @@ static void deint_process(struct mp_filter *f)
     bool should_deinterlace = (opts->deinterlace == -1 && interlaced) ||
                                opts->deinterlace == 1;
 
-    if (!should_deinterlace) {
+    if (!should_deinterlace)
         mp_subfilter_destroy(&p->sub);
-        img->fields &= ~MP_IMGFIELD_INTERLACED;
-    }
 
     if (img->imgfmt == p->prev_imgfmt && p->deinterlace_active == should_deinterlace) {
         mp_subfilter_continue(&p->sub);
@@ -91,8 +89,10 @@ static void deint_process(struct mp_filter *f)
 
     bool has_filter = true;
     if (img->imgfmt == IMGFMT_VULKAN) {
-        // pl_deinterlace_params in vo_default
-        has_filter = false;
+        char *args[] = {"mode", "send_field",
+                        "parity", field_parity, NULL};
+        p->sub.filter =
+            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "bwdif_vulkan", args);
     } else if (img->imgfmt == IMGFMT_VAAPI) {
         char *args[] = {"deint", "motion-adaptive",
                         "interlaced-only", "yes",
@@ -108,8 +108,9 @@ static void deint_process(struct mp_filter *f)
         has_filter = false;
     }
 
-    if (!p->sub.filter && has_filter) {
-        MP_ERR(f, "creating deinterlacer failed\n");
+    if (!p->sub.filter) {
+        if (has_filter)
+            MP_ERR(f, "creating deinterlacer failed\n");
 
         struct mp_filter *subf = mp_bidir_dummy_filter_create(f);
         struct mp_filter *filters[2] = {0};
