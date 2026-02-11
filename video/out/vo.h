@@ -72,7 +72,6 @@ enum mp_voctrl {
     // Triggered by any change to the OSD (e.g. OSD style changes)
     VOCTRL_OSD_CHANGED,
 
-    /* Currently still used by vo_default. */
     VOCTRL_LOAD_HWDEC_API,
 
     VOCTRL_PREINIT,

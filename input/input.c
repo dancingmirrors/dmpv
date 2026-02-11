@@ -221,12 +221,6 @@ static const char builtin_input_vo_gpu_conf[] =
 #include "generated/etc/input_vo_gpu.conf.inc"
 ;
 
-#if HAVE_LIBPLACEBO
-static const char builtin_input_vo_default_conf[] =
-#include "generated/etc/input_vo_default.conf.inc"
-;
-#endif
-
 static const char builtin_input_vo_dmabuf_wayland_conf[] =
 #include "generated/etc/input_vo_dmabuf_wayland.conf.inc"
 ;
@@ -1414,11 +1408,6 @@ void mp_input_load_config(struct input_ctx *ictx)
 
     define_vo_section(ictx, "vo_gpu", "<builtin-vo-gpu>",
                       builtin_input_vo_gpu_conf);
-
-#if HAVE_LIBPLACEBO
-    define_vo_section(ictx, "vo_default", "<builtin-vo-default>",
-                      builtin_input_vo_default_conf);
-#endif
 
     define_vo_section(ictx, "vo_dmabuf_wayland", "<builtin-vo-dmabuf-wayland>",
                       builtin_input_vo_dmabuf_wayland_conf);

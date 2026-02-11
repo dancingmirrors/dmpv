@@ -361,8 +361,6 @@ check("-libplacebo*",
       fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
       sources   = ["video/out/placebo/ra_pl.c",
                    "video/out/placebo/utils.c",
-                   "video/out/vo_default.c",
-                   "video/out/default/context.c",
                    "video/out/placebo/tone_map_helpers.c"])
 
 def check_wayland_protos():

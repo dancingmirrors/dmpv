@@ -1327,14 +1327,6 @@ void update_vo_input_sections(struct MPContext *mpctx)
         mp_input_disable_section(mpctx->input, "vo_gpu");
     }
 
-#if HAVE_LIBPLACEBO
-    if (strcmp(vo_name, "default") == 0) {
-        mp_input_enable_section(mpctx->input, "vo_default", 0);
-    } else {
-        mp_input_disable_section(mpctx->input, "vo_default");
-    }
-#endif
-
     if (strcmp(vo_name, "dmabuf-wayland") == 0) {
         mp_input_enable_section(mpctx->input, "vo_dmabuf_wayland", 0);
     } else {
