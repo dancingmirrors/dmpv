@@ -503,10 +503,10 @@ void ao_uninit(struct ao *ao)
         talloc_free(p->convert_buffer);
         talloc_free(p->temp_buf);
 
-        pthread_cond_destroy(&p->wakeup);
+        mp_cond_destroy(&p->wakeup);
         mp_mutex_destroy(&p->lock);
 
-        pthread_cond_destroy(&p->pt_wakeup);
+        mp_cond_destroy(&p->pt_wakeup);
         mp_mutex_destroy(&p->pt_lock);
     }
 

@@ -483,7 +483,7 @@ static void mp_destroy_client(dmpv_handle *ctx, bool terminate)
                 ctx->num_events--;
             }
             mp_msg_log_buffer_destroy(ctx->messages);
-            pthread_cond_destroy(&ctx->wakeup);
+            mp_cond_destroy(&ctx->wakeup);
             mp_mutex_destroy(&ctx->wakeup_lock);
             mp_mutex_destroy(&ctx->lock);
             if (ctx->wakeup_pipe[0] != -1) {

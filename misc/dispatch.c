@@ -67,7 +67,7 @@ static void queue_dtor(void *p)
     mp_assert(!queue->in_process);
     mp_assert(!queue->lock_requests);
     mp_assert(!queue->locked);
-    pthread_cond_destroy(&queue->cond);
+    mp_cond_destroy(&queue->cond);
     mp_mutex_destroy(&queue->lock);
 }
 

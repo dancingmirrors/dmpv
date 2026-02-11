@@ -783,7 +783,7 @@ void mp_msg_uninit(struct dmpv_global *global)
     m_option_type_msglevels.free(&root->msg_levels);
     mp_mutex_destroy(&root->lock);
     mp_mutex_destroy(&root->log_file_lock);
-    pthread_cond_destroy(&root->log_file_wakeup);
+    mp_cond_destroy(&root->log_file_wakeup);
     talloc_free(root);
     global->log = NULL;
 }
