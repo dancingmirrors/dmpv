@@ -32,12 +32,12 @@ static bool check_unknown_entry(const char *name, int media_type)
 // --af option
 
 const struct mp_user_filter_entry *af_list[] = {
+    &af_drop,
+    &af_format,
+    &af_lavcac3enc,
     &af_lavfi,
     &af_lavfi_bridge,
     &af_scaletempo,
-    &af_format,
-    &af_lavcac3enc,
-    &af_drop,
 };
 
 static bool get_af_desc(struct m_obj_desc *dst, int index)
@@ -73,14 +73,17 @@ const struct m_obj_list af_obj_list = {
 
 const struct mp_user_filter_entry *vf_list[] = {
     &vf_format,
+#if HAVE_GL && HAVE_EGL && HAVE_EGL_HELPERS
+    &vf_gpu,
+#endif
     &vf_lavfi,
     &vf_lavfi_bridge,
     &vf_sub,
-#if HAVE_VDPAU
-    &vf_vdpaupp,
-#endif
 #if HAVE_VAAPI
     &vf_vavpp,
+#endif
+#if HAVE_VDPAU
+    &vf_vdpaupp,
 #endif
 };
 
