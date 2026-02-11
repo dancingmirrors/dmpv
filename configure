@@ -568,6 +568,9 @@ check(deps      = ["vulkan", "wayland"],
 check(deps      = ["vulkan", "x11"],
       sources   = "video/out/vulkan/context_xlib.c")
 
+check(deps      = ["gl", "egl"],
+      sources   = "video/filter/vf_gpu.c")
+
 add_sources(
     "audio/aframe.c",
     "audio/chmap.c",
@@ -709,7 +712,6 @@ add_sources(
     "video/mp_image.c",
     "video/mp_image_pool.c",
     "video/vd_lavc.c",
-    "video/filter/vf_gpu.c",
     "video/out/aspect.c",
     "video/out/bitmap_packer.c",
     "video/out/dither.c",
