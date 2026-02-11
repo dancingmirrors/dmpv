@@ -1335,21 +1335,33 @@ void update_vo_input_sections(struct MPContext *mpctx)
     }
 #endif
 
-    if (strcmp(vo_name, "drm") == 0) {
-        mp_input_enable_section(mpctx->input, "vo_drm", 0);
-    } else {
-        mp_input_disable_section(mpctx->input, "vo_drm");
-    }
-
     if (strcmp(vo_name, "dmabuf-wayland") == 0) {
         mp_input_enable_section(mpctx->input, "vo_dmabuf_wayland", 0);
     } else {
         mp_input_disable_section(mpctx->input, "vo_dmabuf_wayland");
     }
 
+    if (strcmp(vo_name, "wlshm") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_wlshm", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_wlshm");
+    }
+
     if (strcmp(vo_name, "vdpau") == 0) {
         mp_input_enable_section(mpctx->input, "vo_vdpau", 0);
     } else {
         mp_input_disable_section(mpctx->input, "vo_vdpau");
+    }
+
+    if (strcmp(vo_name, "x11") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_x11", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_x11");
+    }
+
+    if (strcmp(vo_name, "drm") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_drm", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_drm");
     }
 }
