@@ -504,10 +504,10 @@ void ao_uninit(struct ao *ao)
         talloc_free(p->temp_buf);
 
         pthread_cond_destroy(&p->wakeup);
-        pthread_mutex_destroy(&p->lock);
+        mp_mutex_destroy(&p->lock);
 
         pthread_cond_destroy(&p->pt_wakeup);
-        pthread_mutex_destroy(&p->pt_lock);
+        mp_mutex_destroy(&p->pt_lock);
     }
 
     talloc_free(ao);

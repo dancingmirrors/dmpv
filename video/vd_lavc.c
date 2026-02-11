@@ -1484,7 +1484,7 @@ static void vd_lavc_destroy(struct mp_filter *vd)
 
     uninit_avctx(vd);
 
-    pthread_mutex_destroy(&ctx->dr_lock);
+    mp_mutex_destroy(&ctx->dr_lock);
 }
 
 static const struct mp_filter_info vd_lavc_filter = {

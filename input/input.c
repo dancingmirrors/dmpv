@@ -1468,7 +1468,7 @@ void mp_input_uninit(struct input_ctx *ictx)
     close_input_sources(ictx);
     clear_queue(&ictx->cmd_queue);
     talloc_free(ictx->current_down_cmd);
-    pthread_mutex_destroy(&ictx->mutex);
+    mp_mutex_destroy(&ictx->mutex);
     talloc_free(ictx);
 }
 

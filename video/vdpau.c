@@ -363,8 +363,8 @@ static void free_device_ref(struct AVHWDeviceContext *hwctx)
     if (ctx->close_display)
         XCloseDisplay(ctx->x11);
 
-    pthread_mutex_destroy(&ctx->pool_lock);
-    pthread_mutex_destroy(&ctx->preempt_lock);
+    mp_mutex_destroy(&ctx->pool_lock);
+    mp_mutex_destroy(&ctx->preempt_lock);
     talloc_free(ctx);
 }
 

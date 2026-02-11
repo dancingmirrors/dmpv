@@ -18,11 +18,11 @@
  */
 
 #include "config.h"
+#include "osdep/threads.h"
 #include "video/out/gpu/hwdec.h"
 #include "video/out/vulkan/context.h"
 #include "video/out/placebo/ra_pl.h"
 
-#include <pthread.h>
 #include <string.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vulkan.h>
@@ -54,7 +54,7 @@ static void lock_queue(struct AVHWDeviceContext *ctx,
 {
     struct queue_lock_ctx *lock_ctx = ctx->user_opaque;
 
-    pthread_mutex_lock(&lock_ctx->mutex);
+    mp_mutex_lock(&lock_ctx->mutex);
     lock_ctx->vulkan->lock_queue(lock_ctx->vulkan, queue_family, index);
 }
 
@@ -64,7 +64,7 @@ static void unlock_queue(struct AVHWDeviceContext *ctx,
     struct queue_lock_ctx *lock_ctx = ctx->user_opaque;
 
     lock_ctx->vulkan->unlock_queue(lock_ctx->vulkan, queue_family, index);
-    pthread_mutex_unlock(&lock_ctx->mutex);
+    mp_mutex_unlock(&lock_ctx->mutex);
 }
 
 static int vulkan_init(struct ra_hwdec *hw)
@@ -283,7 +283,7 @@ static void vulkan_uninit(struct ra_hwdec *hw)
     av_buffer_unref(&p->hwctx.av_device_ref);
 
     if (p->lock_ctx) {
-        pthread_mutex_destroy(&p->lock_ctx->mutex);
+        mp_mutex_destroy(&p->lock_ctx->mutex);
         talloc_free(p->lock_ctx);
         p->lock_ctx = NULL;
     }

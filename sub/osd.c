@@ -157,7 +157,7 @@ void osd_free(struct osd_state *osd)
         return;
     osd_destroy_backend(osd);
     talloc_free(osd->objs[OSDTYPE_EXTERNAL2]->external2);
-    pthread_mutex_destroy(&osd->lock);
+    mp_mutex_destroy(&osd->lock);
     talloc_free(osd);
 }
 

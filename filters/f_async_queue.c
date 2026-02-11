@@ -58,7 +58,7 @@ static void unref_queue(struct async_queue *q)
     mp_assert(count >= 0);
     if (count == 0) {
         reset_queue(q);
-        pthread_mutex_destroy(&q->lock);
+        mp_mutex_destroy(&q->lock);
         talloc_free(q);
     }
 }

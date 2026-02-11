@@ -781,8 +781,8 @@ void mp_msg_uninit(struct dmpv_global *global)
     talloc_free(root->stats_path);
     talloc_free(root->log_path);
     m_option_type_msglevels.free(&root->msg_levels);
-    pthread_mutex_destroy(&root->lock);
-    pthread_mutex_destroy(&root->log_file_lock);
+    mp_mutex_destroy(&root->lock);
+    mp_mutex_destroy(&root->log_file_lock);
     pthread_cond_destroy(&root->log_file_wakeup);
     talloc_free(root);
     global->log = NULL;
@@ -923,7 +923,7 @@ found:
     while (buffer->num_entries)
         talloc_free(log_buffer_read(buffer));
 
-    pthread_mutex_destroy(&buffer->lock);
+    mp_mutex_destroy(&buffer->lock);
     talloc_free(buffer);
 
     atomic_fetch_add(&root->reload_counter, 1);

@@ -68,7 +68,7 @@ static void queue_dtor(void *p)
     mp_assert(!queue->lock_requests);
     mp_assert(!queue->locked);
     pthread_cond_destroy(&queue->cond);
-    pthread_mutex_destroy(&queue->lock);
+    mp_mutex_destroy(&queue->lock);
 }
 
 // A dispatch queue lets other threads run callbacks in a target thread.

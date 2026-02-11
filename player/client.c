@@ -200,7 +200,7 @@ void mp_clients_destroy(struct MPContext *mpctx)
         abort();
     }
 
-    pthread_mutex_destroy(&mpctx->clients->lock);
+    mp_mutex_destroy(&mpctx->clients->lock);
     talloc_free(mpctx->clients);
     mpctx->clients = NULL;
 }
@@ -484,8 +484,8 @@ static void mp_destroy_client(dmpv_handle *ctx, bool terminate)
             }
             mp_msg_log_buffer_destroy(ctx->messages);
             pthread_cond_destroy(&ctx->wakeup);
-            pthread_mutex_destroy(&ctx->wakeup_lock);
-            pthread_mutex_destroy(&ctx->lock);
+            mp_mutex_destroy(&ctx->wakeup_lock);
+            mp_mutex_destroy(&ctx->lock);
             if (ctx->wakeup_pipe[0] != -1) {
                 close(ctx->wakeup_pipe[0]);
                 close(ctx->wakeup_pipe[1]);

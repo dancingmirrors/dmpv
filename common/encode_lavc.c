@@ -218,7 +218,7 @@ bool encode_lavc_free(struct encode_lavc_context *ctx)
 
     res = !p->failed;
 
-    pthread_mutex_destroy(&ctx->lock);
+    mp_mutex_destroy(&ctx->lock);
     talloc_free(ctx);
 
     return res;

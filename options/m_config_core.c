@@ -432,7 +432,7 @@ static void shadow_destroy(void *p)
     mp_assert(shadow->num_listeners == 0);
 
     talloc_free(shadow->data);
-    pthread_mutex_destroy(&shadow->lock);
+    mp_mutex_destroy(&shadow->lock);
 }
 
 struct m_config_shadow *m_config_shadow_new(const struct m_sub_options *root)

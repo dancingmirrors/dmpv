@@ -790,7 +790,7 @@ static void filter_destructor(void *p)
 
     if (r->root_filter == f) {
         mp_assert(!f->in->parent);
-        pthread_mutex_destroy(&r->async_lock);
+        mp_mutex_destroy(&r->async_lock);
         talloc_free(r->async_pending);
         talloc_free(r);
     }

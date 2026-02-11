@@ -128,7 +128,7 @@ void sub_destroy(struct dec_sub *sub)
         sub->sd->driver->uninit(sub->sd);
     }
     talloc_free(sub->sd);
-    pthread_mutex_destroy(&sub->lock);
+    mp_mutex_destroy(&sub->lock);
     talloc_free(sub);
 }
 
