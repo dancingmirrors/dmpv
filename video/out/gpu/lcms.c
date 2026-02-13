@@ -703,6 +703,6 @@ const struct m_sub_options mp_icc_conf = {
         .intent = MP_INTENT_RELATIVE_COLORIMETRIC,
         .use_embedded = true,
         .cache = true,
-        .profile_auto = true,
+        .profile_auto = false,
     },
 };
