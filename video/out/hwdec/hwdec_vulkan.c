@@ -335,9 +335,27 @@ static void mapper_unmap(struct ra_hwdec_mapper *mapper)
     int num_images = p->num_images;
 
     VkImageLayout new_layout[4] = {0};
-    uint64_t new_sem_value[4] = {0};
+    uint64_t reserved_sem_value[4] = {0};
     bool ok[4] = {false};
+    bool will_process[4] = {false};
 
+    for (int i = 0; (p->tex[i] != NULL); i++) {
+        if (!p->tex[i])
+            continue;
+
+        int index = p->layout.num_planes > 1 && num_images == 1 ? 0 : i;
+        will_process[index] = true;
+    }
+
+    vkfc->lock_frame(hwfc, vkf);
+    for (int i = 0; i < num_images && i < 4; i++) {
+        if (will_process[i]) {
+            reserved_sem_value[i] = ++vkf->sem_value[i];
+        }
+    }
+    vkfc->unlock_frame(hwfc, vkf);
+
+    bool processed[4] = {false};
     for (int i = 0; (p->tex[i] != NULL); i++) {
         pl_tex *tex = &p->tex[i];
         if (!*tex)
@@ -347,26 +365,30 @@ static void mapper_unmap(struct ra_hwdec_mapper *mapper)
         // frame. Anything else is treated as one-image-per-plane.
         int index = p->layout.num_planes > 1 && num_images == 1 ? 0 : i;
 
-        // Update AVVkFrame state to reflect current layout
-        ok[index] = pl_vulkan_hold_ex(p_owner->gpu, pl_vulkan_hold_params(
-            .tex = *tex,
-            .out_layout = &new_layout[index],
-            .qf = VK_QUEUE_FAMILY_IGNORED,
-            .semaphore = (pl_vulkan_sem) {
-                .sem = p->sem[index],
-                .value = p->sem_value[index] + 1,
-            },
-        ));
+        if (!processed[index]) {
+            ok[index] = pl_vulkan_hold_ex(p_owner->gpu, pl_vulkan_hold_params(
+                .tex = *tex,
+                .out_layout = &new_layout[index],
+                .qf = VK_QUEUE_FAMILY_IGNORED,
+                .semaphore = (pl_vulkan_sem) {
+                    .sem = p->sem[index],
+                    .value = reserved_sem_value[index],
+                },
+            ));
 
-        new_sem_value[index] = p->sem_value[index] + !!ok[index];
+            processed[index] = true;
+        }
         *tex = NULL;
     }
 
     vkfc->lock_frame(hwfc, vkf);
     for (int i = 0; i < num_images && i < 4; i++) {
-        if (ok[i]) {
-            vkf->layout[i] = new_layout[i];
-            vkf->sem_value[i] = new_sem_value[i];
+        if (will_process[i]) {
+            if (ok[i]) {
+                vkf->layout[i] = new_layout[i];
+            } else {
+                vkf->sem_value[i] = reserved_sem_value[i] - 1;
+            }
         }
         vkf->access[i] = 0;
     }
