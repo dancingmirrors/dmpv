@@ -306,7 +306,7 @@ static const struct gl_video_opts gl_video_opts_def = {
     .scaler = {
         {{"bilinear", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // scale
-        {{"bilinear",       .params={NAN, NAN}}, {.params = {NAN, NAN}},
+        {{"catmull_rom", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // dscale
         {{"bilinear", .params={NAN, NAN}}, {.params = {NAN, NAN}},
          .cutoff = 0.001}, // cscale
@@ -331,6 +331,7 @@ static const struct gl_video_opts gl_video_opts_def = {
     .early_flush = -1,
     .shader_cache = true,
     .hwdec_interop = "auto",
+    .correct_downscaling = 1,
 };
 
 static OPT_STRING_VALIDATE_FUNC(validate_scaler_opt);
