@@ -152,9 +152,11 @@ check(desc      = "extra clang warnings",
 
 check("-fsanitize-undefined",
       desc      = "-fsanitize=undefined",
+      default   = False,
       fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
 check("-fsanitize-minimal-runtime",
       desc      = "-fsanitize-minimal-runtime",
+      default   = False,
       fn        = lambda: check_cc(flags = "-fsanitize-minimal-runtime", link = ["-fsanitize-minimal-runtime"]))
 check("-fsanitize-address",
       desc      = "-fsanitize=address",
