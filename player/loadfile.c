@@ -1698,6 +1698,11 @@ static void play_current_file(struct MPContext *mpctx)
             }
         }
         if (has_video) {
+            // This is use_queue in f_decoder_wrapper.c but it takes effect too late.
+            m_config_set_option_cli(mpctx->mconfig, bstr0("vd-queue-enable"),
+                                    bstr0("yes"),
+                                    M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
+
             m_config_set_option_cli(mpctx->mconfig, bstr0("force-window"),
                                     bstr0("yes"),
                                     M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
