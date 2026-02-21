@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <math.h>
@@ -25,10 +25,10 @@
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "common/msg.h"
 #include "options/options.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/path.h"
 #include "misc/ctype.h"
 
@@ -68,13 +68,13 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
     if (filename[0] == '@') {
         struct stream *s = stream_create(filename + 1,
                             d->stream_origin | STREAM_READ, d->cancel, d->global);
-        if (s) {
+        if (s && !s->is_directory) {
             while (1) {
                 char buf[512];
                 int len = stream_read_peek(s, buf, sizeof(buf));
                 if (!len)
                     break;
-                bstr data = (bstr){buf, len};
+                bstr data = (bstr){(unsigned char *)buf, len};
                 int pos = bstrchr(data, '\n');
                 data = bstr_splice(data, 0, pos < 0 ? data.len : pos + 1);
                 bstr fname = bstr_strip(data);
@@ -94,15 +94,15 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
             }
             free_stream(s);
 
-            mp_info(log, "number of files: %d\n", mf->nr_of_files);
             goto exit_mf;
         }
+        free_stream(s);
         mp_info(log, "%s is not indirect filelist\n", filename + 1);
     }
 
     if (strchr(filename, ',')) {
-        mp_info(log, "filelist: %s\n", filename);
         bstr bfilename = bstr0(filename);
+        mp_info(log, "filelist: %.*s\n", BSTR_P(bfilename));
 
         while (bfilename.len) {
             bstr bfname;
@@ -116,7 +116,6 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
             }
             talloc_free(fname2);
         }
-        mp_info(log, "number of files: %d\n", mf->nr_of_files);
 
         goto exit_mf;
     }
@@ -124,7 +123,6 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
     size_t fname_avail = strlen(filename) + 32;
     char *fname = talloc_size(mf, fname_avail);
 
-#if HAVE_GLOB
     if (!strchr(filename, '%')) {
         // append * if none present
         snprintf(fname, fname_avail, "%s%c", filename,
@@ -142,11 +140,9 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
                 continue;
             mf_add(mf, gg.gl_pathv[i]);
         }
-        mp_info(log, "number of files: %d\n", mf->nr_of_files);
         globfree(&gg);
         goto exit_mf;
     }
-#endif
 
     // We're using arbitrary user input as printf format with 1 int argument.
     // Any format which uses exactly 1 int argument would be valid, but for
@@ -175,7 +171,9 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
 
     // nspec==0 (zero specifiers) is rejected because fname wouldn't advance.
     if (bad_spec || nspec != 1) {
-        mp_err(log, "unsupported expr format: '%s'\n", filename);
+        mp_err(log,
+               "unsupported expr format: '%s' - exactly one format specifier of the form %%[.][NUM]d is expected\n",
+               filename);
         goto exit_mf;
     }
 
@@ -194,9 +192,8 @@ static mf_t *open_mf_pattern(void *talloc_ctx, struct demuxer *d, char *filename
         }
     }
 
-    mp_info(log, "number of files: %d\n", mf->nr_of_files);
-
 exit_mf:
+    mp_info(log, "number of files: %d\n", mf->nr_of_files);
     return mf;
 }
 
@@ -246,7 +243,7 @@ static bool demux_mf_read_packet(struct demuxer *demuxer,
         stream_seek(stream, 0);
         bstr data = stream_read_complete(stream, NULL, MF_MAX_FILE_SIZE);
         if (data.len) {
-            demux_packet_t *dp = new_demux_packet(data.len);
+            demux_packet_t *dp = new_demux_packet(demuxer->packet_pool, data.len);
             if (dp) {
                 memcpy(dp->buffer, data.start, data.len);
                 dp->pts = mf->curr_frame / mf->sh->codec->fps;
@@ -323,6 +320,9 @@ static const struct {
     { "qoi",            "qoi" },
     { "xface",          "xface" },
     { "xwd",            "xwd" },
+    { "svg",            "svg" },
+    { "webp",           "webp" },
+    { "jxl",            "jpegxl" },
     {0}
 };
 

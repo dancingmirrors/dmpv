@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/pixdesc.h>
@@ -57,18 +57,10 @@ static const struct {
 #endif
 
     {IMGFMT_VDPAU, AV_PIX_FMT_VDPAU},
-    {IMGFMT_VIDEOTOOLBOX,   AV_PIX_FMT_VIDEOTOOLBOX},
-    {IMGFMT_MEDIACODEC, AV_PIX_FMT_MEDIACODEC},
     {IMGFMT_VAAPI, AV_PIX_FMT_VAAPI},
-    {IMGFMT_DXVA2, AV_PIX_FMT_DXVA2_VLD},
-    {IMGFMT_D3D11, AV_PIX_FMT_D3D11},
-    {IMGFMT_MMAL, AV_PIX_FMT_MMAL},
-    {IMGFMT_CUDA, AV_PIX_FMT_CUDA},
     {IMGFMT_P010, AV_PIX_FMT_P010},
     {IMGFMT_DRMPRIME, AV_PIX_FMT_DRM_PRIME},
-#if HAVE_VULKAN_INTEROP
     {IMGFMT_VULKAN, AV_PIX_FMT_VULKAN},
-#endif
 
     {0, AV_PIX_FMT_NONE}
 };

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -20,6 +20,7 @@
 #include "error_diffusion.h"
 
 #include "common/common.h"
+#include "misc/mp_assert.h"
 
 #define GLSL(...) gl_sc_addf(sc, __VA_ARGS__)
 #define GLSLH(...) gl_sc_haddf(sc, __VA_ARGS__)
@@ -36,7 +37,7 @@ static int compute_rightmost_shifted_column(const struct error_diffusion_kernel 
 
                 // The shift mapping guarantees current column (or left of it)
                 // won't be affected by error diffusion.
-                assert(shifted_x > 0);
+                mp_assert(shifted_x > 0);
 
                 ret = MPMAX(ret, shifted_x);
             }
@@ -75,7 +76,7 @@ void pass_error_diffusion(struct gl_shader_cache *sc,
                           const struct error_diffusion_kernel *k,
                           int tex, int width, int height, int depth, int block_size)
 {
-    assert(block_size <= height);
+    mp_assert(block_size <= height);
 
     // The parallel error diffusion works by applying the shift mapping first.
     // Taking the Floyd and Steinberg algorithm for example. After applying

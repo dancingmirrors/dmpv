@@ -1,21 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vdpau.h>
@@ -46,9 +46,9 @@ static void preemption_callback(VdpDevice device, void *context)
 {
     struct mp_vdpau_ctx *ctx = context;
 
-    pthread_mutex_lock(&ctx->preempt_lock);
+    mp_mutex_lock(&ctx->preempt_lock);
     ctx->is_preempted = true;
-    pthread_mutex_unlock(&ctx->preempt_lock);
+    mp_mutex_unlock(&ctx->preempt_lock);
 }
 
 static int win_x11_init_vdpau_procs(struct mp_vdpau_ctx *ctx, bool probing)
@@ -163,7 +163,7 @@ static int handle_preemption(struct mp_vdpau_ctx *ctx)
 int mp_vdpau_handle_preemption(struct mp_vdpau_ctx *ctx, uint64_t *counter)
 {
     int r = 1;
-    pthread_mutex_lock(&ctx->preempt_lock);
+    mp_mutex_lock(&ctx->preempt_lock);
 
     const void *p[4] = {&(uint32_t){0}};
     uint32_t stride[4] = {4};
@@ -182,7 +182,7 @@ int mp_vdpau_handle_preemption(struct mp_vdpau_ctx *ctx, uint64_t *counter)
         r = 0; // signal recovery after preemption
     }
 
-    pthread_mutex_unlock(&ctx->preempt_lock);
+    mp_mutex_unlock(&ctx->preempt_lock);
     return r;
 }
 
@@ -196,10 +196,10 @@ static void release_decoder_surface(void *ptr)
     struct surface_ref *r = ptr;
     struct mp_vdpau_ctx *ctx = r->ctx;
 
-    pthread_mutex_lock(&ctx->pool_lock);
-    assert(ctx->video_surfaces[r->index].in_use);
+    mp_mutex_lock(&ctx->pool_lock);
+    mp_assert(ctx->video_surfaces[r->index].in_use);
     ctx->video_surfaces[r->index].in_use = false;
-    pthread_mutex_unlock(&ctx->pool_lock);
+    mp_mutex_unlock(&ctx->pool_lock);
 
     talloc_free(r);
 }
@@ -207,7 +207,7 @@ static void release_decoder_surface(void *ptr)
 static struct mp_image *create_ref(struct mp_vdpau_ctx *ctx, int index)
 {
     struct surface_entry *e = &ctx->video_surfaces[index];
-    assert(!e->in_use);
+    mp_assert(!e->in_use);
     e->in_use = true;
     e->age = ctx->age_counter++;
     struct surface_ref *ref = talloc_ptrtype(NULL, ref);
@@ -238,7 +238,7 @@ static struct mp_image *mp_vdpau_get_surface(struct mp_vdpau_ctx *ctx,
         rgb_format = (VdpChromaType)-1;
     }
 
-    pthread_mutex_lock(&ctx->pool_lock);
+    mp_mutex_lock(&ctx->pool_lock);
 
     // Destroy all unused surfaces that don't have matching parameters
     for (int n = 0; n < MAX_VIDEO_SURFACES; n++) {
@@ -263,10 +263,10 @@ static struct mp_image *mp_vdpau_get_surface(struct mp_vdpau_ctx *ctx,
     for (int n = 0; n < MAX_VIDEO_SURFACES; n++) {
         struct surface_entry *e = &ctx->video_surfaces[n];
         if (!e->in_use && e->allocated) {
-            assert(e->w == w && e->h == h);
-            assert(e->chroma == chroma);
-            assert(e->rgb_format == rgb_format);
-            assert(e->rgb == rgb);
+            mp_assert(e->w == w && e->h == h);
+            mp_assert(e->chroma == chroma);
+            mp_assert(e->rgb_format == rgb_format);
+            mp_assert(e->rgb == rgb);
             if (surface_index >= 0) {
                 struct surface_entry *other = &ctx->video_surfaces[surface_index];
                 if (other->age < e->age)
@@ -283,9 +283,9 @@ static struct mp_image *mp_vdpau_get_surface(struct mp_vdpau_ctx *ctx,
     for (int n = 0; n < MAX_VIDEO_SURFACES; n++) {
         struct surface_entry *e = &ctx->video_surfaces[n];
         if (!e->in_use) {
-            assert(e->surface == VDP_INVALID_HANDLE);
-            assert(e->osurface == VDP_INVALID_HANDLE);
-            assert(!e->allocated);
+            mp_assert(e->surface == VDP_INVALID_HANDLE);
+            mp_assert(e->osurface == VDP_INVALID_HANDLE);
+            mp_assert(!e->allocated);
             e->chroma = chroma;
             e->rgb_format = rgb_format;
             e->rgb = rgb;
@@ -317,7 +317,7 @@ done: ;
     if (surface_index >= 0)
         mpi = create_ref(ctx, surface_index);
 
-    pthread_mutex_unlock(&ctx->pool_lock);
+    mp_mutex_unlock(&ctx->pool_lock);
 
     if (!mpi)
         MP_ERR(ctx, "no surfaces available in mp_vdpau_get_video_surface\n");
@@ -339,7 +339,7 @@ static void free_device_ref(struct AVHWDeviceContext *hwctx)
 
     for (int i = 0; i < MAX_VIDEO_SURFACES; i++) {
         // can't hold references past context lifetime
-        assert(!ctx->video_surfaces[i].in_use);
+        mp_assert(!ctx->video_surfaces[i].in_use);
         if (ctx->video_surfaces[i].surface != VDP_INVALID_HANDLE) {
             vdp_st = vdp->video_surface_destroy(ctx->video_surfaces[i].surface);
             CHECK_VDP_WARNING(ctx, "Error when calling vdp_video_surface_destroy");
@@ -363,8 +363,8 @@ static void free_device_ref(struct AVHWDeviceContext *hwctx)
     if (ctx->close_display)
         XCloseDisplay(ctx->x11);
 
-    pthread_mutex_destroy(&ctx->pool_lock);
-    pthread_mutex_destroy(&ctx->preempt_lock);
+    mp_mutex_destroy(&ctx->pool_lock);
+    mp_mutex_destroy(&ctx->preempt_lock);
     talloc_free(ctx);
 }
 
@@ -500,7 +500,7 @@ struct mp_image *mp_vdpau_upload_video_surface(struct mp_vdpau_ctx *ctx,
         if (src->imgfmt == IMGFMT_NV12)
             destdata[1] = destdata[2];
         vdp_st = vdp->video_surface_put_bits_y_cb_cr(surface,
-            ycbcr, destdata, src->stride);
+            ycbcr, (const void * const *)destdata, (uint32_t const *)src->stride);
     } else {
         VdpOutputSurface rgb_surface = (intptr_t)hwmpi->planes[3];
         vdp_st = vdp->output_surface_put_bits_native(rgb_surface,
@@ -547,7 +547,7 @@ static bool is_emulated(struct AVBufferRef *hw_device_ctx)
     return mp_vdpau_guess_if_emulated(ctx);
 }
 
-static struct AVBufferRef *vdpau_create_standalone(struct mpv_global *global,
+static struct AVBufferRef *vdpau_create_standalone(struct dmpv_global *global,
         struct mp_log *log, struct hwcontext_create_dev_params *params)
 {
     XInitThreads();

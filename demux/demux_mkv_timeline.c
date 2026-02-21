@@ -1,24 +1,23 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
-#include <assert.h>
 #include <dirent.h>
 #include <string.h>
 #include <strings.h>
@@ -29,13 +28,13 @@
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "demux/demux.h"
 #include "demux/timeline.h"
 #include "demux/matroska.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "options/path.h"
 #include "misc/bstr.h"
@@ -46,7 +45,7 @@
 
 struct tl_ctx {
     struct mp_log *log;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct MPOpts *opts;
     struct timeline *tl;
 
@@ -173,6 +172,7 @@ static bool check_file_seg(struct tl_ctx *ctx, char *filename, int segment)
         .matroska_was_valid = &was_valid,
         .disable_timeline = true,
         .stream_flags = ctx->tl->stream_origin,
+        .depth = ctx->demuxer->depth + 1,
     };
     struct mp_cancel *cancel = ctx->tl->cancel;
     if (mp_cancel_test(cancel))
@@ -491,7 +491,7 @@ static void check_track_compatibility(struct tl_ctx *tl, struct demuxer *mainsrc
                 demuxer_stream_by_demuxer_id(p->source, m->type, m->demuxer_id);
             if (s) {
                 // There are actually many more things that in theory have to
-                // match (though mpv's implementation doesn't care).
+                // match (though dmpv's implementation doesn't care).
                 if (strcmp(s->codec->codec, m->codec->codec) != 0)
                     MP_WARN(tl, "Timeline segments have mismatching codec.\n");
                 if (s->codec->extradata_size != m->codec->extradata_size ||
@@ -583,7 +583,7 @@ void build_ordered_chapter_timeline(struct timeline *tl)
     };
     build_timeline_loop(ctx, chapters, &info, 0);
 
-    // Fuck everything: filter out all "unset" chapters.
+    // Filter out all "unset" chapters.
     for (int n = m->num_ordered_chapters - 1; n >= 0; n--) {
         if (!chapters[n].metadata)
             MP_TARRAY_REMOVE_AT(chapters, m->num_ordered_chapters, n);

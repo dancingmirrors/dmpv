@@ -1,9 +1,8 @@
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "utils.h"
 
-#if PL_API_VER >= 251
 #include <libplacebo/utils/dolbyvision.h>
-#endif
 
 static const int pl_log_to_msg_lev[PL_LOG_ALL+1] = {
     [PL_LOG_FATAL] = MSGL_FATAL,
@@ -27,7 +26,7 @@ static const enum pl_log_level msg_lev_to_pl_log[MSGL_MAX+1] = {
 };
 
 // translates log levels while probing
-static const enum pl_log_level probing_map(enum pl_log_level level)
+static enum pl_log_level probing_map(enum pl_log_level level)
 {
     switch (level) {
     case PL_LOG_FATAL:
@@ -46,6 +45,12 @@ static void log_cb(void *priv, enum pl_log_level level, const char *msg)
     mp_msg(log, pl_log_to_msg_lev[level], "%s\n", msg);
 }
 
+static int determine_pl_log_level(struct mp_log *log)
+{
+    int log_level = mp_msg_level(log);
+    return log_level == -1 ? PL_LOG_NONE : msg_lev_to_pl_log[log_level];
+}
+
 static void log_cb_probing(void *priv, enum pl_log_level level, const char *msg)
 {
     struct mp_log *log = priv;
@@ -56,7 +61,7 @@ pl_log mppl_log_create(void *tactx, struct mp_log *log)
 {
     return pl_log_create(PL_API_VER, &(struct pl_log_params) {
         .log_cb     = log_cb,
-        .log_level  = msg_lev_to_pl_log[mp_msg_level(log)],
+        .log_level  = determine_pl_log_level(log),
         .log_priv   = mp_log_new(tactx, log, "libplacebo"),
     });
 }
@@ -87,13 +92,8 @@ enum pl_color_primaries mp_prim_to_pl(enum mp_csp_prim prim)
     case MP_CSP_PRIM_S_GAMUT:       return PL_COLOR_PRIM_S_GAMUT;
     case MP_CSP_PRIM_EBU_3213:      return PL_COLOR_PRIM_EBU_3213;
     case MP_CSP_PRIM_FILM_C:        return PL_COLOR_PRIM_FILM_C;
-#if PL_API_VER >= 230
     case MP_CSP_PRIM_ACES_AP0:      return PL_COLOR_PRIM_ACES_AP0;
     case MP_CSP_PRIM_ACES_AP1:      return PL_COLOR_PRIM_ACES_AP1;
-#else
-    case MP_CSP_PRIM_ACES_AP0:
-    case MP_CSP_PRIM_ACES_AP1:      return PL_COLOR_PRIM_UNKNOWN;
-#endif
     case MP_CSP_PRIM_COUNT:         return PL_COLOR_PRIM_COUNT;
     }
 
@@ -119,10 +119,8 @@ enum mp_csp_prim mp_prim_from_pl(enum pl_color_primaries prim)
     case PL_COLOR_PRIM_S_GAMUT:     return MP_CSP_PRIM_S_GAMUT;
     case PL_COLOR_PRIM_EBU_3213:    return MP_CSP_PRIM_EBU_3213;
     case PL_COLOR_PRIM_FILM_C:      return MP_CSP_PRIM_FILM_C;
-#if PL_API_VER >= 230
     case PL_COLOR_PRIM_ACES_AP0:    return MP_CSP_PRIM_ACES_AP0;
     case PL_COLOR_PRIM_ACES_AP1:    return MP_CSP_PRIM_ACES_AP1;
-#endif
     case PL_COLOR_PRIM_COUNT:       return MP_CSP_PRIM_COUNT;
     }
 
@@ -148,11 +146,7 @@ enum pl_color_transfer mp_trc_to_pl(enum mp_csp_trc trc)
     case MP_CSP_TRC_V_LOG:          return PL_COLOR_TRC_V_LOG;
     case MP_CSP_TRC_S_LOG1:         return PL_COLOR_TRC_S_LOG1;
     case MP_CSP_TRC_S_LOG2:         return PL_COLOR_TRC_S_LOG2;
-#if PL_API_VER >= 240
     case MP_CSP_TRC_ST428:          return PL_COLOR_TRC_ST428;
-#else
-    case MP_CSP_TRC_ST428:          return PL_COLOR_TRC_UNKNOWN;
-#endif
     case MP_CSP_TRC_COUNT:          return PL_COLOR_TRC_COUNT;
     }
 
@@ -178,9 +172,7 @@ enum mp_csp_trc mp_trc_from_pl(enum pl_color_transfer trc)
     case PL_COLOR_TRC_V_LOG: return MP_CSP_TRC_V_LOG;
     case PL_COLOR_TRC_S_LOG1: return MP_CSP_TRC_S_LOG1;
     case PL_COLOR_TRC_S_LOG2: return MP_CSP_TRC_S_LOG2;
-#if PL_API_VER >= 240
     case PL_COLOR_TRC_ST428: return MP_CSP_TRC_ST428;
-#endif
     case PL_COLOR_TRC_COUNT: return MP_CSP_TRC_COUNT;
     }
 
@@ -256,37 +248,9 @@ enum pl_chroma_location mp_chroma_to_pl(enum mp_chroma_location chroma)
 void mp_map_dovi_metadata_to_pl(struct mp_image *mpi,
                                 struct pl_frame *frame)
 {
-#ifdef PL_HAVE_LAV_DOLBY_VISION
-    if (mpi->dovi) {
-        const AVDOVIMetadata *metadata = (AVDOVIMetadata *) mpi->dovi->data;
-        const AVDOVIRpuDataHeader *header = av_dovi_get_header(metadata);
-
-        if (header->disable_residual_flag) {
-            // Only automatically map DoVi RPUs that don't require an EL
-            struct pl_dovi_metadata *dovi = talloc_ptrtype(mpi, dovi);
-
-#if PL_API_VER >= 250
-            pl_frame_map_avdovi_metadata(frame, dovi, metadata);
-#else // back-compat fallback for older libplacebo
-            const AVDOVIColorMetadata *color = av_dovi_get_color(metadata);
-            pl_map_dovi_metadata(dovi, metadata);
-            frame->repr.dovi = dovi;
-            frame->repr.sys = PL_COLOR_SYSTEM_DOLBYVISION;
-            frame->color.primaries = PL_COLOR_PRIM_BT_2020;
-            frame->color.transfer = PL_COLOR_TRC_PQ;
-            frame->color.hdr.min_luma =
-                pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, color->source_min_pq / 4095.0f);
-            frame->color.hdr.max_luma =
-                pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, color->source_max_pq / 4095.0f);
-#endif
-        }
-    }
-
-#if PL_API_VER >= 251 && defined(PL_HAVE_LIBDOVI)
+#if defined(PL_HAVE_LIBDOVI)
     if (mpi->dovi_buf)
         pl_hdr_metadata_from_dovi_rpu(&frame->color.hdr, mpi->dovi_buf->data,
                                       mpi->dovi_buf->size);
 #endif
-
-#endif // PL_HAVE_LAV_DOLBY_VISION
 }

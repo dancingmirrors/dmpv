@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_SCREENSHOT_H
@@ -23,7 +23,7 @@
 struct MPContext;
 struct mp_image;
 struct mp_log;
-struct mpv_global;
+struct dmpv_global;
 
 // One time initialization at program start.
 void screenshot_init(struct MPContext *mpctx);
@@ -36,7 +36,7 @@ void handle_each_frame_screenshot(struct MPContext *mpctx);
  * If global!=NULL, use command line scaler options etc.
  */
 struct mp_image *convert_image(struct mp_image *image, int destfmt,
-                               struct mpv_global *global, struct mp_log *log);
+                               struct dmpv_global *global, struct mp_log *log);
 
 // Handlers for the user-facing commands.
 void cmd_screenshot(void *p);

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_X11_COMMON_H
@@ -24,7 +24,6 @@
 #include <X11/Xutil.h>
 
 #include "common/common.h"
-#include "osdep/atomic.h"
 
 #include "config.h"
 #if !HAVE_GPL
@@ -41,7 +40,8 @@ struct xrandr_display {
     double fps;
     char *name;
     bool overlaps;
-    int atom_id;
+    int atom_id; // offset by location of primary
+    int screen;
 };
 
 struct vo_x11_state {
@@ -59,13 +59,13 @@ struct vo_x11_state {
     int display_is_local;
     int ws_width;
     int ws_height;
-    int dpi_scale;
+    double dpi_scale;
     struct mp_rect screenrc;
     char *window_title;
 
     struct xrandr_display displays[MAX_DISPLAYS];
     int num_displays;
-    int current_icc_screen;
+    int current_screen;
 
     int xrandr_event;
     bool has_mesa;
@@ -91,6 +91,8 @@ struct vo_x11_state {
     bool pseudo_mapped; // not necessarily mapped, but known window size
     int fs;     // whether we assume the window is in fullscreen mode
 
+    bool init_fs; // whether dmpv was launched with --fs
+
     bool mouse_cursor_visible; // whether we want the cursor to be visible (only
                                // takes effect when the window is focused)
     bool mouse_cursor_set; // whether the cursor is *currently* *hidden*
@@ -112,6 +114,7 @@ struct vo_x11_state {
      * stays the same (even if that size is different from the current
      * window size after the user modified the latter). */
     int old_dw, old_dh;
+    int old_x, old_y;
     /* Video size changed during fullscreen when we couldn't tell the new
      * size to the window manager. Must set window size when turning
      * fullscreen off. */
@@ -135,9 +138,6 @@ struct vo_x11_state {
     Atom dnd_requested_action;
     Window dnd_src_window;
 
-    /* dragging the window */
-    bool win_drag_button1_down;
-
     Atom icc_profile_property;
 };
 
@@ -153,7 +153,7 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg);
 void vo_x11_present(struct vo *vo);
 void vo_x11_sync_swap(struct vo *vo);
 void vo_x11_wakeup(struct vo *vo);
-void vo_x11_wait_events(struct vo *vo, int64_t until_time_us);
+void vo_x11_wait_events(struct vo *vo, int64_t until_time_ns);
 
 void vo_x11_silence_xlib(int dir);
 

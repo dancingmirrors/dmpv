@@ -5,20 +5,20 @@ Can also be used to directly parse Matroska files and display their contents.
 """
 
 #
-# This file is part of mpv.
+# This file is part of dmpv.
 #
-# mpv is free software; you can redistribute it and/or
+# dmpv is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
 # version 2.1 of the License, or (at your option) any later version.
 #
-# mpv is distributed in the hope that it will be useful,
+# dmpv is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public
-# License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+# License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
 #
 
 
@@ -84,6 +84,8 @@ elements_matroska = (
                 'FlagEnabled, b9, uint',
                 'FlagDefault, 88, uint',
                 'FlagForced, 55aa, uint',
+                "FlagHearingImpaired, 55ab, uint",
+                "FlagVisualImpaired, 55ac, uint",
                 'FlagLacing, 9c, uint',
                 'MinCache, 6de7, uint',
                 'MaxCache, 6df8, uint',
@@ -92,6 +94,7 @@ elements_matroska = (
                 'MaxBlockAdditionID, 55ee, uint',
                 'Name, 536e, str',
                 'Language, 22b59c, str',
+                'LanguageBCP47, 22b59d, str',
                 'CodecID, 86, str',
                 'CodecPrivate, 63a2, binary',
                 'CodecName, 258688, str',
@@ -160,6 +163,12 @@ elements_matroska = (
                         ),
                     ),
                 ),
+                'BlockAdditionMapping*, 41e4, sub', (
+                    'BlockAddIDValue, 41f0, uint',
+                    'BlockAddIDName, 41a4, str',
+                    'BlockAddIDType, 41e7, uint',
+                    'BlockAddIDExtraData, 41ed, binary',
+                ),
             ),
         ),
 
@@ -202,6 +211,7 @@ elements_matroska = (
                     'ChapterDisplay*, 80, sub', (
                         'ChapString, 85, str',
                         'ChapLanguage*, 437c, str',
+                        'ChapLanguageBCP47*, 437d, str',
                         'ChapCountry*, 437e, str',
                     ),
                 ),
@@ -220,6 +230,7 @@ elements_matroska = (
                 'SimpleTag*, 67c8, sub', (
                     'TagName, 45a3, str',
                     'TagLanguage, 447a, str',
+                    'TagLanguageBCP47, 447b, str',
                     'TagString, 4487, str',
                     'TagDefault, 4484, uint',
                 ),
@@ -345,6 +356,7 @@ def generate_C_definitions(out):
             for subel, multiple in el.subelements:
                 printf(out, 'F({0.definename}, {0.fieldname}, {1})'.format(
                             subel, int(multiple)))
+            printf(out, '{0, 0, 0, 0, NULL},')
             printf(out, '}};')
             printf(out, '#undef N')
         else:

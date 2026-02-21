@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <float.h>
@@ -21,17 +21,17 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
+#include "osdep/threads.h"
 #include <time.h>
 #include <math.h>
-#include <pthread.h>
 #include <sys/types.h>
 
 #include <ass/ass.h>
 #include <libavutil/avstring.h>
 #include <libavutil/common.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "client.h"
 #include "common/av_common.h"
 #include "common/codecs.h"
@@ -48,12 +48,13 @@
 #include "demux/demux.h"
 #include "demux/stheader.h"
 #include "common/playlist.h"
-#include "sub/osd.h"
 #include "sub/dec_sub.h"
+#include "sub/osd.h"
+#include "sub/sd.h"
 #include "options/m_option.h"
 #include "options/m_property.h"
 #include "options/m_config_frontend.h"
-#include "osdep/getpid.h"
+#include "options/parse_configfile.h"
 #include "video/out/vo.h"
 #include "video/csputils.h"
 #include "video/hwdec.h"
@@ -70,12 +71,15 @@
 
 #include "osdep/io.h"
 #include "osdep/subprocess.h"
+#include "osdep/terminal.h"
 
 #include "core.h"
 
-#ifdef _WIN32
-#include <windows.h>
+#if HAVE_LIBPLACEBO
+#include <libplacebo/config.h>
 #endif
+
+#define mp_getpid() getpid()
 
 struct command_ctx {
     // All properties, terminated with a {0} item.
@@ -105,14 +109,9 @@ struct command_ctx {
 
     struct mp_cmd_ctx *cache_dump_cmd; // in progress cache dumping
 
-    char **script_props;
-    mpv_node udata;
+    dmpv_node udata;
 
     double cached_window_scale;
-};
-
-static const struct m_option script_props_type = {
-    .type = &m_option_type_keyvalue_list
 };
 
 static const struct m_option udata_type = {
@@ -122,16 +121,29 @@ static const struct m_option udata_type = {
 struct overlay {
     struct mp_image *source;
     int x, y;
+    int dw, dh;
 };
 
 struct hook_handler {
-    char *client;   // client mpv_handle name (for logging)
-    int64_t client_id; // client mpv_handle ID
+    char *client;   // client dmpv_handle name (for logging)
+    int64_t client_id; // client dmpv_handle ID
     char *type;     // kind of hook, e.g. "on_load"
     uint64_t user_id; // user-chosen ID
     int priority;   // priority for global hook order
     int64_t seq;    // unique ID, != 0, also for fixed order on equal priorities
     bool active;    // hook is currently in progress (only 1 at a time for now)
+};
+
+enum load_action_type {
+    LOAD_TYPE_REPLACE,
+    LOAD_TYPE_INSERT_AT,
+    LOAD_TYPE_INSERT_NEXT,
+    LOAD_TYPE_APPEND,
+};
+
+struct load_action {
+    enum load_action_type type;
+    bool play;
 };
 
 // U+279C HEAVY ROUND-TIPPED RIGHTWARDS ARROW
@@ -185,16 +197,18 @@ static int invoke_hook_handler(struct MPContext *mpctx, struct hook_handler *h)
     h->active = true;
 
     uint64_t reply_id = 0;
-    mpv_event_hook *m = talloc_ptrtype(NULL, m);
-    *m = (mpv_event_hook){
+    dmpv_event_hook *m = talloc_ptrtype(NULL, m);
+    *m = (dmpv_event_hook){
         .name = talloc_strdup(m, h->type),
         .id = h->seq,
     },
     reply_id = h->user_id;
     char *name = mp_tprintf(22, "@%"PRIi64, h->client_id);
-    int r = mp_client_send_event(mpctx, name, reply_id, MPV_EVENT_HOOK, m);
+    int r = mp_client_send_event(mpctx, name, reply_id, DMPV_EVENT_HOOK, m);
     if (r < 0) {
-        MP_WARN(mpctx, "Sending hook command failed. Removing hook.\n");
+        MP_MSG(mpctx, mp_client_id_exists(mpctx, h->client_id) ? MSGL_WARN : MSGL_V,
+               "Failed sending hook command %s/%s. Removing hook.\n", h->client,
+               h->type);
         hook_remove(mpctx, h);
         mp_wakeup_core(mpctx); // repeat next iteration to finish
     }
@@ -240,7 +254,7 @@ int mp_hook_continue(struct MPContext *mpctx, int64_t client_id, uint64_t id)
     }
 
     MP_ERR(mpctx, "invalid hook API usage\n");
-    return MPV_ERROR_INVALID_PARAMETER;
+    return DMPV_ERROR_INVALID_PARAMETER;
 }
 
 static int compare_hook(const void *pa, const void *pb)
@@ -360,7 +374,7 @@ static char *cut_osd_list(struct MPContext *mpctx, char *text, int pos)
 
 static char *format_delay(double time)
 {
-    return talloc_asprintf(NULL, "%d ms", (int)lrint(time * 1000));
+    return talloc_asprintf(NULL, "%.f ms", time * 1000);
 }
 
 // Property-option bridge. (Maps the property to the option with the same name.)
@@ -761,10 +775,10 @@ static int mp_property_percent_pos(void *ctx, struct m_property *prop,
         };
         return M_PROPERTY_OK;
     case M_PROPERTY_PRINT: {
-        int pos = get_percent_pos(mpctx);
+        double pos = get_current_pos_ratio(mpctx, false);
         if (pos < 0)
             return M_PROPERTY_UNAVAILABLE;
-        *(char **)arg = talloc_asprintf(NULL, "%d", pos);
+        *(char **)arg = talloc_asprintf(NULL, "%.f", pos * 100);
         return M_PROPERTY_OK;
     }
     }
@@ -790,7 +804,7 @@ static int mp_property_time_pos(void *ctx, struct m_property *prop,
         queue_seek(mpctx, MPSEEK_ABSOLUTE, *(double *)arg, MPSEEK_DEFAULT, 0);
         return M_PROPERTY_OK;
     }
-    return property_time(action, arg, get_current_time(mpctx));
+    return property_time(action, arg, get_playback_time(mpctx));
 }
 
 /// Current audio pts in seconds (R)
@@ -854,6 +868,20 @@ static int mp_property_playback_time(void *ctx, struct m_property *prop,
     return property_time(action, arg, get_playback_time(mpctx));
 }
 
+static int mp_property_remaining_file_loops(void *ctx, struct m_property *prop,
+        int action, void *arg)
+{
+    MPContext *mpctx = ctx;
+    return m_property_int_ro(action, arg, mpctx->remaining_file_loops);
+}
+
+static int mp_property_remaining_ab_loops(void *ctx, struct m_property *prop,
+        int action, void *arg)
+{
+    MPContext *mpctx = ctx;
+    return m_property_int_ro(action, arg, mpctx->remaining_ab_loops);
+}
+
 /// Current chapter (RW)
 static int mp_property_chapter(void *ctx, struct m_property *prop,
                                int action, void *arg)
@@ -905,8 +933,8 @@ static int mp_property_chapter(void *ctx, struct m_property *prop,
         } else // Absolute set
             step_all = *(int *)arg - chapter;
         chapter += step_all;
-        if (chapter < -1)
-            chapter = -1;
+        if (chapter < 0) // avoid using -1 if first chapter starts at 0
+            chapter = (chapter_start_time(mpctx, 0) <= 0) ? 0 : -1;
         if (chapter >= num && step_all > 0) {
             if (mpctx->opts->keep_open) {
                 seek_to_last_frame(mpctx);
@@ -921,9 +949,9 @@ static int mp_property_chapter(void *ctx, struct m_property *prop,
         } else {
             double pts = chapter_start_time(mpctx, chapter);
             if (pts != MP_NOPTS_VALUE) {
-                queue_seek(mpctx, MPSEEK_ABSOLUTE, pts, MPSEEK_DEFAULT, 0);
+                queue_seek(mpctx, MPSEEK_CHAPTER, pts, MPSEEK_DEFAULT, 0);
                 mpctx->last_chapter_seek = chapter;
-                mpctx->last_chapter_pts = pts;
+                mpctx->last_chapter_flag = true;
             }
         }
         return M_PROPERTY_OK;
@@ -938,7 +966,7 @@ static int get_chapter_entry(int item, int action, void *arg, void *ctx)
     double time = chapter_start_time(mpctx, item);
     struct m_sub_property props[] = {
         {"title",       SUB_PROP_STR(name)},
-        {"time",        {.type = CONF_TYPE_TIME}, {.time = time}},
+        {"time",        {.type = CONF_TYPE_TIME}, {.time = time}, .unavailable = false},
         {0}
     };
 
@@ -947,12 +975,12 @@ static int get_chapter_entry(int item, int action, void *arg, void *ctx)
 }
 
 static int parse_node_chapters(struct MPContext *mpctx,
-                               struct mpv_node *given_chapters)
+                               struct dmpv_node *given_chapters)
 {
     if (!mpctx->demuxer)
         return M_PROPERTY_UNAVAILABLE;
 
-    if (given_chapters->format != MPV_FORMAT_NODE_ARRAY)
+    if (given_chapters->format != DMPV_FORMAT_NODE_ARRAY)
         return M_PROPERTY_ERROR;
 
     double len = get_time_length(mpctx);
@@ -962,32 +990,34 @@ static int parse_node_chapters(struct MPContext *mpctx,
     mpctx->chapters = talloc_array(NULL, struct demux_chapter, 0);
 
     for (int n = 0; n < given_chapters->u.list->num; n++) {
-        struct mpv_node *chapter_data = &given_chapters->u.list->values[n];
+        struct dmpv_node *chapter_data = &given_chapters->u.list->values[n];
 
-        if (chapter_data->format != MPV_FORMAT_NODE_MAP)
+        if (chapter_data->format != DMPV_FORMAT_NODE_MAP)
             continue;
 
-        mpv_node_list *chapter_data_elements = chapter_data->u.list;
+        dmpv_node_list *chapter_data_elements = chapter_data->u.list;
 
         double time = -1;
         char *title = 0;
 
         for (int e = 0; e < chapter_data_elements->num; e++) {
-            struct mpv_node *chapter_data_element =
+            struct dmpv_node *chapter_data_element =
                 &chapter_data_elements->values[e];
             char *key = chapter_data_elements->keys[e];
             switch (chapter_data_element->format) {
-            case MPV_FORMAT_INT64:
+            case DMPV_FORMAT_INT64:
                 if (strcmp(key, "time") == 0)
                     time = (double)chapter_data_element->u.int64;
                 break;
-            case MPV_FORMAT_DOUBLE:
+            case DMPV_FORMAT_DOUBLE:
                 if (strcmp(key, "time") == 0)
                     time = chapter_data_element->u.double_;
                 break;
-            case MPV_FORMAT_STRING:
+            case DMPV_FORMAT_STRING:
                 if (strcmp(key, "title") == 0)
                     title = chapter_data_element->u.string;
+                break;
+            default:
                 break;
             }
         }
@@ -1039,7 +1069,7 @@ static int mp_property_list_chapters(void *ctx, struct m_property *prop,
         return M_PROPERTY_OK;
     }
     case M_PROPERTY_SET: {
-        struct mpv_node *given_chapters = arg;
+        struct dmpv_node *given_chapters = arg;
         return parse_node_chapters(mpctx, given_chapters);
     }
     }
@@ -1194,24 +1224,24 @@ static int get_tag_entry(int item, int action, void *arg, void *ctx)
 static int tag_property(int action, void *arg, struct mp_tags *tags)
 {
     switch (action) {
-    case M_PROPERTY_GET_NODE: // same as GET, because type==mpv_node
+    case M_PROPERTY_GET_NODE: // same as GET, because type==dmpv_node
     case M_PROPERTY_GET: {
-        mpv_node_list *list = talloc_zero(NULL, mpv_node_list);
-        mpv_node node = {
-            .format = MPV_FORMAT_NODE_MAP,
+        dmpv_node_list *list = talloc_zero(NULL, dmpv_node_list);
+        dmpv_node node = {
+            .format = DMPV_FORMAT_NODE_MAP,
             .u.list = list,
         };
         list->num = tags->num_keys;
-        list->values = talloc_array(list, mpv_node, list->num);
+        list->values = talloc_array(list, dmpv_node, list->num);
         list->keys = talloc_array(list, char*, list->num);
         for (int n = 0; n < tags->num_keys; n++) {
             list->keys[n] = talloc_strdup(list, tags->keys[n]);
-            list->values[n] = (struct mpv_node){
-                .format = MPV_FORMAT_STRING,
+            list->values[n] = (struct dmpv_node){
+                .format = DMPV_FORMAT_STRING,
                 .u.string = talloc_strdup(list, tags->values[n]),
             };
         }
-        *(mpv_node*)arg = node;
+        *(dmpv_node*)arg = node;
         return M_PROPERTY_OK;
     }
     case M_PROPERTY_GET_TYPE: {
@@ -1314,7 +1344,8 @@ static int mp_property_filter_metadata(void *ctx, struct m_property *prop,
         if (!chain)
             return M_PROPERTY_UNAVAILABLE;
 
-        if (ka->action != M_PROPERTY_GET_TYPE) {
+        int remaining = strlen(rem);
+        if (remaining || ka->action != M_PROPERTY_GET_TYPE) {
             struct mp_filter_command cmd = {
                 .type = MP_FILTER_COMMAND_GET_META,
                 .res = &metadata,
@@ -1327,7 +1358,7 @@ static int mp_property_filter_metadata(void *ctx, struct m_property *prop,
         }
 
         int res;
-        if (strlen(rem)) {
+        if (remaining) {
             struct m_property_action_arg next_ka = *ka;
             next_ka.key = rem;
             res = tag_property(M_PROPERTY_KEY_ACTION, &next_ka, metadata);
@@ -1345,6 +1376,18 @@ static int mp_property_core_idle(void *ctx, struct m_property *prop,
 {
     MPContext *mpctx = ctx;
     return m_property_bool_ro(action, arg, !mpctx->playback_active);
+}
+
+static int mp_property_deinterlace(void *ctx, struct m_property *prop,
+                                   int action, void *arg)
+{
+    MPContext *mpctx = ctx;
+    struct vo_chain *vo_c = mpctx->vo_chain;
+    if (!vo_c)
+        return M_PROPERTY_UNAVAILABLE;
+
+    bool deinterlace_active = mp_output_chain_deinterlace_active(vo_c->filter);
+    return m_property_bool_ro(action, arg, deinterlace_active);
 }
 
 static int mp_property_idle(void *ctx, struct m_property *prop,
@@ -1473,8 +1516,8 @@ static int mp_property_demuxer_cache_state(void *ctx, struct m_property *prop,
     struct demux_reader_state s;
     demux_get_reader_state(mpctx->demuxer, &s);
 
-    struct mpv_node *r = (struct mpv_node *)arg;
-    node_init(r, MPV_FORMAT_NODE_MAP, NULL);
+    struct dmpv_node *r = (struct dmpv_node *)arg;
+    node_init(r, DMPV_FORMAT_NODE_MAP, NULL);
 
     if (s.ts_end != MP_NOPTS_VALUE)
         node_map_add_double(r, "cache-end", s.ts_end);
@@ -1504,11 +1547,11 @@ static int mp_property_demuxer_cache_state(void *ctx, struct m_property *prop,
     node_map_add_flag(r, "bof-cached", s.bof_cached);
     node_map_add_flag(r, "eof-cached", s.eof_cached);
 
-    struct mpv_node *ranges =
-        node_map_add(r, "seekable-ranges", MPV_FORMAT_NODE_ARRAY);
+    struct dmpv_node *ranges =
+        node_map_add(r, "seekable-ranges", DMPV_FORMAT_NODE_ARRAY);
     for (int n = s.num_seek_ranges - 1; n >= 0; n--) {
         struct demux_seek_range *range = &s.seek_ranges[n];
-        struct mpv_node *sub = node_array_add(ranges, MPV_FORMAT_NODE_MAP);
+        struct dmpv_node *sub = node_array_add(ranges, DMPV_FORMAT_NODE_MAP);
         node_map_add_double(sub, "start", range->start);
         node_map_add_double(sub, "end", range->end);
     }
@@ -1609,7 +1652,7 @@ static int mp_property_volume(void *ctx, struct m_property *prop,
         };
         return M_PROPERTY_OK;
     case M_PROPERTY_PRINT:
-        *(char **)arg = talloc_asprintf(NULL, "%i", (int)opts->softvol_volume);
+        *(char **)arg = talloc_asprintf(NULL, "%.f", opts->softvol_volume);
         return M_PROPERTY_OK;
     }
 
@@ -1839,7 +1882,7 @@ static int mp_property_audio_out_params(void *ctx, struct m_property *prop,
 static struct track* track_next(struct MPContext *mpctx, enum stream_type type,
                                 int direction, struct track *track)
 {
-    assert(direction == -1 || direction == +1);
+    mp_assert(direction == -1 || direction == +1);
     struct track *prev = NULL, *next = NULL;
     bool seen = track == NULL;
     for (int n = 0; n < mpctx->num_tracks; n++) {
@@ -1881,8 +1924,11 @@ static int property_switch_track(void *ctx, struct m_property *prop,
     case M_PROPERTY_PRINT:
         if (track) {
             char *lang = track->lang;
-            if (!lang)
+            if (!lang && type != STREAM_VIDEO) {
                 lang = "unknown";
+            } else if (!lang) {
+                lang = "";
+            }
 
             if (track->title) {
                 *(char **)arg = talloc_asprintf(NULL, "(%d) %s (\"%s\")",
@@ -2009,6 +2055,10 @@ static int get_track_entry(int item, int action, void *arg, void *ctx)
                         .unavailable = !has_rg},
         {"replaygain-album-gain", SUB_PROP_FLOAT(rg.album_gain),
                         .unavailable = !has_rg},
+        {"dolby-vision-profile", SUB_PROP_INT(p.dv_profile),
+                        .unavailable = !p.dovi},
+        {"dolby-vision-level", SUB_PROP_INT(p.dv_level),
+                        .unavailable = !p.dovi},
         {0}
     };
 
@@ -2021,6 +2071,8 @@ static const char *track_type_name(enum stream_type t)
     case STREAM_VIDEO: return "Video";
     case STREAM_AUDIO: return "Audio";
     case STREAM_SUB: return "Sub";
+    default:
+        break;
     }
     return NULL;
 }
@@ -2119,7 +2171,7 @@ static int property_current_tracks(void *ctx, struct m_property *prop,
             break;
         }
     }
-    assert(index >= 0);
+    mp_assert(index >= 0);
 
     char *name = mp_tprintf(80, "track-list/%d/%s", index, rem);
     return mp_property_do(name, ka->action, ka->arg, ctx);
@@ -2131,13 +2183,12 @@ static int mp_property_hwdec_current(void *ctx, struct m_property *prop,
     MPContext *mpctx = ctx;
     struct track *track = mpctx->current_track[0][STREAM_VIDEO];
     struct mp_decoder_wrapper *dec = track ? track->dec : NULL;
+    char *current = NULL;
 
-    if (!dec)
+    if (!dec || !mp_decoder_wrapper_control(dec, VDCTRL_GET_HWDEC, &current))
         return M_PROPERTY_UNAVAILABLE;
 
-    char *current = NULL;
-    mp_decoder_wrapper_control(dec, VDCTRL_GET_HWDEC, &current);
-    if (!current)
+    if (!current || !current[0])
         current = "no";
     return m_property_strdup_ro(action, arg, current);
 }
@@ -2215,6 +2266,48 @@ static int mp_property_video_codec(void *ctx, struct m_property *prop,
     return m_property_strdup_ro(action, arg, desc[0] ? desc : NULL);
 }
 
+static const char *get_aspect_ratio_name(double ratio)
+{
+    // Depending on cropping/mastering exact ratio may differ.
+#define RATIO_THRESH 0.025
+#define RATIO_CASE(ref, name)                     \
+    if (fabs(ratio - (ref)) < RATIO_THRESH)       \
+        return name;                              \
+
+    // https://en.wikipedia.org/wiki/Aspect_ratio_(image)
+    RATIO_CASE(9.0 / 16.0, "Vertical")
+    RATIO_CASE(1.0, "Square");
+    RATIO_CASE(19.0 / 16.0, "Movietone Ratio");
+    RATIO_CASE(5.0 / 4.0, "5:4");
+    RATIO_CASE(4.0 / 3.0, "4:3");
+    RATIO_CASE(11.0 / 8.0, "Academy Ratio");
+    RATIO_CASE(1.43, "IMAX Ratio");
+    RATIO_CASE(3.0 / 2.0, "VistaVision Ratio");
+    RATIO_CASE(16.0 / 10.0, "16:10");
+    RATIO_CASE(5.0 / 3.0, "35mm Widescreen Ratio");
+    RATIO_CASE(16.0 / 9.0, "16:9");
+    RATIO_CASE(7.0 / 4.0, "Early 35mm Widescreen Ratio");
+    RATIO_CASE(1.85, "Academy Flat");
+    RATIO_CASE(256.0 / 135.0, "SMPTE/DCI Ratio");
+    RATIO_CASE(2.0, "Univisium");
+    RATIO_CASE(2.208, "70mm film");
+    RATIO_CASE(2.35, "Scope");
+    RATIO_CASE(2.39, "Panavision");
+    RATIO_CASE(2.55, "Original CinemaScope");
+    RATIO_CASE(2.59, "Full-frame Cinerama");
+    RATIO_CASE(24.0 / 9.0, "Full-frame Super 16mm");
+    RATIO_CASE(2.76, "Ultra Panavision 70");
+    RATIO_CASE(32.0 / 9.0, "32:9");
+    RATIO_CASE(3.6, "Ultra-WideScreen 3.6");
+    RATIO_CASE(4.0, "Polyvision");
+    RATIO_CASE(12.0, "Circle-Vision 360°");
+
+    return NULL;
+
+#undef RATIO_THRESH
+#undef RATIO_CASE
+}
+
 static int property_imgparams(struct mp_image_params p, int action, void *arg)
 {
     if (!p.imgfmt)
@@ -2235,6 +2328,8 @@ static int property_imgparams(struct mp_image_params p, int action, void *arg)
             (desc.flags & MP_IMGFLAG_ALPHA) ? MP_ALPHA_STRAIGHT : MP_ALPHA_AUTO;
     }
 
+    const char *aspect_name = get_aspect_ratio_name(d_w / (double)d_h);
+    const char *sar_name = get_aspect_ratio_name(p.w / (double)p.h);
     struct m_sub_property props[] = {
         {"pixelformat",     SUB_PROP_STR(mp_imgfmt_to_name(p.imgfmt))},
         {"hw-pixelformat",  SUB_PROP_STR(mp_imgfmt_to_name(p.hw_subfmt)),
@@ -2246,7 +2341,10 @@ static int property_imgparams(struct mp_image_params p, int action, void *arg)
         {"dw",              SUB_PROP_INT(d_w)},
         {"dh",              SUB_PROP_INT(d_h)},
         {"aspect",          SUB_PROP_FLOAT(d_w / (double)d_h)},
+        {"aspect-name",     SUB_PROP_STR(aspect_name), .unavailable = !aspect_name},
         {"par",             SUB_PROP_FLOAT(p.p_w / (double)p.p_h)},
+        {"sar",             SUB_PROP_FLOAT(p.w / (double)p.h)},
+        {"sar-name",        SUB_PROP_STR(sar_name), .unavailable = !sar_name},
         {"colormatrix",
             SUB_PROP_STR(m_opt_choice_str(mp_csp_names, p.color.space))},
         {"colorlevels",
@@ -2407,10 +2505,8 @@ static int mp_property_display_fps(void *ctx, struct m_property *prop,
     double fps = mpctx->video_out ? vo_get_display_fps(mpctx->video_out) : 0;
     switch (action) {
     case M_PROPERTY_SET: {
-        MP_WARN(mpctx, "Setting the display-fps property is deprecated; set "
-                       "the override-display-fps property instead.\n");
-        struct mpv_node val = {
-            .format = MPV_FORMAT_DOUBLE,
+        struct dmpv_node val = {
+            .format = DMPV_FORMAT_DOUBLE,
             .u.double_ = *(double *)arg,
         };
         return m_config_set_option_node(mpctx->mconfig,
@@ -2435,7 +2531,7 @@ static int mp_property_estimated_display_fps(void *ctx, struct m_property *prop,
     struct vo *vo = mpctx->video_out;
     if (!vo)
         return M_PROPERTY_UNAVAILABLE;
-    double interval = vo_get_estimated_vsync_interval(vo);
+    double interval = vo_get_estimated_vsync_interval(vo) / 1e9;
     if (interval <= 0)
         return M_PROPERTY_UNAVAILABLE;
     return m_property_double_ro(action, arg, 1.0 / interval);
@@ -2490,6 +2586,26 @@ static int mp_property_hidpi_scale(void *ctx, struct m_property *prop,
     return m_property_double_ro(action, arg, cmd->cached_window_scale);
 }
 
+static void update_hidpi_window_scale(struct MPContext *mpctx, bool hidpi_scale)
+{
+    struct command_ctx *cmd = mpctx->command_ctx;
+    struct vo *vo = mpctx->video_out;
+    if (!vo || cmd->cached_window_scale <= 0)
+        return;
+
+    double scale = hidpi_scale ? cmd->cached_window_scale : 1 / cmd->cached_window_scale;
+
+    int s[2];
+    if (vo_control(vo, VOCTRL_GET_UNFS_WINDOW_SIZE, s) <= 0 || s[0] < 1 || s[1] < 1)
+        return;
+
+    s[0] *= scale;
+    s[1] *= scale;
+    if (s[0] <= 0 || s[1] <= 0)
+        return;
+    vo_control(vo, VOCTRL_SET_UNFS_WINDOW_SIZE, s);
+}
+
 static int mp_property_focused(void *ctx, struct m_property *prop,
                                      int action, void *arg)
 {
@@ -2537,20 +2653,20 @@ static int mp_property_vo_configured(void *ctx, struct m_property *prop,
                         mpctx->video_out && mpctx->video_out->config_ok);
 }
 
-static void get_frame_perf(struct mpv_node *node, struct mp_frame_perf *perf)
+static void get_frame_perf(struct dmpv_node *node, struct mp_frame_perf *perf)
 {
     for (int i = 0; i < perf->count; i++) {
         struct mp_pass_perf *data = &perf->perf[i];
-        struct mpv_node *pass = node_array_add(node, MPV_FORMAT_NODE_MAP);
+        struct dmpv_node *pass = node_array_add(node, DMPV_FORMAT_NODE_MAP);
 
         node_map_add_string(pass, "desc", perf->desc[i]);
-        node_map_add(pass, "last", MPV_FORMAT_INT64)->u.int64 = data->last;
-        node_map_add(pass, "avg", MPV_FORMAT_INT64)->u.int64 = data->avg;
-        node_map_add(pass, "peak", MPV_FORMAT_INT64)->u.int64 = data->peak;
-        node_map_add(pass, "count", MPV_FORMAT_INT64)->u.int64 = data->count;
-        struct mpv_node *samples = node_map_add(pass, "samples", MPV_FORMAT_NODE_ARRAY);
+        node_map_add(pass, "last", DMPV_FORMAT_INT64)->u.int64 = data->last;
+        node_map_add(pass, "avg", DMPV_FORMAT_INT64)->u.int64 = data->avg;
+        node_map_add(pass, "peak", DMPV_FORMAT_INT64)->u.int64 = data->peak;
+        node_map_add(pass, "count", DMPV_FORMAT_INT64)->u.int64 = data->count;
+        struct dmpv_node *samples = node_map_add(pass, "samples", DMPV_FORMAT_NODE_ARRAY);
         for (int n = 0; n < data->count; n++)
-            node_array_add(samples, MPV_FORMAT_INT64)->u.int64 = data->samples[n];
+            node_array_add(samples, DMPV_FORMAT_INT64)->u.int64 = data->samples[n];
     }
 }
 
@@ -2598,13 +2714,13 @@ static int mp_property_vo_passes(void *ctx, struct m_property *prop,
     }
 
     case M_PROPERTY_GET: {
-        struct mpv_node node;
-        node_init(&node, MPV_FORMAT_NODE_MAP, NULL);
-        struct mpv_node *fresh = node_map_add(&node, "fresh", MPV_FORMAT_NODE_ARRAY);
-        struct mpv_node *redraw = node_map_add(&node, "redraw", MPV_FORMAT_NODE_ARRAY);
+        struct dmpv_node node;
+        node_init(&node, DMPV_FORMAT_NODE_MAP, NULL);
+        struct dmpv_node *fresh = node_map_add(&node, "fresh", DMPV_FORMAT_NODE_ARRAY);
+        struct dmpv_node *redraw = node_map_add(&node, "redraw", DMPV_FORMAT_NODE_ARRAY);
         get_frame_perf(fresh, &data->fresh);
         get_frame_perf(redraw, &data->redraw);
-        *(struct mpv_node *)arg = node;
+        *(struct dmpv_node *)arg = node;
         ret = M_PROPERTY_OK;
         goto out;
     }
@@ -2617,6 +2733,40 @@ out:
     return ret;
 }
 
+static int mp_property_hdr_metadata(void *ctx, struct m_property *prop,
+                                    int action, void *arg)
+{
+    MPContext *mpctx = ctx;
+    if (!mpctx->video_out)
+        return M_PROPERTY_UNAVAILABLE;
+
+    struct mp_hdr_metadata data;
+    if (vo_control(mpctx->video_out, VOCTRL_HDR_METADATA, &data) != VO_TRUE)
+        return M_PROPERTY_UNAVAILABLE;
+
+    bool has_hdr10 = data.max_luma;
+    bool has_hdr10plus = data.scene_avg && (data.scene_max[0] ||
+                                            data.scene_max[1] ||
+                                            data.scene_max[2]);
+    bool has_cie_y = data.max_pq_y && data.avg_pq_y;
+
+    struct m_sub_property props[] = {
+        {"min-luma",    SUB_PROP_FLOAT(data.min_luma),     .unavailable = !has_hdr10},
+        {"max-luma",    SUB_PROP_FLOAT(data.max_luma),     .unavailable = !has_hdr10},
+        {"max-cll",     SUB_PROP_FLOAT(data.max_cll),      .unavailable = !has_hdr10},
+        {"max-fall",    SUB_PROP_FLOAT(data.max_fall),     .unavailable = !has_hdr10},
+        {"scene-max-r", SUB_PROP_FLOAT(data.scene_max[0]), .unavailable = !has_hdr10plus},
+        {"scene-max-g", SUB_PROP_FLOAT(data.scene_max[1]), .unavailable = !has_hdr10plus},
+        {"scene-max-b", SUB_PROP_FLOAT(data.scene_max[2]), .unavailable = !has_hdr10plus},
+        {"scene-avg",   SUB_PROP_FLOAT(data.scene_avg),    .unavailable = !has_hdr10plus},
+        {"max-pq-y",    SUB_PROP_FLOAT(data.max_pq_y),     .unavailable = !has_cie_y},
+        {"avg-pq-y",    SUB_PROP_FLOAT(data.avg_pq_y),     .unavailable = !has_cie_y},
+        {0}
+    };
+
+    return m_property_read_sub(props, action, arg);
+}
+
 static int mp_property_perf_info(void *ctx, struct m_property *p, int action,
                                  void *arg)
 {
@@ -2627,7 +2777,7 @@ static int mp_property_perf_info(void *ctx, struct m_property *p, int action,
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        stats_global_query(mpctx->global, (struct mpv_node *)arg);
+        stats_global_query(mpctx->global, (struct dmpv_node *)arg);
         return M_PROPERTY_OK;
     }
     }
@@ -2688,6 +2838,23 @@ static int mp_property_osd_ass(void *ctx, struct m_property *prop,
     return m_property_read_sub(props, action, arg);
 }
 
+static int mp_property_term_size(void *ctx, struct m_property *prop,
+                                  int action, void *arg)
+{
+    int w = -1, h = -1;
+    terminal_get_size(&w, &h);
+    if (w == -1 || h == -1)
+        return M_PROPERTY_UNAVAILABLE;
+
+    struct m_sub_property props[] = {
+        {"w",      SUB_PROP_INT(w)},
+        {"h",      SUB_PROP_INT(h)},
+        {0}
+    };
+
+    return m_property_read_sub(props, action, arg);
+}
+
 static int mp_property_mouse_pos(void *ctx, struct m_property *prop,
                                     int action, void *arg)
 {
@@ -2699,15 +2866,15 @@ static int mp_property_mouse_pos(void *ctx, struct m_property *prop,
         return M_PROPERTY_OK;
 
     case M_PROPERTY_GET: {
-        struct mpv_node node;
+        struct dmpv_node node;
         int x, y, hover;
         mp_input_get_mouse_pos(mpctx->input, &x, &y, &hover);
 
-        node_init(&node, MPV_FORMAT_NODE_MAP, NULL);
+        node_init(&node, DMPV_FORMAT_NODE_MAP, NULL);
         node_map_add_int64(&node, "x", x);
         node_map_add_int64(&node, "y", y);
         node_map_add_flag(&node, "hover", hover);
-        *(struct mpv_node *)arg = node;
+        *(struct dmpv_node *)arg = node;
 
         return M_PROPERTY_OK;
     }
@@ -2723,7 +2890,7 @@ static int mp_property_fps(void *ctx, struct m_property *prop,
     MPContext *mpctx = ctx;
     float fps = mpctx->vo_chain ? mpctx->vo_chain->filter->container_fps : 0;
     if (fps < 0.1 || !isfinite(fps))
-        return M_PROPERTY_UNAVAILABLE;;
+        return M_PROPERTY_UNAVAILABLE;
     return m_property_float_ro(action, arg, fps);
 }
 
@@ -2739,90 +2906,25 @@ static int mp_property_vf_fps(void *ctx, struct m_property *prop,
     return m_property_double_ro(action, arg, 1.0 / avg);
 }
 
-/// Video aspect (RW) (deprecated)
-// FIXME: please delete this mess as soon as the deprecation period is over
-static int mp_property_aspect(void *ctx, struct m_property *prop,
-                              int action, void *arg)
-{
-    MPContext *mpctx = ctx;
-    struct m_config_option *opt;
-    opt = m_config_get_co_raw(mpctx->mconfig, bstr0("video-aspect-override"));
-
-    struct command_ctx *cmd = mpctx->command_ctx;
-    for (int n = 0; n < cmd->num_warned_deprecated; n++) {
-        if (strcmp(cmd->warned_deprecated[n], prop->name) == 0)
-            goto skip_warn;
-    }
-
-    MP_WARN(mpctx, "Warning: property 'video-aspect' is deprecated, refer to "
-            "'video-params/aspect' and 'video-aspect-override'.\n");
-    MP_TARRAY_APPEND(cmd, cmd->warned_deprecated, cmd->num_warned_deprecated,
-                     (char *)prop->name);
-
-skip_warn: ;
-
-    float aspect = *(float *)opt->data;
-    if (mpctx->vo_chain && aspect <= 0) {
-        struct mp_image_params *params = &mpctx->vo_chain->filter->input_params;
-        if (params && params->p_w > 0 && params->p_h > 0) {
-            int d_w, d_h;
-            mp_image_params_get_dsize(params, &d_w, &d_h);
-            aspect = (float)d_w / d_h;
-        }
-    }
-    struct track *track = mpctx->current_track[0][STREAM_VIDEO];
-    if (track && track->stream && aspect <= 0) {
-        struct mp_codec_params *c = track->stream->codec;
-        if (c->disp_w && c->disp_h)
-            aspect = (float)c->disp_w / c->disp_h;
-    }
-
-    switch (action) {
-    case M_PROPERTY_GET_TYPE:
-        *(struct m_option *)arg = *(opt->opt);
-        return M_PROPERTY_OK;
-    case M_PROPERTY_PRINT: {
-        if (aspect < 0) {
-            *(char **)arg = talloc_asprintf(NULL, "%.3f (original)", aspect);
-            return M_PROPERTY_OK;
-        }
-        break;
-    }
-    case M_PROPERTY_GET: {
-        *(float *)arg = aspect;
-        return M_PROPERTY_OK;
-    }
-    case M_PROPERTY_SET:
-        if (m_config_set_option_raw(mpctx->mconfig, opt, arg, 0) < 0)
-            return M_PROPERTY_ERROR;
-        return M_PROPERTY_OK;
-    }
-    return M_PROPERTY_NOT_IMPLEMENTED;
-}
-
-static bool floats_equal(float x, float y) {
-    float TOLERANCE = 0.001;
-    float difference = fabsf(x - y);
-    return difference <= TOLERANCE;
-}
+#define doubles_equal(x, y) (fabs((x) - (y)) <= 0.001)
 
 static int mp_property_video_aspect_override(void *ctx, struct m_property *prop,
                                              int action, void *arg)
 {
     MPContext *mpctx = ctx;
     if (action == M_PROPERTY_PRINT) {
-        float aspect_ratio;
+        double aspect_ratio;
         mp_property_generic_option(mpctx, prop, M_PROPERTY_GET, &aspect_ratio);
 
-        if (floats_equal(aspect_ratio, 2.35F / 1.0F))
+        if (doubles_equal(aspect_ratio, 2.35 / 1.0))
             *(char **)arg = talloc_asprintf(NULL, "2.35:1");
-        else if (floats_equal(aspect_ratio, 16.0F / 9.0F))
+        else if (doubles_equal(aspect_ratio, 16.0 / 9.0))
             *(char **)arg = talloc_asprintf(NULL, "16:9");
-        else if (floats_equal(aspect_ratio, 16.0F / 10.0F))
+        else if (doubles_equal(aspect_ratio, 16.0 / 10.0))
             *(char **)arg = talloc_asprintf(NULL, "16:10");
-        else if (floats_equal(aspect_ratio, 4.0F / 3.0F))
+        else if (doubles_equal(aspect_ratio, 4.0 / 3.0))
             *(char **)arg = talloc_asprintf(NULL, "4:3");
-        else if (floats_equal(aspect_ratio, -1.0F))
+        else if (doubles_equal(aspect_ratio, -1.0))
             *(char **)arg = talloc_asprintf(NULL, "Original");
         else
             *(char **)arg = talloc_asprintf(NULL, "%.3f", aspect_ratio);
@@ -3002,11 +3104,8 @@ static int mp_property_playlist_pos_x(void *ctx, struct m_property *prop,
     }
     case M_PROPERTY_SET: {
         int pos = *(int *)arg - base;
-        if (pos >= 0 && playlist_entry_to_index(pl, pl->current) == pos) {
-            MP_WARN(mpctx, "Behavior of %s when writing the same value will "
-                    "change (currently restarts, it will stop doing this).\n",
-                    prop->name);
-        }
+        if (pos >= 0 && playlist_entry_to_index(pl, pl->current) == pos)
+            return M_PROPERTY_OK;
         mp_set_playlist_entry(mpctx, playlist_entry_from_index(pl, pos));
         return M_PROPERTY_OK;
     }
@@ -3049,15 +3148,27 @@ static int get_playlist_entry(int item, int action, void *arg, void *ctx)
     bool current = mpctx->playlist->current == e;
     bool playing = mpctx->playing == e;
     struct m_sub_property props[] = {
-        {"filename",    SUB_PROP_STR(e->filename)},
-        {"current",     SUB_PROP_BOOL(1), .unavailable = !current},
-        {"playing",     SUB_PROP_BOOL(1), .unavailable = !playing},
-        {"title",       SUB_PROP_STR(e->title), .unavailable = !e->title},
-        {"id",          SUB_PROP_INT64(e->id)},
+        {"filename",      SUB_PROP_STR(e->filename)},
+        {"current",       SUB_PROP_BOOL(1), .unavailable = !current},
+        {"playing",       SUB_PROP_BOOL(1), .unavailable = !playing},
+        {"title",         SUB_PROP_STR(e->title), .unavailable = !e->title},
+        {"id",            SUB_PROP_INT64(e->id)},
+        {"playlist-path", SUB_PROP_STR(e->playlist_path), .unavailable = !e->playlist_path},
         {0}
     };
 
     return m_property_read_sub(props, action, arg);
+}
+
+static int mp_property_playlist_path(void *ctx, struct m_property *prop,
+                                     int action, void *arg)
+{
+    MPContext *mpctx = ctx;
+    if (!mpctx->playlist->current)
+        return M_PROPERTY_UNAVAILABLE;
+
+    struct playlist_entry *e = mpctx->playlist->current;
+    return m_property_strdup_ro(action, arg, e->playlist_path);
 }
 
 static int mp_property_playlist(void *ctx, struct m_property *prop,
@@ -3180,9 +3291,9 @@ static int mp_property_packet_bitrate(void *ctx, struct m_property *prop,
     if (action == M_PROPERTY_PRINT) {
         rate /= 1000;
         if (rate < 1000) {
-            *(char **)arg = talloc_asprintf(NULL, "%d kbps", (int)rate);
+            *(char **)arg = talloc_asprintf(NULL, "%.f kbps", rate);
         } else {
-            *(char **)arg = talloc_asprintf(NULL, "%.3f mbps", rate / 1000.0);
+            *(char **)arg = talloc_asprintf(NULL, "%.3f Mbps", rate / 1000.0);
         }
         return M_PROPERTY_OK;
     }
@@ -3212,7 +3323,7 @@ static int mp_property_protocols(void *ctx, struct m_property *prop,
 {
     switch (action) {
     case M_PROPERTY_GET:
-        *(char ***)arg = stream_get_proto_list();
+        *(char ***)arg = stream_get_proto_list(false);
         return M_PROPERTY_OK;
     case M_PROPERTY_GET_TYPE:
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_STRING_LIST};
@@ -3292,7 +3403,7 @@ static int mp_property_lavf_demuxers(void *ctx, struct m_property *prop,
 static int mp_property_version(void *ctx, struct m_property *prop,
                                int action, void *arg)
 {
-    return m_property_strdup_ro(action, arg, mpv_version);
+    return m_property_strdup_ro(action, arg, dmpv_version);
 }
 
 static int mp_property_configuration(void *ctx, struct m_property *prop,
@@ -3313,11 +3424,13 @@ static int mp_property_libass_version(void *ctx, struct m_property *prop,
     return m_property_int64_ro(action, arg, ass_library_version());
 }
 
-static int mp_property_platform(void *ctx, struct m_property *prop,
-                                int action, void *arg)
+#if HAVE_LIBPLACEBO
+static int mp_property_libplacebo_version(void *ctx, struct m_property *prop,
+                                          int action, void *arg)
 {
-    return m_property_strdup_ro(action, arg, PLATFORM);
+    return m_property_strdup_ro(action, arg, PL_VERSION);
 }
+#endif
 
 static int mp_property_alias(void *ctx, struct m_property *prop,
                              int action, void *arg)
@@ -3419,9 +3532,10 @@ static int mp_property_option_info(void *ctx, struct m_property *prop,
             return M_PROPERTY_UNKNOWN;
         const struct m_option *opt = co->opt;
 
-        union m_option_value def = {0};
+        union m_option_value def = m_option_value_default;
         const void *def_ptr = m_config_get_co_default(mpctx->mconfig, co);
-        if (def_ptr && opt->type->size > 0)
+        bool has_default = def_ptr && opt->type->size > 0;
+        if (has_default)
             memcpy(&def, def_ptr, opt->type->size);
 
         bool has_minmax = opt->min < opt->max &&
@@ -3452,7 +3566,7 @@ static int mp_property_option_info(void *ctx, struct m_property *prop,
             {"type",                    SUB_PROP_STR(opt->type->name)},
             {"set-from-commandline",    SUB_PROP_BOOL(co->is_set_from_cmdline)},
             {"set-locally",             SUB_PROP_BOOL(co->is_set_locally)},
-            {"default-value",           *opt, def},
+            {"default-value",           *opt, def, .unavailable = !has_default},
             {"min",                     SUB_PROP_DOUBLE(opt->min),
              .unavailable = !(has_minmax && opt->min != DBL_MIN)},
             {"max",                     SUB_PROP_DOUBLE(opt->max),
@@ -3506,7 +3620,7 @@ static int mp_profile_list(void *ctx, struct m_property *prop,
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        *(struct mpv_node *)arg = m_config_get_profiles(mpctx->mconfig);
+        *(struct dmpv_node *)arg = m_config_get_profiles(mpctx->mconfig);
         return M_PROPERTY_OK;
     }
     }
@@ -3521,22 +3635,22 @@ static int mp_property_commands(void *ctx, struct m_property *prop,
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        struct mpv_node *root = arg;
-        node_init(root, MPV_FORMAT_NODE_ARRAY, NULL);
+        struct dmpv_node *root = arg;
+        node_init(root, DMPV_FORMAT_NODE_ARRAY, NULL);
 
         for (int n = 0; mp_cmds[n].name; n++) {
             const struct mp_cmd_def *cmd = &mp_cmds[n];
-            struct mpv_node *entry = node_array_add(root, MPV_FORMAT_NODE_MAP);
+            struct dmpv_node *entry = node_array_add(root, DMPV_FORMAT_NODE_MAP);
 
             node_map_add_string(entry, "name", cmd->name);
 
-            struct mpv_node *args =
-                node_map_add(entry, "args", MPV_FORMAT_NODE_ARRAY);
+            struct dmpv_node *args =
+                node_map_add(entry, "args", DMPV_FORMAT_NODE_ARRAY);
             for (int i = 0; i < MP_CMD_DEF_MAX_ARGS; i++) {
                 const struct m_option *a = &cmd->args[i];
                 if (!a->type)
                     break;
-                struct mpv_node *ae = node_array_add(args, MPV_FORMAT_NODE_MAP);
+                struct dmpv_node *ae = node_array_add(args, DMPV_FORMAT_NODE_MAP);
                 node_map_add_string(ae, "name", a->name);
                 node_map_add_string(ae, "type", a->type->name);
                 node_map_add_flag(ae, "optional", a->flags & MP_CMD_OPT_ARG);
@@ -3560,55 +3674,35 @@ static int mp_property_bindings(void *ctx, struct m_property *prop,
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        *(struct mpv_node *)arg = mp_input_get_bindings(mpctx->input);
+        *(struct dmpv_node *)arg = mp_input_get_bindings(mpctx->input);
         return M_PROPERTY_OK;
     }
     }
     return M_PROPERTY_NOT_IMPLEMENTED;
 }
 
-
-static int mp_property_script_props(void *ctx, struct m_property *prop,
-                                    int action, void *arg)
-{
-    MPContext *mpctx = ctx;
-    struct command_ctx *cmd = mpctx->command_ctx;
-    switch (action) {
-    case M_PROPERTY_GET_TYPE:
-        *(struct m_option *)arg = script_props_type;
-        return M_PROPERTY_OK;
-    case M_PROPERTY_GET:
-        m_option_copy(&script_props_type, arg, &cmd->script_props);
-        return M_PROPERTY_OK;
-    case M_PROPERTY_SET:
-        m_option_copy(&script_props_type, &cmd->script_props, arg);
-        mp_notify_property(mpctx, prop->name);
-        return M_PROPERTY_OK;
-    }
-    return M_PROPERTY_NOT_IMPLEMENTED;
-}
 
 static int do_list_udata(int item, int action, void *arg, void *ctx);
 
 struct udata_ctx {
     MPContext *mpctx;
     const char *path;
-    mpv_node *node;
+    dmpv_node *node;
     void *ta_parent;
 };
 
 static int do_op_udata(struct udata_ctx* ctx, int action, void *arg)
 {
     MPContext *mpctx = ctx->mpctx;
-    mpv_node *node = ctx->node;
+    dmpv_node *node = ctx->node;
 
     switch (action) {
     case M_PROPERTY_GET_TYPE:
         *(struct m_option *)arg = udata_type;
         return M_PROPERTY_OK;
     case M_PROPERTY_GET:
-    case M_PROPERTY_GET_NODE: // same as GET, because type==mpv_node
-        assert(node);
+    case M_PROPERTY_GET_NODE: // same as GET, because type==dmpv_node
+        mp_assert(node);
         m_option_copy(&udata_type, arg, node);
         return M_PROPERTY_OK;
     case M_PROPERTY_PRINT: {
@@ -3618,20 +3712,20 @@ static int do_op_udata(struct udata_ctx* ctx, int action, void *arg)
     }
     case M_PROPERTY_SET:
     case M_PROPERTY_SET_NODE:
-        assert(node);
+        mp_assert(node);
         m_option_copy(&udata_type, node, arg);
         talloc_steal(ctx->ta_parent, node_get_alloc(node));
         mp_notify_property(mpctx, ctx->path);
         return M_PROPERTY_OK;
     case M_PROPERTY_KEY_ACTION: {
-        assert(node);
+        mp_assert(node);
 
         // If we're operating on an array, sub-object access is handled by m_property_read_list
-        if (node->format == MPV_FORMAT_NODE_ARRAY)
+        if (node->format == DMPV_FORMAT_NODE_ARRAY)
             return m_property_read_list(action, arg, node->u.list->num, &do_list_udata, ctx);
 
         // Sub-objects only make sense for arrays and maps
-        if (node->format != MPV_FORMAT_NODE_MAP)
+        if (node->format != DMPV_FORMAT_NODE_MAP)
             return M_PROPERTY_NOT_IMPLEMENTED;
 
         struct m_property_action_arg *act = arg;
@@ -3670,7 +3764,7 @@ static int do_op_udata(struct udata_ctx* ctx, int action, void *arg)
         }
 
         // Look up the next level down
-        mpv_node *cnode = node_map_bget(node, key);
+        dmpv_node *cnode = node_map_bget(node, key);
 
         if (!cnode) {
             switch (act->action) {
@@ -3679,7 +3773,7 @@ static int do_op_udata(struct udata_ctx* ctx, int action, void *arg)
                     // If we're doing a set, and the key doesn't exist, create it.
                     // If we're recursing another layer down, make it an empty map;
                     // otherwise, make it NONE, since we'll be overwriting it at the next level.
-                    cnode = node_map_badd(node, key, has_split ? MPV_FORMAT_NODE_MAP : MPV_FORMAT_NONE);
+                    cnode = node_map_badd(node, key, has_split ? DMPV_FORMAT_NODE_MAP : DMPV_FORMAT_NONE);
                     if (!cnode)
                         return M_PROPERTY_ERROR;
                     break;
@@ -3719,7 +3813,7 @@ static int do_list_udata(int item, int action, void *arg, void *ctx)
 {
     struct udata_ctx nctx = *(struct udata_ctx*)ctx;
     nctx.node = &nctx.node->u.list->values[item];
-    nctx.ta_parent = &nctx.node->u.list;
+    nctx.ta_parent = nctx.node->u.list;
 
     return do_op_udata(&nctx, action, arg);
 }
@@ -3745,7 +3839,7 @@ static int mp_property_udata(void *ctx, struct m_property *prop,
         .mpctx = mpctx,
         .path = path,
         .node = &mpctx->command_ctx->udata,
-        .ta_parent = &mpctx->command_ctx,
+        .ta_parent = mpctx->command_ctx,
     };
 
     int ret = do_op_udata(&nctx, action, arg);
@@ -3765,138 +3859,142 @@ static int mp_property_udata(void *ctx, struct m_property *prop,
 // Base list of properties. This does not include option-mapped properties.
 static const struct m_property mp_properties_base[] = {
     // General
-    {"pid", mp_property_pid},
-    {"speed", mp_property_playback_speed},
+    {"pid", .call = mp_property_pid},
+    {"speed", .call = mp_property_playback_speed},
     {"audio-speed-correction", mp_property_av_speed_correction, .priv = "a"},
     {"video-speed-correction", mp_property_av_speed_correction, .priv = "v"},
-    {"display-sync-active", mp_property_display_sync_active},
-    {"filename", mp_property_filename},
-    {"stream-open-filename", mp_property_stream_open_filename},
-    {"file-size", mp_property_file_size},
-    {"path", mp_property_path},
-    {"media-title", mp_property_media_title},
-    {"stream-path", mp_property_stream_path},
-    {"current-demuxer", mp_property_demuxer},
-    {"file-format", mp_property_file_format},
-    {"stream-pos", mp_property_stream_pos},
-    {"stream-end", mp_property_stream_end},
-    {"duration", mp_property_duration},
-    {"avsync", mp_property_avsync},
-    {"total-avsync-change", mp_property_total_avsync_change},
-    {"mistimed-frame-count", mp_property_mistimed_frame_count},
-    {"vsync-ratio", mp_property_vsync_ratio},
-    {"display-width", mp_property_display_resolution},
-    {"display-height", mp_property_display_resolution},
-    {"decoder-frame-drop-count", mp_property_frame_drop_dec},
-    {"frame-drop-count", mp_property_frame_drop_vo},
-    {"vo-delayed-frame-count", mp_property_vo_delayed_frame_count},
-    {"percent-pos", mp_property_percent_pos},
-    {"time-start", mp_property_time_start},
-    {"time-pos", mp_property_time_pos},
-    {"time-remaining", mp_property_remaining},
-    {"audio-pts", mp_property_audio_pts},
-    {"playtime-remaining", mp_property_playtime_remaining},
-    {"playback-time", mp_property_playback_time},
-    {"chapter", mp_property_chapter},
-    {"edition", mp_property_edition},
-    {"current-edition", mp_property_current_edition},
-    {"chapters", mp_property_chapters},
-    {"editions", mp_property_editions},
-    {"metadata", mp_property_metadata},
-    {"filtered-metadata", mp_property_filtered_metadata},
-    {"chapter-metadata", mp_property_chapter_metadata},
+    {"display-sync-active", .call = mp_property_display_sync_active},
+    {"filename", .call = mp_property_filename},
+    {"stream-open-filename", .call = mp_property_stream_open_filename},
+    {"file-size", .call = mp_property_file_size},
+    {"path", .call = mp_property_path},
+    {"media-title", .call = mp_property_media_title},
+    {"stream-path", .call = mp_property_stream_path},
+    {"current-demuxer", .call = mp_property_demuxer},
+    {"file-format", .call = mp_property_file_format},
+    {"stream-pos", .call = mp_property_stream_pos},
+    {"stream-end", .call = mp_property_stream_end},
+    {"duration", .call = mp_property_duration},
+    {"avsync", .call = mp_property_avsync},
+    {"total-avsync-change", .call = mp_property_total_avsync_change},
+    {"mistimed-frame-count", .call = mp_property_mistimed_frame_count},
+    {"vsync-ratio", .call = mp_property_vsync_ratio},
+    {"display-width", .call = mp_property_display_resolution},
+    {"display-height", .call = mp_property_display_resolution},
+    {"decoder-frame-drop-count", .call = mp_property_frame_drop_dec},
+    {"frame-drop-count", .call = mp_property_frame_drop_vo},
+    {"vo-delayed-frame-count", .call = mp_property_vo_delayed_frame_count},
+    {"percent-pos", .call = mp_property_percent_pos},
+    {"time-start", .call = mp_property_time_start},
+    {"time-pos", .call = mp_property_time_pos},
+    {"time-remaining", .call = mp_property_remaining},
+    {"audio-pts", .call = mp_property_audio_pts},
+    {"playtime-remaining", .call = mp_property_playtime_remaining},
+    {"playback-time", .call = mp_property_playback_time},
+    {"remaining-file-loops", .call = mp_property_remaining_file_loops},
+    {"remaining-ab-loops", .call = mp_property_remaining_ab_loops},
+    {"chapter", .call = mp_property_chapter},
+    {"edition", .call = mp_property_edition},
+    {"current-edition", .call = mp_property_current_edition},
+    {"chapters", .call = mp_property_chapters},
+    {"editions", .call = mp_property_editions},
+    {"metadata", .call = mp_property_metadata},
+    {"filtered-metadata", .call = mp_property_filtered_metadata},
+    {"chapter-metadata", .call = mp_property_chapter_metadata},
     {"vf-metadata", mp_property_filter_metadata, .priv = "vf"},
     {"af-metadata", mp_property_filter_metadata, .priv = "af"},
-    {"core-idle", mp_property_core_idle},
-    {"eof-reached", mp_property_eof_reached},
-    {"seeking", mp_property_seeking},
-    {"playback-abort", mp_property_playback_abort},
-    {"cache-speed", mp_property_cache_speed},
-    {"demuxer-cache-duration", mp_property_demuxer_cache_duration},
-    {"demuxer-cache-time", mp_property_demuxer_cache_time},
-    {"demuxer-cache-idle", mp_property_demuxer_cache_idle},
-    {"demuxer-start-time", mp_property_demuxer_start_time},
-    {"demuxer-cache-state", mp_property_demuxer_cache_state},
-    {"cache-buffering-state", mp_property_cache_buffering},
-    {"paused-for-cache", mp_property_paused_for_cache},
-    {"demuxer-via-network", mp_property_demuxer_is_network},
-    {"clock", mp_property_clock},
-    {"seekable", mp_property_seekable},
-    {"partially-seekable", mp_property_partially_seekable},
-    {"idle-active", mp_property_idle},
-    {"window-id", mp_property_window_id},
+    {"core-idle", .call = mp_property_core_idle},
+    {"eof-reached", .call = mp_property_eof_reached},
+    {"seeking", .call = mp_property_seeking},
+    {"playback-abort", .call = mp_property_playback_abort},
+    {"cache-speed", .call = mp_property_cache_speed},
+    {"demuxer-cache-duration", .call = mp_property_demuxer_cache_duration},
+    {"demuxer-cache-time", .call = mp_property_demuxer_cache_time},
+    {"demuxer-cache-idle", .call = mp_property_demuxer_cache_idle},
+    {"demuxer-start-time", .call = mp_property_demuxer_start_time},
+    {"demuxer-cache-state", .call = mp_property_demuxer_cache_state},
+    {"cache-buffering-state", .call = mp_property_cache_buffering},
+    {"paused-for-cache", .call = mp_property_paused_for_cache},
+    {"demuxer-via-network", .call = mp_property_demuxer_is_network},
+    {"clock", .call = mp_property_clock},
+    {"seekable", .call = mp_property_seekable},
+    {"partially-seekable", .call = mp_property_partially_seekable},
+    {"deinterlace-active", .call = mp_property_deinterlace},
+    {"idle-active", .call = mp_property_idle},
+    {"window-id", .call = mp_property_window_id},
 
-    {"chapter-list", mp_property_list_chapters},
-    {"track-list", property_list_tracks},
-    {"current-tracks", property_current_tracks},
-    {"edition-list", property_list_editions},
+    {"chapter-list", .call = mp_property_list_chapters},
+    {"track-list", .call = property_list_tracks},
+    {"current-tracks", .call = property_current_tracks},
+    {"edition-list", .call = property_list_editions},
 
-    {"playlist", mp_property_playlist},
-    {"playlist-pos", mp_property_playlist_pos},
-    {"playlist-pos-1", mp_property_playlist_pos_1},
-    {"playlist-current-pos", mp_property_playlist_current_pos},
-    {"playlist-playing-pos", mp_property_playlist_playing_pos},
+    {"playlist", .call = mp_property_playlist},
+    {"playlist-path", .call = mp_property_playlist_path},
+    {"playlist-pos", .call = mp_property_playlist_pos},
+    {"playlist-pos-1", .call = mp_property_playlist_pos_1},
+    {"playlist-current-pos", .call = mp_property_playlist_current_pos},
+    {"playlist-playing-pos", .call = mp_property_playlist_playing_pos},
     M_PROPERTY_ALIAS("playlist-count", "playlist/count"),
 
     // Audio
-    {"mixer-active", mp_property_mixer_active},
-    {"volume", mp_property_volume},
-    {"ao-volume", mp_property_ao_volume},
-    {"ao-mute", mp_property_ao_mute},
-    {"audio-delay", mp_property_audio_delay},
-    {"audio-codec-name", mp_property_audio_codec_name},
-    {"audio-codec", mp_property_audio_codec},
-    {"audio-params", mp_property_audio_params},
-    {"audio-out-params", mp_property_audio_out_params},
+    {"mixer-active", .call = mp_property_mixer_active},
+    {"volume", .call = mp_property_volume},
+    {"ao-volume", .call = mp_property_ao_volume},
+    {"ao-mute", .call = mp_property_ao_mute},
+    {"audio-delay", .call = mp_property_audio_delay},
+    {"audio-codec-name", .call = mp_property_audio_codec_name},
+    {"audio-codec", .call = mp_property_audio_codec},
+    {"audio-params", .call = mp_property_audio_params},
+    {"audio-out-params", .call = mp_property_audio_out_params},
     {"aid", property_switch_track, .priv = (void *)(const int[]){0, STREAM_AUDIO}},
-    {"audio-device", mp_property_audio_device},
-    {"audio-device-list", mp_property_audio_devices},
-    {"current-ao", mp_property_ao},
+    {"audio-device", .call = mp_property_audio_device},
+    {"audio-device-list", .call = mp_property_audio_devices},
+    {"current-ao", .call = mp_property_ao},
 
     // Video
-    {"video-out-params", mp_property_vo_imgparams},
-    {"video-dec-params", mp_property_dec_imgparams},
-    {"video-params", mp_property_vd_imgparams},
-    {"video-format", mp_property_video_format},
-    {"video-frame-info", mp_property_video_frame_info},
-    {"video-codec", mp_property_video_codec},
+    {"video-out-params", .call = mp_property_vo_imgparams},
+    {"video-dec-params", .call = mp_property_dec_imgparams},
+    {"video-params", .call = mp_property_vd_imgparams},
+    {"video-format", .call = mp_property_video_format},
+    {"video-frame-info", .call = mp_property_video_frame_info},
+    {"video-codec", .call = mp_property_video_codec},
     M_PROPERTY_ALIAS("dwidth", "video-out-params/dw"),
     M_PROPERTY_ALIAS("dheight", "video-out-params/dh"),
     M_PROPERTY_ALIAS("width", "video-params/w"),
     M_PROPERTY_ALIAS("height", "video-params/h"),
-    {"current-window-scale", mp_property_current_window_scale},
-    {"vo-configured", mp_property_vo_configured},
-    {"vo-passes", mp_property_vo_passes},
-    {"perf-info", mp_property_perf_info},
-    {"current-vo", mp_property_vo},
-    {"container-fps", mp_property_fps},
-    {"estimated-vf-fps", mp_property_vf_fps},
-    {"video-aspect", mp_property_aspect},
-    {"video-aspect-override", mp_property_video_aspect_override},
+    {"current-window-scale", .call = mp_property_current_window_scale},
+    {"vo-configured", .call = mp_property_vo_configured},
+    {"vo-passes", .call = mp_property_vo_passes},
+    {"hdr-metadata", .call = mp_property_hdr_metadata},
+    {"perf-info", .call = mp_property_perf_info},
+    {"current-vo", .call = mp_property_vo},
+    {"container-fps", .call = mp_property_fps},
+    {"estimated-vf-fps", .call = mp_property_vf_fps},
+    {"video-aspect-override", .call = mp_property_video_aspect_override},
     {"vid", property_switch_track, .priv = (void *)(const int[]){0, STREAM_VIDEO}},
-    {"hwdec-current", mp_property_hwdec_current},
-    {"hwdec-interop", mp_property_hwdec_interop},
+    {"hwdec-current", .call = mp_property_hwdec_current},
+    {"hwdec-interop", .call = mp_property_hwdec_interop},
 
-    {"estimated-frame-count", mp_property_frame_count},
-    {"estimated-frame-number", mp_property_frame_number},
+    {"estimated-frame-count", .call = mp_property_frame_count},
+    {"estimated-frame-number", .call = mp_property_frame_number},
 
-    {"osd-dimensions", mp_property_osd_dim},
+    {"osd-dimensions", .call = mp_property_osd_dim},
     M_PROPERTY_ALIAS("osd-width", "osd-dimensions/w"),
     M_PROPERTY_ALIAS("osd-height", "osd-dimensions/h"),
     M_PROPERTY_ALIAS("osd-par", "osd-dimensions/par"),
 
-    {"osd-sym-cc", mp_property_osd_sym},
-    {"osd-ass-cc", mp_property_osd_ass},
+    {"osd-sym-cc", .call = mp_property_osd_sym},
+    {"osd-ass-cc", .call = mp_property_osd_ass},
 
-    {"mouse-pos", mp_property_mouse_pos},
+    {"mouse-pos", .call = mp_property_mouse_pos},
 
     // Subs
     {"sid", property_switch_track, .priv = (void *)(const int[]){0, STREAM_SUB}},
     {"secondary-sid", property_switch_track,
      .priv = (void *)(const int[]){1, STREAM_SUB}},
-    {"sub-delay", mp_property_sub_delay},
-    {"sub-speed", mp_property_sub_speed},
-    {"sub-pos", mp_property_sub_pos},
+    {"sub-delay", .call = mp_property_sub_delay},
+    {"sub-speed", .call = mp_property_sub_speed},
+    {"sub-pos", .call = mp_property_sub_pos},
     {"sub-text", mp_property_sub_text,
         .priv = (void *)&(const int){SD_TEXT_TYPE_PLAIN}},
     {"secondary-sub-text", mp_property_secondary_sub_text,
@@ -3911,16 +4009,16 @@ static const struct m_property mp_properties_base[] = {
         .priv = (void *)&(const int){0}},
     {"secondary-sub-end", mp_property_sub_end,
         .priv = (void *)&(const int){1}},
-    {"sub-forced-only-cur", mp_property_sub_forced_only_cur},
+    {"sub-forced-only-cur", .call = mp_property_sub_forced_only_cur},
 
-    {"vf", mp_property_vf},
-    {"af", mp_property_af},
+    {"vf", .call = mp_property_vf},
+    {"af", .call = mp_property_af},
 
-    {"ab-loop-a", mp_property_ab_loop},
-    {"ab-loop-b", mp_property_ab_loop},
+    {"ab-loop-a", .call = mp_property_ab_loop},
+    {"ab-loop-b", .call = mp_property_ab_loop},
 
 #define PROPERTY_BITRATE(name, old, type) \
-    {name, mp_property_packet_bitrate, (void *)(uintptr_t)((type)|(old?0x100:0))}
+    {name, .call = mp_property_packet_bitrate, .priv = (void *)(uintptr_t)((type)|(old?0x100:0))}
     PROPERTY_BITRATE("packet-video-bitrate", true, STREAM_VIDEO),
     PROPERTY_BITRATE("packet-audio-bitrate", true, STREAM_AUDIO),
     PROPERTY_BITRATE("packet-sub-bitrate", true, STREAM_SUB),
@@ -3929,37 +4027,39 @@ static const struct m_property mp_properties_base[] = {
     PROPERTY_BITRATE("audio-bitrate", false, STREAM_AUDIO),
     PROPERTY_BITRATE("sub-bitrate", false, STREAM_SUB),
 
-    {"focused", mp_property_focused},
-    {"display-names", mp_property_display_names},
-    {"display-fps", mp_property_display_fps},
-    {"estimated-display-fps", mp_property_estimated_display_fps},
-    {"vsync-jitter", mp_property_vsync_jitter},
-    {"display-hidpi-scale", mp_property_hidpi_scale},
+    {"focused", .call = mp_property_focused},
+    {"display-names", .call = mp_property_display_names},
+    {"display-fps", .call = mp_property_display_fps},
+    {"estimated-display-fps", .call = mp_property_estimated_display_fps},
+    {"vsync-jitter", .call = mp_property_vsync_jitter},
+    {"display-hidpi-scale", .call = mp_property_hidpi_scale},
 
-    {"working-directory", mp_property_cwd},
+    {"working-directory", .call = mp_property_cwd},
 
-    {"protocol-list", mp_property_protocols},
-    {"decoder-list", mp_property_decoders},
-    {"encoder-list", mp_property_encoders},
-    {"demuxer-lavf-list", mp_property_lavf_demuxers},
-    {"input-key-list", mp_property_keylist},
+    {"protocol-list", .call = mp_property_protocols},
+    {"decoder-list", .call = mp_property_decoders},
+    {"encoder-list", .call = mp_property_encoders},
+    {"demuxer-lavf-list", .call = mp_property_lavf_demuxers},
+    {"input-key-list", .call = mp_property_keylist},
 
-    {"mpv-version", mp_property_version},
-    {"mpv-configuration", mp_property_configuration},
-    {"ffmpeg-version", mp_property_ffmpeg},
-    {"libass-version", mp_property_libass_version},
-    {"platform", mp_property_platform},
+    {"dmpv-version", .call = mp_property_version},
+    {"dmpv-configuration", .call = mp_property_configuration},
+    {"ffmpeg-version", .call = mp_property_ffmpeg},
+    {"libass-version", .call = mp_property_libass_version},
+#if HAVE_LIBPLACEBO
+    {"libplacebo-version", .call = mp_property_libplacebo_version},
+#endif
 
-    {"options", mp_property_options},
-    {"file-local-options", mp_property_local_options},
-    {"option-info", mp_property_option_info},
-    {"property-list", mp_property_list},
-    {"profile-list", mp_profile_list},
-    {"command-list", mp_property_commands},
-    {"input-bindings", mp_property_bindings},
+    {"options", .call = mp_property_options},
+    {"file-local-options", .call = mp_property_local_options},
+    {"option-info", .call = mp_property_option_info},
+    {"property-list", .call = mp_property_list},
+    {"profile-list", .call = mp_profile_list},
+    {"command-list", .call = mp_property_commands},
+    {"input-bindings", .call = mp_property_bindings},
 
-    {"shared-script-properties", mp_property_script_props},
-    {"user-data", mp_property_udata},
+    {"user-data", .call = mp_property_udata},
+    {"term-size", .call = mp_property_term_size},
 
     M_PROPERTY_ALIAS("video", "vid"),
     M_PROPERTY_ALIAS("audio", "aid"),
@@ -3978,14 +4078,14 @@ static const struct m_property mp_properties_base[] = {
 // Each entry describes which properties an event (possibly) changes.
 #define E(x, ...) [x] = (const char*const[]){__VA_ARGS__, NULL}
 static const char *const *const mp_event_property_change[] = {
-    E(MPV_EVENT_START_FILE, "*"),
-    E(MPV_EVENT_END_FILE, "*"),
-    E(MPV_EVENT_FILE_LOADED, "*"),
+    E(DMPV_EVENT_START_FILE, "*"),
+    E(DMPV_EVENT_END_FILE, "*"),
+    E(DMPV_EVENT_FILE_LOADED, "*"),
     E(MP_EVENT_CHANGE_ALL, "*"),
     E(MP_EVENT_TRACKS_CHANGED, "track-list", "current-tracks"),
     E(MP_EVENT_TRACK_SWITCHED, "track-list", "current-tracks"),
-    E(MPV_EVENT_IDLE, "*"),
-    E(MPV_EVENT_TICK, "time-pos", "audio-pts", "stream-pos", "avsync",
+    E(DMPV_EVENT_IDLE, "*"),
+    E(DMPV_EVENT_TICK, "time-pos", "audio-pts", "stream-pos", "avsync",
       "percent-pos", "time-remaining", "playtime-remaining", "playback-time",
       "estimated-vf-fps", "drop-frame-count", "vo-drop-frame-count",
       "total-avsync-change", "audio-speed-correction", "video-speed-correction",
@@ -3993,19 +4093,20 @@ static const char *const *const mp_event_property_change[] = {
       "estimated-display-fps", "vsync-jitter", "sub-text", "secondary-sub-text",
       "audio-bitrate", "video-bitrate", "sub-bitrate", "decoder-frame-drop-count",
       "frame-drop-count", "video-frame-info", "vf-metadata", "af-metadata",
-      "sub-start", "sub-end", "secondary-sub-start", "secondary-sub-end"),
+      "sub-start", "sub-end", "secondary-sub-start", "secondary-sub-end",
+      "deinterlace-active"),
     E(MP_EVENT_DURATION_UPDATE, "duration"),
-    E(MPV_EVENT_VIDEO_RECONFIG, "video-out-params", "video-params",
+    E(DMPV_EVENT_VIDEO_RECONFIG, "video-out-params", "video-params",
       "video-format", "video-codec", "video-bitrate", "dwidth", "dheight",
-      "width", "height", "fps", "aspect", "vo-configured", "current-vo",
+      "width", "height", "fps", "aspect", "aspect-name", "vo-configured", "current-vo",
       "video-aspect", "video-dec-params", "osd-dimensions",
       "hwdec", "hwdec-current", "hwdec-interop"),
-    E(MPV_EVENT_AUDIO_RECONFIG, "audio-format", "audio-codec", "audio-bitrate",
+    E(DMPV_EVENT_AUDIO_RECONFIG, "audio-format", "audio-codec", "audio-bitrate",
       "samplerate", "channels", "audio", "volume", "mute",
       "current-ao", "audio-codec-name", "audio-params",
       "audio-out-params", "volume-max", "mixer-active"),
-    E(MPV_EVENT_SEEK, "seeking", "core-idle", "eof-reached"),
-    E(MPV_EVENT_PLAYBACK_RESTART, "seeking", "core-idle", "eof-reached"),
+    E(DMPV_EVENT_SEEK, "seeking", "core-idle", "eof-reached"),
+    E(DMPV_EVENT_PLAYBACK_RESTART, "seeking", "core-idle", "eof-reached"),
     E(MP_EVENT_METADATA_UPDATE, "metadata", "filtered-metadata", "media-title"),
     E(MP_EVENT_CHAPTER_CHANGE, "chapter", "chapter-metadata"),
     E(MP_EVENT_CACHE_UPDATE,
@@ -4099,18 +4200,18 @@ int mp_property_do(const char *name, int action, void *val,
     int r = m_property_do(ctx->log, cmd->properties, name, action, val, ctx);
 
     if (mp_msg_test(ctx->log, MSGL_V) && is_property_set(action, val)) {
-        struct m_option ot = {0};
+        struct m_option option_type = {0};
         void *data = val;
         switch (action) {
         case M_PROPERTY_SET_NODE:
-            ot.type = &m_option_type_node;
+            option_type.type = &m_option_type_node;
             break;
         case M_PROPERTY_SET_STRING:
-            ot.type = &m_option_type_string;
+            option_type.type = &m_option_type_string;
             data = &val;
             break;
         }
-        char *t = ot.type ? m_option_print(&ot, data) : NULL;
+        char *t = option_type.type ? m_option_print(&option_type, data) : NULL;
         MP_VERBOSE(ctx, "Set property: %s%s%s -> %d\n",
                    name, t ? "=" : "", t ? t : "", r);
         talloc_free(t);
@@ -4140,7 +4241,7 @@ char *mp_property_expand_escaped_string(struct MPContext *mpctx, const char *str
             break;
         bstr_xappend(tmp, &dst, bstr0("\""));
     }
-    char *r = mp_property_expand_string(mpctx, dst.start);
+    char *r = mp_property_expand_string(mpctx, (char *)dst.start);
     talloc_free(tmp);
     return r;
 }
@@ -4173,15 +4274,15 @@ static const struct property_osd_display {
     const char *msg;
 } property_osd_display[] = {
     // general
-    {"loop-playlist", "Loop"},
-    {"loop-file", "Loop current file"},
+    {.name = "loop-playlist", .osd_name = "Loop"},
+    {.name = "loop-file", .osd_name = "Loop current file"},
     {"chapter",
      .seek_msg = OSD_SEEK_INFO_CHAPTER_TEXT,
      .seek_bar = OSD_SEEK_INFO_BAR},
-    {"hr-seek", "hr-seek"},
-    {"speed", "Speed"},
-    {"clock", "Clock"},
-    {"edition", "Edition"},
+    {.name = "hr-seek", .osd_name = "hr-seek"},
+    {.name = "speed", .osd_name = "Speed"},
+    {.name = "clock", .osd_name = "Clock"},
+    {.name = "edition", .osd_name = "Edition"},
     // audio
     {"volume", "Volume",
      .msg = "Volume: ${?volume:${volume}% ${?mute==yes:(Muted)}}${!volume:${volume}}",
@@ -4189,54 +4290,56 @@ static const struct property_osd_display {
     {"ao-volume", "AO Volume",
      .msg = "AO Volume: ${?ao-volume:${ao-volume}% ${?ao-mute==yes:(Muted)}}${!ao-volume:${ao-volume}}",
      .osd_progbar = OSD_VOLUME, .marker = 100},
-    {"mute", "Mute"},
-    {"ao-mute", "AO Mute"},
-    {"audio-delay", "A-V delay"},
-    {"audio", "Audio"},
+    {.name = "mute", .osd_name = "Mute"},
+    {.name = "ao-mute", .osd_name = "AO Mute"},
+    {.name = "audio-delay", .osd_name = "A-V delay"},
+    {.name = "audio", .osd_name = "Audio"},
     // video
     {"panscan", "Panscan", .osd_progbar = OSD_PANSCAN},
-    {"taskbar-progress", "Progress in taskbar"},
-    {"snap-window", "Snap to screen edges"},
-    {"ontop", "Stay on top"},
-    {"on-all-workspaces", "Visibility on all workspaces"},
-    {"border", "Border"},
-    {"framedrop", "Framedrop"},
-    {"deinterlace", "Deinterlace"},
-    {"gamma", "Gamma", .osd_progbar = OSD_BRIGHTNESS },
+    {.name = "taskbar-progress", .osd_name = "Progress in taskbar"},
+    {.name = "snap-window", .osd_name = "Snap to screen edges"},
+    {.name = "ontop", .osd_name = "Stay on top"},
+    {.name = "on-all-workspaces", .osd_name = "Visibility on all workspaces"},
+    {.name = "border", .osd_name = "Border"},
+    {.name = "framedrop", .osd_name = "Framedrop"},
+    {.name = "deinterlace", .osd_name = "Deinterlace"},
+    // Note: No dedicated OSD_GAMMA symbol exists; using OSD_CONTRAST as it's
+    // visually similar (both are multiplicative adjustments around 1.0)
+    {"gamma", "Gamma", .osd_progbar = OSD_CONTRAST },
     {"brightness", "Brightness", .osd_progbar = OSD_BRIGHTNESS},
     {"contrast", "Contrast", .osd_progbar = OSD_CONTRAST},
     {"saturation", "Saturation", .osd_progbar = OSD_SATURATION},
     {"hue", "Hue", .osd_progbar = OSD_HUE},
-    {"angle", "Angle"},
+    {.name = "angle", .osd_name = "Angle"},
     // subs
-    {"sub", "Subtitles"},
-    {"secondary-sid", "Secondary subtitles"},
-    {"sub-pos", "Sub position"},
-    {"sub-delay", "Sub delay"},
-    {"sub-speed", "Sub speed"},
+    {.name = "sub", .osd_name = "Subtitles"},
+    {.name = "secondary-sid", .osd_name = "Secondary subtitles"},
+    {.name = "sub-pos", .osd_name = "Sub position"},
+    {.name = "sub-delay", .osd_name = "Sub delay"},
+    {.name = "sub-speed", .osd_name = "Sub speed"},
     {"sub-visibility",
      .msg = "Subtitles ${!sub-visibility==yes:hidden}"
       "${?sub-visibility==yes:visible${?sub==no: (but no subtitles selected)}}"},
     {"secondary-sub-visibility",
      .msg = "Secondary Subtitles ${!secondary-sub-visibility==yes:hidden}"
       "${?secondary-sub-visibility==yes:visible${?secondary-sid==no: (but no secondary subtitles selected)}}"},
-    {"sub-forced-only", "Forced sub only"},
-    {"sub-scale", "Sub Scale"},
-    {"sub-ass-vsfilter-aspect-compat", "Subtitle VSFilter aspect compat"},
-    {"sub-ass-override", "ASS subtitle style override"},
+    {.name = "sub-forced-only", .osd_name = "Forced sub only"},
+    {.name = "sub-scale", .osd_name = "Sub Scale"},
+    {.name = "sub-ass-vsfilter-aspect-compat", .osd_name = "Subtitle VSFilter aspect compat"},
+    {.name = "sub-ass-override", .osd_name = "ASS subtitle style override"},
     {"vf", "Video filters", .msg = "Video filters:\n${vf}"},
     {"af", "Audio filters", .msg = "Audio filters:\n${af}"},
-    {"ab-loop-a", "A-B loop start"},
+    {.name = "ab-loop-a", .osd_name = "A-B loop start"},
     {"ab-loop-b", .msg = "A-B loop: ${ab-loop-a} - ${ab-loop-b}"
                             "${?=ab-loop-count==0: (disabled)}"},
-    {"audio-device", "Audio device"},
+    {.name = "audio-device", .osd_name = "Audio device"},
     {"hwdec", .msg = "Hardware decoding: ${hwdec-current}"},
-    {"video-aspect-override", "Aspect ratio override"},
+    {.name = "video-aspect-override", .osd_name = "Aspect ratio override"},
     // By default, don't display the following properties on OSD
-    {"pause", NULL},
-    {"fullscreen", NULL},
-    {"window-minimized", NULL},
-    {"window-maximized", NULL},
+    {.name = "pause"},
+    {.name = "fullscreen"},
+    {.name = "window-minimized"},
+    {.name = "window-maximized"},
     {0}
 };
 
@@ -4319,6 +4422,8 @@ static bool reinit_filters(MPContext *mpctx, enum stream_type mediatype)
         return reinit_video_filters(mpctx) >= 0;
     case STREAM_AUDIO:
         return reinit_audio_filters(mpctx) >= 0;
+    default:
+        break;
     }
     return false;
 }
@@ -4413,8 +4518,8 @@ static void recreate_overlays(struct MPContext *mpctx)
             struct sub_bitmap b = {
                 .bitmap = s->planes[0],
                 .stride = s->stride[0],
-                .w = s->w, .dw = s->w,
-                .h = s->h, .dh = s->h,
+                .w = s->w, .dw = o->dw,
+                .h = s->h, .dh = o->dh,
                 .x = o->x,
                 .y = o->y,
             };
@@ -4487,7 +4592,7 @@ done:
 static void replace_overlay(struct MPContext *mpctx, int id, struct overlay *new)
 {
     struct command_ctx *cmd = mpctx->command_ctx;
-    assert(id >= 0);
+    mp_assert(id >= 0);
     if (id >= cmd->num_overlays) {
         MP_TARRAY_GROW(cmd, cmd->overlays, id);
         while (cmd->num_overlays <= id)
@@ -4511,7 +4616,12 @@ static void cmd_overlay_add(void *pcmd)
     int offset = cmd->args[4].v.i;
     char *fmt = cmd->args[5].v.s;
     int w = cmd->args[6].v.i, h = cmd->args[7].v.i, stride = cmd->args[8].v.i;
+    int dw = cmd->args[9].v.i, dh = cmd->args[10].v.i;
 
+    if (dw <= 0)
+        dw = w;
+    if (dh <= 0)
+        dh = h;
     if (strcmp(fmt, "bgra") != 0) {
         MP_ERR(mpctx, "overlay-add: unsupported OSD format '%s'\n", fmt);
         goto error;
@@ -4528,6 +4638,8 @@ static void cmd_overlay_add(void *pcmd)
         .source = mp_image_alloc(IMGFMT_BGRA, w, h),
         .x = x,
         .y = y,
+        .dw = dw,
+        .dh = dh,
     };
     if (!overlay.source)
         goto error;
@@ -4616,8 +4728,8 @@ static void cmd_osd_overlay(void *p)
 
     osd_set_external(mpctx->osd, &ov);
 
-    struct mpv_node *res = &cmd->result;
-    node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+    struct dmpv_node *res = &cmd->result;
+    node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
 
     // (An empty rc uses INFINITY, avoid in JSON, just leave it unset.)
     if (rc[0] < rc[2] && rc[1] < rc[3]) {
@@ -4725,7 +4837,7 @@ static void cmd_cycle_values(void *p)
         return;
     }
 
-    union m_option_value curval = {0};
+    union m_option_value curval = m_option_value_default;
     r = mp_property_do(name, M_PROPERTY_GET, &curval, mpctx);
     if (r <= 0) {
         show_property_status(cmd, name, r);
@@ -4734,7 +4846,7 @@ static void cmd_cycle_values(void *p)
 
     int current = -1;
     for (int n = first; n < cmd->num_args; n++) {
-        union m_option_value val = {0};
+        union m_option_value val = m_option_value_default;
         if (m_option_parse(mpctx->log, &prop, bstr0(name),
                            bstr0(cmd->args[n].v.s), &val) < 0)
             continue;
@@ -4771,7 +4883,7 @@ struct cmd_list_ctx {
     struct mp_cmd_ctx *parent;
 
     bool current_valid;
-    pthread_t current;
+    mp_thread current;
     bool completed_recursive;
 
     // list of sub commands yet to run
@@ -4785,7 +4897,7 @@ static void on_cmd_list_sub_completion(struct mp_cmd_ctx *cmd)
 {
     struct cmd_list_ctx *list = cmd->on_completion_priv;
 
-    if (list->current_valid && pthread_equal(list->current, pthread_self())) {
+    if (list->current_valid && mp_thread_equal(list->current, mp_thread_self())) {
         list->completed_recursive = true;
     } else {
         continue_cmd_list(list);
@@ -4808,7 +4920,7 @@ static void continue_cmd_list(struct cmd_list_ctx *list)
 
             list->completed_recursive = false;
             list->current_valid = true;
-            list->current = pthread_self();
+            list->current = mp_thread_self();
 
             run_command(list->mpctx, sub, NULL, on_cmd_list_sub_completion, list);
 
@@ -4854,12 +4966,12 @@ void mp_cmd_ctx_complete(struct mp_cmd_ctx *cmd)
 {
     cmd->completed = true;
     if (!cmd->success)
-        mpv_free_node_contents(&cmd->result);
+        dmpv_free_node_contents(&cmd->result);
     if (cmd->on_completion)
         cmd->on_completion(cmd);
     if (cmd->abort)
         mp_abort_remove(cmd->mpctx, cmd->abort);
-    mpv_free_node_contents(&cmd->result);
+    dmpv_free_node_contents(&cmd->result);
     talloc_free(cmd);
 }
 
@@ -4916,7 +5028,7 @@ void run_command(struct MPContext *mpctx, struct mp_cmd *cmd,
     if (!ctx->abort && cmd->def->can_abort)
         ctx->abort = talloc_zero(ctx, struct mp_abort_entry);
 
-    assert(cmd->def->can_abort == !!ctx->abort);
+    mp_assert(cmd->def->can_abort == !!ctx->abort);
 
     if (ctx->abort) {
         ctx->abort->coupled_to_playback |= cmd->def->abort_on_playback_end;
@@ -5138,7 +5250,7 @@ static void cmd_change_list(void *p)
         return;
     }
 
-    union m_option_value val = {0};
+    union m_option_value val = m_option_value_default;
     if (mp_property_do(name, M_PROPERTY_GET, &val, mpctx) <= 0) {
         set_osd_msg(mpctx, osdl, osd_duration, "Could not read: '%s'", name);
         cmd->success = false;
@@ -5205,39 +5317,35 @@ static void cmd_frame_step(void *p)
 {
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
+    bool backstep = *(bool *)cmd->priv;
+    int frames = backstep ? -1 : cmd->args[0].v.i;
+    int flags = backstep ? 1 : cmd->args[1].v.i;
 
-    if (!mpctx->playback_initialized) {
+    if (!mpctx->playback_initialized || frames == 0) {
         cmd->success = false;
         return;
     }
 
-    if (cmd->cmd->is_up_down) {
+    if (flags == 1) {
+        // frame-step command has on_updown set so it is called on both down
+        // and up, but stepping should only be triggered when it matches the
+        // emit_on_up flag or if the command is repeated.
+        if (cmd->cmd->repeated || cmd->cmd->is_up == cmd->cmd->emit_on_up)
+            add_step_frame(mpctx, frames, true);
+    } else {
         if (cmd->cmd->is_up) {
             if (mpctx->step_frames < 1)
                 set_pause_state(mpctx, true);
         } else {
+            if (flags == 2)
+                step_frame_mute(mpctx, true);
             if (cmd->cmd->repeated) {
                 set_pause_state(mpctx, false);
             } else {
-                add_step_frame(mpctx, 1);
+                add_step_frame(mpctx, frames, false);
             }
         }
-    } else {
-        add_step_frame(mpctx, 1);
     }
-}
-
-static void cmd_frame_back_step(void *p)
-{
-    struct mp_cmd_ctx *cmd = p;
-    struct MPContext *mpctx = cmd->mpctx;
-
-    if (!mpctx->playback_initialized) {
-        cmd->success = false;
-        return;
-    }
-
-    add_step_frame(mpctx, -1);
 }
 
 static void cmd_quit(void *p)
@@ -5267,6 +5375,65 @@ static void cmd_playlist_next_prev(void *p)
     }
 
     mp_set_playlist_entry(mpctx, e);
+    if (cmd->on_osd & MP_ON_OSD_MSG)
+        mpctx->add_osd_seek_info |= OSD_SEEK_INFO_CURRENT_FILE;
+}
+
+static void cmd_playlist_next_prev_playlist(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    struct MPContext *mpctx = cmd->mpctx;
+    int direction = *(int *)cmd->priv;
+
+    struct playlist_entry *entry =
+        playlist_get_first_in_next_playlist(mpctx->playlist, direction);
+
+    if (!entry && mpctx->opts->loop_times != 1 && mpctx->playlist->current) {
+        entry = direction > 0 ? playlist_get_first(mpctx->playlist)
+                              : playlist_get_last(mpctx->playlist);
+
+        if (entry && entry->playlist_path &&
+            mpctx->playlist->current->playlist_path &&
+            strcmp(entry->playlist_path,
+                   mpctx->playlist->current->playlist_path) == 0)
+            entry = NULL;
+
+        if (direction > 0 && entry && mpctx->opts->loop_times > 1) {
+            mpctx->opts->loop_times--;
+            m_config_notify_change_opt_ptr(mpctx->mconfig,
+                                           &mpctx->opts->loop_times);
+        }
+
+        if (direction < 0)
+            entry = playlist_get_first_in_same_playlist(
+                        entry, mpctx->playlist->current->playlist_path);
+    }
+
+    if (!entry) {
+        cmd->success = false;
+        return;
+    }
+
+    mp_set_playlist_entry(mpctx, entry);
+    if (cmd->on_osd & MP_ON_OSD_MSG)
+        mpctx->add_osd_seek_info |= OSD_SEEK_INFO_CURRENT_FILE;
+}
+
+static void cmd_playlist_next_prev_archive(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    struct MPContext *mpctx = cmd->mpctx;
+    int direction = *(int *)cmd->priv;
+
+    struct playlist_entry *entry =
+        playlist_get_next_archive(mpctx->playlist, direction);
+
+    if (!entry) {
+        cmd->success = false;
+        return;
+    }
+
+    mp_set_playlist_entry(mpctx, entry);
     if (cmd->on_osd & MP_ON_OSD_MSG)
         mpctx->add_osd_seek_info |= OSD_SEEK_INFO_CURRENT_FILE;
 }
@@ -5312,11 +5479,10 @@ static void cmd_sub_step_seek(void *p)
                                                &mpctx->opts->subs_rend->sub_delay);
                 show_property_osd(mpctx, "sub-delay", cmd->on_osd);
             } else {
-                // We can easily get stuck by failing to seek to the video
-                // frame which actually shows the sub first (because video
-                // frame PTS and sub PTS rarely match exactly). Add some
-                // rounding for the mess of it.
-                a[0] += 0.01 * (a[1] >= 0 ? 1 : -1);
+                // We can easily seek/step to the wrong subtitle line (because
+                // video frame PTS and sub PTS rarely match exactly). Add an
+                // arbitrary forward offset as a workaround.
+                a[0] += SUB_SEEK_OFFSET;
                 mark_seek(mpctx);
                 queue_seek(mpctx, MPSEEK_ABSOLUTE, a[0], MPSEEK_EXACT,
                            MPSEEK_FLAG_DELAY);
@@ -5355,8 +5521,8 @@ static void cmd_expand_text(void *p)
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
 
-    cmd->result = (mpv_node){
-        .format = MPV_FORMAT_STRING,
+    cmd->result = (dmpv_node){
+        .format = DMPV_FORMAT_STRING,
         .u.string = mp_property_expand_string(mpctx, cmd->args[0].v.s)
     };
 }
@@ -5366,10 +5532,61 @@ static void cmd_expand_path(void *p)
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
 
-    cmd->result = (mpv_node){
-        .format = MPV_FORMAT_STRING,
+    cmd->result = (dmpv_node){
+        .format = DMPV_FORMAT_STRING,
         .u.string = mp_get_user_path(NULL, mpctx->global, cmd->args[0].v.s)
     };
+}
+
+static void cmd_escape_ass(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    bstr dst = {0};
+
+    osd_mangle_ass(&dst, cmd->args[0].v.s, true);
+
+    cmd->result = (dmpv_node){
+        .format = DMPV_FORMAT_STRING,
+        .u.string = dst.len ? (char *)dst.start : talloc_strdup(NULL, ""),
+    };
+}
+
+
+static struct load_action get_load_action(struct MPContext *mpctx, int action_flag)
+{
+    switch (action_flag) {
+    case 0: // replace
+        return (struct load_action){LOAD_TYPE_REPLACE, .play = true};
+    case 1: // append
+        return (struct load_action){LOAD_TYPE_APPEND, .play = false};
+    case 2: // append-play
+        return (struct load_action){LOAD_TYPE_APPEND, .play = true};
+    case 3: // insert-next
+        return (struct load_action){LOAD_TYPE_INSERT_NEXT, .play = false};
+    case 4: // insert-next-play
+        return (struct load_action){LOAD_TYPE_INSERT_NEXT, .play = true};
+    case 5: // insert-at
+        return (struct load_action){LOAD_TYPE_INSERT_AT, .play = false};
+    case 6: // insert-at-play
+        return (struct load_action){LOAD_TYPE_INSERT_AT, .play = true};
+    default: // default: replace
+        return (struct load_action){LOAD_TYPE_REPLACE, .play = true};
+    }
+}
+
+static struct playlist_entry *get_insert_entry(struct MPContext *mpctx, struct load_action *action,
+                                               int insert_at_idx)
+{
+    switch (action->type) {
+    case LOAD_TYPE_INSERT_NEXT:
+        return playlist_get_next(mpctx->playlist, +1);
+    case LOAD_TYPE_INSERT_AT:
+        return playlist_entry_from_index(mpctx->playlist, insert_at_idx);
+    case LOAD_TYPE_REPLACE:
+    case LOAD_TYPE_APPEND:
+    default:
+        return NULL;
+    }
 }
 
 static void cmd_loadfile(void *p)
@@ -5377,24 +5594,29 @@ static void cmd_loadfile(void *p)
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
     char *filename = cmd->args[0].v.s;
-    int append = cmd->args[1].v.i;
+    int action_flag = cmd->args[1].v.i;
+    int insert_at_idx = cmd->args[2].v.i;
 
-    if (!append)
+    struct load_action action = get_load_action(mpctx, action_flag);
+
+    if (action.type == LOAD_TYPE_REPLACE)
         playlist_clear(mpctx->playlist);
 
     struct playlist_entry *entry = playlist_entry_new(filename);
-    if (cmd->args[2].v.str_list) {
-        char **pairs = cmd->args[2].v.str_list;
+    if (cmd->args[3].v.str_list) {
+        char **pairs = cmd->args[3].v.str_list;
         for (int i = 0; pairs[i] && pairs[i + 1]; i += 2)
             playlist_entry_add_param(entry, bstr0(pairs[i]), bstr0(pairs[i + 1]));
     }
-    playlist_add(mpctx->playlist, entry);
 
-    struct mpv_node *res = &cmd->result;
-    node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+    struct playlist_entry *at = get_insert_entry(mpctx, &action, insert_at_idx);
+    playlist_insert_at(mpctx->playlist, entry, at);
+
+    struct dmpv_node *res = &cmd->result;
+    node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
     node_map_add_int64(res, "playlist_entry_id", entry->id);
 
-    if (!append || (append == 2 && !mpctx->playlist->current)) {
+    if (action.type == LOAD_TYPE_REPLACE || (action.play && !mpctx->playlist->current)) {
         if (mpctx->opts->position_save_on_quit) // requested in issue #1148
             mp_write_watch_later_conf(mpctx);
         mp_set_playlist_entry(mpctx, entry);
@@ -5408,28 +5630,40 @@ static void cmd_loadlist(void *p)
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
     char *filename = cmd->args[0].v.s;
-    int append = cmd->args[1].v.i;
+    int action_flag = cmd->args[1].v.i;
+    int insert_at_idx = cmd->args[2].v.i;
+
+    struct load_action action = get_load_action(mpctx, action_flag);
 
     struct playlist *pl = playlist_parse_file(filename, cmd->abort->cancel,
                                               mpctx->global);
     if (pl) {
-        prepare_playlist(mpctx, pl);
+        prepare_playlist(mpctx, pl, true);
         struct playlist_entry *new = pl->current;
-        if (!append)
+        if (action.type == LOAD_TYPE_REPLACE)
             playlist_clear(mpctx->playlist);
         struct playlist_entry *first = playlist_entry_from_index(pl, 0);
         int num_entries = pl->num_entries;
-        playlist_append_entries(mpctx->playlist, pl);
+
+        struct playlist_entry *at = get_insert_entry(mpctx, &action, insert_at_idx);
+        if (at == NULL) {
+            playlist_append_entries(mpctx->playlist, pl);
+        } else {
+            int at_index = playlist_entry_to_index(mpctx->playlist, at);
+            playlist_transfer_entries_to(mpctx->playlist, at_index, pl);
+        }
         talloc_free(pl);
 
         if (!new)
             new = playlist_get_first(mpctx->playlist);
 
-        if ((!append || (append == 2 && !mpctx->playlist->current)) && new)
+        if ((action.type == LOAD_TYPE_REPLACE ||
+            (action.play && !mpctx->playlist->current)) && new) {
             mp_set_playlist_entry(mpctx, new);
+        }
 
-        struct mpv_node *res = &cmd->result;
-        node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+        struct dmpv_node *res = &cmd->result;
+        node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
         if (num_entries) {
             node_map_add_int64(res, "playlist_entry_id", first->id);
             node_map_add_int64(res, "num_entries", num_entries);
@@ -5542,6 +5776,10 @@ static void cmd_show_progress(void *p)
     mpctx->add_osd_seek_info |=
             (cmd->msg_osd ? OSD_SEEK_INFO_TEXT : 0) |
             (cmd->bar_osd ? OSD_SEEK_INFO_BAR : 0);
+
+    // If we got neither (i.e. no-osd) force both like osd-auto.
+    if (!mpctx->add_osd_seek_info)
+        mpctx->add_osd_seek_info |= OSD_SEEK_INFO_TEXT | OSD_SEEK_INFO_BAR;
     mpctx->osd_force_update = true;
     mp_wakeup_core(mpctx);
 }
@@ -5714,7 +5952,7 @@ static void subprocess_read(void *p, char *data, size_t size)
     struct subprocess_fd_ctx *ctx = p;
     if (ctx->capture) {
         if (ctx->output.len < ctx->max_size)
-            bstr_xappend(ctx->talloc_ctx, &ctx->output, (bstr){data, size});
+            bstr_xappend(ctx->talloc_ctx, &ctx->output, (bstr){(unsigned char *)data, size});
     } else {
         mp_msg(ctx->log, ctx->msgl, "%.*s", (int)size, data);
     }
@@ -5766,10 +6004,10 @@ static void cmd_subprocess(void *p)
     fdctx[1].capture = cmd->args[3].v.b;
     fdctx[2].capture = cmd->args[4].v.b;
 
-    pthread_mutex_lock(&mpctx->abort_lock);
+    mp_mutex_lock(&mpctx->abort_lock);
     cmd->abort->coupled_to_playback = playback_only;
     mp_abort_recheck_locked(mpctx, cmd->abort);
-    pthread_mutex_unlock(&mpctx->abort_lock);
+    mp_mutex_unlock(&mpctx->abort_lock);
 
     mp_core_unlock(mpctx);
 
@@ -5820,8 +6058,8 @@ static void cmd_subprocess(void *p)
 
     mp_core_lock(mpctx);
 
-    struct mpv_node *res = &cmd->result;
-    node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+    struct dmpv_node *res = &cmd->result;
+    node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
     node_map_add_int64(res, "status", status);
     node_map_add_flag(res, "killed_by_us", status == MP_SUBPROCESS_EKILLED_BY_US);
     node_map_add_string(res, "error_string", error ? error : "");
@@ -5829,9 +6067,9 @@ static void cmd_subprocess(void *p)
     for (int fd = 1; fd < 3; fd++) {
         if (!fdctx[fd].capture)
             continue;
-        struct mpv_byte_array *ba =
-            node_map_add(res, sname[fd], MPV_FORMAT_BYTE_ARRAY)->u.ba;
-        *ba = (struct mpv_byte_array){
+        struct dmpv_byte_array *ba =
+            node_map_add(res, sname[fd], DMPV_FORMAT_BYTE_ARRAY)->u.ba;
+        *ba = (struct dmpv_byte_array){
             .data = talloc_steal(ba, fdctx[fd].output.start),
             .size = fdctx[fd].output.len,
         };
@@ -5949,6 +6187,7 @@ static void cmd_filter_command(void *p)
     }
     struct mp_filter_command filter_cmd = {
         .type = MP_FILTER_COMMAND_TEXT,
+        .target = cmd->args[3].v.s,
         .cmd = cmd->args[1].v.s,
         .arg = cmd->args[2].v.s,
     };
@@ -5961,7 +6200,7 @@ static void cmd_script_binding(void *p)
     struct mp_cmd *incmd = cmd->cmd;
     struct MPContext *mpctx = cmd->mpctx;
 
-    mpv_event_client_message event = {0};
+    dmpv_event_client_message event = {0};
     char *name = cmd->args[0].v.s;
     if (!name || !name[0]) {
         cmd->success = false;
@@ -5984,9 +6223,9 @@ static void cmd_script_binding(void *p)
                                   incmd->key_name ? incmd->key_name : "",
                                   incmd->key_text ? incmd->key_text : ""};
     if (mp_client_send_event_dup(mpctx, target,
-                                 MPV_EVENT_CLIENT_MESSAGE, &event) < 0)
+                                 DMPV_EVENT_CLIENT_MESSAGE, &event) < 0)
     {
-        MP_VERBOSE(mpctx, "Can't find script '%s' when handling input.\n",
+        MP_WARN(mpctx, "Can't find script '%s' when handling input.\n",
                     target ? target : "-");
         cmd->success = false;
     }
@@ -5997,16 +6236,16 @@ static void cmd_script_message_to(void *p)
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
 
-    mpv_event_client_message *event = talloc_ptrtype(NULL, event);
-    *event = (mpv_event_client_message){0};
+    dmpv_event_client_message *event = talloc_ptrtype(NULL, event);
+    *event = (dmpv_event_client_message){0};
     for (int n = 1; n < cmd->num_args; n++) {
         MP_TARRAY_APPEND(event, event->args, event->num_args,
                          talloc_strdup(event, cmd->args[n].v.s));
     }
     if (mp_client_send_event(mpctx, cmd->args[0].v.s, 0,
-                                MPV_EVENT_CLIENT_MESSAGE, event) < 0)
+                                DMPV_EVENT_CLIENT_MESSAGE, event) < 0)
     {
-        MP_VERBOSE(mpctx, "Can't find script '%s' to send message to.\n",
+        MP_WARN(mpctx, "Can't find script '%s' to send message to.\n",
                    cmd->args[0].v.s);
         cmd->success = false;
     }
@@ -6018,10 +6257,10 @@ static void cmd_script_message(void *p)
     struct MPContext *mpctx = cmd->mpctx;
 
     const char **args = talloc_array(NULL, const char *, cmd->num_args);
-    mpv_event_client_message event = {.args = args};
+    dmpv_event_client_message event = {.args = args};
     for (int n = 0; n < cmd->num_args; n++)
         event.args[event.num_args++] = cmd->args[n].v.s;
-    mp_client_broadcast_event(mpctx, MPV_EVENT_CLIENT_MESSAGE, &event);
+    mp_client_broadcast_event(mpctx, DMPV_EVENT_CLIENT_MESSAGE, &event);
     talloc_free(args);
 }
 
@@ -6071,7 +6310,7 @@ static void cmd_mouse(void *p)
 
     if (button == -1) {// no button
         if (pre_key)
-            mp_input_put_key_artificial(mpctx->input, pre_key);
+            mp_input_put_key_artificial(mpctx->input, pre_key, 1);
         mp_input_set_mouse_pos_artificial(mpctx->input, x, y);
         return;
     }
@@ -6089,9 +6328,9 @@ static void cmd_mouse(void *p)
     }
     button += dbc ? MP_MBTN_DBL_BASE : MP_MBTN_BASE;
     if (pre_key)
-        mp_input_put_key_artificial(mpctx->input, pre_key);
+        mp_input_put_key_artificial(mpctx->input, pre_key, 1);
     mp_input_set_mouse_pos_artificial(mpctx->input, x, y);
-    mp_input_put_key_artificial(mpctx->input, button);
+    mp_input_put_key_artificial(mpctx->input, button, 1);
 }
 
 static void cmd_key(void *p)
@@ -6102,7 +6341,7 @@ static void cmd_key(void *p)
 
     const char *key_name = cmd->args[0].v.s;
     if (key_name[0] == '\0' && action == MP_KEY_STATE_UP) {
-        mp_input_put_key_artificial(mpctx->input, MP_INPUT_RELEASE_ALL);
+        mp_input_put_key_artificial(mpctx->input, MP_INPUT_RELEASE_ALL, 1);
     } else {
         int code = mp_input_get_key_from_name(key_name);
         if (code < 0) {
@@ -6110,7 +6349,8 @@ static void cmd_key(void *p)
             cmd->success = false;
             return;
         }
-        mp_input_put_key_artificial(mpctx->input, code | action);
+        double scale = action == 0 ? cmd->args[1].v.d : 1;
+        mp_input_put_key_artificial(mpctx->input, code | action, scale);
     }
 }
 
@@ -6143,6 +6383,32 @@ static void cmd_apply_profile(void *p)
     }
 }
 
+static void cmd_load_config_file(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    struct MPContext *mpctx = cmd->mpctx;
+
+    char *config_file = cmd->args[0].v.s;
+    int r = m_config_parse_config_file(mpctx->mconfig, mpctx->global,
+                                       config_file, NULL, 0);
+
+    if (r < 1) {
+        cmd->success = false;
+        return;
+    }
+
+    mp_notify_property(mpctx, "profile-list");
+}
+
+static void cmd_load_input_conf(void *p)
+{
+    struct mp_cmd_ctx *cmd = p;
+    struct MPContext *mpctx = cmd->mpctx;
+
+    char *config_file = cmd->args[0].v.s;
+    cmd->success = mp_input_load_config_file(mpctx->input, config_file);
+}
+
 static void cmd_load_script(void *p)
 {
     struct mp_cmd_ctx *cmd = p;
@@ -6151,8 +6417,8 @@ static void cmd_load_script(void *p)
     char *script = cmd->args[0].v.s;
     int64_t id = mp_load_user_script(mpctx, script);
     if (id > 0) {
-        struct mpv_node *res = &cmd->result;
-        node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+        struct dmpv_node *res = &cmd->result;
+        node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
         node_map_add_int64(res, "client_id", id);
     } else {
         cmd->success = false;
@@ -6168,13 +6434,13 @@ static void cache_dump_poll(struct MPContext *mpctx)
         return;
 
     // Can't close demuxer without stopping dumping.
-    assert(mpctx->demuxer);
+    mp_assert(mpctx->demuxer);
 
     if (mp_cancel_test(cmd->abort->cancel)) {
         // Synchronous abort. In particular, the dump command shall not report
         // completion to the user before the dump target file was closed.
         demux_cache_dump_set(mpctx->demuxer, 0, 0, NULL);
-        assert(demux_cache_dump_get_status(mpctx->demuxer) <= 0);
+        mp_assert(demux_cache_dump_get_status(mpctx->demuxer) <= 0);
     }
 
     int status = demux_cache_dump_get_status(mpctx->demuxer);
@@ -6198,7 +6464,7 @@ void mp_abort_cache_dumping(struct MPContext *mpctx)
     if (ctx->cache_dump_cmd)
         mp_cancel_trigger(ctx->cache_dump_cmd->abort->cancel);
     cache_dump_poll(mpctx);
-    assert(!ctx->cache_dump_cmd); // synchronous abort, must have worked
+    mp_assert(!ctx->cache_dump_cmd); // synchronous abort, must have worked
 }
 
 static void run_dump_cmd(struct mp_cmd_ctx *cmd, double start, double end,
@@ -6245,7 +6511,7 @@ static void cmd_dump_cache_ab(void *p)
 }
 
 /* This array defines all known commands.
- * The first field the command name used in libmpv and input.conf.
+ * The first field the command name used in input.conf.
  * The second field is the handler function (see mp_cmd_def.handler and
  * run_command()).
  * Then comes the definition of each argument. They are defined like options,
@@ -6256,14 +6522,18 @@ static void cmd_dump_cache_ab(void *p)
  * command has an arbitrary number of arguments, all using the type indicated by
  * the last argument (they are appended to mp_cmd.args[] starting at the last
  * argument's index).
- * Arguments have names, which can be used by named argument functions, e.g. in
- * Lua with mp.command_native().
+ * Arguments have names, which can be used by named argument functions.
  */
 
 // This does not specify the real destination of the command parameter values,
 // it just provides a dummy for the OPT_ macros. The real destination is an
 // array item  in mp_cmd.args[], using the index of the option definition.
 #define OPT_BASE_STRUCT struct mp_cmd_arg
+
+// Disable -Wmissing-field-initializers for mp_cmds array because the OPT_* macros
+// trigger false positives when used within the mp_cmd_def initializers
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 const struct mp_cmd_def mp_cmds[] = {
     { "ignore", cmd_ignore, .is_ignore = true, .is_noisy = true, },
@@ -6292,6 +6562,7 @@ const struct mp_cmd_def mp_cmds[] = {
     { "revert-seek", cmd_revert_seek,
         { {"flags", OPT_FLAGS(v.i, {"mark", 2|0}, {"mark-permanent", 2|1}),
            .flags = MP_CMD_OPT_ARG} },
+        .priv = NULL,
     },
     { "quit", cmd_quit, { {"code", OPT_INT(v.i), .flags = MP_CMD_OPT_ARG} },
         .priv = &(const bool){0} },
@@ -6299,11 +6570,26 @@ const struct mp_cmd_def mp_cmds[] = {
                                        .flags = MP_CMD_OPT_ARG} },
         .priv = &(const bool){1} },
     { "stop", cmd_stop,
-        { {"flags", OPT_FLAGS(v.i, {"keep-playlist", 1}), .flags = MP_CMD_OPT_ARG} }
+        { {"flags", OPT_FLAGS(v.i, {"keep-playlist", 1}), .flags = MP_CMD_OPT_ARG} },
+        .priv = NULL,
     },
-    { "frame-step", cmd_frame_step, .allow_auto_repeat = true,
-        .on_updown = true },
-    { "frame-back-step", cmd_frame_back_step, .allow_auto_repeat = true },
+    { "frame-step", cmd_frame_step,
+        {
+            {"frames", OPT_INT(v.i), OPTDEF_INT(1)},
+            {"flags", OPT_CHOICE(v.i,
+                    {"play", 0},
+                    {"seek", 1},
+                    {"mute", 2}),
+                    .flags = MP_CMD_OPT_ARG},
+        },
+        .allow_auto_repeat = true,
+        .on_updown = true,
+        .priv = &(const bool){false},
+    },
+    { "frame-back-step", cmd_frame_step,
+        .priv = &(const int){true},
+        .allow_auto_repeat = true,
+    },
     { "playlist-next", cmd_playlist_next_prev,
         {
             {"flags", OPT_CHOICE(v.i,
@@ -6322,14 +6608,23 @@ const struct mp_cmd_def mp_cmds[] = {
         },
         .priv = &(const int){-1},
     },
+    { "playlist-next-playlist", cmd_playlist_next_prev_playlist,
+        .priv = &(const int){1} },
+    { "playlist-prev-playlist", cmd_playlist_next_prev_playlist,
+        .priv = &(const int){-1} },
+    { "next-archive", cmd_playlist_next_prev_archive,
+        .priv = &(const int){1} },
+    { "prev-archive", cmd_playlist_next_prev_archive,
+        .priv = &(const int){-1} },
     { "playlist-play-index", cmd_playlist_play_index,
         {
             {"index", OPT_CHOICE(v.i, {"current", -2}, {"none", -1}),
                 M_RANGE(-1, INT_MAX)},
-        }
+        },
+        .priv = NULL,
     },
-    { "playlist-shuffle", cmd_playlist_shuffle, },
-    { "playlist-unshuffle", cmd_playlist_unshuffle, },
+    { "playlist-shuffle", cmd_playlist_shuffle, .args = {{0}} },
+    { "playlist-unshuffle", cmd_playlist_unshuffle, .args = {{0}} },
     { "sub-step", cmd_sub_step_seek,
         {
             {"skip", OPT_INT(v.i)},
@@ -6364,6 +6659,8 @@ const struct mp_cmd_def mp_cmds[] = {
     { "expand-text", cmd_expand_text, { {"text", OPT_STRING(v.s)} },
         .is_noisy = true },
     { "expand-path", cmd_expand_path, { {"text", OPT_STRING(v.s)} },
+        .is_noisy = true },
+    { "escape-ass", cmd_escape_ass, { {"text", OPT_STRING(v.s)} },
         .is_noisy = true },
     { "show-progress", cmd_show_progress, .allow_auto_repeat = true,
         .is_noisy = true },
@@ -6452,11 +6749,14 @@ const struct mp_cmd_def mp_cmds[] = {
     { "screenshot", cmd_screenshot,
         {
             {"flags", OPT_FLAGS(v.i,
-                {"video", 4|0}, {"-", 4|0},
-                {"window", 4|1},
-                {"subtitles", 4|2},
-                {"each-frame", 8}),
-                OPTDEF_INT(4|2)},
+                {"video", 0},
+                {"scaled", 1},
+                {"subtitles", 2},
+                {"osd", 4},
+                {"each-frame", 8},
+                {"-", 0},
+                {"window", 1|2|4}),
+                OPTDEF_INT(2)},
             // backwards compatibility
             {"legacy", OPT_CHOICE(v.i,
                 {"unused", 0}, {"single", 0},
@@ -6470,8 +6770,10 @@ const struct mp_cmd_def mp_cmds[] = {
             {"filename", OPT_STRING(v.s)},
             {"flags", OPT_CHOICE(v.i,
                 {"video", 0},
-                {"window", 1},
-                {"subtitles", 2}),
+                {"scaled", 1},
+                {"subtitles", 2},
+                {"osd", 4},
+                {"window", 1|2|4}),
                 OPTDEF_INT(2)},
         },
         .spawn_thread = true,
@@ -6480,10 +6782,19 @@ const struct mp_cmd_def mp_cmds[] = {
         {
             {"flags", OPT_CHOICE(v.i,
                 {"video", 0},
-                {"window", 1},
-                {"subtitles", 2}),
+                {"scaled", 1},
+                {"subtitles", 2},
+                {"osd", 4},
+                {"window", 1|2|4}),
                 OPTDEF_INT(2)},
+             {"format", OPT_CHOICE(v.i,
+                {"bgr0", 0},
+                {"bgra", 1},
+                {"rgba", 2},
+                {"rgba64", 3}),
+                OPTDEF_INT(0)},
         },
+        .priv = NULL,
     },
     { "loadfile", cmd_loadfile,
         {
@@ -6491,10 +6802,16 @@ const struct mp_cmd_def mp_cmds[] = {
             {"flags", OPT_CHOICE(v.i,
                 {"replace", 0},
                 {"append", 1},
-                {"append-play", 2}),
+                {"append-play", 2},
+                {"insert-next", 3},
+                {"insert-next-play", 4},
+                {"insert-at", 5},
+                {"insert-at-play", 6}),
                 .flags = MP_CMD_OPT_ARG},
+            {"index", OPT_INT(v.i), OPTDEF_INT(-1)},
             {"options", OPT_KEYVALUELIST(v.str_list), .flags = MP_CMD_OPT_ARG},
         },
+        .priv = NULL,
     },
     { "loadlist", cmd_loadlist,
         {
@@ -6502,16 +6819,21 @@ const struct mp_cmd_def mp_cmds[] = {
             {"flags", OPT_CHOICE(v.i,
                 {"replace", 0},
                 {"append", 1},
-                {"append-play", 2}),
+                {"append-play", 2},
+                {"insert-next", 3},
+                {"insert-next-play", 4},
+                {"insert-at", 5},
+                {"insert-at-play", 6}),
                 .flags = MP_CMD_OPT_ARG},
+            {"index", OPT_INT(v.i), OPTDEF_INT(-1)},
         },
         .spawn_thread = true,
         .can_abort = true,
     },
-    { "playlist-clear", cmd_playlist_clear },
+    { "playlist-clear", cmd_playlist_clear, .args = {{0}} },
     { "playlist-remove", cmd_playlist_remove, {
         {"index", OPT_CHOICE(v.i, {"current", -1}),
-            .flags = MP_CMD_OPT_ARG, M_RANGE(0, INT_MAX)}, }},
+            .flags = MP_CMD_OPT_ARG, M_RANGE(0, INT_MAX)}, }, .priv = NULL },
     { "playlist-move", cmd_playlist_move,  { {"index1", OPT_INT(v.i)},
                                              {"index2", OPT_INT(v.i)}, }},
     { "run", cmd_run, { {"command", OPT_STRING(v.s)},
@@ -6569,10 +6891,11 @@ const struct mp_cmd_def mp_cmds[] = {
                 {"allow-hide-cursor", MP_INPUT_ALLOW_HIDE_CURSOR},
                 {"allow-vo-dragging", MP_INPUT_ALLOW_VO_DRAGGING}),
                 .flags = MP_CMD_OPT_ARG},
-        }
+        },
+        .priv = NULL,
     },
     { "disable-section", cmd_disable_input_section,
-        {{"name", OPT_STRING(v.s)} }},
+        {{"name", OPT_STRING(v.s)} }, .priv = NULL },
     { "define-section", cmd_define_input_section,
         {
             {"name", OPT_STRING(v.s)},
@@ -6580,11 +6903,12 @@ const struct mp_cmd_def mp_cmds[] = {
             {"flags", OPT_CHOICE(v.i, {"default", 0}, {"force", 1}),
                 .flags = MP_CMD_OPT_ARG},
         },
+        .priv = NULL,
     },
 
-    { "ab-loop", cmd_ab_loop },
+    { "ab-loop", cmd_ab_loop, .args = {{0}} },
 
-    { "drop-buffers", cmd_drop_buffers, },
+    { "drop-buffers", cmd_drop_buffers, .args = {{0}} },
 
     { "af", cmd_filter, { {"operation", OPT_STRING(v.s)},
                           {"value", OPT_STRING(v.s)}, },
@@ -6593,16 +6917,26 @@ const struct mp_cmd_def mp_cmds[] = {
                           {"value", OPT_STRING(v.s)}, },
         .priv = &(const int){STREAM_VIDEO} },
 
-    { "af-command", cmd_filter_command, { {"label", OPT_STRING(v.s)},
-                                          {"command", OPT_STRING(v.s)},
-                                          {"argument", OPT_STRING(v.s)}, },
+    { "af-command", cmd_filter_command,
+        {
+            {"label", OPT_STRING(v.s)},
+            {"command", OPT_STRING(v.s)},
+            {"argument", OPT_STRING(v.s)},
+            {"target", OPT_STRING(v.s), OPTDEF_STR("all"),
+                .flags = MP_CMD_OPT_ARG},
+        },
         .priv = &(const int){STREAM_AUDIO} },
-    { "vf-command", cmd_filter_command, { {"label", OPT_STRING(v.s)},
-                                          {"command", OPT_STRING(v.s)},
-                                          {"argument", OPT_STRING(v.s)}, },
+    { "vf-command", cmd_filter_command,
+        {
+            {"label", OPT_STRING(v.s)},
+            {"command", OPT_STRING(v.s)},
+            {"argument", OPT_STRING(v.s)},
+            {"target", OPT_STRING(v.s), OPTDEF_STR("all"),
+                .flags = MP_CMD_OPT_ARG},
+        },
         .priv = &(const int){STREAM_VIDEO} },
 
-    { "ao-reload", cmd_ao_reload },
+    { "ao-reload", cmd_ao_reload, .args = {{0}} },
 
     { "script-binding", cmd_script_binding, { {"name", OPT_STRING(v.s)} },
         .allow_auto_repeat = true, .on_updown = true},
@@ -6621,7 +6955,9 @@ const struct mp_cmd_def mp_cmds[] = {
                                         {"fmt", OPT_STRING(v.s)},
                                         {"w", OPT_INT(v.i)},
                                         {"h", OPT_INT(v.i)},
-                                        {"stride", OPT_INT(v.i)}, }},
+                                        {"stride", OPT_INT(v.i)},
+                                        {"dw", OPT_INT(v.i), OPTDEF_INT(0)},
+                                        {"dh", OPT_INT(v.i), OPTDEF_INT(0)}, }},
     { "overlay-remove", cmd_overlay_remove, { {"id", OPT_INT(v.i)} } },
 
     { "osd-overlay", cmd_osd_overlay,
@@ -6638,7 +6974,7 @@ const struct mp_cmd_def mp_cmds[] = {
         .is_noisy = true,
     },
 
-    { "write-watch-later-config", cmd_write_watch_later_config },
+    { "write-watch-later-config", cmd_write_watch_later_config, .args = {{0}} },
     { "delete-watch-later-config", cmd_delete_watch_later_config,
         {{"filename", OPT_STRING(v.s), .flags = MP_CMD_OPT_ARG} }},
 
@@ -6647,10 +6983,11 @@ const struct mp_cmd_def mp_cmds[] = {
                             {"button", OPT_INT(v.i), OPTDEF_INT(-1)},
                             {"mode", OPT_CHOICE(v.i,
                                 {"single", 0}, {"double", 1}),
-                                .flags = MP_CMD_OPT_ARG}}},
+                                .flags = MP_CMD_OPT_ARG}}, .priv = NULL },
     { "keybind", cmd_key_bind, { {"name", OPT_STRING(v.s)},
-                                 {"cmd", OPT_STRING(v.s)} }},
-    { "keypress", cmd_key, { {"name", OPT_STRING(v.s)} },
+                                 {"cmd", OPT_STRING(v.s)} }, .priv = NULL },
+    { "keypress", cmd_key, { {"name", OPT_STRING(v.s)},
+                             {"scale", OPT_DOUBLE(v.d), OPTDEF_DOUBLE(1)} },
         .priv = &(const int){0}},
     { "keydown", cmd_key, { {"name", OPT_STRING(v.s)} },
         .priv = &(const int){MP_KEY_STATE_DOWN}},
@@ -6660,10 +6997,15 @@ const struct mp_cmd_def mp_cmds[] = {
     { "apply-profile", cmd_apply_profile, {
         {"name", OPT_STRING(v.s)},
         {"mode", OPT_CHOICE(v.i, {"apply", 0}, {"restore", 1}),
-            .flags = MP_CMD_OPT_ARG}, }
+            .flags = MP_CMD_OPT_ARG}, },
+        .priv = NULL,
     },
 
-    { "load-script", cmd_load_script, {{"filename", OPT_STRING(v.s)}} },
+    { "load-config-file", cmd_load_config_file, {{"filename", OPT_STRING(v.s)}}, .priv = NULL },
+
+    { "load-input-conf", cmd_load_input_conf, {{"filename", OPT_STRING(v.s)}}, .priv = NULL },
+
+    { "load-script", cmd_load_script, {{"filename", OPT_STRING(v.s)}}, .priv = NULL },
 
     { "dump-cache", cmd_dump_cache, { {"start", OPT_TIME(v.d),
                                         .flags = M_OPT_ALLOW_NO},
@@ -6679,10 +7021,12 @@ const struct mp_cmd_def mp_cmds[] = {
         .can_abort = true,
     },
 
-    { "ab-loop-align-cache", cmd_align_cache_ab },
+    { "ab-loop-align-cache", cmd_align_cache_ab, .args = {{0}} },
 
     {0}
 };
+
+#pragma GCC diagnostic pop
 
 #undef OPT_BASE_STRUCT
 #undef ARG
@@ -6691,15 +7035,18 @@ void command_uninit(struct MPContext *mpctx)
 {
     struct command_ctx *ctx = mpctx->command_ctx;
 
-    assert(!ctx->cache_dump_cmd); // closing the demuxer must have aborted it
+    mp_assert(!ctx->cache_dump_cmd); // closing the demuxer must have aborted it
 
     overlay_uninit(mpctx);
     ao_hotplug_destroy(ctx->hotplug);
 
-    m_option_free(&script_props_type, &ctx->script_props);
-
     talloc_free(mpctx->command_ctx);
     mpctx->command_ctx = NULL;
+}
+
+static int str_compare(const void *a, const void *b)
+{
+    return strcmp(*(const char **)a, *(const char **)b);
 }
 
 void command_init(struct MPContext *mpctx)
@@ -6716,10 +7063,15 @@ void command_init(struct MPContext *mpctx)
         talloc_zero_array(ctx, struct m_property, num_base + num_opts + 1);
     memcpy(ctx->properties, mp_properties_base, sizeof(mp_properties_base));
 
+    const char **prop_names = talloc_array(NULL, const char *, num_base);
+    for (int i = 0; i < num_base; ++i)
+        prop_names[i] = mp_properties_base[i].name;
+    qsort(prop_names, num_base, sizeof(const char *), str_compare);
+
     int count = num_base;
     for (int n = 0; n < num_opts; n++) {
         struct m_config_option *co = m_config_get_co_index(mpctx->mconfig, n);
-        assert(co->name[0]);
+        mp_assert(co->name[0]);
         if (co->opt->flags & M_OPT_NOPROP)
             continue;
 
@@ -6730,7 +7082,10 @@ void command_init(struct MPContext *mpctx)
         };
 
         if (co->opt->type == &m_option_type_alias) {
-            prop.priv = co->opt->priv;
+            char buf[M_CONFIG_MAX_OPT_NAME_LEN];
+            const char *alias = m_config_shadow_get_alias_from_opt(mpctx->mconfig->shadow, co->opt_id,
+                                                                   buf, sizeof(buf));
+            prop.priv = talloc_strdup(ctx, alias);
 
             prop.call = co->opt->deprecation_message ?
                             mp_property_deprecated_alias : mp_property_alias;
@@ -6741,50 +7096,49 @@ void command_init(struct MPContext *mpctx)
             // be set as property.
             struct m_config_option *co2 = co;
             while (co2 && co2->opt->type == &m_option_type_alias) {
-                const char *alias = (const char *)co2->opt->priv;
-                co2 = m_config_get_co_raw(mpctx->mconfig, bstr0(alias));
+                const char *co2_alias = m_config_shadow_get_alias_from_opt(mpctx->mconfig->shadow, co2->opt_id,
+                                                                           buf, sizeof(buf));
+                co2 = m_config_get_co_raw(mpctx->mconfig, bstr0(co2_alias));
             }
             if (!co2)
                 continue;
         }
 
         // The option might be covered by a manual property already.
-        if (m_property_list_find(ctx->properties, prop.name))
+        if (bsearch(&prop.name, prop_names, num_base, sizeof(const char *), str_compare))
             continue;
 
         ctx->properties[count++] = prop;
     }
 
-    node_init(&ctx->udata, MPV_FORMAT_NODE_MAP, NULL);
+    node_init(&ctx->udata, DMPV_FORMAT_NODE_MAP, NULL);
     talloc_steal(ctx, ctx->udata.u.list);
+    talloc_free(prop_names);
 }
 
 static void command_event(struct MPContext *mpctx, int event, void *arg)
 {
     struct command_ctx *ctx = mpctx->command_ctx;
 
-    if (event == MPV_EVENT_START_FILE) {
+    if (event == DMPV_EVENT_START_FILE) {
         ctx->last_seek_pts = MP_NOPTS_VALUE;
         ctx->marked_pts = MP_NOPTS_VALUE;
         ctx->marked_permanent = false;
     }
 
-    if (event == MPV_EVENT_PLAYBACK_RESTART)
+    if (event == DMPV_EVENT_PLAYBACK_RESTART)
         ctx->last_seek_time = mp_time_sec();
 
-    if (event == MPV_EVENT_END_FILE || event == MPV_EVENT_FILE_LOADED) {
+    if (event == DMPV_EVENT_END_FILE || event == DMPV_EVENT_FILE_LOADED) {
         // Update chapters - does nothing if something else is visible.
         set_osd_bar_chapters(mpctx, OSD_BAR_SEEK);
     }
     if (event == MP_EVENT_WIN_STATE2)
         ctx->cached_window_scale = 0;
 
-    if (event == MPV_EVENT_FILE_LOADED)
-        audio_update_media_role(mpctx);
-
     if (event == MP_EVENT_METADATA_UPDATE) {
         struct playlist_entry *const pe = mpctx->playing;
-        if (!pe->title) {
+        if (pe && !pe->title) {
             const char *const name = find_non_filename_media_title(mpctx);
             if (name && name[0]) {
                 pe->title = talloc_strdup(pe, name);
@@ -6817,15 +7171,6 @@ void mp_notify(struct MPContext *mpctx, int event, void *arg)
     mp_client_broadcast_event(mpctx, event, arg);
 }
 
-static void update_priority(struct MPContext *mpctx)
-{
-#if HAVE_WIN32_DESKTOP
-    struct MPOpts *opts = mpctx->opts;
-    if (opts->w32_priority > 0)
-        SetPriorityClass(GetCurrentProcess(), opts->w32_priority);
-#endif
-}
-
 static void update_track_switch(struct MPContext *mpctx, int order, int type)
 {
     if (!mpctx->playback_initialized)
@@ -6850,14 +7195,44 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
 {
     struct MPContext *mpctx = ctx;
     struct MPOpts *opts = mpctx->opts;
-    bool init = !co;
-    void *opt_ptr = init ? NULL : co->data; // NULL on start
+    void *opt_ptr = !co ? NULL : co->data; // NULL on start
 
     if (co)
         mp_notify_property(mpctx, co->name);
+    if (opt_ptr == &opts->media_title)
+        mp_notify(mpctx, MP_EVENT_METADATA_UPDATE, NULL);
 
     if (self_update)
         return;
+
+    // Coalesce redundant updates and only keep the newest one.
+    bool drop = false;
+    for (int i = 0; i < mpctx->num_option_callbacks; i++) {
+        if ((mpctx->option_callbacks[i].co && opt_ptr == mpctx->option_callbacks[i].co->data) ||
+            (flags && flags == mpctx->option_callbacks[i].flags))
+            drop = true;
+        if (!drop)
+            continue;
+        if (i < mpctx->num_option_callbacks - 1)
+            mpctx->option_callbacks[i] = mpctx->option_callbacks[i + 1];
+        if (i == mpctx->num_option_callbacks - 1) {
+            mpctx->option_callbacks[i].co = co;
+            mpctx->option_callbacks[i].flags = flags;
+        }
+    }
+
+    if (!drop) {
+        struct mp_option_callback callback = {.co = co, .flags = flags};
+        MP_TARRAY_APPEND(mpctx, mpctx->option_callbacks, mpctx->num_option_callbacks, callback);
+    }
+}
+
+void mp_option_run_callback(struct MPContext *mpctx, int index)
+{
+    struct MPOpts *opts = mpctx->opts;
+    struct m_config_option *co = mpctx->option_callbacks[index].co;
+    void *opt_ptr = co ? co->data : NULL;
+    int flags = mpctx->option_callbacks[index].flags;
 
     if (flags & UPDATE_TERM)
         mp_update_logging(mpctx, false);
@@ -6893,7 +7268,7 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
     if (flags & UPDATE_INPUT)
         mp_input_update_opts(mpctx->input);
 
-    if (init || opt_ptr == &opts->ipc_path || opt_ptr == &opts->ipc_client) {
+    if (opt_ptr == &opts->ipc_path || opt_ptr == &opts->ipc_client) {
         mp_uninit_ipc(mpctx->ipc_ctx);
         mpctx->ipc_ctx = mp_init_ipc(mpctx->clients, mpctx->global);
     }
@@ -6901,18 +7276,16 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
     if (opt_ptr == &opts->vo->video_driver_list) {
         struct track *track = mpctx->current_track[0][STREAM_VIDEO];
         uninit_video_out(mpctx);
+        handle_force_window(mpctx, true);
         reinit_video_chain(mpctx);
         if (track)
-            reselect_demux_stream(mpctx, track, true);
+            queue_seek(mpctx, MPSEEK_RELATIVE, 0.0, MPSEEK_EXACT, 0);
 
         mp_wakeup_core(mpctx);
     }
 
     if (flags & UPDATE_AUDIO)
         reload_audio_output(mpctx);
-
-    if (flags & UPDATE_PRIORITY)
-        update_priority(mpctx);
 
     if (flags & UPDATE_SCREENSAVER)
         update_screensaver_state(mpctx);
@@ -6923,9 +7296,11 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
     if (flags & UPDATE_LAVFI_COMPLEX)
         update_lavfi_complex(mpctx);
 
-    if (opt_ptr == &opts->vo->android_surface_size) {
-        if (mpctx->video_out)
-            vo_control(mpctx->video_out, VOCTRL_EXTERNAL_RESIZE, NULL);
+    if (flags & UPDATE_VIDEO) {
+        if (mpctx->video_out) {
+            vo_control(mpctx->video_out, VOCTRL_UPDATE_RENDER_OPTS, NULL);
+            mp_wakeup_core(mpctx);
+        }
     }
 
     if (opt_ptr == &opts->playback_speed) {
@@ -6935,8 +7310,16 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
 
     if (opt_ptr == &opts->play_dir) {
         if (mpctx->play_dir != opts->play_dir) {
+            // Some weird things for play_dir if we're at EOF.
+            // 1. The option must be set before we seek.
+            // 2. queue_seek can change the stop_play value; always keep the old one.
+            int old_stop_play = mpctx->stop_play;
+            if (old_stop_play == AT_END_OF_FILE)
+                mpctx->play_dir = opts->play_dir;
             queue_seek(mpctx, MPSEEK_ABSOLUTE, get_current_time(mpctx),
                        MPSEEK_EXACT, 0);
+            if (old_stop_play == AT_END_OF_FILE)
+                mpctx->stop_play = old_stop_play;
         }
     }
 
@@ -6967,6 +7350,30 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
         struct mp_decoder_wrapper *dec = track ? track->dec : NULL;
         if (dec) {
             mp_decoder_wrapper_control(dec, VDCTRL_REINIT, NULL);
+            // filter chain might not change (which normally triggers this), but
+            // hwdec will.
+            mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
+            double last_pts = mpctx->video_pts;
+            if (last_pts != MP_NOPTS_VALUE)
+                queue_seek(mpctx, MPSEEK_ABSOLUTE, last_pts, MPSEEK_EXACT, 0);
+        }
+    }
+
+    if (flags & UPDATE_AD) {
+        struct track *track = mpctx->current_track[0][STREAM_AUDIO];
+        if (track && track->dec) {
+            // Reinit audio decoder for options that affect decoding
+            mp_decoder_wrapper_control(track->dec, VDCTRL_REINIT, NULL);
+            mp_wakeup_core(mpctx);
+        }
+    }
+
+    if (flags & UPDATE_VD) {
+        struct track *track = mpctx->current_track[0][STREAM_VIDEO];
+        if (track && track->dec) {
+            // Reinit video decoder for options that affect decoding
+            mp_decoder_wrapper_control(track->dec, VDCTRL_REINIT, NULL);
+            mp_notify(mpctx, DMPV_EVENT_VIDEO_RECONFIG, NULL);
             double last_pts = mpctx->video_pts;
             if (last_pts != MP_NOPTS_VALUE)
                 queue_seek(mpctx, MPSEEK_ABSOLUTE, last_pts, MPSEEK_EXACT, 0);
@@ -6976,12 +7383,21 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
     if (opt_ptr == &opts->vo->window_scale)
         update_window_scale(mpctx);
 
+    if (opt_ptr == &opts->vo->hidpi_window_scale)
+        update_hidpi_window_scale(mpctx, opts->vo->hidpi_window_scale);
+
     if (opt_ptr == &opts->cursor_autohide_delay)
         mpctx->mouse_timer = 0;
 
-    if (flags & UPDATE_DVB_PROG) {
-        if (!mpctx->stop_play)
-            mpctx->stop_play = PT_CURRENT_ENTRY;
+    if (opt_ptr == &opts->loop_file) {
+        mpctx->remaining_file_loops = opts->loop_file;
+        mp_notify_property(mpctx, "remaining-file-loops");
+    }
+
+    if (opt_ptr == &opts->ab_loop[0] || opt_ptr == &opts->ab_loop[1] ||
+        opt_ptr == &opts->ab_loop_count) {
+        mpctx->remaining_ab_loops = opts->ab_loop_count;
+        mp_notify_property(mpctx, "remaining-ab-loops");
     }
 
     if (opt_ptr == &opts->ab_loop[0] || opt_ptr == &opts->ab_loop[1]) {
@@ -6990,9 +7406,6 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
         set_osd_bar_chapters(mpctx, OSD_BAR_SEEK);
         mp_wakeup_core(mpctx);
     }
-
-    if (opt_ptr == &opts->record_file)
-        open_recorder(mpctx, false);
 
     if (opt_ptr == &opts->vf_settings)
         set_filters(mpctx, STREAM_VIDEO, opts->vf_settings);
@@ -7013,10 +7426,13 @@ void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
     if (opt_ptr == &opts->vo->taskbar_progress)
         update_vo_playback_state(mpctx);
 
+    if (opt_ptr == &opts->force_vo)
+        handle_force_window(mpctx, false);
+
     if (opt_ptr == &opts->image_display_duration && mpctx->vo_chain
         && mpctx->vo_chain->is_sparse && !mpctx->ao_chain
         && mpctx->video_status == STATUS_DRAINING)
-        mpctx->time_frame = opts->image_display_duration;
+        mpctx->time_frame = opts->image_display_duration / opts->playback_speed;
 }
 
 void mp_notify_property(struct MPContext *mpctx, const char *property)

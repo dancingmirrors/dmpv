@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "audio/aframe.h"
@@ -38,7 +38,7 @@ struct priv {
     struct mp_pin *in_pin;
 };
 
-static void process(struct mp_filter *f)
+static void af_format_process(struct mp_filter *f)
 {
     struct priv *p = f->priv;
 
@@ -85,7 +85,7 @@ error:
 static const struct mp_filter_info af_format_filter = {
     .name = "format",
     .priv_size = sizeof(struct priv),
-    .process = process,
+    .process = af_format_process,
 };
 
 static struct mp_filter *af_format_create(struct mp_filter *parent,

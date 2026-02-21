@@ -1,29 +1,28 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/intreadwrite.h>
 #include <libavutil/common.h>
 #include <libavutil/opt.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "common/msg.h"
 #include "common/av_common.h"
 #include "demux/stheader.h"
@@ -90,9 +89,6 @@ struct lavc_conv *lavc_conv_create(struct mp_log *log,
     if (!priv->avpkt || !priv->avpkt_vtt)
         goto error;
 
-#if LIBAVCODEC_VERSION_MAJOR < 59
-    av_dict_set(&opts, "sub_text_format", "ass", 0);
-#endif
     av_dict_set(&opts, "flags2", "+ass_ro_flush_noop", 0);
     if (strcmp(priv->codec, "eia_608") == 0)
         av_dict_set(&opts, "real_time", "1", 0);
@@ -104,7 +100,7 @@ struct lavc_conv *lavc_conv_create(struct mp_log *log,
     avctx->pkt_timebase = avctx->time_base;
     avctx->sub_charenc_mode = FF_SUB_CHARENC_MODE_IGNORE;
     priv->avctx = avctx;
-    priv->extradata = talloc_strndup(priv, avctx->subtitle_header,
+    priv->extradata = talloc_strndup(priv, (char *)avctx->subtitle_header,
                                      avctx->subtitle_header_size);
     disable_styles(bstr0(priv->extradata));
     return priv;
@@ -112,7 +108,7 @@ struct lavc_conv *lavc_conv_create(struct mp_log *log,
  error:
     MP_FATAL(priv, "Could not open libavcodec subtitle converter\n");
     av_dict_free(&opts);
-    av_free(avctx);
+    avcodec_free_context(&avctx);
     mp_free_av_packet(&priv->avpkt);
     mp_free_av_packet(&priv->avpkt_vtt);
     talloc_free(priv);

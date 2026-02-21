@@ -10,20 +10,20 @@
  * 04/13/2004 merged with ao_alsa1.x, fixes provided by Jindrich Makovicka
  * 04/25/2004 printfs converted to mp_msg, Zsolt.
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -34,13 +34,17 @@
 #include <math.h>
 #include <string.h>
 
+#include "misc/mp_assert.h"
 #include "options/options.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "common/msg.h"
 #include "osdep/endian.h"
+#include "osdep/timer.h"
 
 #include <alsa/asoundlib.h>
+
+#include "config.h"
 
 #if defined(SND_CHMAP_API_VERSION) && SND_CHMAP_API_VERSION >= (1 << 16)
 #define HAVE_CHMAP_API 1
@@ -212,11 +216,14 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
             }
             break;
         }
+        default:
+            break;
         }
         snd_mixer_close(handle);
         return CONTROL_OK;
     }
-
+    default:
+        break;
     } //end switch
     return CONTROL_UNKNOWN;
 
@@ -237,15 +244,15 @@ struct alsa_fmt {
 //  1. consecutive
 //  2. sorted by preferred format (worst comes last)
 static const struct alsa_fmt mp_alsa_formats[] = {
-    {AF_FORMAT_U8,          SND_PCM_FORMAT_U8},
-    {AF_FORMAT_S16,         SND_PCM_FORMAT_S16},
-    {AF_FORMAT_S32,         SND_PCM_FORMAT_S32},
+    {AF_FORMAT_U8,          SND_PCM_FORMAT_U8, .bits = 0, .pad_msb = 0},
+    {AF_FORMAT_S16,         SND_PCM_FORMAT_S16, .bits = 0, .pad_msb = 0},
+    {AF_FORMAT_S32,         SND_PCM_FORMAT_S32, .bits = 0, .pad_msb = 0},
     {AF_FORMAT_S32,         SND_PCM_FORMAT_S24, .bits = 32, .pad_msb = 8},
     {AF_FORMAT_S32,
             MP_SELECT_LE_BE(SND_PCM_FORMAT_S24_3LE, SND_PCM_FORMAT_S24_3BE),
             .bits = 24, .pad_msb = 0},
-    {AF_FORMAT_FLOAT,       SND_PCM_FORMAT_FLOAT},
-    {AF_FORMAT_DOUBLE,      SND_PCM_FORMAT_FLOAT64},
+    {AF_FORMAT_FLOAT,       SND_PCM_FORMAT_FLOAT, .bits = 0, .pad_msb = 0},
+    {AF_FORMAT_DOUBLE,      SND_PCM_FORMAT_FLOAT64, .bits = 0, .pad_msb = 0},
     {0},
 };
 
@@ -308,7 +315,7 @@ static void replace_submap(struct mp_chmap *dst, struct mp_chmap *a,
     struct mp_chmap t = *dst;
     if (!mp_chmap_is_valid(&t) || mp_chmap_diffn(a, &t) != 0)
         return;
-    assert(a->num == b->num);
+    mp_assert(a->num == b->num);
     for (int n = 0; n < t.num; n++) {
         for (int i = 0; i < a->num; i++) {
             if (t.speaker[n] == a->speaker[i]) {
@@ -623,7 +630,8 @@ static void uninit(struct ao *ao)
         CHECK_ALSA_ERROR("pcm close error");
     }
 
-alsa_error: ;
+alsa_error:
+    snd_config_update_free_global();
 }
 
 #define INIT_DEVICE_ERR_GENERIC -1
@@ -754,18 +762,22 @@ static int init_device(struct ao *ao, int mode)
     }
 
     int num_channels = ao->channels.num;
+    unsigned int alsa_num_channels = num_channels;
     err = snd_pcm_hw_params_set_channels_near
-            (p->alsa, alsa_hwparams, &num_channels);
+            (p->alsa, alsa_hwparams, &alsa_num_channels);
     CHECK_ALSA_ERROR("Unable to set channels");
     dump_hw_params(ao, "HW params after channels:\n", alsa_hwparams);
+    num_channels = alsa_num_channels;
 
     if (num_channels > MP_NUM_CHANNELS) {
         MP_FATAL(ao, "Too many audio channels (%d).\n", num_channels);
         goto alsa_error;
     }
 
+    unsigned int alsa_samplerate = ao->samplerate;
     err = snd_pcm_hw_params_set_rate_near
-            (p->alsa, alsa_hwparams, &ao->samplerate, NULL);
+            (p->alsa, alsa_hwparams, &alsa_samplerate, NULL);
+    ao->samplerate = alsa_samplerate;
     CHECK_ALSA_ERROR("Unable to set samplerate-2");
     dump_hw_params(ao, "HW params after rate-2:\n", alsa_hwparams);
 
@@ -887,12 +899,12 @@ static int init(struct ao *ao)
     // set them. This can happen with dmix: as of alsa 1.0.29, dmix can do
     // stereo only, but advertises the surround chmaps of the underlying device.
     // In this case, e.g. setting 6 channels will succeed, but requesting  5.1
-    // afterwards will fail. Then it will return something like "FL FR NA NA NA NA"
-    // as channel map. This means we would have to pad stereo output to 6
+    // afterwards will fail. Then it will return something like "FL FR NA NA NA
+    // NA" as channel map. This means we would have to pad stereo output to 6
     // channels with silence, which would require lots of extra processing. You
     // can't change the number of channels to 2 either, because the hw params
-    // are already set! So just fuck it and reopen the device with the chmap
-    // "cleaned out" of NA entries.
+    // are already set! So just reopen the device with the chmap "cleaned out"
+    // of NA entries.
     if (r >= 0) {
         struct mp_chmap without_na = ao->channels;
         mp_chmap_remove_na(&without_na);
@@ -928,7 +940,7 @@ static bool recover_and_get_state(struct ao *ao, struct mp_pcm_state *state)
     // Give it a number of chances to recover. This tries to deal with the fact
     // that the API is asynchronous, and to account for some past cargo-cult
     // (where things were retried in a loop).
-    for (int n = 0; n < 10; n++) {
+    for (int n = 0; n <= 10; n++) {
         err = snd_pcm_status(p->alsa, st);
         if (err == -EPIPE) {
             // ALSA APIs can return -EPIPE when an XRUN happens,
@@ -941,6 +953,9 @@ static bool recover_and_get_state(struct ao *ao, struct mp_pcm_state *state)
 
             pcmst = snd_pcm_status_get_state(st);
         }
+
+        if (n == 10)
+            pcmst = SND_PCM_STATE_DISCONNECTED;
 
         if (pcmst == SND_PCM_STATE_PREPARED ||
             pcmst == SND_PCM_STATE_RUNNING ||
@@ -958,7 +973,8 @@ static bool recover_and_get_state(struct ao *ao, struct mp_pcm_state *state)
         case SND_PCM_STATE_XRUN:
         case SND_PCM_STATE_DRAINING:
             err = snd_pcm_prepare(p->alsa);
-            CHECK_ALSA_ERROR("pcm prepare error");
+            if (err < 0)
+                MP_ERR(ao, "pcm prepare error: %s\n", snd_strerror(err));
             continue;
         // Hardware suspend.
         case SND_PCM_STATE_SUSPENDED:
@@ -967,7 +983,7 @@ static bool recover_and_get_state(struct ao *ao, struct mp_pcm_state *state)
             if (err == -EAGAIN) {
                 // Cargo-cult from decades ago, with a cargo cult timeout.
                 MP_INFO(ao, "PCM resume EAGAIN - retrying.\n");
-                sleep(1);
+                mp_sleep_ns(MP_TIME_S_TO_NS(1));
                 continue;
             }
             if (err == -ENOSYS) {

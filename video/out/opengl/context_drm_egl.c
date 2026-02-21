@@ -1,21 +1,20 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -28,7 +27,7 @@
 #include <EGL/eglext.h>
 #include <drm_fourcc.h>
 
-#include "libmpv/render_gl.h"
+#include "misc/render_gl.h"
 #include "video/out/drm_atomic.h"
 #include "video/out/drm_common.h"
 #include "common/common.h"
@@ -77,11 +76,11 @@ struct priv {
     uint64_t *gbm_modifiers;
     unsigned int num_gbm_modifiers;
 
-    struct mpv_opengl_drm_params_v2 drm_params;
-    struct mpv_opengl_drm_draw_surface_size draw_surface_size;
+    struct dmpv_opengl_drm_params_v2 drm_params;
+    struct dmpv_opengl_drm_draw_surface_size draw_surface_size;
 };
 
-// Not general. Limited to only the formats being used in this module
+// Not general. Limited to only the formats being used in this module.
 static const char *gbm_format_to_string(uint32_t format)
 {
     switch (format) {
@@ -278,36 +277,32 @@ static void update_framebuffer_from_bo(struct ra_ctx *ctx, struct gbm_bo *bo)
     fb->height = gbm_bo_get_height(bo);
     uint64_t modifier = gbm_bo_get_modifier(bo);
 
-    int ret;
-    if (p->num_gbm_modifiers == 0 || modifier == DRM_FORMAT_MOD_INVALID) {
-        uint32_t stride = gbm_bo_get_stride(bo);
-        uint32_t handle = gbm_bo_get_handle(bo).u32;
-        ret = drmModeAddFB2(fb->fd, fb->width, fb->height,
-                            p->gbm_format,
-                            (uint32_t[4]){handle, 0, 0, 0},
-                            (uint32_t[4]){stride, 0, 0, 0},
-                            (uint32_t[4]){0, 0, 0, 0},
-                            &fb->id, 0);
-    } else {
+    uint32_t handles[4] = {0};
+    uint32_t strides[4] = {0};
+    uint32_t offsets[4] = {0};
+    uint64_t modifiers[4] = {0};
+    uint32_t flags = 0;
+
+    const int num_planes = gbm_bo_get_plane_count(bo);
+    for (int i = 0; i < num_planes; ++i) {
+        handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
+        strides[i] = gbm_bo_get_stride_for_plane(bo, i);
+        offsets[i] = gbm_bo_get_offset(bo, i);
+        modifiers[i] = modifier;
+    }
+
+    if (modifier && modifier != DRM_FORMAT_MOD_INVALID) {
         MP_VERBOSE(ctx, "GBM surface using modifier 0x%"PRIX64"\n", modifier);
+        flags = DRM_MODE_FB_MODIFIERS;
+    }
 
-        uint32_t handles[4] = {0};
-        uint32_t strides[4] = {0};
-        uint32_t offsets[4] = {0};
-        uint64_t modifiers[4] = {0};
-
-        const int num_planes = gbm_bo_get_plane_count(bo);
-        for (int i = 0; i < num_planes; ++i) {
-            handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
-            strides[i] = gbm_bo_get_stride_for_plane(bo, i);
-            offsets[i] = gbm_bo_get_offset(bo, i);
-            modifiers[i] = modifier;
-        }
-
-        ret = drmModeAddFB2WithModifiers(fb->fd, fb->width, fb->height,
+    int ret = drmModeAddFB2WithModifiers(fb->fd, fb->width, fb->height,
                                          p->gbm_format,
                                          handles, strides, offsets, modifiers,
-                                         &fb->id, DRM_MODE_FB_MODIFIERS);
+                                         &fb->id, flags);
+    if (ret) {
+        ret = drmModeAddFB2(fb->fd, fb->width, fb->height, p->gbm_format,
+                            handles, strides, offsets, &fb->id, 0);
     }
     if (ret) {
         MP_ERR(ctx->vo, "Failed to create framebuffer: %s\n", mp_strerror(errno));
@@ -431,7 +426,7 @@ static void drm_egl_swap_buffers(struct ra_swapchain *sw)
     struct ra_ctx *ctx = sw->ctx;
     struct priv *p = ctx->priv;
     struct vo_drm_state *drm = ctx->vo->drm;
-    const bool drain = drm->paused || drm->still;  // True when we need to drain the swapchain
+    const bool drain = drm->paused || drm->still; // True when we need to drain the swapchain
 
     if (!drm->active)
         return;
@@ -448,7 +443,11 @@ static void drm_egl_swap_buffers(struct ra_swapchain *sw)
     enqueue_bo(ctx, new_bo);
     new_fence(ctx);
 
-    while (drain || p->gbm.num_bos > ctx->vo->opts->swapchain_depth ||
+    // If we have queued buffers beyond the one currently being displayed,
+    // we need to flip to show them. This is especially important for the first
+    // frame after initialization where we have a blank buffer [0] being displayed
+    // and the first real frame at [1].
+    while (drain || p->gbm.num_bos > 1 ||
            !gbm_surface_has_free_buffers(p->gbm.surface)) {
         if (drm->waiting_for_flip) {
             vo_drm_wait_on_flip(drm);
@@ -485,11 +484,11 @@ static void drm_egl_uninit(struct ra_ctx *ctx)
         drmModeAtomicFree(atomic_ctx->request);
     }
 
-    vo_drm_uninit(ctx->vo);
     ra_gl_ctx_uninit(ctx);
+    vo_drm_uninit(ctx->vo);
 
     if (p) {
-        // According to GBM documentation all BO:s must be released
+        // According to GBM documentation all BOs must be released
         // before gbm_surface_destroy can be called on the surface.
         while (p->gbm.num_bos) {
             swapchain_step(ctx);
@@ -497,15 +496,17 @@ static void drm_egl_uninit(struct ra_ctx *ctx)
 
         eglMakeCurrent(p->egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                        EGL_NO_CONTEXT);
-        eglDestroyContext(p->egl.display, p->egl.context);
-        eglDestroySurface(p->egl.display, p->egl.surface);
-        gbm_surface_destroy(p->gbm.surface);
+        if (p->egl.display != EGL_NO_DISPLAY) {
+            eglDestroySurface(p->egl.display, p->egl.surface);
+            eglDestroyContext(p->egl.display, p->egl.context);
+        }
+        if (p->gbm.surface)
+            gbm_surface_destroy(p->gbm.surface);
         eglTerminate(p->egl.display);
         gbm_device_destroy(p->gbm.device);
-        p->egl.context = EGL_NO_CONTEXT;
-        eglDestroyContext(p->egl.display, p->egl.context);
 
-        close(p->drm_params.render_fd);
+        if (p->drm_params.render_fd != -1)
+            close(p->drm_params.render_fd);
     }
 }
 
@@ -626,6 +627,10 @@ static bool drm_egl_init(struct ra_ctx *ctx)
         xrgb_format = GBM_FORMAT_XBGR8888;
         break;
     default:
+        if (drm->opts->drm_format != DRM_OPTS_FORMAT_XRGB8888) {
+            MP_VERBOSE(ctx->vo, "Requested format not supported by context, "
+                       "falling back to xrgb8888\n");
+        }
         argb_format = GBM_FORMAT_ARGB8888;
         xrgb_format = GBM_FORMAT_XRGB8888;
         break;
@@ -691,16 +696,15 @@ static bool drm_egl_init(struct ra_ctx *ctx)
         MP_VERBOSE(ctx, "Opening render node \"%s\"\n", rendernode_path);
         p->drm_params.render_fd = open(rendernode_path, O_RDWR | O_CLOEXEC);
         if (p->drm_params.render_fd == -1) {
-            MP_WARN(ctx, "Cannot open render node \"%s\": %s. VAAPI hwdec will be disabled\n",
-                    rendernode_path, mp_strerror(errno));
+            MP_WARN(ctx, "Cannot open render node: %s\n", mp_strerror(errno));
         }
         free(rendernode_path);
     } else {
         p->drm_params.render_fd = -1;
-        MP_VERBOSE(ctx, "Could not find path to render node. VAAPI hwdec will be disabled\n");
+        MP_VERBOSE(ctx, "Could not find path to render node.\n");
     }
 
-    struct ra_gl_ctx_params params = {
+    struct ra_ctx_params params = {
         .external_swapchain = &drm_egl_swapchain,
         .get_vsync          = &drm_egl_get_vsync,
     };
@@ -733,9 +737,9 @@ static int drm_egl_control(struct ra_ctx *ctx, int *events, int request,
     return ret;
 }
 
-static void drm_egl_wait_events(struct ra_ctx *ctx, int64_t until_time_us)
+static void drm_egl_wait_events(struct ra_ctx *ctx, int64_t until_time_ns)
 {
-    vo_drm_wait_events(ctx->vo, until_time_us);
+    vo_drm_wait_events(ctx->vo, until_time_ns);
 }
 
 static void drm_egl_wakeup(struct ra_ctx *ctx)

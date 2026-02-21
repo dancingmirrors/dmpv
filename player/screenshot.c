@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -24,13 +24,14 @@
 #include "common/global.h"
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "screenshot.h"
 #include "core.h"
 #include "command.h"
 #include "input/cmd.h"
 #include "misc/bstr.h"
 #include "misc/dispatch.h"
+#include "misc/mp_assert.h"
 #include "misc/node.h"
 #include "misc/thread_tools.h"
 #include "common/msg.h"
@@ -44,8 +45,9 @@
 
 #include "video/csputils.h"
 
-#define MODE_FULL_WINDOW 1
+#define MODE_SCALED 1
 #define MODE_SUBTITLES 2
+#define MODE_OSD 4
 
 typedef struct screenshot_ctx {
     struct MPContext *mpctx;
@@ -77,7 +79,8 @@ static char *stripext(void *talloc_ctx, const char *s)
 }
 
 static bool write_screenshot(struct mp_cmd_ctx *cmd, struct mp_image *img,
-                             const char *filename, struct image_writer_opts *opts)
+                             const char *filename, struct image_writer_opts *opts,
+                             bool overwrite)
 {
     struct MPContext *mpctx = cmd->mpctx;
     struct image_writer_opts *gopts = mpctx->opts->screenshot_image_opts;
@@ -88,7 +91,7 @@ static bool write_screenshot(struct mp_cmd_ctx *cmd, struct mp_image *img,
     mp_core_unlock(mpctx);
 
     bool ok = img && write_image(img, &opts_copy, filename, mpctx->global,
-                                 mpctx->screenshot_ctx->log);
+                                 mpctx->screenshot_ctx->log, overwrite);
 
     mp_core_lock(mpctx);
 
@@ -100,11 +103,7 @@ static bool write_screenshot(struct mp_cmd_ctx *cmd, struct mp_image *img,
     return ok;
 }
 
-#ifdef _WIN32
-#define ILLEGAL_FILENAME_CHARS "?\"/\\<>*|:"
-#else
 #define ILLEGAL_FILENAME_CHARS "/"
-#endif
 
 // Replace all characters disallowed in filenames with '_' and return the newly
 // allocated result string.
@@ -166,7 +165,7 @@ static char *create_fname(struct MPContext *mpctx, char *template,
                 goto error_exit;
             char fmtstr[] = {'%', '0', digits, 'd', '\0'};
             res = talloc_asprintf_append(res, fmtstr, *frameno);
-            if (*frameno < 100000 - 1) {
+            if (*frameno < INT_MAX - 1) {
                 (*frameno) += 1;
                 (*sequence) += 1;
             }
@@ -326,17 +325,129 @@ static char *gen_fname(struct mp_cmd_ctx *cmd, const char *file_ext)
 
 static void add_osd(struct MPContext *mpctx, struct mp_image *image, int mode)
 {
-    bool window = mode == MODE_FULL_WINDOW;
-    struct mp_osd_res res = window ? osd_get_vo_res(mpctx->video_out->osd) :
+    struct mp_osd_res res = (mode & MODE_SCALED) ? osd_get_vo_res(mpctx->video_out->osd) :
                             osd_res_from_image_params(&image->params);
-    if (mode == MODE_SUBTITLES || window) {
+    if (mode & MODE_SUBTITLES) {
         osd_draw_on_image(mpctx->osd, res, mpctx->video_pts,
                           OSD_DRAW_SUB_ONLY, image);
     }
-    if (window) {
+    if (mode & MODE_OSD) {
         osd_draw_on_image(mpctx->osd, res, mpctx->video_pts,
                           OSD_DRAW_OSD_ONLY, image);
     }
+}
+
+// Apply rotation to image pixels. Returns a new image with rotated pixels.
+// The rotation angle is taken from image->params.rotate.
+static struct mp_image *apply_rotation(struct mp_image *image, struct mp_log *log)
+{
+    if (!image || !image->params.rotate)
+        return mp_image_new_ref(image);
+
+    int angle = image->params.rotate % 360;
+    if (angle < 0)
+        angle += 360;
+
+    if (angle == 0)
+        return mp_image_new_ref(image);
+
+    if (angle != 90 && angle != 180 && angle != 270) {
+        return mp_image_new_ref(image);
+    }
+
+    int src_w = image->w;
+    int src_h = image->h;
+    int dst_w, dst_h;
+
+    if (angle == 90 || angle == 270) {
+        dst_w = src_h;
+        dst_h = src_w;
+    } else {
+        dst_w = src_w;
+        dst_h = src_h;
+    }
+
+    struct mp_image *dst = mp_image_alloc(image->imgfmt, dst_w, dst_h);
+    if (!dst) {
+        mp_err(log, "Failed to allocate image for rotation.\n");
+        // Return original image reference instead of failing completely
+        struct mp_image *ref = mp_image_new_ref(image);
+        if (ref)
+            ref->params.rotate = 0; // Clear rotation to avoid infinite loop
+        return ref ? ref : image;
+    }
+
+    mp_image_copy_attributes(dst, image);
+    dst->params.rotate = 0; // Clear rotation since we're applying it
+
+    if (angle == 90 || angle == 270) {
+        dst->params.w = src_h;
+        dst->params.h = src_w;
+    }
+
+    // Rotate each plane
+    for (int p = 0; p < image->num_planes; p++) {
+        int src_plane_w = mp_image_plane_w(image, p);
+        int src_plane_h = mp_image_plane_h(image, p);
+        int dst_plane_w = mp_image_plane_w(dst, p);
+        int dst_plane_h = mp_image_plane_h(dst, p);
+
+        uint8_t *src = image->planes[p];
+        uint8_t *dst_plane = dst->planes[p];
+        int src_stride = image->stride[p];
+        int dst_stride = dst->stride[p];
+
+        // For most formats, bpp[p] gives bits per pixel for the plane
+        int bytes_per_pixel = image->fmt.bpp[p] / 8;
+
+        // For sub-byte formats or formats with fractional bits per pixel,
+        // fall back to byte-aligned copying
+        if (bytes_per_pixel == 0) {
+            // For these formats, we need to copy entire pixels which may span multiple bits
+            // We'll use 1 byte as minimum unit and handle packed/sub-byte formats
+            bytes_per_pixel = 1;
+        }
+
+        if (angle == 90) {
+            // Rotate 90 degrees clockwise: (x,y) -> (H-1-y, x)
+            for (int y = 0; y < src_plane_h; y++) {
+                uint8_t *src_row = src + y * src_stride;
+                for (int x = 0; x < src_plane_w; x++) {
+                    int dst_x = dst_plane_w - 1 - y;
+                    int dst_y = x;
+                    uint8_t *dst_pixel = dst_plane + dst_y * dst_stride + dst_x * bytes_per_pixel;
+                    uint8_t *src_pixel = src_row + x * bytes_per_pixel;
+                    memcpy(dst_pixel, src_pixel, bytes_per_pixel);
+                }
+            }
+        } else if (angle == 180) {
+            // (x,y) -> (W-1-x, H-1-y)
+            for (int y = 0; y < src_plane_h; y++) {
+                uint8_t *src_row = src + y * src_stride;
+                for (int x = 0; x < src_plane_w; x++) {
+                    int dst_x = dst_plane_w - 1 - x;
+                    int dst_y = dst_plane_h - 1 - y;
+                    uint8_t *dst_pixel = dst_plane + dst_y * dst_stride + dst_x * bytes_per_pixel;
+                    uint8_t *src_pixel = src_row + x * bytes_per_pixel;
+                    memcpy(dst_pixel, src_pixel, bytes_per_pixel);
+                }
+            }
+        } else if (angle == 270) {
+            // (x,y) -> (y, W-1-x)
+            for (int y = 0; y < src_plane_h; y++) {
+                uint8_t *src_row = src + y * src_stride;
+                for (int x = 0; x < src_plane_w; x++) {
+                    int dst_x = y;
+                    int dst_y = dst_plane_h - 1 - x;
+                    uint8_t *dst_pixel = dst_plane + dst_y * dst_stride + dst_x * bytes_per_pixel;
+                    uint8_t *src_pixel = src_row + x * bytes_per_pixel;
+                    memcpy(dst_pixel, src_pixel, bytes_per_pixel);
+                }
+            }
+        }
+    }
+
+    return dst;
 }
 
 static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
@@ -344,8 +455,8 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
 {
     struct mp_image *image = NULL;
     const struct image_writer_opts *imgopts = mpctx->opts->screenshot_image_opts;
-    if (mode == MODE_SUBTITLES && osd_get_render_subs_in_filter(mpctx->osd))
-        mode = 0;
+    if ((mode & MODE_SUBTITLES) && osd_get_render_subs_in_filter(mpctx->osd))
+        mode &= ~MODE_SUBTITLES;
 
     if (!mpctx->video_out || !mpctx->video_out->config_ok)
         return NULL;
@@ -353,11 +464,13 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
     vo_wait_frame(mpctx->video_out); // important for each-frame mode
 
     bool use_sw = mpctx->opts->screenshot_sw;
-    bool window = mode == MODE_FULL_WINDOW;
+    bool scaled = mode & MODE_SCALED;
+    bool subs = mode & MODE_SUBTITLES;
+    bool osd = mode & MODE_OSD;
     struct voctrl_screenshot ctrl = {
-        .scaled = window,
-        .subs = mode != 0,
-        .osd = window,
+        .scaled = scaled,
+        .subs = subs,
+        .osd = osd,
         .high_bit_depth = high_depth && imgopts->high_bit_depth,
         .native_csp = image_writer_flexible_csp(imgopts),
     };
@@ -365,7 +478,9 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
         vo_control(mpctx->video_out, VOCTRL_SCREENSHOT, &ctrl);
     image = ctrl.res;
 
-    if (!use_sw && !image && window)
+    // VOCTRL_SCREENSHOT_WIN gets the complete rendered image so it's only
+    // usable for scaled+sub+osd screenshots.
+    if (!use_sw && !image && scaled && subs && osd)
         vo_control(mpctx->video_out, VOCTRL_SCREENSHOT_WIN, &image);
 
     if (!image) {
@@ -375,7 +490,7 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
     }
 
     // vo_get_current_frame() can return a hardware frame, which we have to download first.
-    if (image && image->fmt.flags & MP_IMGFLAG_HWACCEL) {
+    if (image && IMGFMT_IS_HWACCEL(image->imgfmt)) {
         struct mp_image *nimage = mp_image_hw_download(image, NULL);
         talloc_free(image);
         if (!nimage)
@@ -383,7 +498,18 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
         image = nimage;
     }
 
-    if (use_sw && image && window) {
+    // Apply rotation first if needed (when VO didn't handle it)
+    // This needs to happen before scaling so the dimensions match what VO displays
+    if (image && image->params.rotate) {
+        struct mp_image *rotated = apply_rotation(image, mpctx->screenshot_ctx->log);
+        // apply_rotation always returns a valid image (original or rotated)
+        if (rotated != image) {
+            talloc_free(image);
+        }
+        image = rotated;
+    }
+
+    if (use_sw && image && scaled) {
         struct mp_osd_res res = osd_get_vo_res(mpctx->video_out->osd);
         struct mp_osd_res image_res = osd_res_from_image_params(&image->params);
         if (!osd_res_equals(res, image_res)) {
@@ -410,7 +536,7 @@ static struct mp_image *screenshot_get(struct MPContext *mpctx, int mode,
 }
 
 struct mp_image *convert_image(struct mp_image *image, int destfmt,
-                               struct mpv_global *global, struct mp_log *log)
+                               struct dmpv_global *global, struct mp_log *log)
 {
     int d_w, d_h;
     mp_image_params_get_dsize(&image->params, &d_w, &d_h);
@@ -453,12 +579,13 @@ struct mp_image *convert_image(struct mp_image *image, int destfmt,
 }
 
 // mode is the same as in screenshot_get()
-static struct mp_image *screenshot_get_rgb(struct MPContext *mpctx, int mode)
+static struct mp_image *screenshot_get_rgb(struct MPContext *mpctx, int mode,
+                                           bool high_depth, enum mp_imgfmt format)
 {
-    struct mp_image *mpi = screenshot_get(mpctx, mode, false);
+    struct mp_image *mpi = screenshot_get(mpctx, mode, high_depth);
     if (!mpi)
         return NULL;
-    struct mp_image *res = convert_image(mpi, IMGFMT_BGR0, mpctx->global,
+    struct mp_image *res = convert_image(mpi, format, mpctx->global,
                                          mpctx->log);
     talloc_free(mpi);
     return res;
@@ -483,7 +610,7 @@ void cmd_screenshot_to_file(void *p)
         cmd->success = false;
         return;
     }
-    cmd->success = write_screenshot(cmd, image, filename, &opts);
+    cmd->success = write_screenshot(cmd, image, filename, &opts, true);
     talloc_free(image);
 }
 
@@ -491,15 +618,15 @@ void cmd_screenshot(void *p)
 {
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
-    struct mpv_node *res = &cmd->result;
-    int mode = cmd->args[0].v.i & 3;
+    struct dmpv_node *res = &cmd->result;
+    int mode = cmd->args[0].v.i & 7;
     bool each_frame_toggle = (cmd->args[0].v.i | cmd->args[1].v.i) & 8;
     bool each_frame_mode = cmd->args[0].v.i & 16;
 
     screenshot_ctx *ctx = mpctx->screenshot_ctx;
 
-    if (mode == MODE_SUBTITLES && osd_get_render_subs_in_filter(mpctx->osd))
-        mode = 0;
+    if ((mode & MODE_SUBTITLES) && osd_get_render_subs_in_filter(mpctx->osd))
+        mode &= ~MODE_SUBTITLES;
 
     if (!each_frame_mode) {
         if (each_frame_toggle) {
@@ -524,9 +651,9 @@ void cmd_screenshot(void *p)
     if (image) {
         char *filename = gen_fname(cmd, image_writer_file_ext(opts));
         if (filename) {
-            cmd->success = write_screenshot(cmd, image, filename, NULL);
+            cmd->success = write_screenshot(cmd, image, filename, NULL, false);
             if (cmd->success) {
-                node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+                node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
                 node_map_add_string(res, "filename", filename);
             }
         }
@@ -542,22 +669,29 @@ void cmd_screenshot_raw(void *p)
 {
     struct mp_cmd_ctx *cmd = p;
     struct MPContext *mpctx = cmd->mpctx;
-    struct mpv_node *res = &cmd->result;
+    struct dmpv_node *res = &cmd->result;
 
-    struct mp_image *img = screenshot_get_rgb(mpctx, cmd->args[0].v.i);
+    const enum mp_imgfmt formats[] = {IMGFMT_BGR0, IMGFMT_BGRA, IMGFMT_RGBA, IMGFMT_RGBA64};
+    const char *format_names[] = {"bgr0", "bgra", "rgba", "rgba64"};
+    int idx = cmd->args[1].v.i;
+    mp_assert(idx >= 0 && idx <= 3);
+
+    bool high_depth = formats[idx] == IMGFMT_RGBA64;
+    struct mp_image *img = screenshot_get_rgb(mpctx, cmd->args[0].v.i,
+                                              high_depth, formats[idx]);
     if (!img) {
         cmd->success = false;
         return;
     }
 
-    node_init(res, MPV_FORMAT_NODE_MAP, NULL);
+    node_init(res, DMPV_FORMAT_NODE_MAP, NULL);
     node_map_add_int64(res, "w", img->w);
     node_map_add_int64(res, "h", img->h);
     node_map_add_int64(res, "stride", img->stride[0]);
-    node_map_add_string(res, "format", "bgr0");
-    struct mpv_byte_array *ba =
-        node_map_add(res, "data", MPV_FORMAT_BYTE_ARRAY)->u.ba;
-    *ba = (struct mpv_byte_array){
+    node_map_add_string(res, "format", format_names[idx]);
+    struct dmpv_byte_array *ba =
+        node_map_add(res, "data", DMPV_FORMAT_BYTE_ARRAY)->u.ba;
+    *ba = (struct dmpv_byte_array){
         .data = img->planes[0],
         .size = img->stride[0] * img->h,
     };

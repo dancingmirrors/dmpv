@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
@@ -20,8 +20,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <math.h>
-#include <pthread.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <unistd.h>
 
 #include "config.h"
@@ -33,28 +32,20 @@
 #include "common/common.h"
 #include "common/msg.h"
 #include "input/input.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/parse_configfile.h"
 #include "options/path.h"
 #include "misc/bstr.h"
 #include "core.h"
 #include "client.h"
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 extern const struct mp_scripting mp_scripting_lua;
-extern const struct mp_scripting mp_scripting_cplugin;
-extern const struct mp_scripting mp_scripting_js;
 extern const struct mp_scripting mp_scripting_run;
 
 static const struct mp_scripting *const scripting_backends[] = {
 #if HAVE_LUA
     &mp_scripting_lua,
-#endif
-#if HAVE_CPLUGINS
-    &mp_scripting_cplugin,
-#endif
-#if HAVE_JAVASCRIPT
-    &mp_scripting_js,
 #endif
     &mp_scripting_run,
     NULL
@@ -83,26 +74,27 @@ static char *script_name_from_filename(void *talloc_ctx, const char *fname)
 
 static void run_script(struct mp_script_args *arg)
 {
-    char name[90];
-    snprintf(name, sizeof(name), "%s (%s)", arg->backend->name,
-             mpv_client_name(arg->client));
-    mpthread_set_name(name);
+    char *name = talloc_asprintf(NULL, "%s/%s", arg->backend->name,
+                                 dmpv_client_name(arg->client));
+    mp_thread_set_name(name);
+    talloc_free(name);
 
     if (arg->backend->load(arg) < 0)
-        MP_ERR(arg, "Could not load %s %s\n", arg->backend->name, arg->filename);
+        MP_ERR(arg, "Could not load %s script %s\n", arg->backend->name, arg->filename);
 
-    mpv_destroy(arg->client);
+    dmpv_handle *client = arg->client;
     talloc_free(arg);
+    dmpv_destroy(client);
 }
 
-static void *script_thread(void *p)
+static MP_THREAD_VOID script_thread(void *p)
 {
-    pthread_detach(pthread_self());
+    pthread_detach(mp_thread_self());
 
     struct mp_script_args *arg = p;
     run_script(arg);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
@@ -156,7 +148,7 @@ static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
     }
 
     if (!backend) {
-        MP_VERBOSE(mpctx, "Can't load unknown script: %s\n", fname);
+        MP_ERR(mpctx, "Can't load unknown script: %s\n", fname);
         talloc_free(tmp);
         return -1;
     }
@@ -184,16 +176,16 @@ static int64_t mp_load_script(struct MPContext *mpctx, const char *fname)
 
     mp_client_set_weak(arg->client);
     arg->log = mp_client_get_log(arg->client);
-    int64_t id = mpv_client_id(arg->client);
+    int64_t id = dmpv_client_id(arg->client);
 
     MP_DBG(arg, "Loading %s %s...\n", backend->name, arg->filename);
 
     if (backend->no_thread) {
         run_script(arg);
     } else {
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, script_thread, arg)) {
-            mpv_destroy(arg->client);
+        mp_thread thread;
+        if (mp_thread_create(&thread, script_thread, arg)) {
+            dmpv_destroy(arg->client);
             talloc_free(arg);
             return -1;
         }
@@ -243,7 +235,7 @@ static char **list_script_files(void *talloc_ctx, char *path)
 static void load_builtin_script(struct MPContext *mpctx, int slot, bool enable,
                                 const char *fname)
 {
-    assert(slot < MP_ARRAY_SIZE(mpctx->builtin_script_ids));
+    mp_assert(slot < MP_ARRAY_SIZE(mpctx->builtin_script_ids));
     int64_t *pid = &mpctx->builtin_script_ids[slot];
     if (*pid > 0 && !mp_client_id_exists(mpctx, *pid))
         *pid = 0; // died
@@ -252,19 +244,17 @@ static void load_builtin_script(struct MPContext *mpctx, int slot, bool enable,
             *pid = mp_load_script(mpctx, fname);
         } else {
             char *name = mp_tprintf(22, "@%"PRIi64, *pid);
-            mp_client_send_event(mpctx, name, 0, MPV_EVENT_SHUTDOWN, NULL);
+            mp_client_send_event(mpctx, name, 0, DMPV_EVENT_SHUTDOWN, NULL);
         }
     }
 }
 
 void mp_load_builtin_scripts(struct MPContext *mpctx)
 {
-    load_builtin_script(mpctx, 0, mpctx->opts->lua_load_osc, "@osc.lua");
-    load_builtin_script(mpctx, 1, mpctx->opts->lua_load_ytdl, "@ytdl_hook.lua");
-    load_builtin_script(mpctx, 2, mpctx->opts->lua_load_stats, "@stats.lua");
-    load_builtin_script(mpctx, 3, mpctx->opts->lua_load_console, "@console.lua");
-    load_builtin_script(mpctx, 4, mpctx->opts->lua_load_auto_profiles,
-                        "@auto_profiles.lua");
+    load_builtin_script(mpctx, 0, mpctx->opts->lua_load_stats, "@stats.lua");
+    load_builtin_script(mpctx, 1, mpctx->opts->lua_load_360_sbs, "@360-sbs.lua");
+    load_builtin_script(mpctx, 2, mpctx->opts->lua_load_360_sg, "@360-sg.lua");
+    load_builtin_script(mpctx, 3, mpctx->opts->lua_load_positioning, "@positioning.lua");
 }
 
 bool mp_load_scripts(struct MPContext *mpctx)
@@ -293,39 +283,6 @@ bool mp_load_scripts(struct MPContext *mpctx)
     return ok;
 }
 
-#if HAVE_CPLUGINS
-
-#include <dlfcn.h>
-
-#define MPV_DLOPEN_FN "mpv_open_cplugin"
-typedef int (*mpv_open_cplugin)(mpv_handle *handle);
-
-static int load_cplugin(struct mp_script_args *args)
-{
-    void *lib = dlopen(args->filename, RTLD_NOW | RTLD_LOCAL);
-    if (!lib)
-        goto error;
-    // Note: once loaded, we never unload, as unloading the libraries linked to
-    //       the plugin can cause random serious problems.
-    mpv_open_cplugin sym = (mpv_open_cplugin)dlsym(lib, MPV_DLOPEN_FN);
-    if (!sym)
-        goto error;
-    return sym(args->client) ? -1 : 0;
-error: ;
-    char *err = dlerror();
-    if (err)
-        MP_ERR(args, "C plugin error: '%s'\n", err);
-    return -1;
-}
-
-const struct mp_scripting mp_scripting_cplugin = {
-    .name = "SO plugin",
-    .file_ext = "so",
-    .load = load_cplugin,
-};
-
-#endif
-
 static int load_run(struct mp_script_args *args)
 {
     // The arg->client object might die and with it args->log, so duplicate it.
@@ -336,8 +293,8 @@ static int load_run(struct mp_script_args *args)
         return -1;
     args->client = NULL; // ownership lost
 
-    char *fdopt = fds[1] >= 0 ? mp_tprintf(80, "--mpv-ipc-fd=%d:%d", fds[0], fds[1])
-                              : mp_tprintf(80, "--mpv-ipc-fd=%d", fds[0]);
+    char *fdopt = fds[1] >= 0 ? mp_tprintf(80, "--dmpv-ipc-fd=%d:%d", fds[0], fds[1])
+                              : mp_tprintf(80, "--dmpv-ipc-fd=%d", fds[0]);
 
     struct mp_subprocess_opts opts = {
         .exe = (char *)args->filename,

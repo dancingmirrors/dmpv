@@ -1,36 +1,36 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
 
 #include <stddef.h>
 #include <stdbool.h>
-#include <pthread.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
+#include "osdep/threads.h"
 
 #include <libavutil/buffer.h>
 #include <libavutil/hwcontext.h>
-#if HAVE_VULKAN_INTEROP
+#if HAVE_VULKAN
 #include <libavutil/hwcontext_vulkan.h>
 #endif
 #include <libavutil/mem.h>
 #include <libavutil/pixdesc.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/common.h"
 
@@ -39,8 +39,8 @@
 #include "mp_image_pool.h"
 
 static pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define pool_lock() pthread_mutex_lock(&pool_mutex)
-#define pool_unlock() pthread_mutex_unlock(&pool_mutex)
+#define pool_lock() mp_mutex_lock(&pool_mutex)
+#define pool_unlock() mp_mutex_unlock(&pool_mutex)
 
 // Thread-safety: the pool itself is not thread-safe, but pool-allocated images
 // can be referenced and unreferenced from other threads. (As long as the image
@@ -90,7 +90,7 @@ void mp_image_pool_clear(struct mp_image_pool *pool)
         struct image_flags *it = img->priv;
         bool referenced;
         pool_lock();
-        assert(it->pool_alive);
+        mp_assert(it->pool_alive);
         it->pool_alive = false;
         referenced = it->referenced;
         pool_unlock();
@@ -108,7 +108,7 @@ static void unref_image(void *opaque, uint8_t *data)
     struct image_flags *it = img->priv;
     bool alive;
     pool_lock();
-    assert(it->referenced);
+    mp_assert(it->referenced);
     it->referenced = false;
     alive = it->pool_alive;
     pool_unlock();
@@ -126,7 +126,7 @@ struct mp_image *mp_image_pool_get_no_alloc(struct mp_image_pool *pool, int fmt,
     for (int n = 0; n < pool->num_images; n++) {
         struct mp_image *img = pool->images[n];
         struct image_flags *img_it = img->priv;
-        assert(img_it->pool_alive);
+        mp_assert(img_it->pool_alive);
         if (!img_it->referenced) {
             if (img->imgfmt == fmt && img->w == w && img->h == h) {
                 if (pool->use_lru) {
@@ -148,7 +148,7 @@ struct mp_image *mp_image_pool_get_no_alloc(struct mp_image_pool *pool, int fmt,
     // and unreffing images from other threads does not allocate new images,
     // no synchronization is required here.
     for (int p = 0; p < MP_MAX_PLANES; p++)
-        assert(!!new->bufs[p] == !p); // only 1 AVBufferRef
+        mp_assert(!!new->bufs[p] == !p); // only 1 AVBufferRef
 
     struct mp_image *ref = mp_image_new_dummy_ref(new);
 
@@ -164,7 +164,7 @@ struct mp_image *mp_image_pool_get_no_alloc(struct mp_image_pool *pool, int fmt,
     }
 
     struct image_flags *it = new->priv;
-    assert(!it->referenced && it->pool_alive);
+    mp_assert(!it->referenced && it->pool_alive);
     it->referenced = true;
     it->order = ++pool->lru_counter;
     return ref;
@@ -236,7 +236,7 @@ bool mp_image_pool_make_writeable(struct mp_image_pool *pool,
     if (!new)
         return false;
     mp_image_steal_data(img, new);
-    assert(mp_image_is_writeable(img));
+    mp_assert(mp_image_is_writeable(img));
     return true;
 }
 
@@ -292,7 +292,7 @@ struct mp_image *mp_image_hw_download(struct mp_image *src,
     if (!imgfmt)
         return NULL;
 
-    assert(src->hwctx);
+    mp_assert(src->hwctx);
     AVHWFramesContext *fctx = (void *)src->hwctx->data;
 
     struct mp_image *dst =
@@ -337,7 +337,7 @@ bool mp_image_hw_upload(struct mp_image *hw_img, struct mp_image *src)
     AVFrame *srcav = NULL;
 
     // This means the destination image will not be "writable", which would be
-    // a pain if Libav enforced this - fortunately it doesn't care. We can
+    // a pain if FFmpeg enforced this - fortunately it doesn't care. We can
     // transfer data to it even if there are multiple refs.
     dstav = mp_image_to_av_frame(hw_img);
     if (!dstav)
@@ -393,7 +393,7 @@ bool mp_update_av_hw_frames_pool(struct AVBufferRef **hw_frames_ctx,
         hw_frames->width = w;
         hw_frames->height = h;
 
-#if HAVE_VULKAN_INTEROP
+#if HAVE_VULKAN
         if (format == AV_PIX_FMT_VULKAN && disable_multiplane) {
             const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(sw_format);
             if ((desc->flags & AV_PIX_FMT_FLAG_PLANAR) &&
@@ -419,10 +419,13 @@ struct mp_image *mp_av_pool_image_hw_upload(struct AVBufferRef *hw_frames_ctx,
     AVFrame *av_frame = av_frame_alloc();
     if (!av_frame)
         return NULL;
+
+    // Allocate a frame from the hardware frames context pool
     if (av_hwframe_get_buffer(hw_frames_ctx, av_frame, 0) < 0) {
         av_frame_free(&av_frame);
         return NULL;
     }
+
     struct mp_image *dst = mp_image_from_av_frame(av_frame);
     av_frame_free(&av_frame);
     if (!dst)

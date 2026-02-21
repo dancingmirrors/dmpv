@@ -1,20 +1,20 @@
 /*
  * Original author: Aaron Holtzman <aholtzma@ess.engr.uvic.ca>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -168,10 +168,6 @@ static void freeMyXImage(struct priv *p, int foo)
 
 static int reconfig(struct vo *vo, struct mp_image_params *fmt)
 {
-    struct priv *p = vo->priv;
-
-    mp_image_unrefp(&p->original_image);
-
     vo_x11_config_vo_window(vo);
 
     if (!resize(vo))
@@ -251,7 +247,7 @@ static bool resize(struct vo *vo)
         *img = (struct mp_image){0};
         mp_image_setfmt(img, mpfmt);
         mp_image_set_size(img, p->image_width, p->image_height);
-        img->planes[0] = p->myximage[i]->data;
+        img->planes[0] = (uint8_t *)p->myximage[i]->data;
         img->stride[0] = p->myximage[i]->bytes_per_line;
 
         mp_image_params_guess_csp(&img->params);
@@ -303,7 +299,7 @@ static void wait_for_completion(struct vo *vo, int max_outstanding)
                             " for XShm completion events...\n");
                 ctx->Shm_Warned_Slow = 1;
             }
-            mp_sleep_us(1000);
+            mp_sleep_ns(MP_TIME_MS_TO_NS(1));
             vo_x11_check_events(vo);
         }
     }
@@ -327,41 +323,40 @@ static void get_vsync(struct vo *vo, struct vo_vsync_info *info)
         present_sync_get_info(x11->present, info);
 }
 
-// Note: REDRAW_FRAME can call this with NULL.
-static void draw_image(struct vo *vo, mp_image_t *mpi)
+static bool draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct priv *p = vo->priv;
 
     wait_for_completion(vo, 1);
     bool render = vo_x11_check_visible(vo);
     if (!render)
-        return;
+        return -1;
 
     struct mp_image *img = &p->mp_ximages[p->current_buf];
 
-    if (mpi) {
+    if (frame->current) {
         mp_image_clear_rc_inv(img, p->dst);
 
-        struct mp_image src = *mpi;
+        struct mp_image *src = frame->current;
         struct mp_rect src_rc = p->src;
-        src_rc.x0 = MP_ALIGN_DOWN(src_rc.x0, src.fmt.align_x);
-        src_rc.y0 = MP_ALIGN_DOWN(src_rc.y0, src.fmt.align_y);
-        mp_image_crop_rc(&src, src_rc);
+        src_rc.x0 = MP_ALIGN_DOWN(src_rc.x0, src->fmt.align_x);
+        src_rc.y0 = MP_ALIGN_DOWN(src_rc.y0, src->fmt.align_y);
+        mp_image_crop_rc(src, src_rc);
 
         struct mp_image dst = *img;
         mp_image_crop_rc(&dst, p->dst);
 
-        mp_sws_scale(p->sws, &dst, &src);
+        mp_sws_scale(p->sws, &dst, src);
     } else {
         mp_image_clear(img, 0, 0, img->w, img->h);
     }
 
-    osd_draw_on_image(vo->osd, p->osd, mpi ? mpi->pts : 0, 0, img);
+    osd_draw_on_image(vo->osd, p->osd, frame->current ? frame->current->pts : 0, 0, img);
 
-    if (mpi != p->original_image) {
-        talloc_free(p->original_image);
-        p->original_image = mpi;
-    }
+    if (frame->current != p->original_image)
+        p->original_image = frame->current;
+
+    return VO_TRUE;
 }
 
 static int query_format(struct vo *vo, int format)
@@ -381,8 +376,6 @@ static void uninit(struct vo *vo)
         freeMyXImage(p, 1);
     if (p->gc)
         XFreeGC(vo->x11->display, p->gc);
-
-    talloc_free(p->original_image);
 
     vo_x11_uninit(vo);
 }
@@ -413,8 +406,7 @@ static int preinit(struct vo *vo)
         goto error;
 
     p->gc = XCreateGC(x11->display, x11->window, 0, NULL);
-    MP_WARN(vo, "Warning: this legacy VO has bad performance. Consider fixing "
-                "your graphics drivers, or not forcing the x11 VO.\n");
+
     return 0;
 
 error:
@@ -424,15 +416,11 @@ error:
 
 static int control(struct vo *vo, uint32_t request, void *data)
 {
-    struct priv *p = vo->priv;
     switch (request) {
     case VOCTRL_SET_PANSCAN:
         if (vo->config_ok)
             resize(vo);
         return VO_TRUE;
-    case VOCTRL_REDRAW_FRAME:
-        draw_image(vo, p->original_image);
-        return true;
     }
 
     int events = 0;
@@ -451,7 +439,7 @@ const struct vo_driver video_out_x11 = {
     .query_format = query_format,
     .reconfig = reconfig,
     .control = control,
-    .draw_image = draw_image,
+    .draw_frame = draw_frame,
     .flip_page = flip_page,
     .get_vsync = get_vsync,
     .wakeup = vo_x11_wakeup,

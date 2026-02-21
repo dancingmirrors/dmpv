@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -43,7 +43,7 @@ int drm_object_create_properties(struct mp_log *log, int fd,
 
     return 0;
 
-  fail:
+fail:
     drm_object_free_properties(object);
     return -1;
 }
@@ -68,43 +68,43 @@ void drm_object_free_properties(struct drm_object *object)
 
 int drm_object_get_property(struct drm_object *object, char *name, uint64_t *value)
 {
-   for (int i = 0; i < object->props->count_props; i++) {
-       if (strcasecmp(name, object->props_info[i]->name) == 0) {
-           *value = object->props->prop_values[i];
-           return 0;
-       }
-   }
+    for (int i = 0; i < object->props->count_props; i++) {
+        if (strcasecmp(name, object->props_info[i]->name) == 0) {
+            *value = object->props->prop_values[i];
+            return 0;
+        }
+    }
 
-   return -EINVAL;
+    return -EINVAL;
 }
 
 drmModePropertyBlobPtr drm_object_get_property_blob(struct drm_object *object, char *name)
 {
-   uint64_t blob_id;
+    uint64_t blob_id;
 
-   if (!drm_object_get_property(object, name, &blob_id)) {
-       return drmModeGetPropertyBlob(object->fd, blob_id);
-   }
+    if (!drm_object_get_property(object, name, &blob_id)) {
+        return drmModeGetPropertyBlob(object->fd, blob_id);
+    }
 
-   return NULL;
+    return NULL;
 }
 
 int drm_object_set_property(drmModeAtomicReq *request, struct drm_object *object,
                             char *name, uint64_t value)
 {
-   for (int i = 0; i < object->props->count_props; i++) {
-       if (strcasecmp(name, object->props_info[i]->name) == 0) {
-           if (object->props_info[i]->flags & DRM_MODE_PROP_IMMUTABLE) {
-               /* Do not try to set immutable values, as this might cause the
-                * atomic commit operation to fail. */
-               return -EINVAL;
-           }
-           return drmModeAtomicAddProperty(request, object->id,
-                                           object->props_info[i]->prop_id, value);
-       }
-   }
+    for (int i = 0; i < object->props->count_props; i++) {
+        if (strcasecmp(name, object->props_info[i]->name) == 0) {
+            if (object->props_info[i]->flags & DRM_MODE_PROP_IMMUTABLE) {
+                /* Do not try to set immutable values, as this might cause the
+                 * atomic commit operation to fail. */
+                return -EINVAL;
+            }
+            return drmModeAtomicAddProperty(request, object->id,
+                                            object->props_info[i]->prop_id, value);
+        }
+    }
 
-   return -EINVAL;
+    return -EINVAL;
 }
 
 struct drm_object *drm_object_create(struct mp_log *log, int fd,

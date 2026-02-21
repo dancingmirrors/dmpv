@@ -1,20 +1,20 @@
 /*
  * Based on vo_gl.c by Reimar Doeffinger.
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -22,16 +22,16 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/common.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "common/common.h"
 #include "misc/bstr.h"
 #include "common/msg.h"
 #include "common/global.h"
-#include "options/m_config.h"
+#include "options/m_config_frontend.h"
 #include "vo.h"
 #include "video/mp_image.h"
 #include "sub/osd.h"
@@ -71,20 +71,21 @@ static void resize(struct vo *vo)
     vo->want_redraw = true;
 }
 
-static void draw_frame(struct vo *vo, struct vo_frame *frame)
+static bool draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct gpu_priv *p = vo->priv;
     struct ra_swapchain *sw = p->ctx->swapchain;
 
     struct ra_fbo fbo;
     if (!sw->fns->start_frame(sw, &fbo))
-        return;
+        return VO_FALSE;
 
     gl_video_render_frame(p->renderer, frame, fbo, RENDER_FRAME_DEF);
     if (!sw->fns->submit_frame(sw, frame)) {
         MP_ERR(vo, "Failed presenting frame!\n");
-        return;
+        return VO_FALSE;
     }
+    return VO_TRUE;
 }
 
 static void flip_page(struct vo *vo)
@@ -186,9 +187,6 @@ static int control(struct vo *vo, uint32_t request, void *data)
     case VOCTRL_SET_PANSCAN:
         resize(vo);
         return VO_TRUE;
-    case VOCTRL_SET_EQUALIZER:
-        vo->want_redraw = true;
-        return VO_TRUE;
     case VOCTRL_SCREENSHOT: {
         struct vo_frame *frame = vo_get_current_vo_frame(vo);
         if (frame)
@@ -252,13 +250,13 @@ static void wakeup(struct vo *vo)
         p->ctx->fns->wakeup(p->ctx);
 }
 
-static void wait_events(struct vo *vo, int64_t until_time_us)
+static void wait_events(struct vo *vo, int64_t until_time_ns)
 {
     struct gpu_priv *p = vo->priv;
     if (p->ctx && p->ctx->fns->wait_events) {
-        p->ctx->fns->wait_events(p->ctx, until_time_us);
+        p->ctx->fns->wait_events(p->ctx, until_time_ns);
     } else {
-        vo_wait_default(vo, until_time_us);
+        vo_wait_default(vo, until_time_ns);
     }
 }
 
@@ -296,8 +294,8 @@ static int preinit(struct vo *vo)
     talloc_free(gl_opts);
     if (!p->ctx)
         goto err_out;
-    assert(p->ctx->ra);
-    assert(p->ctx->swapchain);
+    mp_assert(p->ctx->ra);
+    mp_assert(p->ctx->swapchain);
 
     p->renderer = gl_video_init(p->ctx->ra, vo->log, vo->global);
     gl_video_set_osd_source(p->renderer, vo->osd);

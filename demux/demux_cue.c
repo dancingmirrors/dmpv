@@ -1,20 +1,20 @@
 /*
  * Original author: Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -25,13 +25,13 @@
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/bstr.h"
 #include "misc/charset_conv.h"
 #include "common/msg.h"
 #include "demux/demux.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/path.h"
 #include "common/common.h"
@@ -42,25 +42,14 @@
 
 #define PROBE_SIZE 512
 
-#define OPT_BASE_STRUCT struct demux_cue_opts
-struct demux_cue_opts {
-    char *cue_cp;
-};
-
 const struct m_sub_options demux_cue_conf = {
         .opts = (const m_option_t[]) {
-            {"codepage", OPT_STRING(cue_cp)},
             {0}
         },
-        .size = sizeof(struct demux_cue_opts),
-        .defaults = &(const struct demux_cue_opts) {
-            .cue_cp = "auto"
-        }
 };
 
 struct priv {
     struct cue_file *f;
-    struct demux_cue_opts *opts;
 };
 
 static void add_source(struct timeline *tl, struct demuxer *d)
@@ -80,6 +69,7 @@ static bool try_open(struct timeline *tl, char *filename)
 
     struct demuxer_params p = {
         .stream_flags = tl->stream_origin,
+        .depth = tl->demuxer ? tl->demuxer->depth + 1 : 0,
     };
 
     struct demuxer *d = demux_open_url(filename, &p, tl->cancel, tl->global);
@@ -271,19 +261,18 @@ static int try_open_file(struct demuxer *demuxer, enum demux_check check)
     if (check >= DEMUX_CHECK_UNSAFE) {
         char probe[PROBE_SIZE];
         int len = stream_read_peek(s, probe, sizeof(probe));
-        if (len < 1 || !mp_probe_cue((bstr){probe, len}))
+        if (len < 1 || !mp_probe_cue((bstr){(unsigned char *)probe, len}))
             return -1;
     }
     struct priv *p = talloc_zero(demuxer, struct priv);
     demuxer->priv = p;
     demuxer->fully_read = true;
-    p->opts = mp_get_config_group(p, demuxer->global, &demux_cue_conf);
-    struct demux_cue_opts *cue_opts = p->opts;
-
     bstr data = stream_read_complete(s, p, 1000000);
     if (data.start == NULL)
         return -1;
-    const char *charset = mp_charset_guess(p, demuxer->log, data, cue_opts->cue_cp, 0);
+
+    struct demux_opts *opts = mp_get_config_group(p, demuxer->global, &demux_conf);
+    const char *charset = mp_charset_guess(p, demuxer->log, data, opts->meta_cp, 0);
     if (charset && !mp_charset_is_utf8(charset)) {
         MP_INFO(demuxer, "Using CUE charset: %s\n", charset);
         bstr utf8 = mp_iconv_to_utf8(demuxer->log, data, charset, MP_ICONV_VERBOSE);
@@ -292,6 +281,8 @@ static int try_open_file(struct demuxer *demuxer, enum demux_check check)
             data = utf8;
         }
     }
+    talloc_free(opts);
+
     p->f = mp_parse_cue(data);
     talloc_steal(p, p->f);
     if (!p->f) {

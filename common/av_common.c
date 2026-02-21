@@ -1,21 +1,20 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
 #include <math.h>
 #include <limits.h>
 
@@ -27,8 +26,6 @@
 #include <libavutil/cpu.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-
-#include "config.h"
 
 #include "audio/chmap_avchannel.h"
 #include "common/common.h"
@@ -96,13 +93,7 @@ AVCodecParameters *mp_codec_params_to_av(const struct mp_codec_params *c)
     avp->bit_rate = c->bitrate;
     avp->block_align = c->block_align;
 
-#if !HAVE_AV_CHANNEL_LAYOUT
-    avp->channels = c->channels.num;
-    if (!mp_chmap_is_unknown(&c->channels))
-        avp->channel_layout = mp_chmap_to_lavc(&c->channels);
-#else
     mp_chmap_to_av_layout(&avp->ch_layout, &c->channels);
-#endif
 
     return avp;
 error:
@@ -143,12 +134,14 @@ AVRational mp_get_codec_timebase(const struct mp_codec_params *c)
 
     // If the timebase is too coarse, raise its precision, or small adjustments
     // to timestamps done between decoder and demuxer could be lost.
+    int64_t den = tb.den;
     if (av_q2d(tb) > 0.001) {
-        AVRational r = av_div_q(tb, (AVRational){1, 1000});
-        tb.den *= (r.num + r.den - 1) / r.den;
+        int64_t scaling_num = tb.num * INT64_C(1000);
+        int64_t scaling_den = tb.den;
+        den *= (scaling_num + scaling_den - 1) / scaling_den;
     }
 
-    av_reduce(&tb.num, &tb.den, tb.num, tb.den, INT_MAX);
+    av_reduce(&tb.num, &tb.den, tb.num, den, INT_MAX);
 
     if (tb.num < 1 || tb.den < 1)
         tb = AV_TIME_BASE_Q;
@@ -161,7 +154,7 @@ static AVRational get_def_tb(AVRational *tb)
     return tb && tb->num > 0 && tb->den > 0 ? *tb : AV_TIME_BASE_Q;
 }
 
-// Convert the mpv style timestamp (seconds as double) to a libavcodec style
+// Convert the dmpv style timestamp (seconds as double) to a libavcodec style
 // timestamp (integer units in a given timebase).
 int64_t mp_pts_to_av(double mp_pts, AVRational *tb)
 {
@@ -263,7 +256,7 @@ char **mp_get_lavf_demuxers(void)
         const AVInputFormat *cur = av_demuxer_iterate(&iter);
         if (!cur)
             break;
-        MP_TARRAY_APPEND(NULL, list, num, talloc_strdup(NULL, cur->name));
+        MP_TARRAY_APPEND(NULL, list, num, talloc_strdup(list, cur->name));
     }
     MP_TARRAY_APPEND(NULL, list, num, NULL);
     return list;
@@ -332,7 +325,7 @@ static void resolve_positional_arg(void *avobj, char **name)
 
     char *end = NULL;
     int pos = strtol(*name + 1, &end, 10);
-    if (!end || *end)
+    if (!end || *end || pos < 0)
         return;
 
     const AVOption *opt = NULL;

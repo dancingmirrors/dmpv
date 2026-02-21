@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -20,11 +20,11 @@
 #include <limits.h>
 
 #include <strings.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "osdep/io.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "config.h"
 
@@ -33,17 +33,15 @@
 #include "misc/bstr.h"
 #include "misc/thread_tools.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "options/path.h"
 #include "osdep/timer.h"
 #include "stream.h"
 
 #include "options/m_option.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 
-extern const stream_info_t stream_info_cdda;
-extern const stream_info_t stream_info_dvb;
 extern const stream_info_t stream_info_null;
 extern const stream_info_t stream_info_memory;
 extern const stream_info_t stream_info_mf;
@@ -53,34 +51,14 @@ extern const stream_info_t stream_info_avdevice;
 extern const stream_info_t stream_info_file;
 extern const stream_info_t stream_info_slice;
 extern const stream_info_t stream_info_fd;
-extern const stream_info_t stream_info_ifo_dvdnav;
-extern const stream_info_t stream_info_dvdnav;
-extern const stream_info_t stream_info_bdmv_dir;
-extern const stream_info_t stream_info_bluray;
-extern const stream_info_t stream_info_bdnav;
 extern const stream_info_t stream_info_edl;
 extern const stream_info_t stream_info_libarchive;
 extern const stream_info_t stream_info_cb;
 
 static const stream_info_t *const stream_list[] = {
-#if HAVE_CDDA
-    &stream_info_cdda,
-#endif
     &stream_info_ffmpeg,
     &stream_info_ffmpeg_unsafe,
     &stream_info_avdevice,
-#if HAVE_DVBIN
-    &stream_info_dvb,
-#endif
-#if HAVE_DVDNAV
-    &stream_info_ifo_dvdnav,
-    &stream_info_dvdnav,
-#endif
-#if HAVE_LIBBLURAY
-    &stream_info_bdmv_dir,
-    &stream_info_bluray,
-    &stream_info_bdnav,
-#endif
 #if HAVE_LIBARCHIVE
     &stream_info_libarchive,
 #endif
@@ -154,6 +132,13 @@ void mp_url_unescape_inplace(char *url)
             url[o++] = url[i++];
         }
     }
+}
+
+char *mp_url_unescape(void *talloc_ctx, char *url)
+{
+    char *unescaped = talloc_strdup(talloc_ctx, url);
+    mp_url_unescape_inplace(unescaped);
+    return unescaped;
 }
 
 static const char hex_digits[] = "0123456789ABCDEF";
@@ -237,7 +222,7 @@ static int check_origin(int src, int new)
 //  returns: bytes copied to dst (limited by len and available buffered data)
 static int ring_copy(struct stream *s, void *dst, int len, int pos)
 {
-    assert(len >= 0);
+    mp_assert(len >= 0);
 
     if (pos < s->buf_start || pos > s->buf_end)
         return 0;
@@ -265,19 +250,19 @@ static int ring_copy(struct stream *s, void *dst, int len, int pos)
 // Does nothing if the size is adequate. Calling this with 0 ensures it uses the
 // default buffer size if possible.
 // The caller must check whether enough data was really allocated.
-//  keep: keep at least [buf_end-keep, buf_end] (used for assert()s only)
+//  keep: keep at least [buf_end-keep, buf_end] (used for mp_assert()s only)
 //  new: new total size of buffer
 //  returns: false if buffer allocation failed, true if reallocated or size ok
 static bool stream_resize_buffer(struct stream *s, int keep, int new)
 {
-    assert(keep >= s->buf_end - s->buf_cur);
-    assert(keep <= new);
+    mp_assert(keep >= s->buf_end - s->buf_cur);
+    mp_assert(keep <= new);
 
     new = MPMAX(new, s->requested_buffer_size);
     new = MPMIN(new, STREAM_MAX_BUFFER_SIZE);
     new = mp_round_next_power_of_2(new);
 
-    assert(keep <= new); // can't fail (if old buffer size was valid)
+    mp_assert(keep <= new); // can't fail (if old buffer size was valid)
 
     if (new == s->buffer_mask + 1)
         return true;
@@ -295,9 +280,9 @@ static bool stream_resize_buffer(struct stream *s, int keep, int new)
     int new_len = 0;
     if (s->buffer)
         new_len = ring_copy(s, nbuf, new, s->buf_start + skip);
-    assert(new_len == old_used_len - skip);
-    assert(old_pos >= skip); // "keep" too low
-    assert(old_pos - skip <= new_len);
+    mp_assert(new_len == old_used_len - skip);
+    mp_assert(old_pos >= skip); // "keep" too low
+    mp_assert(old_pos - skip <= new_len);
     s->buf_start = 0;
     s->buf_cur = old_pos - skip;
     s->buf_end = new_len;
@@ -399,7 +384,7 @@ static int stream_create_instance(const stream_info_t *sinfo,
         return STREAM_ERROR;
     }
 
-    assert(s->seekable == !!s->seek);
+    mp_assert(s->seekable == !!s->seek);
 
     if (s->mime_type)
         MP_VERBOSE(s, "Mime-type: '%s'\n", s->mime_type);
@@ -411,9 +396,8 @@ static int stream_create_instance(const stream_info_t *sinfo,
 }
 
 int stream_create_with_args(struct stream_open_args *args, struct stream **ret)
-
 {
-    assert(args->url);
+    mp_assert(args->url);
 
     int r = STREAM_NO_MATCH;
     *ret = NULL;
@@ -456,7 +440,7 @@ int stream_create_with_args(struct stream_open_args *args, struct stream **ret)
 }
 
 struct stream *stream_create(const char *url, int flags,
-                             struct mp_cancel *c, struct mpv_global *global)
+                             struct mp_cancel *c, struct dmpv_global *global)
 {
     struct stream_open_args args = {
         .global = global,
@@ -469,10 +453,15 @@ struct stream *stream_create(const char *url, int flags,
     return s;
 }
 
-stream_t *open_output_stream(const char *filename, struct mpv_global *global)
+stream_t *open_output_stream(const char *filename, struct dmpv_global *global)
 {
-    return stream_create(filename, STREAM_ORIGIN_DIRECT | STREAM_WRITE,
-                         NULL, global);
+    struct stream *s = stream_create(filename, STREAM_ORIGIN_DIRECT | STREAM_WRITE,
+                                     NULL, global);
+    if (s && s->is_directory) {
+        free_stream(s);
+        s = NULL;
+    }
+    return s;
 }
 
 // Read function bypassing the local stream buffer. This will not write into
@@ -481,7 +470,7 @@ stream_t *open_output_stream(const char *filename, struct mpv_global *global)
 // Partial reads are possible, even if EOF is not reached.
 static int stream_read_unbuffered(stream_t *s, void *buf, int len)
 {
-    assert(len >= 0);
+    mp_assert(len >= 0);
     if (len <= 0)
         return 0;
 
@@ -493,7 +482,7 @@ static int stream_read_unbuffered(stream_t *s, void *buf, int len)
         s->eof = 1;
         return 0;
     }
-    assert(res <= len);
+    mp_assert(res <= len);
     // When reading succeeded we are obviously not at eof.
     s->eof = 0;
     s->pos += res;
@@ -507,7 +496,7 @@ static int stream_read_unbuffered(stream_t *s, void *buf, int len)
 //  returns: progress (false on EOF or on OOM or if enough data was available)
 static bool stream_read_more(struct stream *s, int forward)
 {
-    assert(forward >= 0);
+    mp_assert(forward >= 0);
 
     int forward_avail = s->buf_end - s->buf_cur;
     if (forward_avail >= forward)
@@ -515,7 +504,7 @@ static bool stream_read_more(struct stream *s, int forward)
 
     // Avoid that many small reads will lead to many low-level read calls.
     forward = MPMAX(forward, s->requested_buffer_size / 2);
-    assert(forward_avail < forward);
+    mp_assert(forward_avail < forward);
 
     // Keep guaranteed seek-back.
     int buf_old = MPMIN(s->buf_cur - s->buf_start, s->requested_buffer_size / 2);
@@ -525,11 +514,11 @@ static bool stream_read_more(struct stream *s, int forward)
 
     int buf_alloc = s->buffer_mask + 1;
 
-    assert(s->buf_start <= s->buf_cur);
-    assert(s->buf_cur <= s->buf_end);
-    assert(s->buf_cur < buf_alloc * 2);
-    assert(s->buf_end < buf_alloc * 2);
-    assert(s->buf_start < buf_alloc);
+    mp_assert(s->buf_start <= s->buf_cur);
+    mp_assert(s->buf_cur <= s->buf_end);
+    mp_assert(s->buf_cur < buf_alloc * 2);
+    mp_assert(s->buf_end < buf_alloc * 2);
+    mp_assert(s->buf_start < buf_alloc);
 
     // Note: read as much as possible, even if forward is much smaller. Do
     // this because the stream buffer is supposed to set an approx. minimum
@@ -548,12 +537,12 @@ static bool stream_read_more(struct stream *s, int forward)
 
     // May have overwritten old data.
     if (s->buf_end - s->buf_start >= buf_alloc) {
-        assert(s->buf_end >= buf_alloc);
+        mp_assert(s->buf_end >= buf_alloc);
 
         s->buf_start = s->buf_end - buf_alloc;
 
-        assert(s->buf_start <= s->buf_cur);
-        assert(s->buf_cur <= s->buf_end);
+        mp_assert(s->buf_start <= s->buf_cur);
+        mp_assert(s->buf_cur <= s->buf_end);
 
         if (s->buf_start >= buf_alloc) {
             s->buf_start -= buf_alloc;
@@ -563,7 +552,7 @@ static bool stream_read_more(struct stream *s, int forward)
     }
 
     // Must not have overwritten guaranteed old data.
-    assert(s->buf_cur - s->buf_start >= buf_old);
+    mp_assert(s->buf_cur - s->buf_start >= buf_old);
 
     if (s->buf_cur < s->buf_end)
         s->eof = 0;
@@ -575,8 +564,8 @@ static bool stream_read_more(struct stream *s, int forward)
 // Return 0 on EOF, error, or if buf_size was 0.
 int stream_read_partial(stream_t *s, void *buf, int buf_size)
 {
-    assert(s->buf_cur <= s->buf_end);
-    assert(buf_size >= 0);
+    mp_assert(s->buf_cur <= s->buf_end);
+    mp_assert(buf_size >= 0);
     if (s->buf_cur == s->buf_end && buf_size > 0) {
         if (buf_size > (s->buffer_mask + 1) / 2) {
             // Direct read if the buffer is too small anyway.
@@ -594,7 +583,7 @@ int stream_read_partial(stream_t *s, void *buf, int buf_size)
 int stream_read_char_fallback(stream_t *s)
 {
     uint8_t c;
-    return stream_read_partial(s, &c, 1) ? c : -256;
+    return stream_read_partial(s, &c, 1) ? c : STREAM_EOF;
 }
 
 int stream_read(stream_t *s, void *mem, int total)
@@ -718,8 +707,8 @@ bool stream_seek(stream_t *s, int64_t pos)
         int64_t x = pos - (s->pos - (int)s->buf_end);
         if (x >= (int)s->buf_start) {
             s->buf_cur = x;
-            assert(s->buf_cur >= s->buf_start);
-            assert(s->buf_cur <= s->buf_end);
+            mp_assert(s->buf_cur >= s->buf_start);
+            mp_assert(s->buf_cur <= s->buf_end);
             return true;
         }
     }
@@ -780,7 +769,7 @@ int stream_skip_bom(struct stream *s)
 {
     char buf[4];
     int len = stream_read_peek(s, buf, sizeof(buf));
-    bstr data = {buf, len};
+    bstr data = {(unsigned char *)buf, len};
     for (int n = 0; n < 3; n++) {
         if (bstr_startswith0(data, bom[n])) {
             stream_seek_skip(s, stream_tell(s) + strlen(bom[n]));
@@ -804,6 +793,8 @@ struct bstr stream_read_complete(struct stream *s, void *talloc_ctx,
 {
     if (max_size > 1000000000)
         abort();
+    if (s->is_directory)
+        return (struct bstr){NULL, 0};
 
     int bufsize;
     int total_read = 0;
@@ -830,29 +821,34 @@ struct bstr stream_read_complete(struct stream *s, void *talloc_ctx,
     }
     buf = talloc_realloc_size(talloc_ctx, buf, total_read + padding);
     memset(&buf[total_read], 0, padding);
-    return (struct bstr){buf, total_read};
+    return (struct bstr){(unsigned char *)buf, total_read};
 }
 
 struct bstr stream_read_file(const char *filename, void *talloc_ctx,
-                             struct mpv_global *global, int max_size)
+                             struct dmpv_global *global, int max_size)
 {
     struct bstr res = {0};
     int flags = STREAM_ORIGIN_DIRECT | STREAM_READ | STREAM_LOCAL_FS_ONLY |
                 STREAM_LESS_NOISE;
     stream_t *s = stream_create(filename, flags, NULL, global);
     if (s) {
-        res = stream_read_complete(s, talloc_ctx, max_size);
-        free_stream(s);
+        if (s->is_directory)
+            mp_err(s->log, "Failed to open %s (not a file).\n", filename);
+        else
+            res = stream_read_complete(s, talloc_ctx, max_size);
     }
+    free_stream(s);
     return res;
 }
 
-char **stream_get_proto_list(void)
+char **stream_get_proto_list(bool safe_only)
 {
     char **list = NULL;
     int num = 0;
     for (int i = 0; i < MP_ARRAY_SIZE(stream_list); i++) {
         const stream_info_t *stream_info = stream_list[i];
+        if (safe_only && (stream_info->stream_origin & STREAM_ORIGIN_UNSAFE))
+            continue;
 
         if (!stream_info->protocols)
             continue;
@@ -874,7 +870,7 @@ void stream_print_proto_list(struct mp_log *log)
     int count = 0;
 
     mp_info(log, "Protocols:\n\n");
-    char **list = stream_get_proto_list();
+    char **list = stream_get_proto_list(false);
     for (int i = 0; list[i]; i++) {
         mp_info(log, " %s://\n", list[i]);
         count++;

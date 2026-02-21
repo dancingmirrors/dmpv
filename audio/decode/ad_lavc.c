@@ -1,25 +1,24 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <assert.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
@@ -28,7 +27,7 @@
 
 #include "config.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "audio/aframe.h"
 #include "audio/chmap_avchannel.h"
 #include "audio/fmt-conversion.h"
@@ -40,7 +39,7 @@
 #include "demux/stheader.h"
 #include "filters/f_decoder_wrapper.h"
 #include "filters/filter_internal.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 
 struct priv {
@@ -78,6 +77,7 @@ const struct m_sub_options ad_lavc_conf = {
         .ac3drc = 0,
         .threads = 1,
     },
+    .change_flags = UPDATE_AD,
 };
 
 static bool init(struct mp_filter *da, struct mp_codec_params *codec,
@@ -113,10 +113,6 @@ static bool init(struct mp_filter *da, struct mp_codec_params *codec,
     if (opts->downmix && mpopts->audio_output_channels.num_chmaps == 1) {
         const struct mp_chmap *requested_layout =
             &mpopts->audio_output_channels.chmaps[0];
-#if !HAVE_AV_CHANNEL_LAYOUT
-        lavc_context->request_channel_layout =
-            mp_chmap_to_lavc(requested_layout);
-#else
         AVChannelLayout av_layout = { 0 };
         mp_chmap_to_av_layout(&av_layout, requested_layout);
 
@@ -126,7 +122,6 @@ static bool init(struct mp_filter *da, struct mp_codec_params *codec,
                             AV_OPT_SEARCH_CHILDREN);
 
         av_channel_layout_uninit(&av_layout);
-#endif
     }
 
     // Always try to set - option only exists for AC3 at the moment
@@ -156,7 +151,7 @@ static bool init(struct mp_filter *da, struct mp_codec_params *codec,
     return true;
 }
 
-static void destroy(struct mp_filter *da)
+static void ad_lavc_destroy(struct mp_filter *da)
 {
     struct priv *ctx = da->priv;
 
@@ -165,7 +160,7 @@ static void destroy(struct mp_filter *da)
     mp_free_av_packet(&ctx->avpkt);
 }
 
-static void reset(struct mp_filter *da)
+static void ad_lavc_reset(struct mp_filter *da)
 {
     struct priv *ctx = da->priv;
 
@@ -206,7 +201,7 @@ static int receive_frame(struct mp_filter *da, struct mp_frame *out)
     if (ret == AVERROR_EOF) {
         // If flushing was initialized earlier and has ended now, make it start
         // over in case we get new packets at some point in the future.
-        // (Dont' reset the filter itself, we want to keep other state.)
+        // (Don't reset the filter itself, we want to keep other state.)
         avcodec_flush_buffers(priv->avctx);
         return ret;
     } else if (ret < 0 && ret != AVERROR(EAGAIN)) {
@@ -223,7 +218,7 @@ static int receive_frame(struct mp_filter *da, struct mp_frame *out)
 
     struct mp_aframe *mpframe = mp_aframe_from_avframe(priv->avframe);
     if (!mpframe) {
-        MP_ERR(da, "Converting libavcodec frame to mpv frame failed.\n");
+        MP_ERR(da, "Converting libavcodec frame to dmpv frame failed.\n");
         return ret;
     }
 
@@ -239,7 +234,7 @@ static int receive_frame(struct mp_filter *da, struct mp_frame *out)
     AVFrameSideData *sd =
         av_frame_get_side_data(priv->avframe, AV_FRAME_DATA_SKIP_SAMPLES);
     if (sd && sd->size >= 10) {
-        char *d = sd->data;
+        uint8_t *d = sd->data;
         priv->skip_samples += AV_RL32(d + 0);
         priv->trim_samples += AV_RL32(d + 4);
     }
@@ -276,7 +271,7 @@ static int receive_frame(struct mp_filter *da, struct mp_frame *out)
     return ret;
 }
 
-static void process(struct mp_filter *ad)
+static void ad_lavc_process(struct mp_filter *ad)
 {
     struct priv *priv = ad->priv;
 
@@ -286,9 +281,9 @@ static void process(struct mp_filter *ad)
 static const struct mp_filter_info ad_lavc_filter = {
     .name = "ad_lavc",
     .priv_size = sizeof(struct priv),
-    .process = process,
-    .reset = reset,
-    .destroy = destroy,
+    .process = ad_lavc_process,
+    .reset = ad_lavc_reset,
+    .destroy = ad_lavc_destroy,
 };
 
 static struct mp_decoder *create(struct mp_filter *parent,

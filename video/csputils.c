@@ -5,32 +5,75 @@
  *
  * mp_invert_cmat based on DarkPlaces engine (relicensed from GPL to LGPL)
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdint.h>
 #include <math.h>
-#include <assert.h>
+#include <string.h>
+#include "misc/mp_assert.h"
 #include <libavutil/common.h>
 #include <libavcodec/avcodec.h>
 
 #include "mp_image.h"
 #include "csputils.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
+
+#if !HAVE_LIBPLACEBO
+void pl_hdr_metadata_merge(struct pl_hdr_metadata *dst, const struct pl_hdr_metadata *src)
+{
+    if (!dst || !src) return;
+    dst->flags |= src->flags;
+    if (src->min_luma)  dst->min_luma  = src->min_luma;
+    if (src->max_luma)  dst->max_luma  = src->max_luma;
+    if (src->max_cll)   dst->max_cll   = src->max_cll;
+    if (src->max_fall)  dst->max_fall  = src->max_fall;
+    if (src->scene_max[0]) dst->scene_max[0] = src->scene_max[0];
+    if (src->scene_max[1]) dst->scene_max[1] = src->scene_max[1];
+    if (src->scene_max[2]) dst->scene_max[2] = src->scene_max[2];
+    if (src->scene_avg)    dst->scene_avg    = src->scene_avg;
+    if (src->max_pq_y)     dst->max_pq_y     = src->max_pq_y;
+    if (src->avg_pq_y)     dst->avg_pq_y     = src->avg_pq_y;
+}
+
+int pl_hdr_metadata_equal(const struct pl_hdr_metadata *a, const struct pl_hdr_metadata *b)
+{
+    if (a == b) return 1;
+    if (!a || !b) return 0;
+    if (a->flags != b->flags) return 0;
+    if (a->min_luma  != b->min_luma)  return 0;
+    if (a->max_luma  != b->max_luma)  return 0;
+    if (a->max_cll   != b->max_cll)   return 0;
+    if (a->max_fall  != b->max_fall)  return 0;
+    if (a->scene_max[0] != b->scene_max[0]) return 0;
+    if (a->scene_max[1] != b->scene_max[1]) return 0;
+    if (a->scene_max[2] != b->scene_max[2]) return 0;
+    if (a->scene_avg     != b->scene_avg)     return 0;
+    if (a->max_pq_y      != b->max_pq_y)      return 0;
+    if (a->avg_pq_y      != b->avg_pq_y)      return 0;
+    return 1;
+}
+
+int pl_hdr_metadata_contains(const struct pl_hdr_metadata *hdr, uint32_t flag)
+{
+    if (!hdr) return 0;
+    return !!(hdr->flags & flag);
+}
+#endif /* HAVE_LIBPLACEBO */
 
 const struct m_opt_choice_alternatives mp_csp_names[] = {
     {"auto",        MP_CSP_AUTO},
@@ -516,7 +559,7 @@ struct mp_csp_primaries mp_get_csp_primaries(enum mp_csp_prim spc)
             .white = {0.32168, 0.33767},
         };
     default:
-        return (struct mp_csp_primaries) {{0}};
+        return (struct mp_csp_primaries) {.red = {0}, .green = {0}, .blue = {0}, .white = {0}};
     }
 }
 
@@ -531,6 +574,8 @@ float mp_trc_nom_peak(enum mp_csp_trc trc)
     case MP_CSP_TRC_V_LOG:        return 46.0855;
     case MP_CSP_TRC_S_LOG1:       return 6.52;
     case MP_CSP_TRC_S_LOG2:       return 9.212;
+    default:
+        break;
     }
 
     return 1.0;
@@ -688,7 +733,7 @@ static void mp_get_xyz2rgb_coeffs(struct mp_csp_params *params,
 // This is broken. Use mp_get_csp_uint_mul().
 double mp_get_csp_mul(enum mp_csp csp, int input_bits, int texture_bits)
 {
-    assert(texture_bits >= input_bits);
+    mp_assert(texture_bits >= input_bits);
 
     // Convenience for some irrelevant cases, e.g. rgb565 or disabling expansion.
     if (!input_bits)
@@ -767,11 +812,11 @@ void mp_get_csp_uint_mul(enum mp_csp csp, enum mp_csp_levels levels,
  */
 static void luma_coeffs(struct mp_cmat *mat, float lr, float lg, float lb)
 {
-    assert(fabs(lr+lg+lb - 1) < 1e-6);
+    mp_assert(fabs(lr+lg+lb - 1) < 1e-6);
     *mat = (struct mp_cmat) {
-        { {1, 0,                    2 * (1-lr)          },
-          {1, -2 * (1-lb) * lb/lg, -2 * (1-lr) * lr/lg  },
-          {1,  2 * (1-lb),          0                   } },
+        .m = { {1, 0,                    2 * (1-lr)          },
+               {1, -2 * (1-lb) * lb/lg, -2 * (1-lr) * lr/lg  },
+               {1,  2 * (1-lb),          0                   } },
         // Constant coefficients (mat->c) not set here
     };
 }
@@ -796,11 +841,11 @@ void mp_get_csp_matrix(struct mp_csp_params *params, struct mp_cmat *m)
         // If this clips on any VO, a constant 0.5 coefficient can be added
         // to the chroma channels to normalize them into [0,1]. This is not
         // currently needed by anything, though.
-        *m = (struct mp_cmat){{{0, 0, 1}, {1, 0, 0}, {0, 1, 0}}};
+        *m = (struct mp_cmat){.m = {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}}};
         break;
     }
     case MP_CSP_RGB: {
-        *m = (struct mp_cmat){{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
+        *m = (struct mp_cmat){.m = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
         levels_in = -1;
         break;
     }
@@ -816,9 +861,9 @@ void mp_get_csp_matrix(struct mp_csp_params *params, struct mp_cmat *m)
     }
     case MP_CSP_YCGCO: {
         *m = (struct mp_cmat) {
-            {{1,  -1,  1},
-             {1,   1,  0},
-             {1,  -1, -1}},
+            .m = {{1,  -1,  1},
+                  {1,   1,  0},
+                  {1,  -1, -1}},
         };
         break;
     }
@@ -855,7 +900,7 @@ void mp_get_csp_matrix(struct mp_csp_params *params, struct mp_cmat *m)
         yuvfull = {  0*s, 255*s, 255*s, 128*s },
         anyfull = {  0*s, 255*s, 255*s/2, 0 }, // cmax picked to make cmul=ymul
         yuvlev;
-    switch (levels_in) {
+    switch ((int)levels_in) {
     case MP_CSP_LEVELS_TV: yuvlev = yuvlim; break;
     case MP_CSP_LEVELS_PC: yuvlev = yuvfull; break;
     case -1: yuvlev = anyfull; break;
@@ -951,6 +996,7 @@ const struct m_sub_options mp_csp_equalizer_conf = {
         {0}
     },
     .size = sizeof(struct mp_csp_equalizer_opts),
+    .change_flags = UPDATE_VIDEO,
 };
 
 // Copy settings from eq into params.
@@ -966,7 +1012,7 @@ static void mp_csp_copy_equalizer_values(struct mp_csp_params *params,
 }
 
 struct mp_csp_equalizer_state *mp_csp_equalizer_create(void *ta_parent,
-                                                    struct mpv_global *global)
+                                                    struct dmpv_global *global)
 {
     struct m_config_cache *c = m_config_cache_alloc(ta_parent, global,
                                                     &mp_csp_equalizer_conf);
@@ -985,8 +1031,15 @@ void mp_csp_equalizer_state_get(struct mp_csp_equalizer_state *state,
 {
     struct m_config_cache *c = (struct m_config_cache *)state;
     m_config_cache_update(c);
-    struct mp_csp_equalizer_opts *opts = c->opts;
-    mp_csp_copy_equalizer_values(params, opts);
+
+    // Make a local copy to prevent torn reads of float values.
+    // Without this, if another thread modifies the values between our reads,
+    // we could get inconsistent values (e.g., old brightness + new saturation).
+    // This is especially problematic under load when threads are more active.
+    struct mp_csp_equalizer_opts local;
+    memcpy(&local, c->opts, sizeof(local));
+
+    mp_csp_copy_equalizer_values(params, &local);
 }
 
 void mp_invert_cmat(struct mp_cmat *out, struct mp_cmat *in)

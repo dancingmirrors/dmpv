@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -29,9 +29,13 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
     struct dmabuf_interop_priv *p = mapper->priv;
     pl_gpu gpu = ra_pl_get(mapper->ra);
 
+    MP_DBG(mapper, "DMA-buf: Mapping %d planes via libplacebo\n", p->num_planes);
+
     struct ra_imgfmt_desc desc = {0};
-    if (!ra_get_imgfmt_desc(mapper->ra, mapper->dst_params.imgfmt, &desc))
+    if (!ra_get_imgfmt_desc(mapper->ra, mapper->dst_params.imgfmt, &desc)) {
+        MP_VERBOSE(mapper, "DMA-buf: Failed to get imgfmt descriptor\n");
         return false;
+    }
 
     // The calling code validates that the total number of exported planes
     // equals the number we expected in p->num_planes.
@@ -45,6 +49,9 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
         uint32_t size = p->desc.objects[id].size;
         uint32_t offset = p->desc.layers[layer].planes[layer_plane].offset;
         uint32_t pitch = p->desc.layers[layer].planes[layer_plane].pitch;
+
+        MP_DBG(mapper, "DMA-buf: Plane %d: object=%d fd=%d size=%u offset=%u pitch=%u\n",
+                   n, id, fd, size, offset, pitch);
 
         // AMD drivers do not return the size in the surface description, so we
         // need to query it manually.
@@ -61,6 +68,7 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
                        fd, mp_strerror(errno));
                 return false;
             }
+            MP_VERBOSE(mapper, "DMA-buf: Queried size for plane %d: %u bytes\n", n, size);
         }
 
         struct pl_tex_params tex_params = {
@@ -81,17 +89,24 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
             },
         };
 
+        MP_DBG(mapper, "DMA-buf: Creating texture %dx%d format=%s modifier=0x%lx\n",
+                   tex_params.w, tex_params.h, format->name,
+                   (unsigned long)p->desc.objects[id].format_modifier);
+
         mppl_log_set_probing(gpu->log, probing);
         pl_tex pltex = pl_tex_create(gpu, &tex_params);
         mppl_log_set_probing(gpu->log, false);
-        if (!pltex)
+        if (!pltex) {
+            MP_VERBOSE(mapper, "DMA-buf: Failed to create texture for plane %d\n", n);
             return false;
+        }
 
         struct ra_tex *ratex = talloc_ptrtype(NULL, ratex);
         int ret = mppl_wrap_tex(mapper->ra, pltex, ratex);
         if (!ret) {
             pl_tex_destroy(gpu, &pltex);
             talloc_free(ratex);
+            MP_VERBOSE(mapper, "DMA-buf: Failed to wrap texture for plane %d\n", n);
             return false;
         }
         mapper->tex[n] = ratex;
@@ -105,6 +120,7 @@ static bool vaapi_pl_map(struct ra_hwdec_mapper *mapper,
             layer++;
         }
     }
+    MP_DBG(mapper, "DMA-buf: Successfully mapped all %d planes\n", p->num_planes);
     return true;
 }
 

@@ -4,34 +4,37 @@
  * copyright (c) 2004 Aurelien Jacobs <aurel@gnuage.org>
  * based on the one written by Ronald Bultje for gstreamer
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
 #include <stddef.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/intfloat.h>
 #include <libavutil/common.h>
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "ebml.h"
 #include "stream/stream.h"
+#include "common/common.h"
 #include "common/msg.h"
+
+#include "config.h"
 
 // Whether the id is a known Matroska level 1 element (allowed as element on
 // global file level, after the level 0 MATROSKA_ID_SEGMENT).
@@ -76,28 +79,21 @@ uint32_t ebml_read_id(stream_t *s)
  */
 uint64_t ebml_read_length(stream_t *s)
 {
-    int i, j, num_ffs = 0, len_mask = 0x80;
-    uint64_t len;
+    int byte = stream_read_char(s);
+    if (byte == STREAM_EOF || byte < 1)
+        return EBML_UINT_INVALID;
 
-    for (i = 0, len = stream_read_char(s); i < 8 && !(len & len_mask); i++)
-        len_mask >>= 1;
-    if (i >= 8)
-        return EBML_UINT_INVALID;
-    j = i + 1;
-    if ((int) (len &= (len_mask - 1)) == len_mask - 1)
-        num_ffs++;
-    while (i--) {
-        len = (len << 8) | stream_read_char(s);
-        if ((len & 0xFF) == 0xFF)
-            num_ffs++;
+    uint8_t leading_zeros = 7 - mp_log2((uint8_t)byte);
+    uint64_t len = (uint8_t)byte & ((1 << (8 - leading_zeros - 1)) - 1);
+    for (uint8_t i = 0; i < leading_zeros; ++i) {
+        byte = stream_read_char(s);
+        if (byte == STREAM_EOF)
+            return EBML_UINT_INVALID;
+        len = (len << 8) | (uint8_t)byte;
     }
-    if (j == num_ffs)
-        return EBML_UINT_INVALID;
-    if (len >= 1ULL<<63)   // Can happen if stream_read_char returns EOF
-        return EBML_UINT_INVALID;
+
     return len;
 }
-
 
 /*
  * Read a variable length signed int.
@@ -217,12 +213,12 @@ int ebml_resync_cluster(struct mp_log *log, stream_t *s)
 
 
 #define EVALARGS(F, ...) F(__VA_ARGS__)
-#define E(str, N, type) const struct ebml_elem_desc ebml_ ## N ## _desc = { str, type };
+#define E(str, N, type) const struct ebml_elem_desc ebml_ ## N ## _desc = { str, type, 0, 0, NULL };
 #define E_SN(str, count, N) const struct ebml_elem_desc ebml_ ## N ## _desc = { str, EBML_TYPE_SUBELEMENTS, sizeof(struct ebml_ ## N), count, (const struct ebml_field_desc[]){
 #define E_S(str, count) EVALARGS(E_SN, str, count, N)
 #define FN(id, name, multiple, N) { id, multiple, offsetof(struct ebml_ ## N, name), offsetof(struct ebml_ ## N, n_ ## name), &ebml_##name##_desc},
 #define F(id, name, multiple) EVALARGS(FN, id, name, multiple, N)
-#include "generated/ebml_defs.inc"
+#include "generated/ebml_defs.c"
 #undef EVALARGS
 #undef SN
 #undef S
@@ -288,7 +284,7 @@ static uint64_t ebml_parse_length(uint8_t *data, size_t data_len, int *length)
 
 static uint64_t ebml_parse_uint(uint8_t *data, int length)
 {
-    assert(length >= 0 && length <= 8);
+    mp_assert(length >= 0 && length <= 8);
     uint64_t r = 0;
     while (length--)
         r = (r << 8) + *data++;
@@ -297,7 +293,7 @@ static uint64_t ebml_parse_uint(uint8_t *data, int length)
 
 static int64_t ebml_parse_sint(uint8_t *data, int length)
 {
-    assert(length >= 0 && length <= 8);
+    mp_assert(length >= 0 && length <= 8);
     if (!length)
         return 0;
     uint64_t r = 0;
@@ -310,7 +306,7 @@ static int64_t ebml_parse_sint(uint8_t *data, int length)
 
 static double ebml_parse_float(uint8_t *data, int length)
 {
-    assert(length == 0 || length == 4 || length == 8);
+    mp_assert(length == 0 || length == 4 || length == 8);
     uint64_t i = ebml_parse_uint(data, length);
     if (length == 4)
         return av_int2float(i);
@@ -324,8 +320,8 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
                                uint8_t *data, int size,
                                const struct ebml_elem_desc *type, int level)
 {
-    assert(type->type == EBML_TYPE_SUBELEMENTS);
-    assert(level < 8);
+    mp_assert(type->type == EBML_TYPE_SUBELEMENTS);
+    mp_assert(level < 8);
     MP_TRACE(ctx, "%.*sParsing element %s\n", level, "       ", type->name);
 
     char *s = target;
@@ -423,8 +419,8 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
                                                           num_elems[i]);
                 break;
             case EBML_TYPE_EBML_ID:
-                *(int32_t **) ptr = talloc_zero_array(ctx->talloc_ctx,
-                                                      uint32_t, num_elems[i]);
+                *(uint32_t **) ptr = talloc_zero_array(ctx->talloc_ctx,
+                                                       uint32_t, num_elems[i]);
                 break;
             default:
                 MP_ASSERT_UNREACHABLE();
@@ -553,7 +549,7 @@ static void ebml_parse_element(struct ebml_parse_ctx *ctx, void *target,
             }
             char **strptr;
             GETPTR(strptr, char *);
-            *strptr = talloc_strndup(ctx->talloc_ctx, data, length);
+            *strptr = talloc_strndup(ctx->talloc_ctx, (char *)data, length);
             MP_TRACE(ctx, "string \"%s\"\n", *strptr);
             break;
 
@@ -604,8 +600,8 @@ int ebml_read_element(struct stream *s, struct ebml_parse_ctx *ctx,
         MP_MSG(ctx, msglevel, "EBML element with unknown length - unsupported\n");
         return -1;
     }
-    if (length > 1000000000) {
-        MP_MSG(ctx, msglevel, "Refusing to read element over 100 MB in size\n");
+    if (length > (128 << 20)) {
+        MP_MSG(ctx, msglevel, "Refusing to read element over 128 MiB in size\n");
         return -1;
     }
     ctx->talloc_ctx = talloc_size(NULL, length);

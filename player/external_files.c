@@ -1,25 +1,24 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <dirent.h>
 #include <string.h>
 #include <strings.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "osdep/io.h"
 
@@ -32,18 +31,18 @@
 #include "options/path.h"
 #include "external_files.h"
 
-static const char *const sub_exts[] = {"utf", "utf8", "utf-8", "idx", "sub",
-                                       "srt", "rt", "ssa", "ass", "mks", "vtt",
-                                       "sup", "scc", "smi", "lrc", "pgs",
+static const char *const sub_exts[] = {"ass", "idx", "lrc", "mks", "pgs", "rt",
+                                       "sbv", "scc", "smi", "srt", "ssa", "sub",
+                                       "sup", "utf", "utf-8", "utf8", "vtt",
                                        NULL};
 
-static const char *const audio_exts[] = {"mp3", "aac", "mka", "dts", "flac",
-                                         "ogg", "m4a", "ac3", "opus", "wav",
-                                         "wv", "eac3", "thd",
+static const char *const audio_exts[] = {"aac", "ac3", "dts", "eac3", "flac",
+                                         "m4a", "mka", "mp3", "ogg", "opus",
+                                         "thd", "wav", "wv",
                                          NULL};
 
-static const char *const image_exts[] = {"jpg", "jpeg", "png", "gif", "bmp",
-                                         "webp", "jxl", "tiff", "tif", "avif",
+static const char *const image_exts[] = {"avif", "bmp", "gif", "jpeg", "jpg",
+                                         "jxl", "png", "tif", "tiff", "webp",
                                          NULL};
 
 // Stolen from: vlc/-/blob/master/modules/meta_engine/folder.c#L40
@@ -177,7 +176,7 @@ static struct bstr guess_lang_from_filename(struct bstr name, int *fn_start)
     return (struct bstr){name.start + i + 1, n};
 }
 
-static void append_dir_subtitles(struct mpv_global *global, struct MPOpts *opts,
+static void append_dir_subtitles(struct dmpv_global *global, struct MPOpts *opts,
                                  struct subfn **slist, int *nsub,
                                  struct bstr path, const char *fname,
                                  int limit_fuzziness, int limit_type)
@@ -334,7 +333,7 @@ static void filter_subidx(struct subfn **slist, int *nsub)
     }
 }
 
-static void load_paths(struct mpv_global *global, struct MPOpts *opts,
+static void load_paths(struct dmpv_global *global, struct MPOpts *opts,
                        struct subfn **slist, int *nsubs, const char *fname,
                        char **paths, char *cfg_path, int type)
 {
@@ -348,7 +347,7 @@ static void load_paths(struct mpv_global *global, struct MPOpts *opts,
         talloc_free(expanded_path);
     }
 
-    // Load subtitles in ~/.mpv/sub (or similar) limiting sub fuzziness
+    // Load subtitles in ~/.dmpv/sub (or similar) limiting sub fuzziness
     char *mp_subdir = mp_find_config_file(NULL, global, cfg_path);
     if (mp_subdir) {
         append_dir_subtitles(global, opts, slist, nsubs, bstr0(mp_subdir),
@@ -359,7 +358,7 @@ static void load_paths(struct mpv_global *global, struct MPOpts *opts,
 
 // Return a list of subtitles and audio files found, sorted by priority.
 // Last element is terminated with a fname==NULL entry.
-struct subfn *find_external_files(struct mpv_global *global, const char *fname,
+struct subfn *find_external_files(struct dmpv_global *global, const char *fname,
                                   struct MPOpts *opts)
 {
     struct subfn *slist = talloc_array_ptrtype(NULL, slist, 1);

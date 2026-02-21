@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /// \file
@@ -22,13 +22,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/common.h>
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "m_option.h"
 #include "m_property.h"
 #include "common/msg.h"
@@ -38,7 +38,7 @@ static int m_property_multiply(struct mp_log *log,
                                const struct m_property *prop_list,
                                const char *property, double f, void *ctx)
 {
-    union m_option_value val = {0};
+    union m_option_value val = m_option_value_default;
     struct m_option opt = {0};
     int r;
 
@@ -46,7 +46,7 @@ static int m_property_multiply(struct mp_log *log,
                       &opt, ctx);
     if (r != M_PROPERTY_OK)
         return r;
-    assert(opt.type);
+    mp_assert(opt.type);
 
     if (!opt.type->multiply)
         return M_PROPERTY_NOT_IMPLEMENTED;
@@ -98,14 +98,14 @@ static int do_action(const struct m_property *prop_list, const char *name,
 int m_property_do(struct mp_log *log, const struct m_property *prop_list,
                   const char *name, int action, void *arg, void *ctx)
 {
-    union m_option_value val = {0};
+    union m_option_value val = m_option_value_default;
     int r;
 
     struct m_option opt = {0};
     r = do_action(prop_list, name, M_PROPERTY_GET_TYPE, &opt, ctx);
     if (r <= 0)
         return r;
-    assert(opt.type);
+    mp_assert(opt.type);
 
     switch (action) {
     case M_PROPERTY_PRINT: {
@@ -128,7 +128,7 @@ int m_property_do(struct mp_log *log, const struct m_property *prop_list,
         return str != NULL;
     }
     case M_PROPERTY_SET_STRING: {
-        struct mpv_node node = { .format = MPV_FORMAT_STRING, .u.string = arg };
+        struct dmpv_node node = { .format = DMPV_FORMAT_STRING, .u.string = arg };
         return m_property_do(log, prop_list, name, M_PROPERTY_SET_NODE, &node, ctx);
     }
     case M_PROPERTY_MULTIPLY: {
@@ -146,7 +146,7 @@ int m_property_do(struct mp_log *log, const struct m_property *prop_list,
                           &opt, ctx);
         if (r <= 0)
             return r;
-        assert(opt.type);
+        mp_assert(opt.type);
         if (!opt.type->add)
             return M_PROPERTY_NOT_IMPLEMENTED;
         if ((r = do_action(prop_list, name, M_PROPERTY_GET, &val, ctx)) <= 0)
@@ -173,7 +173,7 @@ int m_property_do(struct mp_log *log, const struct m_property *prop_list,
             return r;
         if ((r = do_action(prop_list, name, M_PROPERTY_GET, &val, ctx)) <= 0)
             return r;
-        struct mpv_node *node = arg;
+        struct dmpv_node *node = arg;
         int err = m_option_get_node(&opt, NULL, node, &val);
         if (err == M_OPT_UNKNOWN) {
             r = M_PROPERTY_NOT_IMPLEMENTED;
@@ -247,7 +247,7 @@ static void append_str(char **s, int *len, bstr append)
 {
     MP_TARRAY_GROW(NULL, *s, *len + append.len);
     if (append.len)
-        memcpy(*s + *len, append.start, append.len);
+        memcpy(*s + *len, (char *)append.start, append.len);
     *len = *len + append.len;
 }
 
@@ -282,9 +282,8 @@ static int expand_property(const struct m_property *prop_list, char **ret,
     return skip;
 }
 
-// Internal implementation of m_properties_expand_string, with recursion limit.
-static char *expand_int(const struct m_property *prop_list,
-                        const char *str0, void *ctx, int limit)
+char *m_properties_expand_string(const struct m_property *prop_list,
+                                 const char *str0, void *ctx)
 {
     char *ret = NULL;
     int ret_len = 0;
@@ -292,41 +291,14 @@ static char *expand_int(const struct m_property *prop_list,
     int level = 0, skip_level = 0;
     bstr str = bstr0(str0);
 
-    // For each new level, if it starts with '+' (needs to be re-expanded once
-    // completed), store the output size before starting the level, else -1.
-    // E.g. for the string "${X}${+Y:abc${Z}}", the stack will be [-1] while
-    // expanding X, [N] while expanding Y, and [N, -1] while (if) expanding Z,
-    // where N is the output size after expanding ${X}.
-    int *rex_stack = NULL;
-    int rex_len = 0;
-
     while (str.len) {
         if (level > 0 && bstr_eatstart0(&str, "}")) {
             if (skip && level <= skip_level)
                 skip = false;
             level--;
-
-            int from = rex_stack[--rex_len];  // pop.
-            if (from >= 0) {
-                // re-expand the level's output "inplace". Effectively:
-                // ret = ret[0 .. from] + expand( ret[from .. ret_len] )
-                if (limit <= 0) {
-                    append_str(&ret, &ret_len, bstr0("(error-limit)"));
-                    break;
-                }
-                MP_TARRAY_APPEND(NULL, ret, ret_len, '\0');
-                char *out0 = expand_int(prop_list, ret + from, ctx, limit - 1);
-                ret_len = from;
-                append_str(&ret, &ret_len, bstr0(out0));
-                talloc_free(out0);
-            }
         } else if (bstr_startswith0(str, "${") && bstr_find0(str, "}") >= 0) {
             str = bstr_cut(str, 2);
             level++;
-
-            // Level start at the output for re-expand, or -1 if no need.
-            int from = bstr_eatstart0(&str, "+") ? ret_len : -1;
-            MP_TARRAY_APPEND(NULL, rex_stack, rex_len, from);  // push
 
             // Assume ":" and "}" can't be part of the property name
             // => if ":" comes before "}", it must be for the fallback
@@ -363,15 +335,7 @@ static char *expand_int(const struct m_property *prop_list,
     }
 
     MP_TARRAY_APPEND(NULL, ret, ret_len, '\0');
-    talloc_free(rex_stack);
     return ret;
-}
-
-char *m_properties_expand_string(const struct m_property *prop_list,
-                                 const char *str0, void *ctx)
-{
-    // Recursion limit set to 10 arbitrarily, but likely infinite if reached.
-    return expand_int(prop_list, str0, ctx, 10);
 }
 
 void m_properties_print_help_list(struct mp_log *log,
@@ -480,27 +444,27 @@ int m_property_read_sub(const struct m_sub_property *props, int action, void *ar
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        struct mpv_node node;
-        node.format = MPV_FORMAT_NODE_MAP;
-        node.u.list = talloc_zero(NULL, mpv_node_list);
-        mpv_node_list *list = node.u.list;
+        struct dmpv_node node;
+        node.format = DMPV_FORMAT_NODE_MAP;
+        node.u.list = talloc_zero(NULL, dmpv_node_list);
+        dmpv_node_list *list = node.u.list;
         for (int n = 0; props && props[n].name; n++) {
             const struct m_sub_property *prop = &props[n];
             if (prop->unavailable)
                 continue;
             MP_TARRAY_GROW(list, list->values, list->num);
             MP_TARRAY_GROW(list, list->keys, list->num);
-            mpv_node *val = &list->values[list->num];
+            dmpv_node *val = &list->values[list->num];
             if (m_option_get_node(&prop->type, list, val, (void*)&prop->value) < 0)
             {
                 char *s = m_option_print(&prop->type, &prop->value);
-                val->format = MPV_FORMAT_STRING;
+                val->format = DMPV_FORMAT_STRING;
                 val->u.string = talloc_steal(list, s);
             }
             list->keys[list->num] = (char *)prop->name;
             list->num++;
         }
-        *(struct mpv_node *)arg = node;
+        *(struct dmpv_node *)arg = node;
         return M_PROPERTY_OK;
     }
     case M_PROPERTY_PRINT: {
@@ -566,14 +530,14 @@ int m_property_read_list(int action, void *arg, int count,
         *(struct m_option *)arg = (struct m_option){.type = CONF_TYPE_NODE};
         return M_PROPERTY_OK;
     case M_PROPERTY_GET: {
-        struct mpv_node node;
-        node.format = MPV_FORMAT_NODE_ARRAY;
-        node.u.list = talloc_zero(NULL, mpv_node_list);
+        struct dmpv_node node;
+        node.format = DMPV_FORMAT_NODE_ARRAY;
+        node.u.list = talloc_zero(NULL, dmpv_node_list);
         node.u.list->num = count;
-        node.u.list->values = talloc_array(node.u.list, mpv_node, count);
+        node.u.list->values = talloc_array(node.u.list, dmpv_node, count);
         for (int n = 0; n < count; n++) {
-            struct mpv_node *sub = &node.u.list->values[n];
-            sub->format = MPV_FORMAT_NONE;
+            struct dmpv_node *sub = &node.u.list->values[n];
+            sub->format = DMPV_FORMAT_NONE;
             int r;
             r = get_item(n, M_PROPERTY_GET_NODE, sub, ctx);
             if (r == M_PROPERTY_NOT_IMPLEMENTED) {
@@ -581,7 +545,7 @@ int m_property_read_list(int action, void *arg, int count,
                 r = get_item(n, M_PROPERTY_GET_TYPE, &opt, ctx);
                 if (r != M_PROPERTY_OK)
                     goto err;
-                union m_option_value val = {0};
+                union m_option_value val = m_option_value_default;
                 r = get_item(n, M_PROPERTY_GET, &val, ctx);
                 if (r != M_PROPERTY_OK)
                     goto err;
@@ -590,7 +554,7 @@ int m_property_read_list(int action, void *arg, int count,
             err: ;
             }
         }
-        *(struct mpv_node *)arg = node;
+        *(struct dmpv_node *)arg = node;
         return M_PROPERTY_OK;
     }
     case M_PROPERTY_PRINT: {

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MP_PARSE_COMMAND_H
@@ -23,12 +23,12 @@
 #include "misc/bstr.h"
 #include "options/m_option.h"
 
-#define MP_CMD_DEF_MAX_ARGS 9
+#define MP_CMD_DEF_MAX_ARGS 11
 #define MP_CMD_OPT_ARG M_OPT_OPTIONAL_PARAM
 
 struct mp_log;
 struct mp_cmd;
-struct mpv_node;
+struct dmpv_node;
 
 struct mp_cmd_def {
     const char *name;   // user-visible name (as used in input.conf)
@@ -74,6 +74,8 @@ enum mp_cmd_flags {
     // the command parser (prefixes and mp_cmd_def.default_async).
     MP_ASYNC_CMD = 32,          // do not wait for command to complete
     MP_SYNC_CMD = 64,           // block on command completion
+
+    MP_DISALLOW_REPEAT = 128,   // if used as keybinding, disallow key repeat
 
     MP_ON_OSD_FLAGS = MP_ON_OSD_NO | MP_ON_OSD_AUTO |
                       MP_ON_OSD_BAR | MP_ON_OSD_MSG,
@@ -140,7 +142,7 @@ struct mp_cmd *mp_input_parse_cmd_str(struct mp_log *log, bstr str,
 // i.e. a ";" argument does not start a new command.
 struct mp_cmd *mp_input_parse_cmd_strv(struct mp_log *log, const char **argv);
 
-struct mp_cmd *mp_input_parse_cmd_node(struct mp_log *log, struct mpv_node *node);
+struct mp_cmd *mp_input_parse_cmd_node(struct mp_log *log, struct dmpv_node *node);
 
 // After getting a command from mp_input_get_cmd you need to free it using this
 // function
@@ -150,7 +152,5 @@ void mp_cmd_dump(struct mp_log *log, int msgl, char *header, struct mp_cmd *cmd)
 
 // This creates a copy of a command (used by the auto repeat stuff).
 struct mp_cmd *mp_cmd_clone(struct mp_cmd *cmd);
-
-extern const struct m_option_type m_option_type_cycle_dir;
 
 #endif

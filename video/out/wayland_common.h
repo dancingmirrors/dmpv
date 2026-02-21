@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv video player.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_WAYLAND_COMMON_H
@@ -22,18 +22,26 @@
 #include "input/event.h"
 #include "vo.h"
 
+#include "video/mp_image.h"
+
 typedef struct {
     uint32_t format;
     uint32_t padding;
     uint64_t modifier;
 } wayland_format;
 
+struct vo_wayland_tranche {
+    struct wl_list link;
+    wayland_format *formats;
+    int num_formats;
+};
+
 struct wayland_opts {
     int configure_bounds;
-    int content_type;
-    bool disable_vsync;
+    int wl_internal_vsync;
     int edge_pixels_pointer;
     int edge_pixels_touch;
+    bool present;
 };
 
 struct vo_wayland_state {
@@ -69,10 +77,12 @@ struct vo_wayland_state {
 
     /* State */
     bool activated;
-    bool has_keyboard_input;
+    bool configured;
     bool focused;
     bool frame_wait;
+    bool has_keyboard_input;
     bool hidden;
+    bool initial_size_hint;
     bool locked_size;
     bool state_change;
     bool tiled;
@@ -85,21 +95,16 @@ struct vo_wayland_state {
     int timeout_count;
     int wakeup_pipe[2];
 
-    /* content-type */
-    /* TODO: unvoid these if required wayland protocols is bumped to 1.27+ */
-    void *content_type_manager;
-    void *content_type;
-    int current_content_type;
-
     /* cursor-shape */
-    /* TODO: unvoid these if required wayland protocols is bumped to 1.32+ */
-    void *cursor_shape_manager;
-    void *cursor_shape_device;
+    struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
+    struct wp_cursor_shape_device_v1 *cursor_shape_device;
+
+    /* fifo */
+    bool has_fifo;
 
     /* fractional-scale */
-    /* TODO: unvoid these if required wayland protocols is bumped to 1.31+ */
-    void *fractional_scale_manager;
-    void *fractional_scale;
+    struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
+    struct wp_fractional_scale_v1 *fractional_scale;
 
     /* idle-inhibit */
     struct zwp_idle_inhibit_manager_v1 *idle_inhibit_manager;
@@ -110,18 +115,23 @@ struct vo_wayland_state {
     struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback;
     wayland_format *format_map;
     uint32_t format_size;
-    bool using_dmabuf_wayland;
+    struct wl_list tranche_list;
+    struct vo_wayland_tranche *current_tranche;
 
     /* presentation-time */
     struct wp_presentation  *presentation;
     struct vo_wayland_feedback_pool *fback_pool;
     struct mp_present *present;
     int64_t refresh_interval;
+    bool present_clock;
+    bool present_v2;
     bool use_present;
 
     /* single-pixel-buffer */
-    /* TODO: unvoid this if required wayland-protocols is bumped to 1.27+ */
-    void *single_pixel_manager;
+    struct wp_single_pixel_buffer_manager_v1 *single_pixel_manager;
+
+    /* xdg-activation */
+    struct xdg_activation_v1 *xdg_activation;
 
     /* xdg-decoration */
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
@@ -138,6 +148,21 @@ struct vo_wayland_state {
     struct wp_viewport   *viewport;
     struct wp_viewport   *osd_viewport;
     struct wp_viewport   *video_viewport;
+
+    /* color-management (wp-color-management-v1) */
+    struct wp_color_manager_v1 *color_manager;
+    struct wp_color_management_surface_v1 *color_surface;
+    struct wp_color_management_surface_feedback_v1 *color_surface_feedback;
+    struct wp_image_description_creator_icc_v1 *icc_creator;
+    struct mp_image_params target_params;
+    bool supports_icc;
+    bool supports_parametric;
+    bool supports_display_primaries;
+    void *icc_file;
+    uint32_t icc_size;
+    /* HDR metadata from compositor (target max CLL / max FALL) */
+    uint32_t target_max_cll;
+    uint32_t target_max_fall;
 
     /* Input */
     struct wl_keyboard *keyboard;
@@ -176,11 +201,11 @@ bool vo_wayland_reconfig(struct vo *vo);
 int vo_wayland_allocate_memfd(struct vo *vo, size_t size);
 int vo_wayland_control(struct vo *vo, int *events, int request, void *arg);
 
-void vo_wayland_handle_fractional_scale(struct vo_wayland_state *wl);
+void vo_wayland_handle_scale(struct vo_wayland_state *wl);
 void vo_wayland_set_opaque_region(struct vo_wayland_state *wl, bool alpha);
 void vo_wayland_sync_swap(struct vo_wayland_state *wl);
 void vo_wayland_uninit(struct vo *vo);
-void vo_wayland_wait_events(struct vo *vo, int64_t until_time_us);
+void vo_wayland_wait_events(struct vo *vo, int64_t until_time_ns);
 void vo_wayland_wait_frame(struct vo_wayland_state *wl);
 void vo_wayland_wakeup(struct vo *vo);
 

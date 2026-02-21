@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_SUB_H
@@ -124,6 +124,7 @@ enum mp_osd_font_codepoints {
     OSD_BRIGHTNESS = 0x0A,
     OSD_HUE = 0x0B,
     OSD_BALANCE = 0x0C,
+    OSD_REV = 0x0D,
     OSD_PANSCAN = 0x50,
 
     OSD_PB_START = 0x10,
@@ -165,12 +166,13 @@ extern const struct m_sub_options sub_style_conf;
 
 struct osd_state;
 struct osd_object;
-struct mpv_global;
+struct dmpv_global;
 struct dec_sub;
 
-struct osd_state *osd_create(struct mpv_global *global);
+struct osd_state *osd_create(struct dmpv_global *global);
 void osd_changed(struct osd_state *osd);
 void osd_free(struct osd_state *osd);
+void osd_preload(struct osd_state *osd);
 
 bool osd_query_and_reset_want_redraw(struct osd_state *osd);
 
@@ -243,5 +245,6 @@ void osd_set_external(struct osd_state *osd, struct osd_external_ass *ov);
 void osd_set_external_remove_owner(struct osd_state *osd, void *owner);
 void osd_get_text_size(struct osd_state *osd, int *out_screen_h, int *out_font_h);
 void osd_get_function_sym(char *buffer, size_t buffer_size, int osd_function);
+void osd_mangle_ass(bstr *dst, const char *in, bool replace_newlines);
 
 #endif /* MPLAYER_SUB_H */

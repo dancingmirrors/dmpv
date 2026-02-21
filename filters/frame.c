@@ -3,6 +3,7 @@
 #include "audio/aframe.h"
 #include "common/av_common.h"
 #include "demux/packet.h"
+#include "misc/mp_assert.h"
 #include "video/mp_image.h"
 
 #include "frame.h"
@@ -82,7 +83,7 @@ static void *audio_from_av_ref(AVFrame *data)
 
 static void *packet_ref(void *data)
 {
-    return demux_copy_packet(data);
+    return demux_copy_packet(NULL, data);
 }
 
 static const struct frame_handler frame_handlers[] = {
@@ -152,7 +153,7 @@ void mp_frame_unref(struct mp_frame *frame)
 struct mp_frame mp_frame_ref(struct mp_frame frame)
 {
     if (frame_handlers[frame.type].new_ref) {
-        assert(frame.data);
+        mp_assert(frame.data);
         frame.data = frame_handlers[frame.type].new_ref(frame.data);
         if (!frame.data)
             frame.type = MP_FRAME_NONE;
@@ -196,7 +197,7 @@ AVFrame *mp_frame_to_av(struct mp_frame frame, struct AVRational *tb)
 struct mp_frame mp_frame_from_av(enum mp_frame_type type, struct AVFrame *frame,
                                  struct AVRational *tb)
 {
-    struct mp_frame res = {type};
+    struct mp_frame res = {.type = type};
 
     if (!frame_handlers[res.type].from_av_ref)
         return MP_NO_FRAME;

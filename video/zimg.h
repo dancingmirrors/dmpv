@@ -8,7 +8,7 @@
 
 #define ZIMG_ALIGN 64
 
-struct mpv_global;
+struct dmpv_global;
 
 bool mp_zimg_supports_in_format(int imgfmt);
 bool mp_zimg_supports_out_format(int imgfmt);
@@ -55,7 +55,7 @@ struct mp_zimg_context *mp_zimg_alloc(void);
 // options (other than possibly .src/.dst), because they might be overwritten
 // if the user changes any options.
 void mp_zimg_enable_cmdline_opts(struct mp_zimg_context *ctx,
-                                 struct mpv_global *g);
+                                 struct dmpv_global *g);
 
 // Try to build the conversion chain using the parameters currently set in ctx.
 // If this succeeds, mp_zimg_convert() will always succeed (probably), as long

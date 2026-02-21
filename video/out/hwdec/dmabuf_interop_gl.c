@@ -1,24 +1,25 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "dmabuf_interop.h"
 
 #include <drm_fourcc.h>
 #include <EGL/egl.h>
+#include "misc/mp_assert.h"
 #include "video/out/opengl/ra_gl.h"
 
 typedef void* GLeglImageOES;
@@ -55,12 +56,64 @@ struct vaapi_gl_mapper_priv {
     GLuint gl_textures[4];
     EGLImageKHR images[4];
 
+    const struct ra_format *planes[4];
+
     EGLImageKHR (EGLAPIENTRY *CreateImageKHR)(EGLDisplay, EGLContext,
                                               EGLenum, EGLClientBuffer,
                                               const EGLint *);
     EGLBoolean (EGLAPIENTRY *DestroyImageKHR)(EGLDisplay, EGLImageKHR);
     void (EGLAPIENTRY *EGLImageTargetTexture2DOES)(GLenum, GLeglImageOES);
 };
+
+static bool gl_create_textures(struct ra_hwdec_mapper *mapper)
+{
+    struct dmabuf_interop_priv *p_mapper = mapper->priv;
+    struct vaapi_gl_mapper_priv *p = p_mapper->interop_mapper_priv;
+
+    GL *gl = ra_gl_get(mapper->ra);
+    gl->GenTextures(4, p->gl_textures);
+    for (int n = 0; n < p_mapper->num_planes; n++) {
+        gl->BindTexture(GL_TEXTURE_2D, p->gl_textures[n]);
+        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        gl->BindTexture(GL_TEXTURE_2D, 0);
+
+        struct ra_tex_params params = {
+            .dimensions = 2,
+            .w = mp_image_plane_w(&p_mapper->layout, n),
+            .h = mp_image_plane_h(&p_mapper->layout, n),
+            .d = 1,
+            .format = p->planes[n],
+            .render_src = true,
+            .src_linear = true,
+        };
+
+        if (params.format->ctype != RA_CTYPE_UNORM)
+            return false;
+
+        p_mapper->tex[n] = ra_create_wrapped_tex(mapper->ra, &params,
+                                                 p->gl_textures[n]);
+        if (!p_mapper->tex[n])
+            return false;
+    }
+
+    return true;
+}
+
+static void gl_delete_textures(const struct ra_hwdec_mapper *mapper)
+{
+    struct dmabuf_interop_priv *p_mapper = mapper->priv;
+    struct vaapi_gl_mapper_priv *p = p_mapper->interop_mapper_priv;
+
+    GL *gl = ra_gl_get(mapper->ra);
+    gl->DeleteTextures(4, p->gl_textures);
+    for (int n = 0; n < 4; n++) {
+        p->gl_textures[n] = 0;
+        ra_tex_free(mapper->ra, &p_mapper->tex[n]);
+    }
+}
 
 static bool vaapi_gl_mapper_init(struct ra_hwdec_mapper *mapper,
                                  const struct ra_imgfmt_desc *desc)
@@ -82,34 +135,12 @@ static bool vaapi_gl_mapper_init(struct ra_hwdec_mapper *mapper,
         !p->EGLImageTargetTexture2DOES)
         return false;
 
-    GL *gl = ra_gl_get(mapper->ra);
-    gl->GenTextures(4, p->gl_textures);
+    // remember format to allow texture recreation
     for (int n = 0; n < desc->num_planes; n++) {
-        gl->BindTexture(GL_TEXTURE_2D, p->gl_textures[n]);
-        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        gl->TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        gl->BindTexture(GL_TEXTURE_2D, 0);
-
-        struct ra_tex_params params = {
-            .dimensions = 2,
-            .w = mp_image_plane_w(&p_mapper->layout, n),
-            .h = mp_image_plane_h(&p_mapper->layout, n),
-            .d = 1,
-            .format = desc->planes[n],
-            .render_src = true,
-            .src_linear = true,
-        };
-
-        if (params.format->ctype != RA_CTYPE_UNORM)
-            return false;
-
-        p_mapper->tex[n] = ra_create_wrapped_tex(mapper->ra, &params,
-                                                 p->gl_textures[n]);
-        if (!p_mapper->tex[n])
-            return false;
+        p->planes[n] = desc->planes[n];
     }
+    if (!gl_create_textures(mapper))
+        return false;
 
     return true;
 }
@@ -120,38 +151,37 @@ static void vaapi_gl_mapper_uninit(const struct ra_hwdec_mapper *mapper)
     struct vaapi_gl_mapper_priv *p = p_mapper->interop_mapper_priv;
 
     if (p) {
-        GL *gl = ra_gl_get(mapper->ra);
-        gl->DeleteTextures(4, p->gl_textures);
-        for (int n = 0; n < 4; n++) {
-            p->gl_textures[n] = 0;
-            ra_tex_free(mapper->ra, &p_mapper->tex[n]);
-        }
+        gl_delete_textures(mapper);
         talloc_free(p);
         p_mapper->interop_mapper_priv = NULL;
     }
 }
 
-#define ADD_ATTRIB(name, value)                         \
-    do {                                                \
-    assert(num_attribs + 3 < MP_ARRAY_SIZE(attribs));   \
-    attribs[num_attribs++] = (name);                    \
-    attribs[num_attribs++] = (value);                   \
-    attribs[num_attribs] = EGL_NONE;                    \
+#define ADD_ATTRIB(name, value) \
+    do { \
+    mp_assert(num_attribs + 3 < MP_ARRAY_SIZE(attribs)); \
+    attribs[num_attribs++] = (name); \
+    attribs[num_attribs++] = (value); \
+    attribs[num_attribs] = EGL_NONE; \
     } while(0)
 
-#define ADD_PLANE_ATTRIBS(plane) do { \
-            uint64_t drm_format_modifier = p_mapper->desc.objects[p_mapper->desc.layers[i].planes[j].object_index].format_modifier; \
-            ADD_ATTRIB(EGL_DMA_BUF_PLANE ## plane ## _FD_EXT, \
-                        p_mapper->desc.objects[p_mapper->desc.layers[i].planes[j].object_index].fd); \
-            ADD_ATTRIB(EGL_DMA_BUF_PLANE ## plane ## _OFFSET_EXT, \
-                        p_mapper->desc.layers[i].planes[j].offset); \
-            ADD_ATTRIB(EGL_DMA_BUF_PLANE ## plane ## _PITCH_EXT, \
-                        p_mapper->desc.layers[i].planes[j].pitch); \
-            if (dmabuf_interop->use_modifiers && drm_format_modifier != DRM_FORMAT_MOD_INVALID) { \
-                ADD_ATTRIB(EGL_DMA_BUF_PLANE ## plane ## _MODIFIER_LO_EXT, drm_format_modifier & 0xfffffffful); \
-                ADD_ATTRIB(EGL_DMA_BUF_PLANE ## plane ## _MODIFIER_HI_EXT, drm_format_modifier >> 32); \
-            }                               \
-        } while (0)
+#define ADD_PLANE_ATTRIBS(nplane) \
+    do { \
+    const AVDRMPlaneDescriptor *plane = &p_mapper->desc.layers[i].planes[j]; \
+    const AVDRMObjectDescriptor *object = \
+        &p_mapper->desc.objects[plane->object_index]; \
+    ADD_ATTRIB(EGL_DMA_BUF_PLANE ## nplane ## _FD_EXT, object->fd); \
+    ADD_ATTRIB(EGL_DMA_BUF_PLANE ## nplane ## _OFFSET_EXT, plane->offset); \
+    ADD_ATTRIB(EGL_DMA_BUF_PLANE ## nplane ## _PITCH_EXT, plane->pitch); \
+    uint64_t drm_format_modifier = object->format_modifier; \
+    if (dmabuf_interop->use_modifiers && \
+        drm_format_modifier != DRM_FORMAT_MOD_INVALID) { \
+        ADD_ATTRIB(EGL_DMA_BUF_PLANE ## nplane ## _MODIFIER_LO_EXT, \
+            drm_format_modifier & 0xfffffffful); \
+        ADD_ATTRIB(EGL_DMA_BUF_PLANE ## nplane ## _MODIFIER_HI_EXT, \
+            drm_format_modifier >> 32); \
+    } \
+    } while (0)
 
 static bool vaapi_gl_map(struct ra_hwdec_mapper *mapper,
                          struct dmabuf_interop *dmabuf_interop,
@@ -176,6 +206,7 @@ static bool vaapi_gl_map(struct ra_hwdec_mapper *mapper,
         if (p_mapper->desc.layers[i].nb_planes > 1) {
             switch (p_mapper->desc.layers[i].format) {
             case DRM_FORMAT_NV12:
+            case DRM_FORMAT_NV16:
                 format[0] = DRM_FORMAT_R8;
                 format[1] = DRM_FORMAT_GR88;
                 break;
@@ -185,6 +216,7 @@ static bool vaapi_gl_map(struct ra_hwdec_mapper *mapper,
                 format[2] = DRM_FORMAT_R8;
                 break;
             case DRM_FORMAT_P010:
+            case DRM_FORMAT_P210:
 #ifdef DRM_FORMAT_P030 /* Format added in a newer libdrm version than minimum */
             case DRM_FORMAT_P030:
 #endif

@@ -12,7 +12,7 @@
  * - Paul Heckbert's "zoom"
  * - XBMC: ConvolutionKernels.cpp etc.
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
  * This file can be distributed under the 3-clause license ("New BSD License").
  *
@@ -25,7 +25,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "filter_kernels.h"
 #include "common/common.h"
@@ -59,17 +59,20 @@ const struct filter_kernel *mp_find_filter_kernel(const char *name)
 bool mp_init_filter(struct filter_kernel *filter, const int *sizes,
                     double inv_scale)
 {
-    assert(filter->f.radius > 0);
+    mp_assert(filter->f.radius > 0);
+    double blur = filter->f.blur > 0.0 ? filter->f.blur : 1.0;
+    filter->radius = blur * filter->f.radius;
+
     // Only downscaling requires widening the filter
     filter->filter_scale = MPMAX(1.0, inv_scale);
-    double src_radius = filter->f.radius * filter->filter_scale;
+    double src_radius = filter->radius * filter->filter_scale;
     // Polar filters are dependent solely on the radius
     if (filter->polar) {
         filter->size = 1; // Not meaningful for EWA/polar scalers.
         // Safety precaution to avoid generating a gigantic shader
         if (src_radius > 16.0) {
             src_radius = 16.0;
-            filter->filter_scale = src_radius / filter->f.radius;
+            filter->filter_scale = src_radius / filter->radius;
             return false;
         }
         return true;
@@ -89,7 +92,7 @@ bool mp_init_filter(struct filter_kernel *filter, const int *sizes,
         // largest filter available. This is incorrect, but better than refusing
         // to do anything.
         filter->size = cursize[-1];
-        filter->filter_scale = (filter->size/2.0) / filter->f.radius;
+        filter->filter_scale = (filter->size/2.0) / filter->radius;
         return false;
     }
 }
@@ -116,7 +119,7 @@ static double sample_window(struct filter_window *kernel, double x)
 static double sample_filter(struct filter_kernel *filter, double x)
 {
     // The window is always stretched to the entire kernel
-    double w = sample_window(&filter->w, x / filter->f.radius * filter->w.radius);
+    double w = sample_window(&filter->w, x / filter->radius * filter->w.radius);
     double k = w * sample_window(&filter->f, x);
     return k < 0 ? (1 - filter->clamp) * k : k;
 }
@@ -128,7 +131,7 @@ static double sample_filter(struct filter_kernel *filter, double x)
 static void mp_compute_weights(struct filter_kernel *filter, double f,
                                float *out_w)
 {
-    assert(filter->size > 0);
+    mp_assert(filter->size > 0);
     double sum = 0;
     for (int n = 0; n < filter->size; n++) {
         double x = f - (n - filter->size / 2 + 1);
@@ -158,7 +161,7 @@ void mp_compute_lut(struct filter_kernel *filter, int count, int stride,
         filter->radius_cutoff = 0.0;
         // Compute a 1D array indexed by radius
         for (int x = 0; x < count; x++) {
-            double r = x * filter->f.radius / (count - 1);
+            double r = x * filter->radius / (count - 1);
             out_array[x] = sample_filter(filter, r);
 
             if (fabs(out_array[x]) > filter->value_cutoff)
@@ -211,15 +214,6 @@ static double quadric(params *p, double x)
         return 0.5 * t * t;
     }
     return 0.0;
-}
-
-#define POW3(x) ((x) <= 0 ? 0 : (x) * (x) * (x))
-static double bicubic(params *p, double x)
-{
-    return (1.0/6.0) * (      POW3(x + 2)
-                        - 4 * POW3(x + 1)
-                        + 6 * POW3(x)
-                        - 4 * POW3(x - 1));
 }
 
 static double bessel_i0(double x)
@@ -341,69 +335,69 @@ static double sphinx(params *p, double x)
 }
 
 const struct filter_window mp_filter_windows[] = {
-    {"box",            1,   box},
-    {"triangle",       1,   triangle},
-    {"bartlett",       1,   triangle},
-    {"cosine",         M_PI_2, cosine},
-    {"hanning",        1,   hanning},
-    {"tukey",          1,   hanning, .taper = 0.5},
-    {"hamming",        1,   hamming},
-    {"quadric",        1.5, quadric},
-    {"welch",          1,   welch},
-    {"kaiser",         1,   kaiser,   .params = {6.33, NAN} },
-    {"blackman",       1,   blackman, .params = {0.16, NAN} },
-    {"gaussian",       2,   gaussian, .params = {1.00, NAN} },
-    {"sinc",           1,   sinc},
-    {"jinc",           1.2196698912665045, jinc},
-    {"sphinx",         1.4302966531242027, sphinx},
+    {"box",            1,   box, .resizable = false},
+    {"triangle",       1,   triangle, .resizable = false},
+    {"bartlett",       1,   triangle, .resizable = false},
+    {"cosine",         M_PI_2, cosine, .resizable = false},
+    {"hanning",        1,   hanning, .resizable = false},
+    {"tukey",          1,   hanning, .resizable = false, .taper = 0.5},
+    {"hamming",        1,   hamming, .resizable = false},
+    {"quadric",        1.5, quadric, .resizable = false},
+    {"welch",          1,   welch, .resizable = false},
+    {"kaiser",         1,   kaiser,   .resizable = false, .params = {6.33, NAN} },
+    {"blackman",       1,   blackman, .resizable = false, .params = {0.16, NAN} },
+    {"gaussian",       2,   gaussian, .resizable = false, .params = {1.00, NAN} },
+    {"sinc",           1,   sinc, .resizable = false},
+    {"jinc",           1.2196698912665045, jinc, .resizable = false},
+    {"sphinx",         1.4302966531242027, sphinx, .resizable = false},
     {0}
 };
 
 const struct filter_kernel mp_filter_kernels[] = {
     // Spline filters
-    {{"spline16",       2,   spline16}},
-    {{"spline36",       3,   spline36}},
-    {{"spline64",       4,   spline64}},
+    {.f = {"spline16",       2,   spline16, .resizable = false}},
+    {.f = {"spline36",       3,   spline36, .resizable = false}},
+    {.f = {"spline64",       4,   spline64, .resizable = false}},
     // Sinc filters
-    {{"sinc",           2,  sinc, .resizable = true}},
-    {{"lanczos",        3,  sinc, .resizable = true}, .window = "sinc"},
-    {{"ginseng",        3,  sinc, .resizable = true}, .window = "jinc"},
+    {.f = {"sinc",           2,  sinc, .resizable = true}},
+    {.f = {"lanczos",        3,  sinc, .resizable = true}, .window = "sinc"},
+    {.f = {"ginseng",        3,  sinc, .resizable = true}, .window = "jinc"},
     // Jinc filters
-    {{"jinc",           3,  jinc, .resizable = true}, .polar = true},
-    {{"ewa_lanczos",    3,  jinc, .resizable = true}, .polar = true, .window = "jinc"},
-    {{"ewa_hanning",    3,  jinc, .resizable = true}, .polar = true, .window = "hanning" },
-    {{"ewa_ginseng",    3,  jinc, .resizable = true}, .polar = true, .window = "sinc"},
+    {.f = {"jinc",           3,  jinc, .resizable = true}, .polar = true},
+    {.f = {"ewa_lanczos",    3,  jinc, .resizable = true}, .polar = true, .window = "jinc"},
+    {.f = {"ewa_hanning",    3,  jinc, .resizable = true}, .polar = true, .window = "hanning" },
+    {.f = {"ewa_ginseng",    3,  jinc, .resizable = true}, .polar = true, .window = "sinc"},
     // Radius is based on the true jinc radius, slightly sharpened as per
     // calculations by Nicolas Robidoux. Source: Imagemagick's magick/resize.c
-    {{"ewa_lanczossharp", 3.2383154841662362, jinc, .blur = 0.9812505644269356,
+    {.f = {"ewa_lanczossharp", 3.2383154841662362, jinc, .blur = 0.9812505644269356,
           .resizable = true}, .polar = true, .window = "jinc"},
     // Similar to the above, but softened instead. This one makes hash patterns
     // disappear completely. Blur determined by trial and error.
-    {{"ewa_lanczossoft", 3.2383154841662362, jinc, .blur = 1.015,
+    {.f = {"ewa_lanczossoft", 3.2383154841662362, jinc, .blur = 1.015,
           .resizable = true}, .polar = true, .window = "jinc"},
     // Very soft (blurred) hanning-windowed jinc; removes almost all aliasing.
     // Blur parameter picked to match orthogonal and diagonal contributions
-    {{"haasnsoft", 3.2383154841662362, jinc, .blur = 1.11, .resizable = true},
+    {.f = {"haasnsoft", 3.2383154841662362, jinc, .blur = 1.11, .resizable = true},
           .polar = true, .window = "hanning"},
     // Cubic filters
-    {{"bicubic",        2,   bicubic}},
-    {{"bcspline",       2,   cubic_bc, .params = {0.5, 0.5} }},
-    {{"catmull_rom",    2,   cubic_bc, .params = {0.0, 0.5} }},
-    {{"mitchell",       2,   cubic_bc, .params = {1.0/3.0, 1.0/3.0} }},
-    {{"robidoux",       2,   cubic_bc, .params = {12 / (19 + 9 * M_SQRT2),
+    {.f = {"bicubic",        2,   cubic_bc, .params = {1.0, 0.0} }},
+    {.f = {"hermite",        1,   cubic_bc, .params = {0.0, 0.0} }},
+    {.f = {"catmull_rom",    2,   cubic_bc, .params = {0.0, 0.5} }},
+    {.f = {"mitchell",       2,   cubic_bc, .params = {1.0/3.0, 1.0/3.0} }},
+    {.f = {"robidoux",       2,   cubic_bc, .params = {12 / (19 + 9 * M_SQRT2),
                                                   113 / (58 + 216 * M_SQRT2)} }},
-    {{"robidouxsharp",  2,   cubic_bc, .params = {6 / (13 + 7 * M_SQRT2),
+    {.f = {"robidouxsharp",  2,   cubic_bc, .params = {6 / (13 + 7 * M_SQRT2),
                                                   7 / (2 + 12 * M_SQRT2)} }},
-    {{"ewa_robidoux",   2,   cubic_bc, .params = {12 / (19 + 9 * M_SQRT2),
+    {.f = {"ewa_robidoux",   2,   cubic_bc, .params = {12 / (19 + 9 * M_SQRT2),
                                                   113 / (58 + 216 * M_SQRT2)}},
             .polar = true},
-    {{"ewa_robidouxsharp", 2,cubic_bc, .params = {6 / (13 + 7 * M_SQRT2),
+    {.f = {"ewa_robidouxsharp", 2,cubic_bc, .params = {6 / (13 + 7 * M_SQRT2),
                                                   7 / (2 + 12 * M_SQRT2)}},
             .polar = true},
     // Miscellaneous filters
-    {{"box",            1,   box, .resizable = true}},
-    {{"nearest",        0.5, box}},
-    {{"triangle",       1,   triangle, .resizable = true}},
-    {{"gaussian",       2,   gaussian, .params = {1.0, NAN}, .resizable = true}},
-    {{0}}
+    {.f = {"box",            1,   box, .resizable = true}},
+    {.f = {"nearest",        0.5, box, .resizable = false}},
+    {.f = {"triangle",       1,   triangle, .resizable = true}},
+    {.f = {"gaussian",       2,   gaussian, .params = {1.0, NAN}, .resizable = true}},
+    {.f = {0}}
 };

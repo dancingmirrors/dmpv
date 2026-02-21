@@ -1,16 +1,15 @@
-#ifndef MPV_VDPAU_H
-#define MPV_VDPAU_H
+#ifndef DMPV_VDPAU_H
+#define DMPV_VDPAU_H
 
 #include <stdbool.h>
 #include <inttypes.h>
-
-#include <pthread.h>
 
 #include <vdpau/vdpau.h>
 #include <vdpau/vdpau_x11.h>
 
 #include "common/msg.h"
 #include "hwdec.h"
+#include "osdep/threads.h"
 
 #include "config.h"
 #if !HAVE_GPL

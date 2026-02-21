@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <inttypes.h>
@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <math.h>
 
 #include <ass/ass.h>
@@ -88,7 +87,7 @@ void mp_ass_set_style(ASS_Style *style, double res_y,
 }
 
 void mp_ass_configure_fonts(ASS_Renderer *priv, struct osd_style_opts *opts,
-                            struct mpv_global *global, struct mp_log *log)
+                            struct dmpv_global *global, struct mp_log *log)
 {
     void *tmp = talloc_new(NULL);
     char *default_font = mp_find_config_file(tmp, global, "subfont.ttf");
@@ -132,7 +131,7 @@ static void message_callback(int level, const char *format, va_list va, void *ct
     mp_msg(log, level, "\n");
 }
 
-ASS_Library *mp_ass_init(struct mpv_global *global,
+ASS_Library *mp_ass_init(struct dmpv_global *global,
                          struct osd_style_opts *opts, struct mp_log *log)
 {
     char *path = opts->fonts_dir && opts->fonts_dir[0] ?

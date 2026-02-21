@@ -1,25 +1,25 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdbool.h>
 
 #include "osdep/io.h"
@@ -51,7 +51,7 @@ struct parse_state {
 // Returns true if more args, false if all parsed or an error occurred.
 static bool split_opt(struct parse_state *p)
 {
-    assert(!p->error);
+    mp_assert(!p->error);
 
     if (!p->argv || !p->argv[0])
         return false;
@@ -96,31 +96,14 @@ static bool split_opt(struct parse_state *p)
     return true;
 }
 
-#ifdef __MINGW32__
 static void process_non_option(struct playlist *files, const char *arg)
 {
-    glob_t gg;
-
-    // Glob filenames on Windows (cmd.exe doesn't do this automatically)
-    if (glob(arg, 0, NULL, &gg)) {
-        playlist_add_file(files, arg);
-    } else {
-        for (int i = 0; i < gg.gl_pathc; i++)
-            playlist_add_file(files, gg.gl_pathv[i]);
-
-        globfree(&gg);
-    }
+    playlist_append_file(files, arg);
 }
-#else
-static void process_non_option(struct playlist *files, const char *arg)
-{
-    playlist_add_file(files, arg);
-}
-#endif
 
 // returns M_OPT_... error code
 int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
-                                   struct mpv_global *global, char **argv)
+                                   struct dmpv_global *global, char **argv)
 {
     int ret = M_OPT_UNKNOWN;
     int mode = 0;
@@ -129,11 +112,11 @@ int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
     int local_params_count = 0;
     struct playlist_param *local_params = 0;
 
-    assert(config != NULL);
+    mp_assert(config != NULL);
 
     mode = GLOBAL;
 
-    struct parse_state p = {config, argv, config->log};
+    struct parse_state p = {.config = config, .argv = argv, .log = config->log};
     while (split_opt(&p)) {
         if (p.is_opt) {
             int flags = M_SETOPT_FROM_CMDLINE;
@@ -157,7 +140,7 @@ int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
                     goto err_out;
                 }
                 mode = LOCAL;
-                assert(!local_start);
+                mp_assert(!local_start);
                 local_start = playlist_get_last(files);
                 continue;
             }
@@ -194,13 +177,14 @@ int m_config_parse_mp_command_line(m_config_t *config, struct playlist *files,
                 // append the playlist to the local args
                 char *param0 = bstrdup0(NULL, p.param);
                 struct playlist *pl = playlist_parse_file(param0, NULL, global);
-                talloc_free(param0);
                 if (!pl) {
                     MP_FATAL(config, "Error reading playlist '%.*s'\n",
                              BSTR_P(p.param));
+                    talloc_free(param0);
                     goto err_out;
                 }
                 playlist_transfer_entries(files, pl);
+                talloc_free(param0);
                 talloc_free(pl);
                 continue;
             }
@@ -239,10 +223,10 @@ err_out:
  * command line parsing), and --really-quiet suppresses messages printed
  * during normal options parsing.
  */
-void m_config_preparse_command_line(m_config_t *config, struct mpv_global *global,
+void m_config_preparse_command_line(m_config_t *config, struct dmpv_global *global,
                                     int *verbose, char **argv)
 {
-    struct parse_state p = {config, argv, mp_null_log};
+    struct parse_state p = {.config = config, .argv = argv, .log = mp_null_log};
     while (split_opt(&p)) {
         if (p.is_opt) {
             // Ignore non-pre-parse options. They will be set later.

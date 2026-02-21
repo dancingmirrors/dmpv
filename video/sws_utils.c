@@ -1,36 +1,34 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libswscale/swscale.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/bswap.h>
 #include <libavutil/opt.h>
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 #include <libavutil/pixdesc.h>
-#endif
 
 #include "config.h"
 
 #include "sws_utils.h"
 
 #include "common/common.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "video/mp_image.h"
 #include "video/img_format.h"
@@ -74,8 +72,8 @@ const struct m_sub_options sws_conf = {
             {"spline",          SWS_SPLINE})},
         {"lgb", OPT_FLOAT(lum_gblur), M_RANGE(0, 100.0)},
         {"cgb", OPT_FLOAT(chr_gblur), M_RANGE(0, 100.0)},
-        {"cvs", OPT_INT(chr_vshift)},
-        {"chs", OPT_INT(chr_hshift)},
+        {"cvs", OPT_INT(chr_vshift), M_RANGE(-100, 100)},
+        {"chs", OPT_INT(chr_hshift), M_RANGE(-100, 100)},
         {"ls", OPT_FLOAT(lum_sharpen), M_RANGE(-100.0, 100.0)},
         {"cs", OPT_FLOAT(chr_sharpen), M_RANGE(-100.0, 100.0)},
         {"fast", OPT_BOOL(fast)},
@@ -85,7 +83,7 @@ const struct m_sub_options sws_conf = {
     },
     .size = sizeof(struct sws_opts),
     .defaults = &(const struct sws_opts){
-        .scaler = SWS_LANCZOS,
+        .scaler = SWS_BILINEAR,
         .zimg = true,
     },
 };
@@ -95,7 +93,7 @@ static const int mp_sws_hq_flags = SWS_FULL_CHR_H_INT | SWS_FULL_CHR_H_INP |
                                    SWS_ACCURATE_RND;
 
 // Fast, lossy.
-const int mp_sws_fast_flags = SWS_BILINEAR;
+const int mp_sws_fast_flags = SWS_FAST_BILINEAR;
 
 // Set ctx parameters to global command line flags.
 static void mp_sws_update_from_cmdline(struct mp_sws_context *ctx)
@@ -211,7 +209,7 @@ struct mp_sws_context *mp_sws_alloc(void *talloc_ctx)
 // Enable auto-update of parameters from command line. Don't try to set custom
 // options (other than possibly .src/.dst), because they might be overwritten
 // if the user changes any options.
-void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct mpv_global *g)
+void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct dmpv_global *g)
 {
     // Should only ever be NULL for tests.
     if (!g)
@@ -259,7 +257,7 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
             MP_VERBOSE(ctx, "Using zimg.\n");
             goto success;
         }
-        MP_WARN(ctx, "Not using zimg, falling back to swscale.\n");
+        MP_WARN(ctx, "Not using zimg; falling back to swscale.\n");
     }
 #endif
 
@@ -311,7 +309,7 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
     int cr_src = mp_chroma_location_to_av(src.chroma_location);
     int cr_dst = mp_chroma_location_to_av(dst.chroma_location);
     int cr_xpos, cr_ypos;
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+
     if (av_chroma_location_enum_to_pos(&cr_xpos, &cr_ypos, cr_src) >= 0) {
         av_opt_set_int(ctx->sws, "src_h_chr_pos", cr_xpos, 0);
         av_opt_set_int(ctx->sws, "src_v_chr_pos", cr_ypos, 0);
@@ -320,16 +318,6 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
         av_opt_set_int(ctx->sws, "dst_h_chr_pos", cr_xpos, 0);
         av_opt_set_int(ctx->sws, "dst_v_chr_pos", cr_ypos, 0);
     }
-#else
-    if (avcodec_enum_to_chroma_pos(&cr_xpos, &cr_ypos, cr_src) >= 0) {
-        av_opt_set_int(ctx->sws, "src_h_chr_pos", cr_xpos, 0);
-        av_opt_set_int(ctx->sws, "src_v_chr_pos", cr_ypos, 0);
-    }
-    if (avcodec_enum_to_chroma_pos(&cr_xpos, &cr_ypos, cr_dst) >= 0) {
-        av_opt_set_int(ctx->sws, "dst_h_chr_pos", cr_xpos, 0);
-        av_opt_set_int(ctx->sws, "dst_v_chr_pos", cr_ypos, 0);
-    }
-#endif
 
     // This can fail even with normal operation, e.g. if a conversion path
     // simply does not support these settings.
@@ -363,9 +351,9 @@ static struct mp_image *check_alignment(struct mp_log *log,
     // corrupting memory...
     // So use 32, a value that has been experimentally determined to be safe,
     // and which in most cases is not larger than decoder output. It is smaller
-    // or equal to what most image allocators in mpv/ffmpeg use.
+    // or equal to what most image allocators in dmpv/ffmpeg use.
     size_t align = 32;
-    assert(align <= MP_IMAGE_BYTE_ALIGN); // or mp_image_alloc will not cut it
+    mp_assert(align <= MP_IMAGE_BYTE_ALIGN); // or mp_image_alloc will not cut it
 
     bool is_aligned = true;
     for (int p = 0; p < img->num_planes; p++) {

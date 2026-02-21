@@ -4,8 +4,10 @@
 #include "audio/format.h"
 #include "common/common.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
+#include "video/filter/refqueue.h"
 #include "video/mp_image.h"
 #include "video/mp_image_pool.h"
 
@@ -21,7 +23,7 @@
 struct deint_priv {
     struct mp_subfilter sub;
     int prev_imgfmt;
-    int prev_setting;
+    bool deinterlace_active;
     struct m_config_cache *opts;
 };
 
@@ -45,15 +47,18 @@ static void deint_process(struct mp_filter *f)
         return;
     }
 
+    struct mp_image *img = frame.data;
+    bool interlaced = img->fields & MP_IMGFIELD_INTERLACED;
+
     m_config_cache_update(p->opts);
     struct filter_opts *opts = p->opts->opts;
+    bool should_deinterlace = (opts->deinterlace == -1 && interlaced) ||
+                               opts->deinterlace == 1;
 
-    if (!opts->deinterlace)
+    if (!should_deinterlace)
         mp_subfilter_destroy(&p->sub);
 
-    struct mp_image *img = frame.data;
-
-    if (img->imgfmt == p->prev_imgfmt && p->prev_setting == opts->deinterlace) {
+    if (img->imgfmt == p->prev_imgfmt && p->deinterlace_active == should_deinterlace) {
         mp_subfilter_continue(&p->sub);
         return;
     }
@@ -61,38 +66,39 @@ static void deint_process(struct mp_filter *f)
     if (!mp_subfilter_drain_destroy(&p->sub))
         return;
 
-    assert(!p->sub.filter);
+    mp_assert(!p->sub.filter);
 
     p->prev_imgfmt = img->imgfmt;
-    p->prev_setting = opts->deinterlace;
-    if (!p->prev_setting) {
+    p->deinterlace_active = should_deinterlace;
+    if (!p->deinterlace_active) {
         mp_subfilter_continue(&p->sub);
         return;
     }
 
+    char *field_parity;
+    switch (opts->field_parity) {
+    case MP_FIELD_PARITY_TFF:
+        field_parity = "tff";
+        break;
+    case MP_FIELD_PARITY_BFF:
+        field_parity = "bff";
+        break;
+    default:
+        field_parity = "auto";
+    }
+
     bool has_filter = true;
-    if (img->imgfmt == IMGFMT_VDPAU) {
-        char *args[] = {"deint", "yes", NULL};
-        p->sub.filter =
-            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "vdpaupp", args);
-    } else if (img->imgfmt == IMGFMT_D3D11) {
-        p->sub.filter =
-            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "d3d11vpp", NULL);
-    } else if (img->imgfmt == IMGFMT_CUDA) {
-        char *args[] = {"mode", "send_field", NULL};
-        p->sub.filter =
-            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "yadif_cuda", args);
-#if HAVE_VULKAN_INTEROP
-    } else if (img->imgfmt == IMGFMT_VULKAN) {
-        char *args[] = {"mode", "send_field", NULL};
-        p->sub.filter =
-            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "bwdif_vulkan", args);
-#endif
-    } else if (img->imgfmt == IMGFMT_VAAPI) {
+    if (img->imgfmt == IMGFMT_VAAPI) {
         char *args[] = {"deint", "motion-adaptive",
-                        "interlaced-only", "yes", NULL};
-        p->sub.filter =
-            mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "vavpp", args);
+                        "interlaced-only", "yes",
+                        "parity", field_parity, NULL};
+          p->sub.filter =
+              mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "vavpp", args);
+    } else if (img->imgfmt == IMGFMT_VDPAU) {
+        char *args[] = {"deint", "yes",
+                        "parity", field_parity, NULL};
+          p->sub.filter =
+              mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "vdpaupp", args);
     } else {
         has_filter = false;
     }
@@ -107,7 +113,7 @@ static void deint_process(struct mp_filter *f)
         struct mp_autoconvert *ac = mp_autoconvert_create(subf);
         if (ac) {
             filters[0] = ac->f;
-            // We know vf_yadif does not support hw inputs.
+            // We know vf_bwdif does not support hw inputs.
             mp_autoconvert_add_all_sw_imgfmts(ac);
 
             if (!mp_autoconvert_probe_input_video(ac, img)) {
@@ -119,9 +125,10 @@ static void deint_process(struct mp_filter *f)
             }
         }
 
-        char *args[] = {"mode", "send_field", NULL};
+        char *args[] = {"mode", "send_field",
+                        "parity", field_parity, NULL};
         filters[1] =
-            mp_create_user_filter(subf, MP_OUTPUT_CHAIN_VIDEO, "yadif", args);
+            mp_create_user_filter(subf, MP_OUTPUT_CHAIN_VIDEO, "bwdif", args);
 
         mp_chain_filters(subf->ppins[0], subf->ppins[1], filters, 2);
         p->sub.filter = subf;
@@ -164,6 +171,12 @@ static const struct mp_filter_info deint_filter = {
     .reset = deint_reset,
     .destroy = deint_destroy,
 };
+
+bool mp_deint_active(struct mp_filter *f)
+{
+    struct deint_priv *p = f->priv;
+    return p->deinterlace_active;
+}
 
 struct mp_filter *mp_deint_create(struct mp_filter *parent)
 {
@@ -220,7 +233,7 @@ static void rotate_process(struct mp_filter *f)
     if (!mp_subfilter_drain_destroy(&p->sub))
         return;
 
-    assert(!p->sub.filter);
+    mp_assert(!p->sub.filter);
 
     int rotate = p->prev_rotate = img->params.rotate;
     p->target_rotate = rotate;
@@ -233,7 +246,7 @@ static void rotate_process(struct mp_filter *f)
     }
 
     if (!mp_sws_supports_input(img->imgfmt)) {
-        MP_ERR(f, "Video rotation with this format not supported\n");
+        MP_ERR(f, "Video rotation with this format or angle is unsupported.\n");
         mp_subfilter_continue(&p->sub);
         return;
     }
@@ -306,6 +319,127 @@ struct mp_filter *mp_autorotate_create(struct mp_filter *parent)
     return f;
 }
 
+struct vflip_priv {
+    struct mp_subfilter sub;
+    int prev_vflip;
+    int prev_imgfmt;
+    int target_vflip;
+};
+
+static void vflip_process(struct mp_filter *f)
+{
+    struct vflip_priv *p = f->priv;
+
+    if (!mp_subfilter_read(&p->sub))
+        return;
+
+    struct mp_frame frame = p->sub.frame;
+
+    if (mp_frame_is_signaling(frame)) {
+        mp_subfilter_continue(&p->sub);
+        return;
+    }
+
+    if (frame.type != MP_FRAME_VIDEO) {
+        MP_ERR(f, "video input required!\n");
+        return;
+    }
+
+    struct mp_image *img = frame.data;
+
+    if (img->params.vflip == p->prev_vflip &&
+        img->imgfmt == p->prev_imgfmt)
+    {
+        img->params.vflip = p->target_vflip;
+        mp_subfilter_continue(&p->sub);
+        return;
+    }
+
+    if (!mp_subfilter_drain_destroy(&p->sub))
+        return;
+
+    mp_assert(!p->sub.filter);
+
+    int vflip = p->prev_vflip = img->params.vflip;
+    p->target_vflip = vflip;
+    p->prev_imgfmt = img->imgfmt;
+
+    struct mp_stream_info *info = mp_filter_find_stream_info(f);
+    if (!vflip || (info && info->vflip)) {
+        mp_subfilter_continue(&p->sub);
+        return;
+    }
+
+    if (!mp_sws_supports_input(img->imgfmt)) {
+        MP_ERR(f, "Video vflip with this format not supported\n");
+        mp_subfilter_continue(&p->sub);
+        return;
+    }
+
+    char *args[] = {NULL};
+
+    p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "vflip", args);
+
+    if (p->sub.filter) {
+        MP_INFO(f, "Inserting vflip filter.\n");
+        p->target_vflip = 0;
+    } else {
+        MP_ERR(f, "could not create vflip filter\n");
+    }
+
+    mp_subfilter_continue(&p->sub);
+}
+
+static void vflip_reset(struct mp_filter *f)
+{
+    struct vflip_priv *p = f->priv;
+
+    mp_subfilter_reset(&p->sub);
+}
+
+static void vflip_destroy(struct mp_filter *f)
+{
+    struct vflip_priv *p = f->priv;
+
+    mp_subfilter_reset(&p->sub);
+    TA_FREEP(&p->sub.filter);
+}
+
+static bool vflip_command(struct mp_filter *f, struct mp_filter_command *cmd)
+{
+    struct vflip_priv *p = f->priv;
+
+    if (cmd->type == MP_FILTER_COMMAND_IS_ACTIVE) {
+        cmd->is_active = !!p->sub.filter;
+        return true;
+    }
+    return false;
+}
+
+static const struct mp_filter_info vflip_filter = {
+    .name = "autovflip",
+    .priv_size = sizeof(struct vflip_priv),
+    .command = vflip_command,
+    .process = vflip_process,
+    .reset = vflip_reset,
+    .destroy = vflip_destroy,
+};
+
+struct mp_filter *mp_autovflip_create(struct mp_filter *parent)
+{
+    struct mp_filter *f = mp_filter_create(parent, &vflip_filter);
+    if (!f)
+        return NULL;
+
+    struct vflip_priv *p = f->priv;
+    p->prev_vflip = -1;
+
+    p->sub.in = mp_filter_add_pin(f, MP_PIN_IN, "in");
+    p->sub.out = mp_filter_add_pin(f, MP_PIN_OUT, "out");
+
+    return f;
+}
+
 struct aspeed_priv {
     struct mp_subfilter sub;
     double cur_speed, cur_speed_drop;
@@ -340,9 +474,9 @@ static void aspeed_process(struct mp_filter *f)
 
         if (req_filter) {
             if (req_filter == 1) {
-                MP_VERBOSE(f, "adding scaletempo2\n");
+                MP_VERBOSE(f, "adding scaletempo\n");
                 p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_AUDIO,
-                                                      "scaletempo2", NULL);
+                                                      "scaletempo", NULL);
             } else if (req_filter == 2) {
                 MP_VERBOSE(f, "adding drop\n");
                 p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_AUDIO,
@@ -423,6 +557,151 @@ struct mp_filter *mp_autoaspeed_create(struct mp_filter *parent)
     struct aspeed_priv *p = f->priv;
     p->cur_speed = 1.0;
     p->cur_speed_drop = 1.0;
+
+    p->sub.in = mp_filter_add_pin(f, MP_PIN_IN, "in");
+    p->sub.out = mp_filter_add_pin(f, MP_PIN_OUT, "out");
+
+    return f;
+}
+
+struct autoscale_priv {
+    struct mp_subfilter sub;
+    int prev_imgfmt;
+    int prev_w, prev_h;
+    bool scale_active;
+};
+
+static void autoscale_process(struct mp_filter *f)
+{
+    struct autoscale_priv *p = f->priv;
+
+    if (!mp_subfilter_read(&p->sub))
+        return;
+
+    struct mp_frame frame = p->sub.frame;
+
+    if (mp_frame_is_signaling(frame)) {
+        mp_subfilter_continue(&p->sub);
+        return;
+    }
+
+    if (frame.type != MP_FRAME_VIDEO) {
+        MP_ERR(f, "video input required!\n");
+        mp_filter_internal_mark_failed(f);
+        return;
+    }
+
+    struct mp_image *img = frame.data;
+
+    // Get max texture size from stream info
+    struct mp_stream_info *info = mp_filter_find_stream_info(f);
+    int max_tex = info ? info->max_texture_wh : 0;
+
+    // If max_tex is unknown or 0, disable scaling
+    bool needs_scale = false;
+    if (max_tex > 0 && (img->w > max_tex || img->h > max_tex)) {
+        needs_scale = true;
+    }
+
+    // Check if we need to recreate the filter
+    bool format_changed = img->imgfmt != p->prev_imgfmt ||
+                         img->w != p->prev_w ||
+                         img->h != p->prev_h ||
+                         needs_scale != p->scale_active;
+
+    if (format_changed) {
+        if (!mp_subfilter_drain_destroy(&p->sub))
+            return;
+
+        mp_assert(!p->sub.filter);
+
+        p->prev_imgfmt = img->imgfmt;
+        p->prev_w = img->w;
+        p->prev_h = img->h;
+        p->scale_active = needs_scale;
+
+        if (needs_scale) {
+            // Calculate target dimensions that fit within max_tex
+            double scale = max_tex / (double)MPMAX(img->w, img->h);
+            int target_w = (int)(img->w * scale);
+            int target_h = (int)(img->h * scale);
+
+            // Ensure dimensions are even (required for many video formats)
+            // and at least 2x2 to avoid zero dimensions
+            target_w = MPMAX(2, target_w & ~1);
+            target_h = MPMAX(2, target_h & ~1);
+
+            // Ensure dimensions don't exceed max_tex after even alignment
+            if (target_w > max_tex)
+                target_w = max_tex & ~1;
+            if (target_h > max_tex)
+                target_h = max_tex & ~1;
+
+            MP_WARN(f, "Image dimensions %dx%d exceed GPU limit of %d; scaling to %dx%d.\n",
+                    img->w, img->h, max_tex, target_w, target_h);
+
+            // Create scale filter with target dimensions
+            char *args[] = {
+                "w", mp_tprintf(16, "%d", target_w),
+                "h", mp_tprintf(16, "%d", target_h),
+                NULL
+            };
+
+            p->sub.filter = mp_create_user_filter(f, MP_OUTPUT_CHAIN_VIDEO, "scale", args);
+
+            if (!p->sub.filter) {
+                MP_ERR(f, "Failed to create scale filter! Image will not be displayed correctly.\n");
+                // Well, we tried. This isn't fatal, so continue.
+            }
+        }
+    }
+
+    mp_subfilter_continue(&p->sub);
+}
+
+static void autoscale_reset(struct mp_filter *f)
+{
+    struct autoscale_priv *p = f->priv;
+    mp_subfilter_reset(&p->sub);
+}
+
+static void autoscale_destroy(struct mp_filter *f)
+{
+    struct autoscale_priv *p = f->priv;
+    mp_subfilter_reset(&p->sub);
+}
+
+static bool autoscale_command(struct mp_filter *f, struct mp_filter_command *cmd)
+{
+    struct autoscale_priv *p = f->priv;
+
+    if (cmd->type == MP_FILTER_COMMAND_IS_ACTIVE) {
+        cmd->is_active = !!p->sub.filter;
+        return true;
+    }
+    return false;
+}
+
+static const struct mp_filter_info autoscale_filter = {
+    .name = "autoscale",
+    .priv_size = sizeof(struct autoscale_priv),
+    .command = autoscale_command,
+    .process = autoscale_process,
+    .reset = autoscale_reset,
+    .destroy = autoscale_destroy,
+};
+
+struct mp_filter *mp_autoscale_create(struct mp_filter *parent)
+{
+    struct mp_filter *f = mp_filter_create(parent, &autoscale_filter);
+    if (!f)
+        return NULL;
+
+    struct autoscale_priv *p = f->priv;
+    p->prev_imgfmt = 0;
+    p->prev_w = 0;
+    p->prev_h = 0;
+    p->scale_active = false;
 
     p->sub.in = mp_filter_add_pin(f, MP_PIN_IN, "in");
     p->sub.out = mp_filter_add_pin(f, MP_PIN_OUT, "out");

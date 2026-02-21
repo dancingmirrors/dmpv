@@ -1,21 +1,20 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
@@ -33,8 +32,8 @@
 #include "common/global.h"
 #include "common/msg.h"
 #include "input/input.h"
-#include "libmpv/client.h"
-#include "options/m_config.h"
+#include "misc/client.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "options/path.h"
 #include "player/client.h"
@@ -48,13 +47,13 @@ struct mp_ipc_ctx {
     struct mp_client_api *client_api;
     const char *path;
 
-    pthread_t thread;
+    mp_thread thread;
     int death_pipe[2];
 };
 
 struct client_arg {
     struct mp_log *log;
-    struct mpv_handle *client;
+    struct dmpv_handle *client;
 
     const char *client_name;
     int client_fd;
@@ -91,9 +90,9 @@ static int ipc_write_str(struct client_arg *client, const char *buf)
     return 0;
 }
 
-static void *client_thread(void *p)
+static MP_THREAD_VOID client_thread(void *p)
 {
-    pthread_detach(pthread_self());
+    pthread_detach(mp_thread_self());
 
     // We don't use MSG_NOSIGNAL because the moldy fruit OS doesn't support it.
     struct sigaction sa = { .sa_handler = SIG_IGN, .sa_flags = SA_RESTART };
@@ -103,11 +102,11 @@ static void *client_thread(void *p)
     int rc;
 
     struct client_arg *arg = p;
-    bstr client_msg = { talloc_strdup(NULL, ""), 0 };
+    bstr client_msg = { (unsigned char *)talloc_strdup(NULL, ""), 0 };
 
-    mpthread_set_name(arg->client_name);
+    mp_thread_set_name(arg->client_name);
 
-    int pipe_fd = mpv_get_wakeup_pipe(arg->client);
+    int pipe_fd = dmpv_get_wakeup_pipe(arg->client);
     if (pipe_fd < 0) {
         MP_ERR(arg, "Could not get wakeup pipe\n");
         goto done;
@@ -135,12 +134,12 @@ static void *client_thread(void *p)
             mp_flush_wakeup_pipe(pipe_fd);
 
             while (1) {
-                mpv_event *event = mpv_wait_event(arg->client, 0);
+                dmpv_event *event = dmpv_wait_event(arg->client, 0);
 
-                if (event->event_id == MPV_EVENT_NONE)
+                if (event->event_id == DMPV_EVENT_NONE)
                     break;
 
-                if (event->event_id == MPV_EVENT_SHUTDOWN)
+                if (event->event_id == DMPV_EVENT_SHUTDOWN)
                     goto done;
 
                 if (!arg->writable)
@@ -164,7 +163,7 @@ static void *client_thread(void *p)
         if (fds[1].revents & (POLLIN | POLLHUP | POLLNVAL)) {
             while (1) {
                 char buf[128];
-                bstr append = { buf, 0 };
+                bstr append = { (unsigned char *)buf, 0 };
 
                 ssize_t bytes = read(arg->client_fd, buf, sizeof(buf));
                 if (bytes < 0) {
@@ -209,15 +208,15 @@ done:
     talloc_free(client_msg.start);
     if (arg->close_client_fd)
         close(arg->client_fd);
-    struct mpv_handle *h = arg->client;
+    struct dmpv_handle *h = arg->client;
     bool quit = arg->quit_on_close;
     talloc_free(arg);
     if (quit) {
-        mpv_terminate_destroy(h);
+        dmpv_terminate_destroy(h);
     } else {
-        mpv_destroy(h);
+        dmpv_destroy(h);
     }
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static bool ipc_start_client(struct mp_ipc_ctx *ctx, struct client_arg *client,
@@ -230,8 +229,8 @@ static bool ipc_start_client(struct mp_ipc_ctx *ctx, struct client_arg *client,
 
     client->log = mp_client_get_log(client->client);
 
-    pthread_t client_thr;
-    if (pthread_create(&client_thr, NULL, client_thread, client))
+    mp_thread client_thr;
+    if (mp_thread_create(&client_thr, client_thread, client))
         goto err;
 
     return true;
@@ -239,7 +238,7 @@ static bool ipc_start_client(struct mp_ipc_ctx *ctx, struct client_arg *client,
 err:
     if (free_on_init_fail) {
         if (client->client)
-            mpv_destroy(client->client);
+            dmpv_destroy(client->client);
 
         if (client->close_client_fd)
             close(client->client_fd);
@@ -264,7 +263,7 @@ static void ipc_start_client_json(struct mp_ipc_ctx *ctx, int id, int fd)
     ipc_start_client(ctx, client, true);
 }
 
-bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct mpv_handle *h,
+bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct dmpv_handle *h,
                               int out_fd[2])
 {
     int pair[2];
@@ -276,7 +275,7 @@ bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct mpv_handle *h,
     struct client_arg *client = talloc_ptrtype(NULL, client);
     *client = (struct client_arg){
         .client = h,
-        .client_name = mpv_client_name(h),
+        .client_name = dmpv_client_name(h),
         .client_fd   = pair[1],
         .close_client_fd = true,
         .writable = true,
@@ -293,7 +292,7 @@ bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct mpv_handle *h,
     return true;
 }
 
-static void *ipc_thread(void *p)
+static MP_THREAD_VOID ipc_thread(void *p)
 {
     int rc;
 
@@ -302,7 +301,7 @@ static void *ipc_thread(void *p)
 
     struct mp_ipc_ctx *arg = p;
 
-    mpthread_set_name("ipc socket listener");
+    mp_thread_set_name("ipc socket listener");
 
     MP_VERBOSE(arg, "Starting IPC master\n");
 
@@ -377,11 +376,11 @@ done:
     if (ipc_fd >= 0)
         close(ipc_fd);
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 struct mp_ipc_ctx *mp_init_ipc(struct mp_client_api *client_api,
-                               struct mpv_global *global)
+                               struct dmpv_global *global)
 {
     struct MPOpts *opts = mp_get_config_group(NULL, global, &mp_opt_root);
 
@@ -416,7 +415,7 @@ struct mp_ipc_ctx *mp_init_ipc(struct mp_client_api *client_api,
     if (mp_make_wakeup_pipe(arg->death_pipe) < 0)
         goto out;
 
-    if (pthread_create(&arg->thread, NULL, ipc_thread, arg))
+    if (mp_thread_create(&arg->thread, ipc_thread, arg))
         goto out;
 
     return arg;
@@ -435,8 +434,9 @@ void mp_uninit_ipc(struct mp_ipc_ctx *arg)
     if (!arg)
         return;
 
-    (void)write(arg->death_pipe[1], &(char){0}, 1);
-    pthread_join(arg->thread, NULL);
+    ssize_t ignored = write(arg->death_pipe[1], &(char){0}, 1);
+    (void)ignored;
+    mp_thread_join(arg->thread);
 
     close(arg->death_pipe[0]);
     close(arg->death_pipe[1]);

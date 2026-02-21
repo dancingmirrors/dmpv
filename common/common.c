@@ -1,32 +1,32 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdarg.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/common.h>
 #include <libavutil/error.h>
+#include <libavutil/mathematics.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "misc/bstr.h"
 #include "misc/ctype.h"
 #include "common/common.h"
-#include "osdep/strnlen.h"
 
 #define appendf(ptr, ...) \
     do {(*(ptr)) = talloc_asprintf_append_buffer(*(ptr), __VA_ARGS__);} while(0)
@@ -162,7 +162,7 @@ int mp_rect_subtract(const struct mp_rect *rc1, const struct mp_rect *rc2,
 int mp_snprintf_cat(char *str, size_t size, const char *format, ...)
 {
     size_t len = strnlen(str, size);
-    assert(!size || len < size); // str with no 0-termination is not allowed
+    mp_assert(!size || len < size); // str with no 0-termination is not allowed
     int r;
     va_list ap;
     va_start(ap, format);
@@ -176,11 +176,11 @@ int mp_snprintf_cat(char *str, size_t size, const char *format, ...)
 // implicit \0-termination for convenience.
 void mp_append_utf8_bstr(void *talloc_ctx, struct bstr *buf, uint32_t codepoint)
 {
-    char data[8];
+    char data[32];
     uint8_t tmp;
     char *output = data;
     PUT_UTF8(codepoint, tmp, *output++ = tmp;);
-    bstr_xappend(talloc_ctx, buf, (bstr){data, output - data});
+    bstr_xappend(talloc_ctx, buf, (bstr){(unsigned char *)data, output - data});
 }
 
 // Parse a C/JSON-style escape beginning at code, and append the result to *str
@@ -206,7 +206,7 @@ static bool mp_parse_escape(void *talloc_ctx, bstr *dst, bstr *code)
     case '\'': replace = '\''; break;
     }
     if (replace) {
-        bstr_xappend(talloc_ctx, dst, (bstr){&replace, 1});
+        bstr_xappend(talloc_ctx, dst, (bstr){(unsigned char *)&replace, 1});
         *code = bstr_cut(*code, 1);
         return true;
     }
@@ -215,14 +215,14 @@ static bool mp_parse_escape(void *talloc_ctx, bstr *dst, bstr *code)
         char c = bstrtoll(num, &num, 16);
         if (num.len)
             return false;
-        bstr_xappend(talloc_ctx, dst, (bstr){&c, 1});
+        bstr_xappend(talloc_ctx, dst, (bstr){(unsigned char *)&c, 1});
         *code = bstr_cut(*code, 3);
         return true;
     }
     if (code->start[0] == 'u' && code->len >= 5) {
         bstr num = bstr_splice(*code, 1, 5);
         uint32_t c = bstrtoll(num, &num, 16);
-        if (num.len)
+        if (num.len || c > 0x10FFFF)
             return false;
         if (c >= 0xd800 && c <= 0xdbff) {
             if (code->len < 5 + 6 // udddd + \udddd
@@ -348,7 +348,7 @@ char **mp_dup_str_array(void *tctx, char **s)
 //  mp_log2(32) == 5
 unsigned int mp_log2(uint32_t v)
 {
-#if defined(__GNUC__) && __GNUC__ >= 4
+#if (defined(__GNUC__) && __GNUC__ >= 4) || defined(__clang__)
     return v ? 31 - __builtin_clz(v) : 0;
 #else
     for (int x = 31; x >= 0; x--) {
@@ -372,4 +372,10 @@ uint32_t mp_round_next_power_of_2(uint32_t v)
         return v;
     int l = mp_log2(v) + 1;
     return l == 32 ? 0 : (uint32_t)1 << l;
+}
+
+int mp_lcm(int x, int y)
+{
+    mp_assert(x && y);
+    return x * (y / av_gcd(x, y));
 }

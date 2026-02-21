@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "options/m_option.h"
@@ -67,8 +67,8 @@ int image_writer_format_from_ext(const char *ext);
  *       can be used to store snapshots of anamorphic video.
  */
 bool write_image(struct mp_image *image, const struct image_writer_opts *opts,
-                const char *filename, struct mpv_global *global,
-                 struct mp_log *log);
+                const char *filename, struct dmpv_global *global,
+                 struct mp_log *log, bool overwrite);
 
 // Debugging helper.
 void dump_png(struct mp_image *image, const char *filename, struct mp_log *log);

@@ -1,27 +1,27 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
 #include <string.h>
-#include <assert.h>
 #include <unistd.h>
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
+#include <libavutil/pixdesc.h>
 #include <va/va_drmcommon.h>
 
 #include "config.h"
@@ -33,7 +33,7 @@
 #include "video/vaapi.h"
 
 #if HAVE_VAAPI_DRM
-#include "libmpv/render_gl.h"
+#include "misc/render_gl.h"
 #endif
 
 #if HAVE_VAAPI_X11
@@ -62,7 +62,7 @@ static VADisplay *create_wayland_va_display(struct ra *ra)
 
 static VADisplay *create_drm_va_display(struct ra *ra)
 {
-    mpv_opengl_drm_params_v2 *params = ra_get_native_resource(ra, "drm_params_v2");
+    dmpv_opengl_drm_params_v2 *params = ra_get_native_resource(ra, "drm_params_v2");
     if (!params || params->render_fd == -1)
         return NULL;
 
@@ -113,27 +113,58 @@ struct priv_owner {
 static void uninit(struct ra_hwdec *hw)
 {
     struct priv_owner *p = hw->priv;
-    if (p->ctx)
+    if (p->ctx) {
         hwdec_devices_remove(hw->devs, &p->ctx->hwctx);
+        if (p->ctx->hwctx.conversion_config) {
+            AVVAAPIHWConfig *hwconfig = p->ctx->hwctx.conversion_config;
+            vaDestroyConfig(p->ctx->display, hwconfig->config_id);
+            av_freep(&p->ctx->hwctx.conversion_config);
+        }
+    }
     va_destroy(p->ctx);
 }
 
-const static dmabuf_interop_init interop_inits[] = {
-#if HAVE_DMABUF_INTEROP_GL
+static const dmabuf_interop_init interop_inits[] = {
+#if HAVE_EGL && HAVE_GL
     dmabuf_interop_gl_init,
 #endif
-#if HAVE_DMABUF_INTEROP_PL
+#if HAVE_EGL && HAVE_LIBPLACEBO
     dmabuf_interop_pl_init,
 #endif
-#if HAVE_DMABUF_WAYLAND
+#if HAVE_WAYLAND
     dmabuf_interop_wl_init,
 #endif
     NULL
 };
 
+static struct mp_conversion_filter *get_conversion_filter_desc(int target_imgfmt)
+{
+    const AVPixFmtDescriptor *pixfmt_desc = av_pix_fmt_desc_get(imgfmt2pixfmt(target_imgfmt));
+    if (!pixfmt_desc)
+        return NULL;
+
+    bool rgb = pixfmt_desc->flags & AV_PIX_FMT_FLAG_RGB;
+
+    struct mp_conversion_filter *desc = talloc_ptrtype(NULL, desc);
+    desc->name = "scale_vaapi";
+    desc->args = talloc_array_ptrtype(desc, desc->args, rgb ? 5 : 3);
+
+    int i = 0;
+    desc->args[i++] = "format";
+    desc->args[i++] = (char *)pixfmt_desc->name;
+    if (rgb) {
+        desc->args[i++] = "out_range";
+        desc->args[i++] = "full";
+    }
+    desc->args[i++] = NULL;
+
+    return desc;
+}
+
 static int init(struct ra_hwdec *hw)
 {
     struct priv_owner *p = hw->priv;
+    VAStatus status;
 
     for (int i = 0; interop_inits[i]; i++) {
         if (interop_inits[i](hw, &p->dmabuf_interop)) {
@@ -142,25 +173,30 @@ static int init(struct ra_hwdec *hw)
     }
 
     if (!p->dmabuf_interop.interop_map || !p->dmabuf_interop.interop_unmap) {
-        MP_VERBOSE(hw, "VAAPI hwdec only works with OpenGL or Vulkan backends.\n");
+        MP_VERBOSE(hw, "VA-API hwdec only works with OpenGL or Vulkan backends.\n");
         return -1;
     }
 
+    MP_VERBOSE(hw, "VA-API: Creating native display\n");
     p->display = create_native_va_display(hw->ra_ctx->ra, hw->log);
     if (!p->display) {
         MP_VERBOSE(hw, "Could not create a VA display.\n");
         return -1;
     }
+    MP_VERBOSE(hw, "VA-API: Display created successfully\n");
 
+    MP_VERBOSE(hw, "VA-API: Initializing VA context\n");
     p->ctx = va_initialize(p->display, hw->log, true);
     if (!p->ctx) {
+        MP_VERBOSE(hw, "VA-API: Failed to initialize VA context\n");
         vaTerminate(p->display);
         return -1;
     }
     if (!p->ctx->av_device_ref) {
-        MP_VERBOSE(hw, "libavutil vaapi code rejected the driver?\n");
+        MP_VERBOSE(hw, "libavutil VA-API code rejected the driver?\n");
         return -1;
     }
+    MP_VERBOSE(hw, "VA-API: Context initialized successfully\n");
 
     if (hw->probing && va_guess_if_emulated(p->ctx)) {
         return -1;
@@ -171,12 +207,23 @@ static int init(struct ra_hwdec *hw)
         return -1;
     }
 
+    VAConfigID config_id;
+    AVVAAPIHWConfig *hwconfig = NULL;
+    status = vaCreateConfig(p->display, VAProfileNone, VAEntrypointVideoProc, NULL,
+                         0, &config_id);
+    if (status == VA_STATUS_SUCCESS) {
+        hwconfig = av_hwdevice_hwconfig_alloc(p->ctx->av_device_ref);
+        hwconfig->config_id = config_id;
+    }
+
     // it's now safe to set the display resource
     ra_add_native_resource(hw->ra_ctx->ra, "VADisplay", p->display);
 
     p->ctx->hwctx.hw_imgfmt = IMGFMT_VAAPI;
     p->ctx->hwctx.supported_formats = p->formats;
     p->ctx->hwctx.driver_name = hw->driver->name;
+    p->ctx->hwctx.get_conversion_filter = get_conversion_filter_desc;
+    p->ctx->hwctx.conversion_config = hwconfig;
     hwdec_devices_add(hw->devs, &p->ctx->hwctx);
     return 0;
 }
@@ -226,7 +273,7 @@ static int mapper_init(struct ra_hwdec_mapper *mapper)
 
     if (mapper->ra->num_formats &&
             !ra_get_imgfmt_desc(mapper->ra, mapper->dst_params.imgfmt, &desc))
-       return -1;
+        return -1;
 
     p->num_planes = desc.num_planes;
     mp_image_set_params(&p->layout, &mapper->dst_params);
@@ -277,7 +324,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     CHECK_VA_STATUS(mapper, "vaSyncSurface()");
     p->surface_acquired = true;
 
-    // We use AVDRMFrameDescriptor to store the dmabuf so we need to copy the
+    // We use AVDRMFrameDescriptor to store the DMA-BUF so we need to copy the
     // values over.
     int num_returned_planes = 0;
     p->desc.nb_layers = desc.num_layers;
@@ -325,7 +372,7 @@ err:
     mapper_unmap(mapper);
 
     if (!p_owner->probing_formats)
-        MP_FATAL(mapper, "mapping VAAPI EGL image failed\n");
+        MP_FATAL(mapper, "mapping VA-API EGL image failed\n");
     return -1;
 }
 
@@ -451,7 +498,8 @@ static void determine_working_formats(struct ra_hwdec *hw)
     VAProfile *profiles = NULL;
     VAEntrypoint *entrypoints = NULL;
 
-    MP_VERBOSE(hw, "Going to probe surface formats (may log bogus errors)...\n");
+    MP_VERBOSE(hw, "Reticulating splines...\n");
+    MP_VERBOSE(hw, "VA-API: Probing supported formats\n");
     p->probing_formats = true;
 
     AVVAAPIHWConfig *hwconfig = av_hwdevice_hwconfig_alloc(p->ctx->av_device_ref);
@@ -467,6 +515,8 @@ static void determine_working_formats(struct ra_hwdec *hw)
     status = vaQueryConfigProfiles(p->display, profiles, &num_profiles);
     if (!CHECK_VA_STATUS(hw, "vaQueryConfigProfiles()"))
         num_profiles = 0;
+
+    MP_VERBOSE(hw, "VA-API: Found %d profiles\n", num_profiles);
 
     /*
      * We need to find one declared format to bootstrap probing. So find a valid
@@ -488,11 +538,13 @@ static void determine_working_formats(struct ra_hwdec *hw)
                    vaErrorStr(status), (int)profile);
             continue;
         }
+        MP_VERBOSE(hw, "VA-API: Profile %d has %d entrypoints\n", (int)profile, num_ep);
         for (int ep = 0; ep < num_ep; ep++) {
             if (entrypoints[ep] != VAEntrypointVLD) {
                 // We are only interested in decoding entrypoints.
                 continue;
             }
+            MP_VERBOSE(hw, "VA-API: Testing profile %d with VLD entrypoint\n", (int)profile);
             VAConfigID config = VA_INVALID_ID;
             status = vaCreateConfig(p->display, profile, entrypoints[ep],
                                     NULL, 0, &config);
@@ -507,6 +559,7 @@ static void determine_working_formats(struct ra_hwdec *hw)
 
             vaDestroyConfig(p->display, config);
             if (p->formats && p->formats[0]) {
+                MP_VERBOSE(hw, "VA-API: Found working formats, stopping probe\n");
                 goto done;
             }
         }
@@ -529,6 +582,7 @@ const struct ra_hwdec_driver ra_hwdec_vaapi = {
     .name = "vaapi",
     .priv_size = sizeof(struct priv_owner),
     .imgfmts = {IMGFMT_VAAPI, 0},
+    .device_type = AV_HWDEVICE_TYPE_VAAPI,
     .init = init,
     .uninit = uninit,
     .mapper = &(const struct ra_hwdec_mapper_driver){

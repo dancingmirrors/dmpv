@@ -1,27 +1,27 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
+#include "osdep/threads.h"
 #include <string.h>
-#include <pthread.h>
 #include <locale.h>
 
 #include "config.h"
@@ -30,27 +30,29 @@
 #include <libplacebo/config.h>
 #endif
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/dispatch.h"
+#include "misc/random.h"
 #include "misc/thread_pool.h"
 #include "osdep/io.h"
 #include "osdep/terminal.h"
 #include "osdep/timer.h"
-#include "osdep/main-fn.h"
 
 #include "common/av_log.h"
 #include "common/codecs.h"
 #include "common/encode.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/m_property.h"
 #include "common/common.h"
+#include "common/encode_lavc.h"
 #include "common/msg.h"
 #include "common/msg_control.h"
 #include "common/stats.h"
 #include "common/global.h"
 #include "filters/f_decoder_wrapper.h"
+#include "demux/packet_pool.h"
 #include "options/parse_configfile.h"
 #include "options/parse_commandline.h"
 #include "common/playlist.h"
@@ -72,49 +74,28 @@ static const char def_config[] =
 #include "generated/etc/builtin.conf.inc"
 ;
 
-#if HAVE_COCOA
-#include "osdep/macosx_events.h"
-#endif
-
 #ifndef FULLCONFIG
 #define FULLCONFIG "(missing)\n"
 #endif
 
-#if !HAVE_STDATOMIC
-pthread_mutex_t mp_atomic_mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
-
 enum exit_reason {
-  EXIT_NONE,
-  EXIT_NORMAL,
-  EXIT_ERROR,
+    EXIT_NONE,
+    EXIT_NORMAL,
+    EXIT_ERROR,
 };
 
-const char mp_help_text[] =
-"Usage:   mpv [options] [url|path/]filename\n"
-"\n"
-"Basic options:\n"
-" --start=<time>    seek to given (percent, seconds, or hh:mm:ss) position\n"
-" --no-audio        do not play sound\n"
-" --no-video        do not play video\n"
-" --fs              fullscreen playback\n"
-" --sub-file=<file> specify subtitle file to use\n"
-" --playlist=<file> specify playlist file\n"
-"\n"
-" --list-options    list all mpv options\n"
-" --h=<string>      print options which contain the given string in their name\n"
-"\n";
+const char mp_help_text[] = "dmpv [options] file [--list-options]\n";
 
 static pthread_mutex_t terminal_owner_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct MPContext *terminal_owner;
 
 static bool cas_terminal_owner(struct MPContext *old, struct MPContext *new)
 {
-    pthread_mutex_lock(&terminal_owner_lock);
+    mp_mutex_lock(&terminal_owner_lock);
     bool r = terminal_owner == old;
     if (r)
         terminal_owner = new;
-    pthread_mutex_unlock(&terminal_owner_lock);
+    mp_mutex_unlock(&terminal_owner_lock);
     return r;
 }
 
@@ -145,22 +126,24 @@ void mp_update_logging(struct MPContext *mpctx, bool preinit)
 
     if (enabled && !preinit && mpctx->opts->consolecontrols)
         terminal_setup_getch(mpctx->input);
+
+    if (enabled)
+        encoder_update_log(mpctx->global);
 }
 
 void mp_print_version(struct mp_log *log, int always)
 {
     int v = always ? MSGL_INFO : MSGL_V;
-    mp_msg(log, v, "%s %s\n built on %s\n",
-           mpv_version, mpv_copyright, mpv_builddate);
+    mp_msg(log, v, "%s %s\n",
+           dmpv_version, dmpv_copyright);
 #if HAVE_LIBPLACEBO
     mp_msg(log, v, "libplacebo version: %s\n", PL_VERSION);
 #endif
     check_library_versions(log, v);
-    mp_msg(log, v, "\n");
     // Only in verbose mode.
     if (!always) {
         mp_msg(log, MSGL_V, "Configuration: " CONFIGURATION "\n");
-        mp_msg(log, MSGL_V, "List of enabled features: %s\n", FULLCONFIG);
+        mp_msg(log, MSGL_V, "List of enabled features: " FULLCONFIG "\n");
         #ifdef NDEBUG
             mp_msg(log, MSGL_V, "Built with NDEBUG.\n");
         #endif
@@ -187,10 +170,6 @@ void mp_destroy(struct MPContext *mpctx)
 
     osd_free(mpctx->osd);
 
-#if HAVE_COCOA
-    cocoa_set_input_context(NULL);
-#endif
-
     if (cas_terminal_owner(mpctx, mpctx)) {
         terminal_uninit();
         cas_terminal_owner(mpctx, NULL);
@@ -201,9 +180,9 @@ void mp_destroy(struct MPContext *mpctx)
     uninit_libav(mpctx->global);
 
     mp_msg_uninit(mpctx->global);
-    assert(!mpctx->num_abort_list);
+    mp_assert(!mpctx->num_abort_list);
     talloc_free(mpctx->abort_list);
-    pthread_mutex_destroy(&mpctx->abort_lock);
+    mp_mutex_destroy(&mpctx->abort_lock);
     talloc_free(mpctx->mconfig); // destroy before dispatch
     talloc_free(mpctx);
 }
@@ -254,10 +233,8 @@ struct MPContext *mp_create(void)
         return NULL;
     }
 
-    char *enable_talloc = getenv("MPV_LEAK_REPORT");
-    if (!enable_talloc)
-        enable_talloc = HAVE_TA_LEAK_REPORT ? "1" : "0";
-    if (strcmp(enable_talloc, "1") == 0)
+    char *enable_talloc = getenv("DMPV_LEAK_REPORT");
+    if (enable_talloc && strcmp(enable_talloc, "1") == 0)
         talloc_enable_leak_report();
 
     mp_time_init();
@@ -277,8 +254,9 @@ struct MPContext *mp_create(void)
 
     pthread_mutex_init(&mpctx->abort_lock, NULL);
 
-    mpctx->global = talloc_zero(mpctx, struct mpv_global);
+    mpctx->global = talloc_zero(mpctx, struct dmpv_global);
 
+    demux_packet_pool_init(mpctx->global);
     stats_global_init(mpctx->global);
 
     // Nothing must call mp_msg*() and related before this
@@ -306,11 +284,7 @@ struct MPContext *mp_create(void)
     mp_clients_init(mpctx);
     mpctx->osd = osd_create(mpctx->global);
 
-#if HAVE_COCOA
-    cocoa_set_input_context(mpctx->input);
-#endif
-
-    char *verbose_env = getenv("MPV_VERBOSE");
+    char *verbose_env = getenv("DMPV_VERBOSE");
     if (verbose_env)
         mpctx->opts->verbose = atoi(verbose_env);
 
@@ -328,7 +302,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
 {
     struct MPOpts *opts = mpctx->opts;
 
-    assert(!mpctx->initialized);
+    mp_assert(!mpctx->initialized);
 
     // Preparse the command line, so we can init the terminal early.
     if (options) {
@@ -378,6 +352,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     m_config_set_update_dispatch_queue(mpctx->mconfig, mpctx->dispatch);
     // Run all update handlers.
     mp_option_change_callback(mpctx, NULL, UPDATE_OPTS_MASK, false);
+    handle_option_callbacks(mpctx);
 
     if (handle_help_options(mpctx))
         return 1; // help
@@ -395,10 +370,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
 
     MP_STATS(mpctx, "start init");
 
-#if HAVE_COCOA
-    mpv_handle *ctx = mp_new_client(mpctx->clients, "osx");
-    cocoa_set_mpv_handle(ctx);
-#endif
+    mpctx->ipc_ctx = mp_init_ipc(mpctx->clients, mpctx->global);
 
     if (opts->encode_opts->file && opts->encode_opts->file[0]) {
         mpctx->encode_lavc_ctx = encode_lavc_init(mpctx->global);
@@ -406,8 +378,6 @@ int mp_initialize(struct MPContext *mpctx, char **options)
             MP_INFO(mpctx, "Encoding initialization failed.\n");
             return -1;
         }
-        m_config_set_profile(mpctx->mconfig, "encoding", 0);
-        mp_input_enable_section(mpctx->input, "encode", MP_INPUT_EXCLUSIVE);
     }
 
     mp_load_scripts(mpctx);
@@ -424,7 +394,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     return 0;
 }
 
-int mpv_main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     struct MPContext *mpctx = mp_create();
     if (!mpctx)

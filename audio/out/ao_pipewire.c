@@ -4,21 +4,29 @@
  * Copyright (C) 2021 Oschowa <oschowa@web.de>
  * Copyright (C) 2020 Andreas Kempf <aakempf@gmail.com>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+// For FreeBSD where spa/param/audio/raw.h expects those to be defined
+#include "osdep/endian.h"
+#ifndef __BYTE_ORDER
+#define __BYTE_ORDER    BYTE_ORDER
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN    BIG_ENDIAN
+#endif
 
 #include <pipewire/pipewire.h>
 #include <pipewire/global.h>
@@ -28,7 +36,7 @@
 #include <math.h>
 
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "ao.h"
 #include "audio/format.h"
@@ -86,7 +94,7 @@ struct id_list {
     struct spa_list node;
 };
 
-static enum spa_audio_format af_fmt_to_pw(struct ao *ao, enum af_format format)
+static enum spa_audio_format af_fmt_to_pw(enum af_format format)
 {
     switch (format) {
     case AF_FORMAT_U8:          return SPA_AUDIO_FORMAT_U8;
@@ -99,9 +107,21 @@ static enum spa_audio_format af_fmt_to_pw(struct ao *ao, enum af_format format)
     case AF_FORMAT_S32P:        return SPA_AUDIO_FORMAT_S32P;
     case AF_FORMAT_FLOATP:      return SPA_AUDIO_FORMAT_F32P;
     case AF_FORMAT_DOUBLEP:     return SPA_AUDIO_FORMAT_F64P;
-    default:
-                                MP_WARN(ao, "Unhandled format %d\n", format);
-                                return SPA_AUDIO_FORMAT_UNKNOWN;
+    default:                    return SPA_AUDIO_FORMAT_UNKNOWN;
+    }
+}
+
+static enum spa_audio_iec958_codec af_fmt_to_codec(enum af_format format)
+{
+    switch (format) {
+    case AF_FORMAT_S_AAC:    return SPA_AUDIO_IEC958_CODEC_MPEG2_AAC;
+    case AF_FORMAT_S_AC3:    return SPA_AUDIO_IEC958_CODEC_AC3;
+    case AF_FORMAT_S_DTS:    return SPA_AUDIO_IEC958_CODEC_DTS;
+    case AF_FORMAT_S_DTSHD:  return SPA_AUDIO_IEC958_CODEC_DTSHD;
+    case AF_FORMAT_S_EAC3:   return SPA_AUDIO_IEC958_CODEC_EAC3;
+    case AF_FORMAT_S_MP3:    return SPA_AUDIO_IEC958_CODEC_MPEG;
+    case AF_FORMAT_S_TRUEHD: return SPA_AUDIO_IEC958_CODEC_TRUEHD;
+    default:                 return SPA_AUDIO_IEC958_CODEC_UNKNOWN;
     }
 }
 
@@ -128,10 +148,10 @@ static enum spa_audio_channel mp_speaker_id_to_spa(struct ao *ao, enum mp_speake
     case MP_SPEAKER_ID_TBR:  return SPA_AUDIO_CHANNEL_TRR;
     case MP_SPEAKER_ID_DL:   return SPA_AUDIO_CHANNEL_FL;
     case MP_SPEAKER_ID_DR:   return SPA_AUDIO_CHANNEL_FR;
-    case MP_SPEAKER_ID_WL:   return SPA_AUDIO_CHANNEL_FL;
-    case MP_SPEAKER_ID_WR:   return SPA_AUDIO_CHANNEL_FR;
+    case MP_SPEAKER_ID_WL:   return SPA_AUDIO_CHANNEL_FLW;
+    case MP_SPEAKER_ID_WR:   return SPA_AUDIO_CHANNEL_FRW;
     case MP_SPEAKER_ID_SDL:  return SPA_AUDIO_CHANNEL_SL;
-    case MP_SPEAKER_ID_SDR:  return SPA_AUDIO_CHANNEL_SL;
+    case MP_SPEAKER_ID_SDR:  return SPA_AUDIO_CHANNEL_SR;
     case MP_SPEAKER_ID_LFE2: return SPA_AUDIO_CHANNEL_LFE2;
     case MP_SPEAKER_ID_NA:   return SPA_AUDIO_CHANNEL_NA;
     default:
@@ -155,8 +175,7 @@ static void on_process(void *userdata)
 
     struct spa_buffer *buf = b->buffer;
 
-    int bytes_per_channel = buf->datas[0].maxsize / ao->channels.num;
-    int nframes = bytes_per_channel / ao->sstride;
+    int nframes = buf->datas[0].maxsize / ao->sstride;
 #if PW_CHECK_VERSION(0, 3, 49)
     if (b->requested != 0)
         nframes = MPMIN(b->requested, nframes);
@@ -171,10 +190,10 @@ static void on_process(void *userdata)
     if (time.rate.num == 0)
         time.rate.num = 1;
 
-    int64_t end_time = mp_time_us();
+    int64_t end_time = mp_time_ns();
     /* time.queued is always going to be 0, so we don't need to care */
-    end_time += (nframes * 1e6 / ao->samplerate) +
-                ((float) time.delay * SPA_USEC_PER_SEC * time.rate.num / time.rate.denom);
+    end_time += (nframes * 1e9 / ao->samplerate) +
+                ((float) time.delay * SPA_USEC_PER_SEC * 1000 * time.rate.num / time.rate.denom);
 
     int samples = ao_read_data(ao, data, nframes, end_time);
     b->size = samples;
@@ -209,7 +228,7 @@ static void on_param_changed(void *userdata, uint32_t id, const struct spa_pod *
     if (param == NULL || id != SPA_PARAM_Format)
         return;
 
-    int buffer_size = ao->device_buffer * af_fmt_to_bytes(ao->format) * ao->channels.num;
+    int buffer_size = ao->device_buffer * ao->sstride;
 
     params[0] = spa_pod_builder_add_object(&b,
                     SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
@@ -467,7 +486,7 @@ static int pipewire_init_boilerplate(struct ao *ao)
     MP_VERBOSE(ao, "Headers version: %s\n", pw_get_headers_version());
     MP_VERBOSE(ao, "Library version: %s\n", pw_get_library_version());
 
-    p->loop = pw_thread_loop_new("mpv/ao/pipewire", NULL);
+    p->loop = pw_thread_loop_new("dmpv/ao/pipewire", NULL);
     if (p->loop == NULL)
         return -1;
 
@@ -476,10 +495,11 @@ static int pipewire_init_boilerplate(struct ao *ao)
     if (pw_thread_loop_start(p->loop) < 0)
         goto error;
 
-    context = pw_context_new(
-            pw_thread_loop_get_loop(p->loop),
-            pw_properties_new(PW_KEY_CONFIG_NAME, "client-rt.conf", NULL),
-            0);
+    struct pw_properties *props = NULL;
+#if !PW_CHECK_VERSION(1, 3, 81)
+    props = pw_properties_new(PW_KEY_CONFIG_NAME, "client-rt.conf", NULL);
+#endif
+    context = pw_context_new(pw_thread_loop_get_loop(p->loop), props, 0);
     if (!context)
         goto error;
 
@@ -547,7 +567,6 @@ static int init(struct ao *ao)
         PW_KEY_APP_NAME, ao->client_name,
         PW_KEY_APP_ID, ao->client_name,
         PW_KEY_APP_ICON_NAME, ao->client_name,
-        PW_KEY_NODE_ALWAYS_PROCESS, "true",
         PW_KEY_TARGET_OBJECT, ao->device,
         NULL
     );
@@ -563,24 +582,41 @@ static int init(struct ao *ao)
 
     pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", ao->samplerate);
 
-    enum spa_audio_format spa_format = af_fmt_to_pw(ao, ao->format);
-    if (spa_format == SPA_AUDIO_FORMAT_UNKNOWN) {
-        ao->format = AF_FORMAT_FLOATP;
-        spa_format = SPA_AUDIO_FORMAT_F32P;
+    if (af_fmt_is_spdif(ao->format)) {
+        enum spa_audio_iec958_codec spa_codec = af_fmt_to_codec(ao->format);
+        if (spa_codec == SPA_AUDIO_IEC958_CODEC_UNKNOWN) {
+            MP_ERR(ao, "Unhandled codec %d\n", ao->format);
+            goto error_props;
+        }
+
+        struct spa_audio_info_iec958 audio_info = {
+            .codec = spa_codec,
+            .rate = ao->samplerate,
+        };
+
+        params[0] = spa_format_audio_iec958_build(&b, SPA_PARAM_EnumFormat, &audio_info);
+        if (!params[0])
+            goto error_props;
+    } else {
+        enum spa_audio_format spa_format = af_fmt_to_pw(ao->format);
+        if (spa_format == SPA_AUDIO_FORMAT_UNKNOWN) {
+            MP_ERR(ao, "Unhandled format %d\n", ao->format);
+            goto error_props;
+        }
+
+        struct spa_audio_info_raw audio_info = {
+            .format = spa_format,
+            .rate = ao->samplerate,
+            .channels = ao->channels.num,
+        };
+
+        for (int i = 0; i < ao->channels.num; i++)
+            audio_info.position[i] = mp_speaker_id_to_spa(ao, ao->channels.speaker[i]);
+
+        params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &audio_info);
+        if (!params[0])
+            goto error_props;
     }
-
-    struct spa_audio_info_raw audio_info = {
-        .format = spa_format,
-        .rate = ao->samplerate,
-        .channels = ao->channels.num,
-    };
-
-    for (int i = 0; i < ao->channels.num; i++)
-        audio_info.position[i] = mp_speaker_id_to_spa(ao, ao->channels.speaker[i]);
-
-    params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &audio_info);
-    if (!params[0])
-        goto error_props;
 
     if (af_fmt_is_planar(ao->format)) {
         ao->num_planes = ao->channels.num;
@@ -647,6 +683,15 @@ static void start(struct ao *ao)
     pw_thread_loop_unlock(p->loop);
 }
 
+static bool set_pause(struct ao *ao, bool paused)
+{
+    struct priv *p = ao->priv;
+    pw_thread_loop_lock(p->loop);
+    pw_stream_set_active(p->stream, !paused);
+    pw_thread_loop_unlock(p->loop);
+    return true;
+}
+
 #define CONTROL_RET(r) (!r ? CONTROL_OK : CONTROL_ERROR)
 
 static int control(struct ao *ao, enum aocontrol cmd, void *arg)
@@ -666,8 +711,7 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
         }
         case AOCONTROL_SET_VOLUME:
         case AOCONTROL_SET_MUTE:
-        case AOCONTROL_UPDATE_STREAM_TITLE:
-        case AOCONTROL_UPDATE_MEDIA_ROLE: {
+        case AOCONTROL_UPDATE_STREAM_TITLE: {
             int ret;
 
             pw_thread_loop_lock(p->loop);
@@ -698,26 +742,6 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
                     char *title = arg;
                     struct spa_dict_item items[1];
                     items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_NAME, title);
-                    ret = CONTROL_RET(pw_stream_update_properties(p->stream, &SPA_DICT_INIT(items, MP_ARRAY_SIZE(items))));
-                    break;
-                }
-                case AOCONTROL_UPDATE_MEDIA_ROLE: {
-                    enum aocontrol_media_role *role = arg;
-                    struct spa_dict_item items[1];
-                    const char *role_str;
-                    switch (*role) {
-                        case AOCONTROL_MEDIA_ROLE_MOVIE:
-                            role_str = "Movie";
-                            break;
-                        case AOCONTROL_MEDIA_ROLE_MUSIC:
-                            role_str = "Music";
-                            break;
-                        default:
-                            MP_WARN(ao, "Unknown media role %d\n", *role);
-                            role_str = "";
-                            break;
-                    }
-                    items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_ROLE, role_str);
                     ret = CONTROL_RET(pw_stream_update_properties(p->stream, &SPA_DICT_INIT(items, MP_ARRAY_SIZE(items))));
                     break;
                 }
@@ -859,7 +883,7 @@ const struct ao_driver audio_out_pipewire = {
     .uninit      = uninit,
     .reset       = reset,
     .start       = start,
-
+    .set_pause   = set_pause,
     .control     = control,
 
     .hotplug_init   = hotplug_init,

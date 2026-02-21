@@ -4,28 +4,28 @@
  * Copyright (C) 2011-2012 Rudolf Polzer <divVerent@xonotic.org>
  * NOTE: this file is partially based on ao_pcm.c by Atmosfear
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <limits.h>
 
 #include <libavutil/common.h>
+#include <libavutil/samplefmt.h>
 
 #include "config.h"
 #include "options/options.h"
@@ -36,7 +36,9 @@
 #include "audio/fmt-conversion.h"
 #include "filters/filter_internal.h"
 #include "filters/f_utils.h"
-#include "mpv_talloc.h"
+#include "misc/lavc_compat.h"
+#include "misc/dmpv_talloc.h"
+#include "osdep/threads.h"
 #include "ao.h"
 #include "internal.h"
 #include "common/msg.h"
@@ -64,9 +66,13 @@ static bool write_frame(struct ao *ao, struct mp_frame frame);
 
 static bool supports_format(const AVCodec *codec, int format)
 {
-    for (const enum AVSampleFormat *sampleformat = codec->sample_fmts;
-         sampleformat && *sampleformat != AV_SAMPLE_FMT_NONE;
-         sampleformat++)
+    const enum AVSampleFormat *sampleformat;
+    int ret = mp_avcodec_get_supported_config(NULL, codec,
+                                              AV_CODEC_CONFIG_SAMPLE_FORMAT,
+                                              (const void **)&sampleformat);
+    if (ret >= 0 && !sampleformat)
+        return true;
+    for (; ret >= 0 && *sampleformat != AV_SAMPLE_FMT_NONE; sampleformat++)
     {
         if (af_from_avformat(*sampleformat) == format)
             return true;
@@ -87,16 +93,6 @@ static void select_format(struct ao *ao, const AVCodec *codec)
     }
 }
 
-static void on_ready(void *ptr)
-{
-    struct ao *ao = ptr;
-    struct priv *ac = ao->priv;
-
-    ac->worst_time_base = encoder_get_mux_timebase_unlocked(ac->enc);
-
-    ao_add_events(ao, AO_EVENT_INITIAL_UNBLOCK);
-}
-
 // open & setup audio device
 static int init(struct ao *ao)
 {
@@ -110,8 +106,14 @@ static int init(struct ao *ao)
     AVCodecContext *encoder = ac->enc->encoder;
     const AVCodec *codec = encoder->codec;
 
-    int samplerate = af_select_best_samplerate(ao->samplerate,
-                                               codec->supported_samplerates);
+    const int *samplerates;
+    int ret = mp_avcodec_get_supported_config(NULL, codec,
+                                              AV_CODEC_CONFIG_SAMPLE_RATE,
+                                              (const void **)&samplerates);
+
+    int samplerate = 0;
+    if (ret >= 0)
+        samplerate = af_select_best_samplerate(ao->samplerate, samplerates);
     if (samplerate > 0)
         ao->samplerate = samplerate;
 
@@ -125,13 +127,7 @@ static int init(struct ao *ao)
     if (!ao_chmap_sel_adjust2(ao, &sel, &ao->channels, false))
         goto fail;
     mp_chmap_reorder_to_lavc(&ao->channels);
-
-#if !HAVE_AV_CHANNEL_LAYOUT
-    encoder->channels = ao->channels.num;
-    encoder->channel_layout = mp_chmap_to_lavc(&ao->channels);
-#else
     mp_chmap_to_av_layout(&encoder->ch_layout, &ao->channels);
-#endif
 
     encoder->sample_fmt = AV_SAMPLE_FMT_NONE;
 
@@ -141,9 +137,10 @@ static int init(struct ao *ao)
     encoder->sample_fmt = af_to_avformat(ao->format);
     encoder->bits_per_raw_sample = ac->sample_size * 8;
 
-    if (!encoder_init_codec_and_muxer(ac->enc, on_ready, ao))
+    if (!encoder_init_codec_and_muxer(ac->enc))
         goto fail;
 
+    ac->worst_time_base = encoder_get_mux_timebase_unlocked(ac->enc);
     ac->pcmhack = 0;
     if (encoder->frame_size <= 1)
         ac->pcmhack = av_get_bits_per_sample(encoder->codec_id) / 8;
@@ -173,7 +170,7 @@ static int init(struct ao *ao)
     return 0;
 
 fail:
-    pthread_mutex_unlock(&ao->encode_lavc_ctx->lock);
+    mp_mutex_unlock(&ao->encode_lavc_ctx->lock);
     ac->shutdown = true;
     return -1;
 }
@@ -207,7 +204,6 @@ static void encode(struct ao *ao, struct mp_aframe *af)
     int64_t frame_pts = av_rescale_q(frame->pts, encoder->time_base,
                                      ac->worst_time_base);
     if (ac->lastpts != AV_NOPTS_VALUE && frame_pts <= ac->lastpts) {
-        // whatever the fuck this code does?
         MP_WARN(ao, "audio frame pts went backwards (%d <- %d), autofixed\n",
                 (int)frame->pts, (int)ac->lastpts);
         frame_pts = ac->lastpts + 1;
@@ -261,7 +257,7 @@ static bool audio_write(struct ao *ao, void **data, int samples)
     double outpts = pts;
 
     // for ectx PTS fields
-    pthread_mutex_lock(&ectx->lock);
+    mp_mutex_lock(&ectx->lock);
 
     if (!ectx->options->rawts) {
         // Fix and apply the discontinuity pts offset.
@@ -293,7 +289,7 @@ static bool audio_write(struct ao *ao, void **data, int samples)
             ectx->next_in_pts = nextpts;
     }
 
-    pthread_mutex_unlock(&ectx->lock);
+    mp_mutex_unlock(&ectx->lock);
 
     mp_aframe_set_pts(af, outpts);
 
@@ -325,7 +321,6 @@ const struct ao_driver audio_out_lavc = {
     .encode = true,
     .description = "audio encoding using libavcodec",
     .name      = "lavc",
-    .initially_blocked = true,
     .write_frames = true,
     .priv_size = sizeof(struct priv),
     .init      = init,

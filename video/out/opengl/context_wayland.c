@@ -1,19 +1,19 @@
 /*
- * This file is part of mpv video player.
+ * This file is part of dmpv.
  * Copyright © 2013 Alexander Preisinger <alexander.preisinger@gmail.com>
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <wayland-egl.h>
@@ -42,10 +42,12 @@ static void resize(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
     struct vo_wayland_state *wl = ctx->vo->wl;
 
-    MP_VERBOSE(wl, "Handling resize on the egl side\n");
+    MP_VERBOSE(wl, "Handling resize on the EGL side\n");
 
     const int32_t width = mp_rect_w(wl->geometry);
     const int32_t height = mp_rect_h(wl->geometry);
+
+    vo_wayland_handle_scale(wl);
 
     vo_wayland_set_opaque_region(wl, ctx->opts.want_alpha);
     if (p->egl_window)
@@ -53,8 +55,6 @@ static void resize(struct ra_ctx *ctx)
 
     wl->vo->dwidth  = width;
     wl->vo->dheight = height;
-
-    vo_wayland_handle_fractional_scale(wl);
 }
 
 static bool wayland_egl_check_visible(struct ra_ctx *ctx)
@@ -69,7 +69,7 @@ static void wayland_egl_swap_buffers(struct ra_ctx *ctx)
 
     eglSwapBuffers(p->egl_display, p->egl_surface);
 
-    if (!wl->opts->disable_vsync)
+    if (!wl->opts->wl_internal_vsync)
         vo_wayland_wait_frame(wl);
 
     if (wl->use_present)
@@ -104,7 +104,7 @@ static bool egl_create_context(struct ra_ctx *ctx)
 
     mpegl_load_functions(&p->gl, wl->log);
 
-    struct ra_gl_ctx_params params = {
+    struct ra_ctx_params params = {
         .check_visible      = wayland_egl_check_visible,
         .swap_buffers       = wayland_egl_swap_buffers,
         .get_vsync          = wayland_egl_get_vsync,
@@ -136,7 +136,7 @@ static void egl_create_window(struct ra_ctx *ctx)
 
     eglMakeCurrent(p->egl_display, p->egl_surface, p->egl_surface, p->egl_context);
     // eglMakeCurrent may not configure the draw or read buffers if the context
-    // has been made current previously. On nvidia GL_NONE is bound because EGL_NO_SURFACE
+    // has been made current previously. On NVIDIA GL_NONE is bound because EGL_NO_SURFACE
     // is used initially and we must bind the read and draw buffers here.
     if(!p->gl.es) {
         p->gl.ReadBuffer(GL_BACK);
@@ -198,9 +198,9 @@ static void wayland_egl_wakeup(struct ra_ctx *ctx)
     vo_wayland_wakeup(ctx->vo);
 }
 
-static void wayland_egl_wait_events(struct ra_ctx *ctx, int64_t until_time_us)
+static void wayland_egl_wait_events(struct ra_ctx *ctx, int64_t until_time_ns)
 {
-    vo_wayland_wait_events(ctx->vo, until_time_us);
+    vo_wayland_wait_events(ctx->vo, until_time_ns);
 }
 
 static void wayland_egl_update_render_opts(struct ra_ctx *ctx)
@@ -212,9 +212,10 @@ static void wayland_egl_update_render_opts(struct ra_ctx *ctx)
 
 static bool wayland_egl_init(struct ra_ctx *ctx)
 {
-    if (!vo_wayland_init(ctx->vo))
-        return false;
-    return egl_create_context(ctx);
+    if (vo_wayland_init(ctx->vo) && egl_create_context(ctx))
+        return true;
+    vo_wayland_uninit(ctx->vo);
+    return false;
 }
 
 const struct ra_ctx_fns ra_ctx_wayland_egl = {

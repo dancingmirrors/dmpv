@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "video/img_format.h"
 
 #include "ra.h"
@@ -28,13 +29,13 @@ struct ra_tex *ra_tex_create(struct ra *ra, const struct ra_tex_params *params)
 {
     switch (params->dimensions) {
     case 1:
-        assert(params->h == 1 && params->d == 1);
+        mp_assert(params->h == 1 && params->d == 1);
         break;
     case 2:
-        assert(params->d == 1);
+        mp_assert(params->d == 1);
         break;
     default:
-        assert(params->dimensions >= 1 && params->dimensions <= 3);
+        mp_assert(params->dimensions >= 1 && params->dimensions <= 3);
     }
     return ra->fns->tex_create(ra, params);
 }

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "video/out/wldmabuf/ra_wldmabuf.h"
 #include "dmabuf_interop.h"
@@ -46,7 +46,7 @@ static bool map(struct ra_hwdec_mapper *mapper,
         return false;
     } else if (!ra_compatible_format(mapper->ra, drm_format,
         mapper_p->desc.objects[0].format_modifier)) {
-        MP_VERBOSE(mapper, "Mapped surface with format %s; drm format '%s(%016lx)' "
+        MP_VERBOSE(mapper, "Mapped surface with format %s; drm format '%s(%016" PRIx64 ")' "
                    "is not supported by compositor.\n",
                    mp_imgfmt_to_name(mapper->src->params.hw_subfmt),
                    mp_tag_str(drm_format),
@@ -54,7 +54,8 @@ static bool map(struct ra_hwdec_mapper *mapper,
         return false;
     }
 
-    MP_VERBOSE(mapper, "Supported Wayland display format: '%s(%016lx)'\n",
+    MP_VERBOSE(mapper, "Supported Wayland display format %s: '%s(%016" PRIx64 ")'\n",
+               mp_imgfmt_to_name(mapper->src->params.hw_subfmt),
                mp_tag_str(drm_format), mapper_p->desc.objects[0].format_modifier);
 
     return true;

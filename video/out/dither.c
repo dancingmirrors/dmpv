@@ -3,20 +3,20 @@
  *
  * Copyright © 2013  Wessel Dankers <wsl@fruit.je>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -25,12 +25,12 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <math.h>
 
 #include <libavutil/lfg.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "dither.h"
 
 #define MAX_SIZEB 8
@@ -54,7 +54,7 @@ struct ctx {
 
 static void makegauss(struct ctx *k, unsigned int sizeb)
 {
-    assert(sizeb >= 1 && sizeb <= MAX_SIZEB);
+    mp_assert(sizeb >= 1 && sizeb <= MAX_SIZEB);
 
     av_lfg_init(&k->avlfg, 123);
 
@@ -94,7 +94,7 @@ static void makegauss(struct ctx *k, unsigned int sizeb)
     for (unsigned int c = 0; c < k->size2; c++) {
         uint64_t oldtotal = total;
         total += k->gauss[c];
-        assert(total >= oldtotal);
+        mp_assert(total >= oldtotal);
     }
 }
 
@@ -187,7 +187,7 @@ static void fsck(struct ctx *k)
 {
     qsort(k->unimat, k->size2, sizeof k->unimat[0], index_cmp);
     for (unsigned int c = 0; c < k->size2; c++)
-        assert(k->unimat[c] == c);
+        mp_assert(k->unimat[c] == c);
 }
 
 uint16_t r[MAX_SIZE2];
@@ -218,13 +218,13 @@ int main(void)
 {
     mp_time_init();
     struct ctx *k = calloc(1,sizeof(struct ctx));
-    int64_t s = mp_time_us();
+    int64_t s = mp_time_ns();
     makegauss(k, 6);
     makeuniform(k);
     print(k);
     fsck(k);
-    int64_t l = mp_time_us() - s;
-    printf("time: %f ms\n", l / 1000.0);
+    int64_t l = mp_time_ns() - s;
+    printf("time: %f ms\n", l / 1000000.0);
     return 0;
 }
 

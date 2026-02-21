@@ -1,7 +1,7 @@
-/* Lists the VDPAU functions used by MPV.
+/* Lists the VDPAU functions used by DMPV.
  * First argument on each line is the VDPAU function type name,
  * second is the macro name needed to get the function address,
- * third is the name MPV uses for the function.
+ * third is the name DMPV uses for the function.
  */
 
 VDP_FUNCTION(VdpGetErrorString, VDP_FUNC_ID_GET_ERROR_STRING, get_error_string)

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -25,14 +25,18 @@
 #include <limits.h>
 #include <math.h>
 #include <time.h>
+#include <stdatomic.h>
 #include <drm_fourcc.h>
 
 #include "config.h"
 
 #if HAVE_CONSIO_H
 #include <sys/consio.h>
-#else
+#elif HAVE_VT_H
 #include <sys/vt.h>
+#elif HAVE_WSDISPLAY_USL_IO_H
+#include <sys/types.h>
+#include <dev/wscons/wsdisplay_usl_io.h>
 #endif
 
 #include "drm_atomic.h"
@@ -40,11 +44,14 @@
 
 #include "common/common.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "misc/ctype.h"
+#include "options/m_config_core.h"
 #include "osdep/io.h"
 #include "osdep/timer.h"
 #include "misc/ctype.h"
+#include "present_sync.h"
 #include "video/out/vo.h"
+#include "gpu/lcms.h"
 
 #define EVT_RELEASE 1
 #define EVT_ACQUIRE 2
@@ -63,8 +70,7 @@ static int drm_connector_opt_help(struct mp_log *log, const struct m_option *opt
 static int drm_mode_opt_help(struct mp_log *log, const struct m_option *opt,
                              struct bstr name);
 
-static int drm_validate_mode_opt(struct mp_log *log, const struct m_option *opt,
-                                 struct bstr name, const char **value);
+static OPT_STRING_VALIDATE_FUNC(drm_validate_mode_opt);
 
 static void drm_show_available_modes(struct mp_log *log, const drmModeConnector *connector);
 
@@ -80,8 +86,6 @@ const struct m_sub_options drm_conf = {
             .help = drm_connector_opt_help},
         {"drm-mode", OPT_STRING_VALIDATE(mode_spec, drm_validate_mode_opt),
             .help = drm_mode_opt_help},
-        {"drm-atomic", OPT_CHOICE(drm_atomic, {"no", 0}, {"auto", 1}),
-            .deprecation_message = "this option is deprecated: DRM Atomic is required"},
         {"drm-draw-plane", OPT_CHOICE(draw_plane,
             {"primary", DRM_OPTS_PRIMARY_PLANE},
             {"overlay", DRM_OPTS_OVERLAY_PLANE}),
@@ -94,21 +98,18 @@ const struct m_sub_options drm_conf = {
             {"xrgb8888",    DRM_OPTS_FORMAT_XRGB8888},
             {"xrgb2101010", DRM_OPTS_FORMAT_XRGB2101010},
             {"xbgr8888",    DRM_OPTS_FORMAT_XBGR8888},
-            {"xbgr2101010", DRM_OPTS_FORMAT_XBGR2101010})},
+            {"xbgr2101010", DRM_OPTS_FORMAT_XBGR2101010},
+            {"yuyv",        DRM_OPTS_FORMAT_YUYV})},
         {"drm-draw-surface-size", OPT_SIZE_BOX(draw_surface_size)},
         {"drm-vrr-enabled", OPT_CHOICE(vrr_enabled,
             {"no", 0}, {"yes", 1}, {"auto", -1})},
-
-        {"drm-osd-plane-id", OPT_REPLACED("drm-draw-plane")},
-        {"drm-video-plane-id", OPT_REPLACED("drm-drmprime-video-plane")},
-        {"drm-osd-size", OPT_REPLACED("drm-draw-surface-size")},
         {0},
     },
     .defaults = &(const struct drm_opts) {
         .mode_spec = "preferred",
-        .drm_atomic = 1,
         .draw_plane = DRM_OPTS_PRIMARY_PLANE,
         .drmprime_video_plane = DRM_OPTS_OVERLAY_PLANE,
+        .drm_format = DRM_OPTS_FORMAT_XRGB8888,
     },
     .size = sizeof(struct drm_opts),
 };
@@ -153,8 +154,11 @@ struct drm_mode_spec {
 /* VT Switcher */
 static void vt_switcher_sighandler(int sig)
 {
+    int saved_errno = errno;
     unsigned char event = sig == RELEASE_SIGNAL ? EVT_RELEASE : EVT_ACQUIRE;
-    (void)write(vt_switcher_pipe[1], &event, sizeof(event));
+    ssize_t ignored = write(vt_switcher_pipe[1], &event, sizeof(event));
+    (void)ignored;
+    errno = saved_errno;
 }
 
 static bool has_signal_installed(int signo)
@@ -268,7 +272,8 @@ static bool vt_switcher_init(struct vt_switcher *s, struct mp_log *log)
 static void vt_switcher_interrupt_poll(struct vt_switcher *s)
 {
     unsigned char event = EVT_INTERRUPT;
-    (void)write(vt_switcher_pipe[1], &event, sizeof(event));
+    ssize_t ignored = write(vt_switcher_pipe[1], &event, sizeof(event));
+    (void)ignored;
 }
 
 static void vt_switcher_destroy(struct vt_switcher *s)
@@ -387,7 +392,7 @@ bool vo_drm_acquire_crtc(struct vo_drm_state *drm)
     drm_object_set_property(request, atomic_ctx->draw_plane, "CRTC_H",  drm->mode.mode.vdisplay);
 
     if (drmModeAtomicCommit(drm->fd, request, DRM_MODE_ATOMIC_ALLOW_MODESET, NULL)) {
-        MP_ERR(drm, "Failed to commit ModeSetting atomic request: %s\n", strerror(errno));
+        MP_ERR(drm, "Failed to commit ModeSetting atomic request: %s\n", mp_strerror(errno));
         goto err;
     }
 
@@ -432,7 +437,7 @@ void vo_drm_release_crtc(struct vo_drm_state *drm)
 
     if (request)
         drmModeAtomicFree(request);
-    
+
     if (!success)
         MP_ERR(drm, "Failed to restore previous mode\n");
 
@@ -582,7 +587,7 @@ static bool setup_crtc(struct vo_drm_state *drm, const drmModeRes *res)
            drm->connector->connector_id);
     return false;
 
-  success:
+success:
     MP_VERBOSE(drm, "Selected Encoder %u with CRTC %u\n",
                drm->encoder->encoder_id, drm->crtc_id);
     return true;
@@ -809,7 +814,7 @@ static int open_card_path(const char *path)
 
 static bool card_supports_kms(const char *path)
 {
-#if HAVE_DRM_IS_KMS
+#if HAVE_DRM
     int fd = open_card_path(path);
     bool ret = fd != -1 && drmIsKMS(fd);
     if (fd != -1)
@@ -818,6 +823,24 @@ static bool card_supports_kms(const char *path)
 #else
     return true;
 #endif
+}
+
+static bool card_has_connection(const char *path)
+{
+    int fd = open_card_path(path);
+    bool ret = false;
+    if (fd != -1) {
+        drmModeRes *res = drmModeGetResources(fd);
+        if (res) {
+            drmModeConnector *connector = get_first_connected_connector(res, fd);
+            if (connector)
+                ret = true;
+            drmModeFreeConnector(connector);
+            drmModeFreeResources(res);
+        }
+        close(fd);
+    }
+    return ret;
 }
 
 static void get_primary_device_path(struct vo_drm_state *drm)
@@ -869,6 +892,17 @@ static void get_primary_device_path(struct vo_drm_state *drm)
             continue;
         }
 
+        if (!card_has_connection(card_path)) {
+            if (card_no_given) {
+                MP_ERR(drm,
+                        "DRM card number %d given, but it does not have any "
+                        "connected outputs.\n", i);
+                break;
+            }
+
+            continue;
+        }
+
         MP_VERBOSE(drm, "Picked DRM card %d, primary node %s%s.\n",
                    i, card_path,
                    card_no_given ? "" : " as the default");
@@ -892,8 +926,6 @@ static char *parse_connector_spec(struct vo_drm_state *drm)
         return NULL;
     char *dot_ptr = strchr(drm->opts->connector_spec, '.');
     if (dot_ptr) {
-        MP_WARN(drm, "Warning: Selecting a connector by index with drm-connector "
-                     "is deprecated. Use the drm-device option instead.\n");
         drm->card_no = strtoul(drm->opts->connector_spec, NULL, 10);
         return talloc_strdup(drm, dot_ptr + 1);
     } else {
@@ -938,14 +970,14 @@ static void drm_pflip_cb(int fd, unsigned int msc, unsigned int sec,
         struct timespec ts;
         if (clock_gettime(CLOCK_MONOTONIC, &ts))
             goto fail;
-        const uint64_t now_monotonic = ts.tv_sec * 1000000LL + ts.tv_nsec / 1000;
-        const uint64_t ust_mp_time = mp_time_us() - (now_monotonic - vsync->ust);
+        int64_t now_monotonic = ts.tv_sec * UINT64_C(1000000000) + ts.tv_nsec;
+        int64_t ust_mp_time = mp_time_ns() - (now_monotonic - vsync->ust * 1000);
 
         const uint64_t     ust_since_enqueue = vsync->ust - frame_vsync->ust;
         const unsigned int msc_since_enqueue = vsync->msc - frame_vsync->msc;
         const unsigned int sbc_since_enqueue = vsync->sbc - frame_vsync->sbc;
 
-        vsync_info->vsync_duration = ust_since_enqueue / msc_since_enqueue;
+        vsync_info->vsync_duration = ust_since_enqueue * 1000 / msc_since_enqueue;
         vsync_info->skipped_vsyncs = msc_since_last_flip - 1; // Valid iff swap_buffers is called every vsync
         vsync_info->last_queue_display_time = ust_mp_time + (sbc_since_enqueue * vsync_info->vsync_duration);
     }
@@ -982,6 +1014,29 @@ int vo_drm_control(struct vo *vo, int *events, int request, void *arg)
         drm->vsync.ust = 0;
         drm->vsync.msc = 0;
         return VO_TRUE;
+    case VOCTRL_GET_ICC_PROFILE: {
+        bstr *out = (bstr *)arg;
+        if (!out)
+            return VO_NOTIMPL;
+
+        MP_VERBOSE(drm, "Generating ICC profile for DRM output\n");
+
+#if HAVE_LCMS2
+        // DRM doesn't easily expose EDID color info, fall back to sRGB/BT.709
+        // Future enhancement: Parse EDID blob from connector properties
+        *out = gl_lcms_generate_profile_from_csp(NULL, drm->log,
+                                                  MP_CSP_PRIM_BT_709,
+                                                  MP_CSP_TRC_SRGB);
+        if (out->len > 0) {
+            MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
+            return VO_TRUE;
+        }
+        MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: failed to generate ICC profile\n");
+#else
+        MP_VERBOSE(drm, "VOCTRL_GET_ICC_PROFILE: LCMS2 not available\n");
+#endif
+        return VO_FALSE;
+    }
     }
     return VO_NOTIMPL;
 }
@@ -994,7 +1049,7 @@ bool vo_drm_init(struct vo *vo)
     *drm = (struct vo_drm_state) {
         .vo = vo,
         .log = mp_log_new(drm, vo->log, "drm"),
-        .mode = {{0}},
+        .mode = {.mode = {0}, .blob_id = 0},
         .crtc_id = -1,
         .card_no = -1,
     };
@@ -1177,11 +1232,12 @@ static void drm_show_connector_name_and_state_callback(struct mp_log *log, int c
 static void drm_show_available_connectors(struct mp_log *log, int card_no,
                                           const char *card_path)
 {
+    if (card_no)
+        mp_info(log, "\n");
     mp_info(log, "Available connectors for card %d (%s):\n", card_no,
             card_path);
     drm_show_foreach_connector(log, card_no, card_path,
                                drm_show_connector_name_and_state_callback);
-    mp_info(log, "\n");
 }
 
 static void drm_show_connector_modes_callback(struct mp_log *log, int card_no,
@@ -1192,10 +1248,11 @@ static void drm_show_connector_modes_callback(struct mp_log *log, int card_no,
 
     char other_connector_name[MAX_CONNECTOR_NAME_LEN];
     get_connector_name(connector, other_connector_name);
+    if (card_no)
+        mp_info(log, "\n");
     mp_info(log, "Available modes for drm-connector=%d.%s\n",
             card_no, other_connector_name);
     drm_show_available_modes(log, connector);
-    mp_info(log, "\n");
 }
 
 static void drm_show_available_connectors_and_modes(struct mp_log *log,
@@ -1300,15 +1357,15 @@ void vo_drm_set_monitor_par(struct vo *vo)
     MP_VERBOSE(drm, "Monitor pixel aspect: %g\n", vo->monitor_par);
 }
 
-void vo_drm_wait_events(struct vo *vo, int64_t until_time_us)
+void vo_drm_wait_events(struct vo *vo, int64_t until_time_ns)
 {
     struct vo_drm_state *drm = vo->drm;
     if (drm->vt_switcher_active) {
-        int64_t wait_us = until_time_us - mp_time_us();
-        int timeout_ms = MPCLAMP((wait_us + 500) / 1000, 0, 10000);
+        int64_t wait_ns = until_time_ns - mp_time_ns();
+        int timeout_ms = MPCLAMP(wait_ns / MP_TIME_MS_TO_NS(1), 0, 10000);
         vt_switcher_poll(&drm->vt_switcher, timeout_ms);
     } else {
-        vo_wait_default(vo, until_time_us);
+        vo_wait_default(vo, until_time_ns);
     }
 }
 

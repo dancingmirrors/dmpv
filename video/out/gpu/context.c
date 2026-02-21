@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -21,102 +21,54 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
-#include <assert.h>
 
 #include "config.h"
 #include "common/common.h"
+#include "common/global.h"
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/m_option.h"
 #include "video/out/vo.h"
 
 #include "context.h"
-#include "spirv.h"
 
-/* OpenGL */
-extern const struct ra_ctx_fns ra_ctx_glx;
-extern const struct ra_ctx_fns ra_ctx_x11_egl;
-extern const struct ra_ctx_fns ra_ctx_drm_egl;
-extern const struct ra_ctx_fns ra_ctx_cocoa;
-extern const struct ra_ctx_fns ra_ctx_wayland_egl;
-extern const struct ra_ctx_fns ra_ctx_wgl;
-extern const struct ra_ctx_fns ra_ctx_angle;
-extern const struct ra_ctx_fns ra_ctx_dxgl;
-extern const struct ra_ctx_fns ra_ctx_rpi;
-extern const struct ra_ctx_fns ra_ctx_android;
-
-/* Vulkan */
 extern const struct ra_ctx_fns ra_ctx_vulkan_wayland;
-extern const struct ra_ctx_fns ra_ctx_vulkan_win;
 extern const struct ra_ctx_fns ra_ctx_vulkan_xlib;
-extern const struct ra_ctx_fns ra_ctx_vulkan_android;
-extern const struct ra_ctx_fns ra_ctx_vulkan_display;
+extern const struct ra_ctx_fns ra_ctx_wayland_egl;
+extern const struct ra_ctx_fns ra_ctx_x11_egl;
+extern const struct ra_ctx_fns ra_ctx_glx;
+extern const struct ra_ctx_fns ra_ctx_drm_egl;
 
-/* Direct3D 11 */
-extern const struct ra_ctx_fns ra_ctx_d3d11;
-
-/* No API */
+#if HAVE_WAYLAND
 extern const struct ra_ctx_fns ra_ctx_wldmabuf;
+#endif
 
 static const struct ra_ctx_fns *contexts[] = {
-#if HAVE_D3D11
-    &ra_ctx_d3d11,
+#if HAVE_VULKAN && HAVE_WAYLAND
+    &ra_ctx_vulkan_wayland,
 #endif
 
-// OpenGL contexts:
-#if HAVE_EGL_ANDROID
-    &ra_ctx_android,
+#if HAVE_VULKAN && HAVE_X11
+    &ra_ctx_vulkan_xlib,
 #endif
-#if HAVE_RPI
-    &ra_ctx_rpi,
-#endif
-#if HAVE_GL_COCOA
-    &ra_ctx_cocoa,
-#endif
-#if HAVE_EGL_ANGLE_WIN32
-    &ra_ctx_angle,
-#endif
-#if HAVE_GL_WIN32
-    &ra_ctx_wgl,
-#endif
-#if HAVE_GL_DXINTEROP
-    &ra_ctx_dxgl,
-#endif
+
 #if HAVE_GL_WAYLAND
     &ra_ctx_wayland_egl,
 #endif
+
 #if HAVE_EGL_X11
     &ra_ctx_x11_egl,
 #endif
+
 #if HAVE_GL_X11
     &ra_ctx_glx,
 #endif
+
 #if HAVE_EGL_DRM
     &ra_ctx_drm_egl,
 #endif
 
-// Vulkan contexts:
-#if HAVE_VULKAN
-
-#if HAVE_ANDROID
-    &ra_ctx_vulkan_android,
-#endif
-#if HAVE_WIN32_DESKTOP
-    &ra_ctx_vulkan_win,
-#endif
 #if HAVE_WAYLAND
-    &ra_ctx_vulkan_wayland,
-#endif
-#if HAVE_X11
-    &ra_ctx_vulkan_xlib,
-#endif
-#if HAVE_VK_KHR_DISPLAY
-    &ra_ctx_vulkan_display,
-#endif
-#endif
-
-/* No API contexts: */
-#if HAVE_DMABUF_WAYLAND
     &ra_ctx_wldmabuf,
 #endif
 };
@@ -133,8 +85,7 @@ static int ra_ctx_api_help(struct mp_log *log, const struct m_option *opt,
     return M_OPT_EXIT;
 }
 
-static int ra_ctx_validate_api(struct mp_log *log, const struct m_option *opt,
-                               struct bstr name, const char **value)
+static inline OPT_STRING_VALIDATE_FUNC(ra_ctx_validate_api)
 {
     struct bstr param = bstr0(*value);
     if (bstr_equals0(param, "auto"))
@@ -158,8 +109,7 @@ static int ra_ctx_context_help(struct mp_log *log, const struct m_option *opt,
     return M_OPT_EXIT;
 }
 
-static int ra_ctx_validate_context(struct mp_log *log, const struct m_option *opt,
-                                   struct bstr name, const char **value)
+static inline OPT_STRING_VALIDATE_FUNC(ra_ctx_validate_context)
 {
     struct bstr param = bstr0(*value);
     if (bstr_equals0(param, "auto"))
@@ -178,12 +128,31 @@ struct ra_ctx *ra_ctx_create(struct vo *vo, struct ra_ctx_opts opts)
     bool api_auto = !opts.context_type || strcmp(opts.context_type, "auto") == 0;
     bool ctx_auto = !opts.context_name || strcmp(opts.context_name, "auto") == 0;
 
+    // Check for contradictory options
+    if (!ctx_auto && !api_auto) {
+        // User specified both context name and API type, verify they're compatible
+        bool found_compatible = false;
+        for (int i = 0; i < MP_ARRAY_SIZE(contexts); i++) {
+            if (!contexts[i]->hidden &&
+                strcmp(contexts[i]->name, opts.context_name) == 0 &&
+                strcmp(contexts[i]->type, opts.context_type) == 0) {
+                found_compatible = true;
+                break;
+            }
+        }
+        if (!found_compatible) {
+            MP_ERR(vo, "Incompatible GPU options: --gpu-context=%s does not support --gpu-api=%s\n",
+                   opts.context_name, opts.context_type);
+            return NULL;
+        }
+    }
+
     if (ctx_auto) {
         MP_VERBOSE(vo, "Probing for best GPU context.\n");
         opts.probing = true;
     }
 
-    // Hack to silence backend (X11/Wayland/etc.) errors. Kill it once backends
+    // Hack to silence backend (Wayland, etc.) errors. Kill it once backends
     // are separate from `struct vo`
     bool old_probing = vo->probing;
     vo->probing = opts.probing;
@@ -205,7 +174,7 @@ struct ra_ctx *ra_ctx_create(struct vo *vo, struct ra_ctx_opts opts)
             .fns = contexts[i],
         };
 
-        MP_VERBOSE(ctx, "Initializing GPU context '%s'\n", ctx->fns->name);
+        mp_info(vo->global->log, "INFO: Attempting to initialize GPU context %s.\n", ctx->fns->name);
         if (contexts[i]->init(ctx)) {
             vo->probing = old_probing;
             return ctx;
@@ -237,7 +206,7 @@ struct ra_ctx *ra_ctx_create_by_name(struct vo *vo, const char *name)
             .fns = contexts[i],
         };
 
-        MP_VERBOSE(ctx, "Initializing GPU context '%s'\n", ctx->fns->name);
+        mp_info(vo->global->log, "INFO: Attempting to initialize GPU context %s.\n", ctx->fns->name);
         if (contexts[i]->init(ctx))
             return ctx;
         talloc_free(ctx);
@@ -250,9 +219,6 @@ void ra_ctx_destroy(struct ra_ctx **ctx_ptr)
     struct ra_ctx *ctx = *ctx_ptr;
     if (!ctx)
         return;
-
-    if (ctx->spirv && ctx->spirv->fns->uninit)
-        ctx->spirv->fns->uninit(ctx);
 
     ctx->fns->uninit(ctx);
     talloc_free(ctx);
@@ -274,4 +240,5 @@ const struct m_sub_options ra_ctx_conf = {
         {0}
     },
     .size = sizeof(struct ra_ctx_opts),
+    .change_flags = UPDATE_VO,
 };

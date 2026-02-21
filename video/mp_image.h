@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_MP_IMAGE_H
@@ -27,6 +27,37 @@
 #include "common/msg.h"
 #include "csputils.h"
 #include "video/img_format.h"
+
+#include "config.h"
+
+/* If libplacebo is available, it provides pl_hdr_metadata. Otherwise, provide
+ * a compact fallback here so the type is visible to all headers that include
+ * mp_image.h (and thus to every translation unit).
+ *
+ * This fallback is placed before any other definitions so the compiler won't
+ * emit a "declared inside parameter list" warning.
+ */
+#if !HAVE_LIBPLACEBO
+#define PL_HDR_METADATA_CIE_Y      (1u << 0)
+#define PL_HDR_METADATA_HDR10      (1u << 1)
+#define PL_HDR_METADATA_HDR10PLUS  (1u << 2)
+
+struct pl_hdr_metadata {
+    uint32_t flags;      /* bitfield describing which subfields are valid */
+    /* luminances in cd/m^2 (or 0 if unknown) */
+    float min_luma;      /* minimum luminance (cd/m^2), 0 = unknown */
+    float max_luma;      /* maximum luminance (cd/m^2), 0 = unknown */
+    /* HDR numeric fields (cd/m^2) */
+    float max_cll;       /* maximum content light level (cd/m^2), 0 = unknown */
+    float max_fall;      /* maximum frame-average light level (cd/m^2), 0 = unknown */
+    /* HDR10+ scene peaks (cd/m^2) */
+    float scene_max[3];  /* per-component scene max RGB, 0 = unknown */
+    float scene_avg;     /* scene average (cd/m^2), 0 = unknown */
+    /* CIE Y / PQ-derived values (0..1 range), 0 if unknown */
+    float max_pq_y;      /* maximum PQ luminance (0..1), 0 = unknown */
+    float avg_pq_y;      /* average PQ luminance (0..1), 0 = unknown */
+};
+#endif /* HAVE_LIBPLACEBO */
 
 // Assumed minimum align needed for image allocation. It's notable that FFmpeg's
 // libraries except libavcodec don't really know what alignment they want.
@@ -46,8 +77,12 @@ struct mp_image_params {
     enum mp_imgfmt hw_subfmt;   // underlying format for some hwaccel pixfmts
     int w, h;                   // image dimensions
     int p_w, p_h;               // define pixel aspect ratio (undefined: 0/0)
+    bool force_window;          // fake image created by handle_force_window
+    bool is_image;              // still images
     struct mp_colorspace color;
     enum mp_chroma_location chroma_location;
+    // The image should be flipped vertically before rotating
+    bool vflip;
     // The image should be rotated clockwise (0-359 degrees).
     int rotate;
     enum mp_stereo3d_mode stereo3d; // image is encoded with this mode
@@ -153,7 +188,8 @@ void mp_image_set_size(struct mp_image *mpi, int w, int h);
 int mp_image_plane_w(struct mp_image *mpi, int plane);
 int mp_image_plane_h(struct mp_image *mpi, int plane);
 
-void mp_image_setfmt(mp_image_t* mpi, int out_fmt);
+void mp_image_sethwfmt(mp_image_t *mpi, enum mp_imgfmt hw_fmt, enum mp_imgfmt sw_fmt);
+void mp_image_setfmt(mp_image_t* mpi, enum mp_imgfmt out_fmt);
 void mp_image_steal_data(struct mp_image *dst, struct mp_image *src);
 void mp_image_unref_data(struct mp_image *img);
 
@@ -172,6 +208,8 @@ char *mp_image_params_to_str_buf(char *b, size_t bs,
 bool mp_image_params_valid(const struct mp_image_params *p);
 bool mp_image_params_equal(const struct mp_image_params *p1,
                            const struct mp_image_params *p2);
+bool mp_image_params_static_equal(const struct mp_image_params *p1,
+                                  const struct mp_image_params *p2);
 
 void mp_image_params_get_dsize(const struct mp_image_params *p,
                                int *d_w, int *d_h);

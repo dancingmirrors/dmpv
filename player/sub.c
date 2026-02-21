@@ -1,27 +1,27 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <inttypes.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/msg.h"
 #include "options/options.h"
@@ -100,7 +100,7 @@ static bool update_subtitle(struct MPContext *mpctx, double video_pts,
         sub_preload(dec_sub);
     }
 
-    if (!sub_read_packets(dec_sub, video_pts))
+    if (!sub_read_packets(dec_sub, video_pts, mpctx->paused))
         return false;
 
     // Handle displaying subtitles on terminal; never done for secondary subs
@@ -164,7 +164,7 @@ static struct attachment_list *get_all_attachments(struct MPContext *mpctx)
 
 static bool init_subdec(struct MPContext *mpctx, struct track *track)
 {
-    assert(!track->d_sub);
+    mp_assert(!track->d_sub);
 
     if (!track->demuxer || !track->stream)
         return false;
@@ -189,7 +189,7 @@ void reinit_sub(struct MPContext *mpctx, struct track *track)
     if (!track || !track->stream || track->stream->type != STREAM_SUB)
         return;
 
-    assert(!track->d_sub);
+    mp_assert(!track->d_sub);
 
     if (!init_subdec(mpctx, track)) {
         error_on_track(mpctx, track);
@@ -201,8 +201,10 @@ void reinit_sub(struct MPContext *mpctx, struct track *track)
     osd_set_sub(mpctx->osd, order, track->d_sub);
     sub_control(track->d_sub, SD_CTRL_SET_TOP, &order);
 
+    // When paused we have to wait for packets to be available.
+    // So just retry until we get a packet in this case.
     if (mpctx->playback_initialized)
-        update_subtitles(mpctx, mpctx->playback_pts);
+        while (!update_subtitles(mpctx, mpctx->playback_pts) && mpctx->paused);
 }
 
 void reinit_sub_all(struct MPContext *mpctx)

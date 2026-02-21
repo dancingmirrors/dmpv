@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* Stuff for correct aspect scaling. */
@@ -31,8 +31,6 @@ static void aspect_calc_panscan(struct mp_vo_opts *opts,
                                 int window_w, int window_h, double monitor_par,
                                 int *out_w, int *out_h)
 {
-    w *= monitor_par;
-
     int fwidth = window_w;
     int fheight = (float)window_w / d_w * d_h / monitor_par;
     if (fheight > window_h || fheight < h) {
@@ -76,18 +74,19 @@ static void clamp_size(int size, int *start, int *end)
 }
 
 static void src_dst_split_scaling(int src_size, int dst_size,
-                                  int scaled_src_size,
+                                  int64_t scaled_src_size,
                                   float zoom, float align, float pan, float scale,
                                   int *src_start, int *src_end,
                                   int *dst_start, int *dst_end,
                                   int *osd_margin_a, int *osd_margin_b)
 {
     scaled_src_size *= powf(2, zoom) * scale;
+    scaled_src_size = MPMAX(scaled_src_size, 1);
     align = (align + 1) / 2;
 
     *src_start = 0;
     *src_end = src_size;
-    *dst_start = (dst_size - scaled_src_size) * align + pan * scaled_src_size;
+    *dst_start = (dst_size - scaled_src_size) * align + pan * dst_size;
     *dst_end = *dst_start + scaled_src_size;
 
     // Distance of screen frame to video
@@ -95,8 +94,8 @@ static void src_dst_split_scaling(int src_size, int dst_size,
     *osd_margin_b = dst_size - *dst_end;
 
     // Clip to screen
-    int s_src = *src_end - *src_start;
-    int s_dst = *dst_end - *dst_start;
+    int64_t s_src = (int64_t)*src_end - *src_start;
+    int64_t s_dst = (int64_t)*dst_end - *dst_start;
     if (*dst_start < 0) {
         int border = -(*dst_start) * s_src / s_dst;
         *src_start += border;

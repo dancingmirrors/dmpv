@@ -1,29 +1,30 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <strings.h>
 #include <inttypes.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/avutil.h>
 
-#include "mpv_talloc.h"
+#include "misc/bstr.h"
+#include "misc/dmpv_talloc.h"
 
 #include "misc/thread_pool.h"
 #include "misc/thread_tools.h"
@@ -37,14 +38,13 @@
 #include "common/msg_control.h"
 #include "common/global.h"
 #include "options/path.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/parse_configfile.h"
 #include "common/playlist.h"
 #include "options/options.h"
 #include "options/m_property.h"
 #include "common/common.h"
 #include "common/encode.h"
-#include "common/recorder.h"
 #include "common/stats.h"
 #include "input/input.h"
 #include "misc/language.h"
@@ -59,9 +59,10 @@
 #include "external_files.h"
 #include "video/out/vo.h"
 
+#include "config.h"
 #include "core.h"
 #include "command.h"
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 // Called from the demuxer thread if a new packet is available, or other changes.
 static void wakeup_demux(void *pctx)
@@ -75,7 +76,7 @@ void mp_abort_playback_async(struct MPContext *mpctx)
 {
     mp_cancel_trigger(mpctx->playback_abort);
 
-    pthread_mutex_lock(&mpctx->abort_lock);
+    mp_mutex_lock(&mpctx->abort_lock);
 
     for (int n = 0; n < mpctx->num_abort_list; n++) {
         struct mp_abort_entry *abort = mpctx->abort_list[n];
@@ -83,25 +84,25 @@ void mp_abort_playback_async(struct MPContext *mpctx)
             mp_abort_trigger_locked(mpctx, abort);
     }
 
-    pthread_mutex_unlock(&mpctx->abort_lock);
+    mp_mutex_unlock(&mpctx->abort_lock);
 }
 
 // Add it to the global list, and allocate required data structures.
 void mp_abort_add(struct MPContext *mpctx, struct mp_abort_entry *abort)
 {
-    pthread_mutex_lock(&mpctx->abort_lock);
-    assert(!abort->cancel);
+    mp_mutex_lock(&mpctx->abort_lock);
+    mp_assert(!abort->cancel);
     abort->cancel = mp_cancel_new(NULL);
     MP_TARRAY_APPEND(NULL, mpctx->abort_list, mpctx->num_abort_list, abort);
     mp_abort_recheck_locked(mpctx, abort);
-    pthread_mutex_unlock(&mpctx->abort_lock);
+    mp_mutex_unlock(&mpctx->abort_lock);
 }
 
 // Remove Add it to the global list, and free/clear required data structures.
 // Does not deallocate the abort value itself.
 void mp_abort_remove(struct MPContext *mpctx, struct mp_abort_entry *abort)
 {
-    pthread_mutex_lock(&mpctx->abort_lock);
+    mp_mutex_lock(&mpctx->abort_lock);
     for (int n = 0; n < mpctx->num_abort_list; n++) {
         if (mpctx->abort_list[n] == abort) {
             MP_TARRAY_REMOVE_AT(mpctx->abort_list, mpctx->num_abort_list, n);
@@ -110,8 +111,8 @@ void mp_abort_remove(struct MPContext *mpctx, struct mp_abort_entry *abort)
             break;
         }
     }
-    assert(!abort); // should have been in the list
-    pthread_mutex_unlock(&mpctx->abort_lock);
+    mp_assert(!abort); // should have been in the list
+    mp_mutex_unlock(&mpctx->abort_lock);
 }
 
 // Verify whether the abort needs to be signaled after changing certain fields
@@ -214,10 +215,9 @@ static void uninit_demuxer(struct MPContext *mpctx)
     for (int i = 0; i < mpctx->num_tracks; i++) {
         struct track *track = mpctx->tracks[i];
 
-        assert(!track->dec && !track->d_sub);
-        assert(!track->vo_c && !track->ao_c);
-        assert(!track->sink);
-        assert(!track->remux_sink);
+        mp_assert(!track->dec && !track->d_sub);
+        mp_assert(!track->vo_c && !track->ao_c);
+        mp_assert(!track->sink);
 
         // Demuxers can be added in any order (if they appear mid-stream), and
         // we can't know which tracks uses which, so here's some O(n^2) trash.
@@ -243,56 +243,22 @@ static void uninit_demuxer(struct MPContext *mpctx)
 static void print_stream(struct MPContext *mpctx, struct track *t)
 {
     struct sh_stream *s = t->stream;
-    const char *tname = "?";
-    const char *selopt = "?";
-    const char *langopt = "?";
-    switch (t->type) {
-    case STREAM_VIDEO:
-        tname = "Video"; selopt = "vid"; langopt = NULL;
-        break;
-    case STREAM_AUDIO:
-        tname = "Audio"; selopt = "aid"; langopt = "alang";
-        break;
-    case STREAM_SUB:
-        tname = "Subs"; selopt = "sid"; langopt = "slang";
-        break;
-    }
     char b[2048] = {0};
-    bool forced_only = false;
-    if (t->type == STREAM_SUB) {
-        int forced_opt = mpctx->opts->subs_rend->forced_subs_only;
-        if (forced_opt == 1 || (forced_opt && t->forced_only_def))
-            forced_only = t->selected;
-    }
-    APPEND(b, " %3s %-5s", t->selected ? (forced_only ? "(*)" : "(+)") : "", tname);
-    APPEND(b, " --%s=%d", selopt, t->user_tid);
-    if (t->lang && langopt)
-        APPEND(b, " --%s=%s", langopt, t->lang);
-    if (t->default_track)
-        APPEND(b, " (*)");
-    if (t->forced_track)
-        APPEND(b, " (f)");
-    if (t->attached_picture)
-        APPEND(b, " [P]");
-    if (forced_only)
-        APPEND(b, " [F]");
-    if (t->title)
-        APPEND(b, " '%s'", t->title);
+
     const char *codec = s ? s->codec->codec : NULL;
-    APPEND(b, " (%s", codec ? codec : "<unknown>");
+    APPEND(b, "INFO: %s", codec ? codec : "<unknown>");
     if (t->type == STREAM_VIDEO) {
         if (s && s->codec->disp_w)
             APPEND(b, " %dx%d", s->codec->disp_w, s->codec->disp_h);
-        if (s && s->codec->fps)
-            APPEND(b, " %.3ffps", s->codec->fps);
+        if (s && s->codec->fps && !t->image)
+            APPEND(b, " %.1ffps", s->codec->fps);
     } else if (t->type == STREAM_AUDIO) {
         if (s && s->codec->channels.num)
             APPEND(b, " %dch", s->codec->channels.num);
         if (s && s->codec->samplerate)
             APPEND(b, " %dHz", s->codec->samplerate);
     }
-    APPEND(b, ")");
-    if (s->hls_bitrate > 0)
+    if (s && s->hls_bitrate > 0)
         APPEND(b, " (%d kbps)", (s->hls_bitrate + 500) / 1000);
     if (t->is_external)
         APPEND(b, " (external)");
@@ -354,8 +320,22 @@ void update_demuxer_properties(struct MPContext *mpctx)
             }
             struct mp_log *log = mp_log_new(NULL, mpctx->log, "!display-tags");
             if (!had_output)
-                mp_info(log, "File tags:\n");
-            mp_info(log, " %s: %s\n", info->keys[n], info->values[n]);
+                mp_info(log, "INFO: File tags:\n");
+            mp_info(log, " %s: ", info->keys[n]);
+            const char *p = info->values[n];
+            while (*p) {
+                int len = strcspn(p, "\x8\xa\xb\xc\xd");
+                mp_info(log, "%.*s", len, p);
+                p += len;
+                if (*p == '\r')
+                    mp_info(log, " ");
+                // Align continued lines with header
+                if (*p == '\n')
+                    mp_info(log, "\n %-*s  ", (int)strlen(info->keys[n]), "");
+                if (*p)
+                    p++;
+            }
+            mp_info(log, "\n");
             had_output = true;
             talloc_free(log);
         }
@@ -460,7 +440,7 @@ static int match_lang(char **langs, const char *lang)
         if (score > 0)
             return INT_MAX - (idx + 1) * LANGUAGE_SCORE_MAX + score - 1;
     }
-    return 0;
+return 0;
 }
 
 /* Get the track wanted by the user.
@@ -548,33 +528,13 @@ static bool append_lang(size_t *nb, char ***out, char *in)
     return true;
 }
 
-static bool add_auto_langs(size_t *nb, char ***out)
-{
-    bool ret = false;
-    char **autos = mp_get_user_langs();
-    for (int i = 0; autos && autos[i]; i++) {
-        if (!append_lang(nb, out, autos[i]))
-            goto cleanup;
-    }
-    ret = true;
-
-cleanup:
-    talloc_free(autos);
-    return ret;
-}
-
 static char **process_langs(char **in)
 {
     size_t nb = 0;
     char **out = NULL;
     for (int i = 0; in && in[i]; i++) {
-        if (!strcmp(in[i], "auto")) {
-            if (!add_auto_langs(&nb, &out))
-                break;
-        } else {
-            if (!append_lang(&nb, &out, talloc_strdup(NULL, in[i])))
-                break;
-        }
+        if (!append_lang(&nb, &out, talloc_strdup(NULL, in[i])))
+            break;
     }
     return out;
 }
@@ -736,7 +696,7 @@ static void check_previous_track_selection(struct MPContext *mpctx)
 void mark_track_selection(struct MPContext *mpctx, int order,
                           enum stream_type type, int value)
 {
-    assert(order >= 0 && order < num_ptracks[type]);
+    mp_assert(order >= 0 && order < num_ptracks[type]);
     mpctx->opts->stream_id[order][type] = value;
     m_config_notify_change_opt_ptr(mpctx->mconfig,
                                    &mpctx->opts->stream_id[order][type]);
@@ -745,9 +705,9 @@ void mark_track_selection(struct MPContext *mpctx, int order,
 void mp_switch_track_n(struct MPContext *mpctx, int order, enum stream_type type,
                        struct track *track, int flags)
 {
-    assert(!track || track->type == type);
-    assert(type >= 0 && type < STREAM_TYPE_COUNT);
-    assert(order >= 0 && order < num_ptracks[type]);
+    mp_assert(!track || track->type == type);
+    mp_assert(type >= 0 && type < STREAM_TYPE_COUNT);
+    mp_assert(order >= 0 && order < num_ptracks[type]);
 
     // Mark the current track selection as explicitly user-requested. (This is
     // different from auto-selection or disabling a track due to errors.)
@@ -795,8 +755,6 @@ void mp_switch_track_n(struct MPContext *mpctx, int order, enum stream_type type
         uninit_sub(mpctx, current);
 
     if (current) {
-        if (current->remux_sink)
-            close_recorder_and_error(mpctx);
         current->selected = false;
         reselect_demux_stream(mpctx, current, false);
     }
@@ -837,6 +795,8 @@ void mp_deselect_track(struct MPContext *mpctx, struct track *track)
 {
     if (track && track->selected) {
         for (int t = 0; t < num_ptracks[track->type]; t++) {
+            if (mpctx->current_track[t][track->type] != track)
+                continue;
             mp_switch_track_n(mpctx, t, track->type, NULL, 0);
             mark_track_selection(mpctx, t, track->type, -1); // default
         }
@@ -900,9 +860,13 @@ int mp_add_external_file(struct MPContext *mpctx, char *filename,
     if (!filename || mp_cancel_test(cancel))
         return -1;
 
+    void *unescaped_url = NULL;
     char *disp_filename = filename;
-    if (strncmp(disp_filename, "memory://", 9) == 0)
+    if (strncmp(disp_filename, "memory://", 9) == 0) {
         disp_filename = "memory://"; // avoid noise
+    } else if (mp_is_url(bstr0(disp_filename))) {
+        disp_filename = unescaped_url = mp_url_unescape(NULL, disp_filename);
+    }
 
     struct demuxer_params params = {
         .is_top_level = true,
@@ -915,6 +879,8 @@ int mp_add_external_file(struct MPContext *mpctx, char *filename,
         break;
     case STREAM_AUDIO:
         params.force_format = opts->audio_demuxer_name;
+        break;
+    default:
         break;
     }
 
@@ -976,12 +942,14 @@ int mp_add_external_file(struct MPContext *mpctx, char *filename,
 
     mp_cancel_set_parent(demuxer->cancel, mpctx->playback_abort);
 
+    talloc_free(unescaped_url);
     return first_num;
 
 err_out:
     demux_cancel_and_free(demuxer);
     if (!mp_cancel_test(cancel))
         MP_ERR(mpctx, "Can not open external file %s.\n", disp_filename);
+    talloc_free(unescaped_url);
     return -1;
 }
 
@@ -1056,14 +1024,21 @@ void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel)
 
 // Do stuff to a newly loaded playlist. This includes any processing that may
 // be required after loading a playlist.
-void prepare_playlist(struct MPContext *mpctx, struct playlist *pl)
+void prepare_playlist(struct MPContext *mpctx, struct playlist *pl, bool overwrite_current)
 {
     struct MPOpts *opts = mpctx->opts;
+    struct playlist_entry *entry = NULL;
 
-    pl->current = NULL;
+    if (overwrite_current)
+        pl->current = NULL;
 
-    if (opts->playlist_pos >= 0)
-        pl->current = playlist_entry_from_index(pl, opts->playlist_pos);
+    pl->playlist_completed = false;
+    pl->playlist_started = false;
+
+    if (opts->playlist_pos >= 0) {
+        entry = playlist_entry_from_index(pl, opts->playlist_pos);
+        pl->current = overwrite_current || entry ? entry : pl->current;
+    }
 
     if (opts->shuffle)
         playlist_shuffle(pl);
@@ -1071,8 +1046,10 @@ void prepare_playlist(struct MPContext *mpctx, struct playlist *pl)
     if (opts->merge_files)
         merge_playlist_files(pl);
 
-    if (!pl->current)
-        pl->current = mp_check_playlist_resume(mpctx, pl);
+    if (!pl->current || (!overwrite_current && !entry)) {
+        entry = mp_check_playlist_resume(mpctx, pl);
+        pl->current = overwrite_current || entry ? entry : pl->current;
+    }
 
     if (!pl->current)
         pl->current = playlist_get_first(pl);
@@ -1084,10 +1061,8 @@ static void transfer_playlist(struct MPContext *mpctx, struct playlist *pl,
                               int64_t *start_id, int *num_new_entries)
 {
     if (pl->num_entries) {
-        prepare_playlist(mpctx, pl);
+        prepare_playlist(mpctx, pl, true);
         struct playlist_entry *new = pl->current;
-        if (mpctx->playlist->current)
-            playlist_add_redirect(pl, mpctx->playlist->current->filename);
         *num_new_entries = pl->num_entries;
         *start_id = playlist_transfer_entries(mpctx->playlist, pl);
         // current entry is replaced
@@ -1123,7 +1098,10 @@ static void load_chapters(struct MPContext *mpctx)
     if (chapter_file && chapter_file[0]) {
         chapter_file = talloc_strdup(NULL, chapter_file);
         mp_core_unlock(mpctx);
-        struct demuxer_params p = {.stream_flags = STREAM_ORIGIN_DIRECT};
+        struct demuxer_params p = {
+            .stream_flags = STREAM_ORIGIN_DIRECT,
+            .depth = src ? src->depth + 1 : 0,
+        };
         struct demuxer *demux = demux_open_url(chapter_file, &p,
                                                mpctx->playback_abort,
                                                mpctx->global);
@@ -1159,11 +1137,11 @@ static void load_per_file_options(m_config_t *conf,
     }
 }
 
-static void *open_demux_thread(void *ctx)
+static MP_THREAD_VOID open_demux_thread(void *ctx)
 {
     struct MPContext *mpctx = ctx;
 
-    mpthread_set_name("opener");
+    mp_thread_set_name("opener");
 
     struct demuxer_params p = {
         .force_format = mpctx->open_format,
@@ -1193,15 +1171,15 @@ static void *open_demux_thread(void *ctx)
         MP_VERBOSE(mpctx, "Opening failed or was aborted: %s\n", mpctx->open_url);
 
         if (p.demuxer_failed) {
-            mpctx->open_res_error = MPV_ERROR_UNKNOWN_FORMAT;
+            mpctx->open_res_error = DMPV_ERROR_UNKNOWN_FORMAT;
         } else {
-            mpctx->open_res_error = MPV_ERROR_LOADING_FAILED;
+            mpctx->open_res_error = DMPV_ERROR_LOADING_FAILED;
         }
     }
 
     atomic_store(&mpctx->open_done, true);
     mp_wakeup_core(mpctx);
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void cancel_open(struct MPContext *mpctx)
@@ -1210,7 +1188,7 @@ static void cancel_open(struct MPContext *mpctx)
         mp_cancel_trigger(mpctx->open_cancel);
 
     if (mpctx->open_active)
-        pthread_join(mpctx->open_thread, NULL);
+        mp_thread_join(mpctx->open_thread);
     mpctx->open_active = false;
 
     if (mpctx->open_res_demuxer)
@@ -1230,10 +1208,10 @@ static void start_open(struct MPContext *mpctx, char *url, int url_flags,
 {
     cancel_open(mpctx);
 
-    assert(!mpctx->open_active);
-    assert(!mpctx->open_cancel);
-    assert(!mpctx->open_res_demuxer);
-    assert(!atomic_load(&mpctx->open_done));
+    mp_assert(!mpctx->open_active);
+    mp_assert(!mpctx->open_cancel);
+    mp_assert(!mpctx->open_res_demuxer);
+    mp_assert(!atomic_load(&mpctx->open_done));
 
     mpctx->open_cancel = mp_cancel_new(NULL);
     mpctx->open_url = talloc_strdup(NULL, url);
@@ -1241,7 +1219,7 @@ static void start_open(struct MPContext *mpctx, char *url, int url_flags,
     mpctx->open_url_flags = url_flags;
     mpctx->open_for_prefetch = for_prefetch && mpctx->opts->demuxer_thread;
 
-    if (pthread_create(&mpctx->open_thread, NULL, open_demux_thread, mpctx)) {
+    if (mp_thread_create(&mpctx->open_thread, open_demux_thread, mpctx)) {
         cancel_open(mpctx);
         return;
     }
@@ -1276,6 +1254,10 @@ static void open_demux_reentrant(struct MPContext *mpctx)
     if (!mpctx->open_active)
         start_open(mpctx, url, mpctx->playing->stream_flags, false);
 
+    // If thread failed to start, cancel the playback
+    if (!mpctx->open_active)
+        goto cancel;
+
     // User abort should cancel the opener now.
     mp_cancel_set_parent(mpctx->open_cancel, mpctx->playback_abort);
 
@@ -1294,6 +1276,7 @@ static void open_demux_reentrant(struct MPContext *mpctx)
         mpctx->error_playing = mpctx->open_res_error;
     }
 
+cancel:
     cancel_open(mpctx); // cleanup
 }
 
@@ -1307,6 +1290,28 @@ void prefetch_next(struct MPContext *mpctx)
         MP_VERBOSE(mpctx, "Prefetching: %s\n", new_entry->filename);
         start_open(mpctx, new_entry->filename, new_entry->stream_flags, true);
     }
+}
+
+static void clear_playlist_paths(struct MPContext *mpctx)
+{
+    TA_FREEP(&mpctx->playlist_paths);
+    mpctx->playlist_paths_len = 0;
+}
+
+static bool infinite_playlist_loading_loop(struct MPContext *mpctx, struct playlist *pl)
+{
+    if (pl->num_entries) {
+        struct playlist_entry *e = pl->entries[0];
+        for (int n = 0; n < mpctx->playlist_paths_len; n++) {
+            if (strcmp(mpctx->playlist_paths[n], e->filename) == 0) {
+                clear_playlist_paths(mpctx);
+                return true;
+            }
+        }
+    }
+    MP_TARRAY_APPEND(mpctx, mpctx->playlist_paths, mpctx->playlist_paths_len,
+                     talloc_strdup(mpctx->playlist_paths, mpctx->filename));
+    return false;
 }
 
 // Destroy the complex filter, and remove the references to the filter pads.
@@ -1358,7 +1363,7 @@ static void kill_outputs(struct MPContext *mpctx, struct track *track)
                    track->user_tid);
         mp_switch_track(mpctx, track->type, NULL, 0);
     }
-    assert(!(track->vo_c || track->ao_c));
+    mp_assert(!(track->vo_c || track->ao_c));
 }
 
 // >0: changed, 0: no change, -1: error
@@ -1408,7 +1413,7 @@ static int reinit_complex_filters(struct MPContext *mpctx, bool force_uninit)
                 goto done;
         }
         struct vo_chain *vo_c = mpctx->vo_chain;
-        assert(!vo_c->track);
+        mp_assert(!vo_c->track);
         vo_c->filter_src = pad;
         mp_pin_connect(vo_c->filter->f->pins[0], vo_c->filter_src);
     }
@@ -1423,7 +1428,7 @@ static int reinit_complex_filters(struct MPContext *mpctx, bool force_uninit)
                 goto done;
         }
         struct ao_chain *ao_c = mpctx->ao_chain;
-        assert(!ao_c->track);
+        mp_assert(!ao_c->track);
         ao_c->filter_src = pad;
         mp_pin_connect(ao_c->filter->f->pins[0], ao_c->filter_src);
     }
@@ -1445,9 +1450,9 @@ static int reinit_complex_filters(struct MPContext *mpctx, bool force_uninit)
             continue;
         if (mp_pin_get_dir(pad) != MP_PIN_IN)
             continue;
-        assert(!mp_pin_is_connected(pad));
+        mp_assert(!mp_pin_is_connected(pad));
 
-        assert(!track->sink);
+        mp_assert(!track->sink);
 
         kill_outputs(mpctx, track);
 
@@ -1551,30 +1556,30 @@ static void play_current_file(struct MPContext *mpctx)
     struct MPOpts *opts = mpctx->opts;
     double playback_start = -1e100;
 
-    assert(mpctx->stop_play);
+    mp_assert(mpctx->stop_play);
     mpctx->stop_play = 0;
 
     process_hooks(mpctx, "on_before_start_file");
     if (mpctx->stop_play || !mpctx->playlist->current)
         return;
 
-    mpv_event_start_file start_event = {
+    dmpv_event_start_file start_event = {
         .playlist_entry_id = mpctx->playlist->current->id,
     };
-    mpv_event_end_file end_event = {
+    dmpv_event_end_file end_event = {
         .playlist_entry_id = start_event.playlist_entry_id,
     };
 
-    mp_notify(mpctx, MPV_EVENT_START_FILE, &start_event);
+    mp_notify(mpctx, DMPV_EVENT_START_FILE, &start_event);
 
     mp_cancel_reset(mpctx->playback_abort);
 
-    mpctx->error_playing = MPV_ERROR_LOADING_FAILED;
+    mpctx->error_playing = DMPV_ERROR_LOADING_FAILED;
     mpctx->filename = NULL;
     mpctx->shown_aframes = 0;
     mpctx->shown_vframes = 0;
     mpctx->last_chapter_seek = -2;
-    mpctx->last_chapter_pts = MP_NOPTS_VALUE;
+    mpctx->last_chapter_flag = false;
     mpctx->last_chapter = -2;
     mpctx->paused = false;
     mpctx->playing_msg_shown = false;
@@ -1593,8 +1598,8 @@ static void play_current_file(struct MPContext *mpctx)
     reset_playback_state(mpctx);
 
     mpctx->playing = mpctx->playlist->current;
-    assert(mpctx->playing);
-    assert(mpctx->playing->filename);
+    mp_assert(mpctx->playing);
+    mp_assert(mpctx->playing->filename);
     mpctx->playing->reserved += 1;
 
     mpctx->filename = talloc_strdup(NULL, mpctx->playing->filename);
@@ -1622,15 +1627,20 @@ static void play_current_file(struct MPContext *mpctx)
     load_per_file_options(mpctx->mconfig, mpctx->playing->params,
                           mpctx->playing->num_params);
 
+    mpctx->remaining_file_loops = mpctx->opts->loop_file;
+    mp_notify_property(mpctx, "remaining-file-loops");
+    mpctx->remaining_ab_loops = mpctx->opts->ab_loop_count;
+    mp_notify_property(mpctx, "remaining-ab-loops");
+
     mpctx->max_frames = opts->play_frames;
 
     handle_force_window(mpctx, false);
 
     if (mpctx->playlist->num_entries > 1 ||
-        mpctx->playing->num_redirects)
-        MP_INFO(mpctx, "Playing: %s\n", mpctx->filename);
+        mpctx->playing->playlist_path)
+        MP_INFO(mpctx, "INFO: %s\n", mpctx->filename);
 
-    assert(mpctx->demuxer == NULL);
+    mp_assert(mpctx->demuxer == NULL);
 
     process_hooks(mpctx, "on_load");
     if (mpctx->stop_play)
@@ -1648,7 +1658,7 @@ static void play_current_file(struct MPContext *mpctx)
         if (strcmp(mpctx->stream_open_filename, mpctx->filename) != 0 &&
             !mpctx->stop_play)
         {
-            mpctx->error_playing = MPV_ERROR_LOADING_FAILED;
+            mpctx->error_playing = DMPV_ERROR_LOADING_FAILED;
             open_demux_reentrant(mpctx);
         }
     }
@@ -1659,6 +1669,12 @@ static void play_current_file(struct MPContext *mpctx)
         if (watch_later)
             mp_delete_watch_later_conf(mpctx, mpctx->filename);
         struct playlist *pl = mpctx->demuxer->playlist;
+        playlist_populate_playlist_path(pl, mpctx->filename);
+        if (infinite_playlist_loading_loop(mpctx, pl)) {
+            mpctx->stop_play = PT_STOP;
+            MP_ERR(mpctx, "Infinite playlist loading loop detected.\n");
+            goto terminate_playback;
+        }
         transfer_playlist(mpctx, pl, &end_event.playlist_insert_id,
                           &end_event.playlist_insert_num_entries);
         mp_notify_property(mpctx, "playlist");
@@ -1671,6 +1687,27 @@ static void play_current_file(struct MPContext *mpctx)
     enable_demux_thread(mpctx, mpctx->demuxer);
 
     add_demuxer_tracks(mpctx, mpctx->demuxer);
+
+    if (!mpctx->encode_lavc_ctx) {
+        // --force-window
+        bool has_video = false;
+        for (int n = 0; n < mpctx->num_tracks; n++) {
+            if (mpctx->tracks[n]->type == STREAM_VIDEO) {
+                has_video = true;
+                break;
+            }
+        }
+        if (has_video) {
+            // This is use_queue in f_decoder_wrapper.c but it takes effect too late.
+            m_config_set_option_cli(mpctx->mconfig, bstr0("vd-queue-enable"),
+                                    bstr0("yes"),
+                                    M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
+
+            m_config_set_option_cli(mpctx->mconfig, bstr0("force-window"),
+                                    bstr0("yes"),
+                                    M_SETOPT_BACKUP | M_SETOPT_PRESERVE_CMDLINE);
+        }
+    }
 
     load_external_opts(mpctx);
     if (mpctx->stop_play)
@@ -1733,6 +1770,16 @@ static void play_current_file(struct MPContext *mpctx)
 
     update_playback_speed(mpctx);
 
+    struct track *vid_track = mpctx->current_track[0][STREAM_VIDEO];
+    bool is_image = vid_track && vid_track->image;
+    if (is_image && opts->pause_images && !opts->pause) {
+        set_pause_state(mpctx, true);
+        mpctx->paused_for_image = true;
+    } else if (!is_image && mpctx->paused_for_image) {
+        set_pause_state(mpctx, false);
+        mpctx->paused_for_image = false;
+    }
+
     reinit_video_chain(mpctx);
     reinit_audio_chain(mpctx);
     reinit_sub_all(mpctx);
@@ -1748,7 +1795,7 @@ static void play_current_file(struct MPContext *mpctx)
 
     if (!mpctx->vo_chain && !mpctx->ao_chain && opts->stream_auto_sel) {
         MP_FATAL(mpctx, "No video or audio streams selected.\n");
-        mpctx->error_playing = MPV_ERROR_NOTHING_TO_PLAY;
+        mpctx->error_playing = DMPV_ERROR_NOTHING_TO_PLAY;
         goto terminate_playback;
     }
 
@@ -1757,14 +1804,19 @@ static void play_current_file(struct MPContext *mpctx)
             "Displaying cover art. Use --no-audio-display to prevent this.\n");
     }
 
-    if (!mpctx->vo_chain)
-        handle_force_window(mpctx, true);
-
     MP_VERBOSE(mpctx, "Starting playback...\n");
 
+    if (opts->osd_preload && mpctx->osd && !mpctx->encode_lavc_ctx) {
+        osd_preload(mpctx->osd);
+        MP_VERBOSE(mpctx, "OSD preload complete.\n");
+    }
+
     mpctx->playback_initialized = true;
-    mp_notify(mpctx, MPV_EVENT_FILE_LOADED, NULL);
+    mpctx->playlist->playlist_completed = false;
+    mpctx->playlist->playlist_started = true;
+    mp_notify(mpctx, DMPV_EVENT_FILE_LOADED, NULL);
     update_screensaver_state(mpctx);
+    clear_playlist_paths(mpctx);
 
     if (watch_later)
         mp_delete_watch_later_conf(mpctx, mpctx->filename);
@@ -1776,7 +1828,7 @@ static void play_current_file(struct MPContext *mpctx)
         goto terminate_playback;
     }
 
-    if (opts->demuxer_cache_wait) {
+    if (opts->demuxer_cache_wait && !mpctx->encode_lavc_ctx) {
         demux_start_prefetch(mpctx->demuxer);
 
         while (!mpctx->stop_play) {
@@ -1803,8 +1855,6 @@ static void play_current_file(struct MPContext *mpctx)
 
     update_internal_pause_state(mpctx);
 
-    open_recorder(mpctx, true);
-
     playback_start = mp_time_sec();
     mpctx->error_playing = 0;
     mpctx->in_playloop = true;
@@ -1830,8 +1880,6 @@ terminate_playback:
     }
 
     process_hooks(mpctx, "on_unload");
-
-    close_recorder(mpctx);
 
     // time to uninit all, except global stuff:
     reinit_complex_filters(mpctx, true);
@@ -1860,7 +1908,7 @@ terminate_playback:
         mpctx->stop_play = PT_ERROR;
 
     if (mpctx->stop_play == PT_ERROR && !mpctx->error_playing)
-        mpctx->error_playing = MPV_ERROR_GENERIC;
+        mpctx->error_playing = DMPV_ERROR_GENERIC;
 
     bool nothing_played = !mpctx->shown_aframes && !mpctx->shown_vframes &&
                           mpctx->error_playing <= 0;
@@ -1869,14 +1917,14 @@ terminate_playback:
     case AT_END_OF_FILE:
     {
         if (mpctx->error_playing == 0 && nothing_played)
-            mpctx->error_playing = MPV_ERROR_NOTHING_TO_PLAY;
+            mpctx->error_playing = DMPV_ERROR_NOTHING_TO_PLAY;
         if (mpctx->error_playing < 0) {
             end_event.error = mpctx->error_playing;
-            end_event.reason = MPV_END_FILE_REASON_ERROR;
+            end_event.reason = DMPV_END_FILE_REASON_ERROR;
         } else if (mpctx->error_playing == 2) {
-            end_event.reason = MPV_END_FILE_REASON_REDIRECT;
+            end_event.reason = DMPV_END_FILE_REASON_REDIRECT;
         } else {
-            end_event.reason = MPV_END_FILE_REASON_EOF;
+            end_event.reason = DMPV_END_FILE_REASON_EOF;
         }
         if (mpctx->playing) {
             // Played/paused for longer than 1 second -> ok
@@ -1889,16 +1937,17 @@ terminate_playback:
     // Note that error_playing is meaningless in these cases.
     case PT_NEXT_ENTRY:
     case PT_CURRENT_ENTRY:
-    case PT_STOP:           end_event.reason = MPV_END_FILE_REASON_STOP; break;
-    case PT_QUIT:           end_event.reason = MPV_END_FILE_REASON_QUIT; break;
+    case PT_STOP:           end_event.reason = DMPV_END_FILE_REASON_STOP; break;
+    case PT_QUIT:           end_event.reason = DMPV_END_FILE_REASON_QUIT; break;
+    default:
+        break;
     };
-    mp_notify(mpctx, MPV_EVENT_END_FILE, &end_event);
+    mp_notify(mpctx, DMPV_EVENT_END_FILE, &end_event);
 
     MP_VERBOSE(mpctx, "finished playback, %s (reason %d)\n",
-               mpv_error_string(end_event.error), end_event.reason);
-    if (end_event.error == MPV_ERROR_UNKNOWN_FORMAT)
+               dmpv_error_string(end_event.error), end_event.reason);
+    if (end_event.error == DMPV_ERROR_UNKNOWN_FORMAT)
         MP_ERR(mpctx, "Failed to recognize file format.\n");
-    MP_INFO(mpctx, "\n");
 
     if (mpctx->playing)
         playlist_entry_unref(mpctx->playing);
@@ -1915,7 +1964,7 @@ terminate_playback:
         mpctx->files_played++;
     }
 
-    assert(mpctx->stop_play);
+    mp_assert(mpctx->stop_play);
 
     process_hooks(mpctx, "on_after_end_file");
 }
@@ -1986,7 +2035,7 @@ void mp_play_files(struct MPContext *mpctx)
     // After above is finished; but even if it's skipped.
     mp_msg_set_early_logging(mpctx->global, false);
 
-    prepare_playlist(mpctx, mpctx->playlist);
+    prepare_playlist(mpctx, mpctx->playlist, false);
 
     for (;;) {
         idle_loop(mpctx);
@@ -2008,6 +2057,9 @@ void mp_play_files(struct MPContext *mpctx)
         } else if (mpctx->stop_play == PT_CURRENT_ENTRY) {
             new_entry = mpctx->playlist->current;
         }
+
+        if (!new_entry)
+            mpctx->playlist->playlist_completed = true;
 
         mpctx->playlist->current = new_entry;
         mpctx->playlist->current_was_replaced = false;
@@ -2035,7 +2087,7 @@ void mp_play_files(struct MPContext *mpctx)
 // e must be on the mpctx->playlist.
 void mp_set_playlist_entry(struct MPContext *mpctx, struct playlist_entry *e)
 {
-    assert(!e || playlist_entry_to_index(mpctx->playlist, e) >= 0);
+    mp_assert(!e || playlist_entry_to_index(mpctx->playlist, e) >= 0);
     mpctx->playlist->current = e;
     mpctx->playlist->current_was_replaced = false;
     mp_notify(mpctx, MP_EVENT_CHANGE_PLAYLIST, NULL);
@@ -2044,94 +2096,3 @@ void mp_set_playlist_entry(struct MPContext *mpctx, struct playlist_entry *e)
         mpctx->stop_play = e ? PT_CURRENT_ENTRY : PT_STOP;
     mp_wakeup_core(mpctx);
 }
-
-static void set_track_recorder_sink(struct track *track,
-                                    struct mp_recorder_sink *sink)
-{
-    if (track->d_sub)
-        sub_set_recorder_sink(track->d_sub, sink);
-    if (track->dec)
-        track->dec->recorder_sink = sink;
-    track->remux_sink = sink;
-}
-
-void close_recorder(struct MPContext *mpctx)
-{
-    if (!mpctx->recorder)
-        return;
-
-    for (int n = 0; n < mpctx->num_tracks; n++)
-        set_track_recorder_sink(mpctx->tracks[n], NULL);
-
-    mp_recorder_destroy(mpctx->recorder);
-    mpctx->recorder = NULL;
-}
-
-// Like close_recorder(), but also unset the option. Intended for use on errors.
-void close_recorder_and_error(struct MPContext *mpctx)
-{
-    close_recorder(mpctx);
-    talloc_free(mpctx->opts->record_file);
-    mpctx->opts->record_file = NULL;
-    m_config_notify_change_opt_ptr(mpctx->mconfig, &mpctx->opts->record_file);
-    MP_ERR(mpctx, "Disabling stream recording.\n");
-}
-
-void open_recorder(struct MPContext *mpctx, bool on_init)
-{
-    if (!mpctx->playback_initialized)
-        return;
-
-    close_recorder(mpctx);
-
-    char *target = mpctx->opts->record_file;
-    if (!target || !target[0])
-        return;
-
-    struct sh_stream **streams = NULL;
-    int num_streams = 0;
-
-    for (int n = 0; n < mpctx->num_tracks; n++) {
-        struct track *track = mpctx->tracks[n];
-        if (track->stream && track->selected && (track->d_sub || track->dec))
-            MP_TARRAY_APPEND(NULL, streams, num_streams, track->stream);
-    }
-
-    struct demux_attachment **attachments = talloc_array(NULL, struct demux_attachment*, mpctx->demuxer->num_attachments);
-    for (int n = 0; n < mpctx->demuxer->num_attachments; n++) {
-        attachments[n] = &mpctx->demuxer->attachments[n];
-    }
-
-    mpctx->recorder = mp_recorder_create(mpctx->global, mpctx->opts->record_file,
-                                         streams, num_streams,
-                                         attachments, mpctx->demuxer->num_attachments);
-
-    if (!mpctx->recorder) {
-        talloc_free(streams);
-        talloc_free(attachments);
-        close_recorder_and_error(mpctx);
-        return;
-    }
-
-    if (!on_init)
-        mp_recorder_mark_discontinuity(mpctx->recorder);
-
-    int n_stream = 0;
-    for (int n = 0; n < mpctx->num_tracks; n++) {
-        struct track *track = mpctx->tracks[n];
-        if (n_stream >= num_streams)
-            break;
-        // (We expect track->stream not to be reused on other tracks.)
-        if (track->stream == streams[n_stream]) {
-            struct mp_recorder_sink * sink =
-                mp_recorder_get_sink(mpctx->recorder, streams[n_stream]);
-            assert(sink);
-            set_track_recorder_sink(track, sink);
-            n_stream++;
-        }
-    }
-
-    talloc_free(streams);
-    talloc_free(attachments);
-}
-

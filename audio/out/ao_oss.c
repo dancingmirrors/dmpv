@@ -6,20 +6,20 @@
  * - Steve Davies <steve@daviesfam.org>
  * Rozhuk Ivan <rozhuk.im@gmail.com> 2020-2023
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -36,6 +36,7 @@
 #include <sys/types.h>
 
 #include "audio/format.h"
+#include "common/common.h"
 #include "common/msg.h"
 #include "options/options.h"
 #include "osdep/endian.h"
@@ -89,7 +90,7 @@ static const int format_table[][2] = {
 
 #define MP_WARN_IOCTL_ERR(__ao) \
     MP_WARN((__ao), "%s: ioctl() fail, err = %i: %s\n", \
-        __FUNCTION__, errno, strerror(errno))
+        __FUNCTION__, errno, mp_strerror(errno))
 
 
 static void uninit(struct ao *ao);
@@ -186,11 +187,11 @@ static int init(struct ao *ao)
 
     /* Channels count. */
     if (af_fmt_is_spdif(format)) {
-        /* Probably could be fixed by setting number of channels;
-         * needs testing. */
-        if (channels.num != 2) {
-            MP_ERR(ao, "Format %s not implemented.\n", af_fmt_to_str(format));
-            goto err_out;
+        nchannels = reqchannels = channels.num;
+        if (ioctl(p->dsp_fd, SNDCTL_DSP_CHANNELS, &nchannels) == -1) {
+            MP_ERR(ao, "Failed to set audio device to %d channels.\n",
+                reqchannels);
+            goto err_out_ioctl;
         }
     } else {
         struct mp_chmap_sel sel = {0};
@@ -284,6 +285,8 @@ static int control(struct ao *ao, enum aocontrol cmd, void *arg)
             return CONTROL_ERROR;
         }
         return CONTROL_OK;
+    default:
+        return CONTROL_UNKNOWN;
     }
 
     return CONTROL_UNKNOWN;
@@ -327,9 +330,9 @@ static bool audio_write(struct ao *ao, void **data, int samples)
 
     while ((rc = write(p->dsp_fd, data[0], size)) == -1) {
         if (errno == EINTR)
-			continue;
+            continue;
         MP_WARN(ao, "audio_write: write() fail, err = %i: %s.\n",
-            errno, strerror(errno));
+            errno, mp_strerror(errno));
         return false;
     }
     if ((size_t)rc != size) {

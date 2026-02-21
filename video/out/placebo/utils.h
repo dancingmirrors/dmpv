@@ -12,7 +12,14 @@
 #include <libplacebo/log.h>
 #include <libplacebo/colorspace.h>
 #include <libplacebo/renderer.h>
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
+#endif
 #include <libplacebo/utils/libav.h>
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 pl_log mppl_log_create(void *tactx, struct mp_log *log);
 void mppl_log_set_probing(pl_log log, bool probing);

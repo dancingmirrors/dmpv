@@ -8,10 +8,10 @@
 #include "video/out/vo.h"
 
 struct mp_log;
-struct mpv_global;
+struct dmpv_global;
 struct gl_shader_cache;
 
-struct gl_shader_cache *gl_sc_create(struct ra *ra, struct mpv_global *global,
+struct gl_shader_cache *gl_sc_create(struct ra *ra, struct dmpv_global *global,
                                      struct mp_log *log);
 void gl_sc_destroy(struct gl_shader_cache *sc);
 bool gl_sc_error_state(struct gl_shader_cache *sc);

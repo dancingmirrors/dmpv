@@ -1,4 +1,5 @@
 #include "audio/aframe.h"
+#include "misc/mp_assert.h"
 #include "video/mp_image.h"
 
 #include "f_utils.h"
@@ -74,7 +75,7 @@ void mp_chain_filters(struct mp_pin *in, struct mp_pin *out,
     for (int n = 0; n < num_filters; n++) {
         if (!filters[n])
             continue;
-        assert(filters[n]->num_pins == 2);
+        mp_assert(filters[n]->num_pins == 2);
         mp_pin_connect(filters[n]->pins[0], in);
         in = filters[n]->pins[1];
     }
@@ -258,7 +259,7 @@ static void fixed_aframe_size_process(struct mp_filter *f)
     // p->in not set means draining for EOF or format change
     if ((!p->in && p->out_written) || p->out_written == p->samples) {
         int missing = p->samples - p->out_written;
-        assert(missing >= 0);
+        mp_assert(missing >= 0);
         if (missing) {
             mp_aframe_set_silence(p->out, p->out_written, missing);
             if (!p->pad_silence)

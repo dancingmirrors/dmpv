@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_DEMUXER_H
@@ -93,6 +93,30 @@ enum demux_event {
 struct demuxer;
 struct timeline;
 
+extern const struct m_sub_options demux_conf;
+
+struct demux_opts {
+    int enable_cache;
+    bool disk_cache;
+    int64_t max_bytes;
+    int64_t max_bytes_bw;
+    bool donate_fw;
+    double min_secs;
+    double hyst_secs;
+    bool force_seekable;
+    double min_secs_cache;
+    bool access_references;
+    int seekable_cache;
+    bool create_ccs;
+    char *record_file;
+    int video_back_preroll;
+    int audio_back_preroll;
+    int back_batch[STREAM_TYPE_COUNT];
+    double back_seek_size;
+    char *meta_cp;
+    bool force_retry_eof;
+};
+
 /**
  * Demuxer description structure
  */
@@ -167,6 +191,8 @@ typedef struct demux_attachment
 
 struct demuxer_params {
     bool is_top_level; // if true, it's not a sub-demuxer (enables cache etc.)
+    int depth;         // depth of the demuxer tree, 0 for top-level, each
+                       // nested demuxer increases depth by 1
     char *force_format;
     int matroska_num_wanted_uids;
     struct matroska_segment_uid *matroska_wanted_uids;
@@ -204,6 +230,7 @@ typedef struct demuxer {
     bool is_streaming; // implies a "slow" input, such as network or FUSE
     int stream_origin; // any STREAM_ORIGIN_* (set from source stream)
     bool access_references; // allow opening other files/URLs
+    int depth; // demuxer depth, 0 for top-level
 
     // Bitmask of DEMUX_EVENT_*
     int events;
@@ -226,9 +253,14 @@ typedef struct demuxer {
     struct mp_tags *metadata;
 
     void *priv;   // demuxer-specific internal data
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log, *glog;
+    struct demux_packet_pool *packet_pool;
     struct demuxer_params *params;
+
+    // Demuxer options - public for access by demuxer implementations
+    struct demux_opts *opts;
+    struct m_config_cache *opts_cache;
 
     // internal to demux.c
     struct demux_internal *in;
@@ -270,7 +302,7 @@ struct mp_cancel;
 struct demuxer *demux_open_url(const char *url,
                                struct demuxer_params *params,
                                struct mp_cancel *cancel,
-                               struct mpv_global *global);
+                               struct dmpv_global *global);
 
 void demux_start_thread(struct demuxer *demuxer);
 void demux_stop_thread(struct demuxer *demuxer);

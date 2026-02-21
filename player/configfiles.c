@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <errno.h>
@@ -23,10 +23,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <utime.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
 
 #include <libavutil/md5.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
+#include "misc/ta.h"
 
 #include "osdep/io.h"
 
@@ -35,17 +39,81 @@
 #include "common/msg.h"
 #include "misc/ctype.h"
 #include "options/path.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_config_frontend.h"
 #include "options/parse_configfile.h"
 #include "common/playlist.h"
 #include "options/options.h"
 #include "options/m_property.h"
+#include "input/input.h"
 
 #include "stream/stream.h"
 
 #include "core.h"
 #include "command.h"
+
+static char *preferred_config_path(struct MPContext *mpctx)
+{
+    char *path = NULL;
+    struct dmpv_global *global = mpctx->global;
+
+    const char *xdg_config = getenv("XDG_CONFIG_HOME");
+    if (xdg_config && xdg_config[0]) {
+        path = ta_asprintf(global, "%s/dmpv/dmpv.conf", xdg_config);
+        if (path) {
+            if (access(path, R_OK) == 0)
+                return path;
+            talloc_free(path);
+            path = NULL;
+        }
+    } else {
+        const char *home = getenv("HOME");
+        if (home && home[0]) {
+            path = ta_asprintf(global, "%s/.config/dmpv/dmpv.conf", home);
+            if (path) {
+                if (access(path, R_OK) == 0)
+                    return path;
+                talloc_free(path);
+                path = NULL;
+            }
+        }
+    }
+
+    const char *xdg_dirs = getenv("XDG_CONFIG_DIRS");
+    if (!xdg_dirs || !xdg_dirs[0]) xdg_dirs = "/etc/xdg";
+    {
+        char *dirs = ta_strdup(global, xdg_dirs);
+        if (dirs) {
+            char *saveptr = NULL;
+            char *dir = strtok_r(dirs, ":", &saveptr);
+            while (dir) {
+                path = ta_asprintf(global, "%s/dmpv/dmpv.conf", dir);
+                if (path) {
+                    if (access(path, R_OK) == 0) {
+                        talloc_free(dirs);
+                        return path;
+                    }
+                    talloc_free(path);
+                    path = NULL;
+                }
+                dir = strtok_r(NULL, ":", &saveptr);
+            }
+            talloc_free(dirs);
+        }
+    }
+
+#ifdef DMPV_CONFDIR
+    path = ta_asprintf(global, "%s/dmpv.conf", DMPV_CONFDIR);
+    if (path) {
+        if (access(path, R_OK) == 0)
+            return path;
+        talloc_free(path);
+        path = NULL;
+    }
+#endif
+
+    return NULL;
+}
 
 static void load_all_cfgfiles(struct MPContext *mpctx, char *section,
                               char *filename)
@@ -85,12 +153,19 @@ void mp_parse_cfgfiles(struct MPContext *mpctx)
     if (encoding)
         section = "playback-default";
 
-    load_all_cfgfiles(mpctx, NULL, "encoding-profiles.conf");
+    char *pref = preferred_config_path(mpctx);
+    if (pref) {
+        MP_MSG(mpctx, MSGL_V, "Loading config (preferred) '%s'\n", pref);
+        m_config_parse_config_file(mpctx->mconfig, mpctx->global, pref, NULL, 0);
+        talloc_free(pref);
+    }
 
-    load_all_cfgfiles(mpctx, section, "mpv.conf|config");
+    load_all_cfgfiles(mpctx, section, "dmpv.conf|config");
 
-    if (encoding)
+    if (encoding) {
         m_config_set_profile(mpctx->mconfig, SECT_ENCODE, 0);
+        mp_input_enable_section(mpctx->input, "encode", MP_INPUT_EXCLUSIVE);
+    }
 }
 
 static int try_load_config(struct MPContext *mpctx, const char *file, int flags,
@@ -124,7 +199,7 @@ static void mp_load_per_file_config(struct MPContext *mpctx)
         char *name = mp_basename(cfg);
 
         bstr dir = mp_dirname(cfg);
-        char *dircfg = mp_path_join_bstr(NULL, dir, bstr0("mpv.conf"));
+        char *dircfg = mp_path_join_bstr(NULL, dir, bstr0("dmpv.conf"));
         try_load_config(mpctx, dircfg, FILE_LOCAL_FLAGS, MSGL_INFO);
         talloc_free(dircfg);
 
@@ -222,7 +297,7 @@ static char *mp_get_playback_resume_config_filename(struct MPContext *mpctx,
         }
     }
     uint8_t md5[16];
-    av_md5_sum(md5, realpath, strlen(realpath));
+    av_md5_sum(md5, (const uint8_t *)realpath, strlen(realpath));
     char *conf = talloc_strdup(tmp, "");
     for (int i = 0; i < 16; i++)
         conf = talloc_asprintf_append(conf, "%02X", md5[i]);
@@ -278,16 +353,41 @@ static void write_redirect(struct MPContext *mpctx, char *path)
     }
 }
 
+static void write_redirects_for_parent_dirs(struct MPContext *mpctx, char *path)
+{
+    if (mp_is_url(bstr0(path)))
+        return;
+
+    // Write redirect entries for the file's parent directories to allow
+    // resuming playback when playing parent directories whose entries are
+    // expanded only the first time they are "played". For example, if
+    // "/a/b/c.mkv" is the current entry, also create resume files for /a/b and
+    // /a, so that "dmpv --directory-mode=lazy /a" resumes playback from
+    // /a/b/c.mkv even when b isn't the first directory in /a.
+    bstr dir = mp_dirname(path);
+    // There is no need to write a redirect entry for "/".
+    while (dir.len > 1 && dir.len < strlen(path)) {
+        path[dir.len] = '\0';
+        mp_path_strip_trailing_separator(path);
+        write_redirect(mpctx, path);
+        dir = mp_dirname(path);
+    }
+}
+
 void mp_write_watch_later_conf(struct MPContext *mpctx)
 {
     struct playlist_entry *cur = mpctx->playing;
     char *conffile = NULL;
+    void *ctx = talloc_new(NULL);
+
     if (!cur)
         goto exit;
 
+    char *path = mp_normalize_path(ctx, cur->filename);
+
     struct demuxer *demux = mpctx->demuxer;
 
-    conffile = mp_get_playback_resume_config_filename(mpctx, cur->filename);
+    conffile = mp_get_playback_resume_config_filename(mpctx, path);
     if (!conffile)
         goto exit;
 
@@ -302,10 +402,10 @@ void mp_write_watch_later_conf(struct MPContext *mpctx)
         goto exit;
     }
 
-    write_filename(mpctx, file, cur->filename);
+    write_filename(mpctx, file, path);
 
     bool write_start = true;
-    double pos = get_current_time(mpctx);
+    double pos = get_playback_time(mpctx);
 
     if ((demux && (!demux->seekable || demux->partially_seekable)) ||
         pos == MP_NOPTS_VALUE)
@@ -336,47 +436,29 @@ void mp_write_watch_later_conf(struct MPContext *mpctx)
     }
     fclose(file);
 
-    if (mpctx->opts->position_check_mtime &&
-        !mp_is_url(bstr0(cur->filename)) &&
-        !copy_mtime(cur->filename, conffile))
+    if (mpctx->opts->position_check_mtime && !mp_is_url(bstr0(path)) &&
+        !copy_mtime(path, conffile))
     {
         MP_WARN(mpctx, "Can't copy mtime from %s to %s\n", cur->filename,
                 conffile);
     }
 
-    // This allows us to recursively resume directories etc., whose entries are
-    // expanded the first time it's "played". For example, if "/a/b/c.mkv" is
-    // the current entry, then we want to resume this file if the user does
-    // "mpv /a". This would expand to the directory entries in "/a", and if
-    // "/a/a.mkv" is not the first entry, this would be played.
-    // Here, we write resume entries for "/a" and "/a/b".
-    // (Unfortunately, this will leave stray resume files on resume, because
-    // obviously it resumes only from one of those paths.)
-    for (int n = 0; n < cur->num_redirects; n++)
-        write_redirect(mpctx, cur->redirects[n]);
-    // And at last, for local directories, we write an entry for each path
-    // prefix, so the user can resume from an arbitrary directory. This starts
-    // with the first redirect (all other redirects are further prefixes).
-    if (cur->num_redirects) {
-        char *path = cur->redirects[0];
-        char tmp[4096];
-        if (!mp_is_url(bstr0(path)) && strlen(path) < sizeof(tmp)) {
-            snprintf(tmp, sizeof(tmp), "%s", path);
-            for (;;) {
-                bstr dir = mp_dirname(tmp);
-                if (dir.len == strlen(tmp) || !dir.len || bstr_equals0(dir, "."))
-                    break;
+    write_redirects_for_parent_dirs(mpctx, path);
 
-                tmp[dir.len] = '\0';
-                if (strlen(tmp) >= 2) // keep "/"
-                    mp_path_strip_trailing_separator(tmp);
-                write_redirect(mpctx, tmp);
-            }
-        }
+    // Also write redirect entries for a playlist that dmpv expanded if the
+    // current entry is a URL, this is mostly useful for playing multiple
+    // archives of images, e.g. with dmpv 1.zip 2.zip and quit-watch-later
+    // on 2.zip, write redirect entries for 2.zip, not just for the archive://
+    // URL.
+    if (cur->playlist_path && mp_is_url(bstr0(path))) {
+        char *playlist_path = mp_normalize_path(ctx, cur->playlist_path);
+        write_redirect(mpctx, playlist_path);
+        write_redirects_for_parent_dirs(mpctx, playlist_path);
     }
 
 exit:
     talloc_free(conffile);
+    talloc_free(ctx);
 }
 
 void mp_delete_watch_later_conf(struct MPContext *mpctx, const char *file)
@@ -391,9 +473,30 @@ void mp_delete_watch_later_conf(struct MPContext *mpctx, const char *file)
     }
 
     char *fname = mp_get_playback_resume_config_filename(mpctx, file);
-    if (fname)
+    if (fname) {
         unlink(fname);
-    talloc_free(fname);
+        talloc_free(fname);
+    }
+
+    if (mp_is_url(bstr0(file)))
+        return;
+
+    void *ctx = talloc_new(NULL);
+    char *path = mp_normalize_path(ctx, file);
+
+    bstr dir = mp_dirname(path);
+    while (dir.len > 1 && dir.len < strlen(path)) {
+        path[dir.len] = '\0';
+        mp_path_strip_trailing_separator(path);
+        fname = mp_get_playback_resume_config_filename(mpctx, path);
+        if (fname) {
+            unlink(fname);
+            talloc_free(fname);
+        }
+        dir = mp_dirname(path);
+    }
+
+    talloc_free(ctx);
 }
 
 bool mp_load_playback_resume(struct MPContext *mpctx, const char *file)
@@ -412,7 +515,7 @@ bool mp_load_playback_resume(struct MPContext *mpctx, const char *file)
 
         // Never apply the saved start position to following files
         m_config_backup_opt(mpctx->mconfig, "start");
-        MP_INFO(mpctx, "Resuming playback. This behavior can "
+        MP_INFO(mpctx, "INFO: Resuming playback. This behavior can "
                "be disabled with --no-resume-playback.\n");
         try_load_config(mpctx, fname, M_SETOPT_PRESERVE_CMDLINE, MSGL_V);
         resume = true;

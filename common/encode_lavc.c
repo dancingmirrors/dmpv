@@ -4,20 +4,20 @@
  * Copyright (C) 2010 Nicolas George <george@nsup.org>
  * Copyright (C) 2011-2012 Rudolf Polzer <divVerent@xonotic.org>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/avutil.h>
@@ -28,12 +28,14 @@
 #include "common/global.h"
 #include "common/msg.h"
 #include "common/msg_control.h"
-#include "options/m_config.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "options/options.h"
+#include "osdep/threads.h"
 #include "osdep/timer.h"
 #include "video/out/vo.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "stream/stream.h"
 
 struct encode_priv {
@@ -69,8 +71,6 @@ struct mux_stream {
     enum AVMediaType codec_type;
     AVRational encoder_timebase;    // packet timestamps from encoder
     AVStream *st;
-    void (*on_ready)(void *ctx);    // when finishing muxer init
-    void *on_ready_ctx;
 };
 
 #define OPT_BASE_STRUCT struct encode_opts
@@ -83,25 +83,14 @@ const struct m_sub_options encode_config = {
         {"ovcopts", OPT_KEYVALUELIST(vopts), .flags = M_OPT_HAVE_HELP},
         {"oac", OPT_STRING(acodec)},
         {"oacopts", OPT_KEYVALUELIST(aopts), .flags = M_OPT_HAVE_HELP},
-        {"ovoffset", OPT_FLOAT(voffset), M_RANGE(-1000000.0, 1000000.0),
-            .deprecation_message = "--audio-delay (once unbroken)"},
-        {"oaoffset", OPT_FLOAT(aoffset), M_RANGE(-1000000.0, 1000000.0),
-            .deprecation_message = "--audio-delay (once unbroken)"},
+        {"ovoffset", OPT_FLOAT(voffset), M_RANGE(-1000000.0, 1000000.0)},
+        {"oaoffset", OPT_FLOAT(aoffset), M_RANGE(-1000000.0, 1000000.0)},
         {"orawts", OPT_BOOL(rawts)},
-        {"ovfirst", OPT_BOOL(video_first),
-            .deprecation_message = "no replacement"},
-        {"oafirst", OPT_BOOL(audio_first),
-            .deprecation_message = "no replacement"},
+        {"ovfirst", OPT_BOOL(video_first)},
+        {"oafirst", OPT_BOOL(audio_first)},
         {"ocopy-metadata", OPT_BOOL(copy_metadata)},
         {"oset-metadata", OPT_KEYVALUELIST(set_metadata)},
         {"oremove-metadata", OPT_STRINGLIST(remove_metadata)},
-
-        {"ocopyts", OPT_REMOVED("ocopyts is now the default")},
-        {"oneverdrop", OPT_REMOVED("no replacement")},
-        {"oharddup", OPT_REMOVED("use --vf-add=fps=VALUE")},
-        {"ofps", OPT_REMOVED("no replacement (use --vf-add=fps=VALUE for CFR)")},
-        {"oautofps", OPT_REMOVED("no replacement")},
-        {"omaxfps", OPT_REMOVED("no replacement")},
         {0}
     },
     .size = sizeof(struct encode_opts),
@@ -110,7 +99,7 @@ const struct m_sub_options encode_config = {
     },
 };
 
-struct encode_lavc_context *encode_lavc_init(struct mpv_global *global)
+struct encode_lavc_context *encode_lavc_init(struct dmpv_global *global)
 {
     struct encode_lavc_context *ctx = talloc_ptrtype(NULL, ctx);
     *ctx = (struct encode_lavc_context){
@@ -131,12 +120,6 @@ struct encode_lavc_context *encode_lavc_init(struct mpv_global *global)
     // ffmpeg.c works around this too, the same way
     if (!strcmp(filename, "-"))
         filename = "pipe:1";
-
-    if (filename && (
-            !strcmp(filename, "/dev/stdout") ||
-            !strcmp(filename, "pipe:") ||
-            !strcmp(filename, "pipe:1")))
-        mp_msg_force_stderr(global, true);
 
     encode_lavc_discontinuity(ctx);
 
@@ -172,7 +155,7 @@ void encode_lavc_set_metadata(struct encode_lavc_context *ctx,
 {
     struct encode_priv *p = ctx->priv;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     if (ctx->options->copy_metadata) {
         p->metadata = mp_tags_dup(ctx, metadata);
@@ -199,7 +182,7 @@ void encode_lavc_set_metadata(struct encode_lavc_context *ctx,
         }
     }
 
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 bool encode_lavc_free(struct encode_lavc_context *ctx)
@@ -235,7 +218,7 @@ bool encode_lavc_free(struct encode_lavc_context *ctx)
 
     res = !p->failed;
 
-    pthread_mutex_destroy(&ctx->lock);
+    mp_mutex_destroy(&ctx->lock);
     talloc_free(ctx);
 
     return res;
@@ -295,13 +278,6 @@ static void maybe_init_muxer(struct encode_lavc_context *ctx)
 
     p->header_written = true;
 
-    for (int n = 0; n < p->num_streams; n++) {
-        struct mux_stream *s = p->streams[n];
-
-        if (s->on_ready)
-            s->on_ready(s->on_ready_ctx);
-    }
-
     return;
 
 failed:
@@ -328,7 +304,7 @@ void encode_lavc_expect_stream(struct encode_lavc_context *ctx,
 {
     struct encode_priv *p = ctx->priv;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     enum AVMediaType codec_type = mp_to_av_stream_type(type);
 
@@ -352,7 +328,7 @@ void encode_lavc_expect_stream(struct encode_lavc_context *ctx,
     MP_TARRAY_APPEND(p, p->streams, p->num_streams, dst);
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 // Signal that you are ready to encode (you provide the codec params etc. too).
@@ -360,13 +336,11 @@ done:
 // Can be called only once per stream. info is copied by callee as needed.
 static void encode_lavc_add_stream(struct encoder_context *enc,
                                    struct encode_lavc_context *ctx,
-                                   struct encoder_stream_info *info,
-                                   void (*on_ready)(void *ctx),
-                                   void *on_ready_ctx)
+                                   struct encoder_stream_info *info)
 {
     struct encode_priv *p = ctx->priv;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     struct mux_stream *dst = find_mux_stream(ctx, info->codecpar->codec_type);
     if (!dst) {
@@ -395,14 +369,12 @@ static void encode_lavc_add_stream(struct encoder_context *enc,
     if (avcodec_parameters_copy(dst->st->codecpar, info->codecpar) < 0)
         MP_HANDLE_OOM(0);
 
-    dst->on_ready = on_ready;
-    dst->on_ready_ctx = on_ready_ctx;
     enc->mux_stream = dst;
 
     maybe_init_muxer(ctx);
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 // Write a packet. This will take over ownership of `pkt`
@@ -411,9 +383,9 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
     struct encode_lavc_context *ctx = dst->ctx;
     struct encode_priv *p = ctx->priv;
 
-    assert(dst->st);
+    mp_assert(dst->st);
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     if (p->failed)
         goto done;
@@ -425,7 +397,7 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
     }
 
     pkt->stream_index = dst->st->index;
-    assert(dst->st == p->muxer->streams[pkt->stream_index]);
+    mp_assert(dst->st == p->muxer->streams[pkt->stream_index]);
 
     av_packet_rescale_ts(pkt, dst->encoder_timebase, dst->st->time_base);
 
@@ -440,6 +412,8 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
             * (double)dst->st->time_base.num
             / (double)dst->st->time_base.den;
         break;
+    default:
+        MP_ASSERT_UNREACHABLE();
     }
 
     if (av_interleaved_write_frame(p->muxer, pkt) < 0) {
@@ -450,7 +424,7 @@ static void encode_lavc_add_packet(struct mux_stream *dst, AVPacket *pkt)
     pkt = NULL;
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
     if (pkt)
         av_packet_unref(pkt);
 }
@@ -465,9 +439,9 @@ void encode_lavc_discontinuity(struct encode_lavc_context *ctx)
     if (!ctx)
         return;
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
     ctx->discontinuity_pts_offset = MP_NOPTS_VALUE;
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
 }
 
 static void encode_lavc_printoptions(struct mp_log *log, const void *obj,
@@ -567,7 +541,7 @@ bool encode_lavc_showhelp(struct mp_log *log, struct encode_opts *opts)
         encode_lavc_printoptions(log, c, "  --ofopts=", "           ", NULL,
                                  AV_OPT_FLAG_ENCODING_PARAM,
                                  AV_OPT_FLAG_ENCODING_PARAM);
-        av_free(c);
+        avformat_free_context(c);
         void *iter = NULL;
         while ((format = av_muxer_iterate(&iter))) {
             if (format->priv_class) {
@@ -688,7 +662,7 @@ int encode_lavc_getstatus(struct encode_lavc_context *ctx,
     float minutes, megabytes, fps, x;
     float f = MPMAX(0.0001, relative_position);
 
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
 
     if (p->failed) {
         snprintf(buf, bufsize, "(failed)\n");
@@ -712,7 +686,7 @@ int encode_lavc_getstatus(struct encode_lavc_context *ctx,
     buf[bufsize - 1] = 0;
 
 done:
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
     return 0;
 }
 
@@ -720,9 +694,9 @@ bool encode_lavc_didfail(struct encode_lavc_context *ctx)
 {
     if (!ctx)
         return false;
-    pthread_mutex_lock(&ctx->lock);
+    mp_mutex_lock(&ctx->lock);
     bool fail = ctx->priv->failed;
-    pthread_mutex_unlock(&ctx->lock);
+    mp_mutex_unlock(&ctx->lock);
     return fail;
 }
 
@@ -731,6 +705,7 @@ static void encoder_destroy(void *ptr)
     struct encoder_context *p = ptr;
 
     av_packet_free(&p->pkt);
+    avcodec_parameters_free(&p->info.codecpar);
     avcodec_free_context(&p->encoder);
     free_stream(p->twopass_bytebuffer);
 }
@@ -830,7 +805,7 @@ static void encoder_2pass_prepare(struct encoder_context *p)
         if (s) {
             struct bstr content = stream_read_complete(s, p, 1000000000);
             if (content.start) {
-                p->encoder->stats_in = content.start;
+                p->encoder->stats_in = (char *)content.start;
             } else {
                 MP_WARN(p, "could not read '%s', "
                         "disabling 2-pass encoding at pass 1\n", filename);
@@ -856,10 +831,9 @@ static void encoder_2pass_prepare(struct encoder_context *p)
     talloc_free(filename);
 }
 
-bool encoder_init_codec_and_muxer(struct encoder_context *p,
-                                  void (*on_ready)(void *ctx), void *ctx)
+bool encoder_init_codec_and_muxer(struct encoder_context *p)
 {
-    assert(!avcodec_is_open(p->encoder));
+    mp_assert(!avcodec_is_open(p->encoder));
 
     char **copts = p->type == STREAM_VIDEO
         ? p->options->vopts
@@ -884,8 +858,8 @@ bool encoder_init_codec_and_muxer(struct encoder_context *p,
                    "           ********************************************\n\n"
                    "This means the output file may be broken or bad.\n"
                    "Possible reasons, problems, workarounds:\n"
-                   "- Codec implementation in ffmpeg/libav is not finished yet.\n"
-                   "     Try updating ffmpeg or libav.\n"
+                   "- Codec implementation in ffmpeg is not finished yet.\n"
+                   "     Try updating ffmpeg.\n"
                    "- Bad picture quality, blocks, blurriness.\n"
                    "     Experiment with codec settings to maybe still get the\n"
                    "     desired quality output at the expense of bitrate.\n"
@@ -913,14 +887,14 @@ bool encoder_init_codec_and_muxer(struct encoder_context *p,
     p->pkt = av_packet_alloc();
     MP_HANDLE_OOM(p->pkt);
 
-    encode_lavc_add_stream(p, p->encode_lavc_ctx, &p->info, on_ready, ctx);
+    encode_lavc_add_stream(p, p->encode_lavc_ctx, &p->info);
     if (!p->mux_stream)
         goto fail;
 
     return true;
 
 fail:
-    avcodec_close(p->encoder);
+    avcodec_free_context(&p->encoder);
     return false;
 }
 
@@ -967,6 +941,19 @@ double encoder_get_offset(struct encoder_context *p)
     case AVMEDIA_TYPE_AUDIO: return p->options->aoffset;
     default:                 return 0;
     }
+}
+
+void encoder_update_log(struct dmpv_global *global)
+{
+    struct encode_opts *options = mp_get_config_group(NULL, global, &encode_config);
+    if (options->file && (!strcmp(options->file, "-") ||
+                          !strcmp(options->file, "/dev/stdout") ||
+                          !strcmp(options->file, "pipe:") ||
+                          !strcmp(options->file, "pipe:1")))
+    {
+        mp_msg_force_stderr(global, true);
+    }
+    talloc_free(options);
 }
 
 // vim: ts=4 sw=4 et

@@ -1,22 +1,22 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <limits.h>
 
 #include "common/common.h"
@@ -42,9 +42,9 @@ struct vertex {
 };
 
 static const struct ra_renderpass_input vertex_vao[] = {
-    {"position",  RA_VARTYPE_FLOAT,      2, 1, offsetof(struct vertex, position)},
-    {"texcoord" , RA_VARTYPE_FLOAT,      2, 1, offsetof(struct vertex, texcoord)},
-    {"ass_color", RA_VARTYPE_BYTE_UNORM, 4, 1, offsetof(struct vertex, ass_color)},
+    {"position",  RA_VARTYPE_FLOAT,      2, 1, offsetof(struct vertex, position), 0},
+    {"texcoord" , RA_VARTYPE_FLOAT,      2, 1, offsetof(struct vertex, texcoord), 0},
+    {"ass_color", RA_VARTYPE_BYTE_UNORM, 4, 1, offsetof(struct vertex, ass_color), 0},
 };
 
 struct mpgl_osd_part {
@@ -124,13 +124,13 @@ static bool upload_osd(struct mpgl_osd *ctx, struct mpgl_osd_part *osd,
     struct ra *ra = ctx->ra;
     bool ok = false;
 
-    assert(imgs->packed);
+    mp_assert(imgs->packed);
 
     int req_w = next_pow2(imgs->packed_w);
     int req_h = next_pow2(imgs->packed_h);
 
     const struct ra_format *fmt = ctx->fmt_table[imgs->format];
-    assert(fmt);
+    mp_assert(fmt);
 
     if (!osd->texture || req_w > osd->w || req_h > osd->h ||
         osd->format != imgs->format)
@@ -206,7 +206,7 @@ static void gen_osd_cb(void *pctx, struct sub_bitmaps *imgs)
 bool mpgl_osd_draw_prepare(struct mpgl_osd *ctx, int index,
                            struct gl_shader_cache *sc)
 {
-    assert(index >= 0 && index < MAX_OSD_PARTS);
+    mp_assert(index >= 0 && index < MAX_OSD_PARTS);
     struct mpgl_osd_part *part = ctx->parts[index];
 
     enum sub_bitmap_format fmt = part->format;

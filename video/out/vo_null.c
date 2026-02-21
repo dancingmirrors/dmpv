@@ -3,20 +3,20 @@
  *
  * Copyright (C) Aaron Holtzman - June 2000
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -32,23 +32,23 @@ struct priv {
     double cfg_fps;
 };
 
-static void draw_image(struct vo *vo, mp_image_t *mpi)
+static bool draw_frame(struct vo *vo, struct vo_frame *frame)
 {
-    talloc_free(mpi);
+    return VO_TRUE;
 }
 
 static void flip_page(struct vo *vo)
 {
     struct priv *p = vo->priv;
     if (p->cfg_fps) {
-        int64_t ft = 1e6 / p->cfg_fps;
-        int64_t prev_vsync = mp_time_us() / ft;
+        int64_t ft = 1e9 / p->cfg_fps;
+        int64_t prev_vsync = mp_time_ns() / ft;
         int64_t target_time = (prev_vsync + 1) * ft;
         for (;;) {
-            int64_t now = mp_time_us();
+            int64_t now = mp_time_ns();
             if (now >= target_time)
                 break;
-            mp_sleep_us(target_time - now);
+            mp_sleep_ns(target_time - now);
         }
     }
 }
@@ -93,7 +93,7 @@ const struct vo_driver video_out_null = {
     .query_format = query_format,
     .reconfig = reconfig,
     .control = control,
-    .draw_image = draw_image,
+    .draw_frame = draw_frame,
     .flip_page = flip_page,
     .uninit = uninit,
     .priv_size = sizeof(struct priv),

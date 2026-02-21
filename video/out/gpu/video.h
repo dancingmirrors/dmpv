@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MP_GL_VIDEO_H
@@ -133,6 +133,7 @@ struct gl_tone_map_opts {
     float decay_rate;
     float scene_threshold_low;
     float scene_threshold_high;
+    float peak_percentile;
     float contrast_recovery;
     float contrast_smoothness;
     int gamut_mode;
@@ -149,6 +150,7 @@ struct gl_video_opts {
     int target_trc;
     int target_peak;
     int target_contrast;
+    int target_gamut;
     struct gl_tone_map_opts tone_map;
     bool correct_downscaling;
     bool linear_downscaling;
@@ -166,7 +168,6 @@ struct gl_video_opts {
     char *error_diffusion;
     char *fbo_format;
     int alpha_mode;
-    bool use_rectangle;
     struct m_color background;
     bool interpolation;
     float interpolation_threshold;
@@ -182,6 +183,8 @@ struct gl_video_opts {
     int early_flush;
     char *shader_cache_dir;
     char *hwdec_interop;
+    char *image_dscale;
+    bool image_correct_downscaling;
 };
 
 extern const struct m_sub_options gl_video_conf;
@@ -198,7 +201,7 @@ enum {
 };
 
 struct gl_video *gl_video_init(struct ra *ra, struct mp_log *log,
-                               struct mpv_global *g);
+                               struct dmpv_global *g);
 void gl_video_uninit(struct gl_video *p);
 void gl_video_set_osd_source(struct gl_video *p, struct osd_state *osd);
 bool gl_video_check_format(struct gl_video *p, int mp_format);

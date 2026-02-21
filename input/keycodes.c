@@ -1,20 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <limits.h>
 #include <stddef.h>
 #include <string.h>
 #include <strings.h>
@@ -114,32 +115,6 @@ static const struct key_name key_names[] = {
   { MP_MBTN_MID_DBL, "MBTN_MID_DBL" },
   { MP_MBTN_RIGHT_DBL, "MBTN_RIGHT_DBL" },
 
-  { MP_KEY_GAMEPAD_ACTION_DOWN, "GAMEPAD_ACTION_DOWN" },
-  { MP_KEY_GAMEPAD_ACTION_RIGHT, "GAMEPAD_ACTION_RIGHT" },
-  { MP_KEY_GAMEPAD_ACTION_LEFT, "GAMEPAD_ACTION_LEFT" },
-  { MP_KEY_GAMEPAD_ACTION_UP, "GAMEPAD_ACTION_UP" },
-  { MP_KEY_GAMEPAD_BACK, "GAMEPAD_BACK" },
-  { MP_KEY_GAMEPAD_MENU, "GAMEPAD_MENU" },
-  { MP_KEY_GAMEPAD_START, "GAMEPAD_START" },
-  { MP_KEY_GAMEPAD_LEFT_SHOULDER, "GAMEPAD_LEFT_SHOULDER" },
-  { MP_KEY_GAMEPAD_RIGHT_SHOULDER, "GAMEPAD_RIGHT_SHOULDER" },
-  { MP_KEY_GAMEPAD_LEFT_TRIGGER, "GAMEPAD_LEFT_TRIGGER" },
-  { MP_KEY_GAMEPAD_RIGHT_TRIGGER, "GAMEPAD_RIGHT_TRIGGER" },
-  { MP_KEY_GAMEPAD_LEFT_STICK, "GAMEPAD_LEFT_STICK" },
-  { MP_KEY_GAMEPAD_RIGHT_STICK, "GAMEPAD_RIGHT_STICK" },
-  { MP_KEY_GAMEPAD_DPAD_UP, "GAMEPAD_DPAD_UP" },
-  { MP_KEY_GAMEPAD_DPAD_DOWN, "GAMEPAD_DPAD_DOWN" },
-  { MP_KEY_GAMEPAD_DPAD_LEFT, "GAMEPAD_DPAD_LEFT" },
-  { MP_KEY_GAMEPAD_DPAD_RIGHT, "GAMEPAD_DPAD_RIGHT" },
-  { MP_KEY_GAMEPAD_LEFT_STICK_UP, "GAMEPAD_LEFT_STICK_UP" },
-  { MP_KEY_GAMEPAD_LEFT_STICK_DOWN, "GAMEPAD_LEFT_STICK_DOWN" },
-  { MP_KEY_GAMEPAD_LEFT_STICK_LEFT, "GAMEPAD_LEFT_STICK_LEFT" },
-  { MP_KEY_GAMEPAD_LEFT_STICK_RIGHT, "GAMEPAD_LEFT_STICK_RIGHT" },
-  { MP_KEY_GAMEPAD_RIGHT_STICK_UP, "GAMEPAD_RIGHT_STICK_UP" },
-  { MP_KEY_GAMEPAD_RIGHT_STICK_DOWN, "GAMEPAD_RIGHT_STICK_DOWN" },
-  { MP_KEY_GAMEPAD_RIGHT_STICK_LEFT, "GAMEPAD_RIGHT_STICK_LEFT" },
-  { MP_KEY_GAMEPAD_RIGHT_STICK_RIGHT, "GAMEPAD_RIGHT_STICK_RIGHT" },
-
   { MP_KEY_POWER,       "POWER" },
   { MP_KEY_MENU,        "MENU" },
   { MP_KEY_PLAY,        "PLAY" },
@@ -227,7 +202,7 @@ int mp_input_get_key_from_name(const char *name)
     while ((p = strchr(name, '+'))) {
         for (const struct key_name *m = modifier_names; m->name; m++)
             if (!bstrcasecmp(bstr0(m->name),
-                             (struct bstr){(char *)name, p - name})) {
+                             (struct bstr){(unsigned char *)name, p - name})) {
                 modifiers |= m->key;
                 goto found;
             }
@@ -245,8 +220,16 @@ found:
     if (code >= 0 && rest.len == 0)
         return mp_normalize_keycode(code + modifiers);
 
-    if (bstr_startswith0(bname, "0x"))
-        return mp_normalize_keycode(strtol(name, NULL, 16) + modifiers);
+    if (bstr_startswith0(bname, "0x")) {
+        char *end;
+        long long val = strtoll(name, &end, 16);
+        if (name == end || val > INT_MAX || val < INT_MIN)
+            return -1;
+        long long keycode = val + modifiers;
+        if (keycode > INT_MAX || keycode < INT_MIN)
+            return -1;
+        return mp_normalize_keycode(keycode);
+    }
 
     for (int i = 0; key_names[i].name != NULL; i++) {
         if (strcasecmp(key_names[i].name, name) == 0)
@@ -284,7 +267,7 @@ char *mp_input_get_key_name(int key)
 {
     bstr dst = {0};
     mp_input_append_key_name(&dst, key);
-    return dst.start;
+    return (char *)dst.start;
 }
 
 char *mp_input_get_key_combo_name(const int *keys, int max)
@@ -297,7 +280,7 @@ char *mp_input_get_key_combo_name(const int *keys, int max)
         else
             break;
     }
-    return dst.start;
+    return (char *)dst.start;
 }
 
 int mp_input_get_keys_from_string(char *name, int max_num_keys,
@@ -310,7 +293,7 @@ int mp_input_get_keys_from_string(char *name, int max_num_keys,
     n = 0;
     for (end = strchr(ptr, '-'); ; end = strchr(ptr, '-')) {
         if (end && end[1] != '\0') {
-            if (end[1] == '-')
+            if (*ptr == '-' && end[1] == '-')
                 end = &end[1];
             end[0] = '\0';
         }

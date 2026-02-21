@@ -1,23 +1,22 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <limits.h>
-#include <pthread.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/mem.h>
 #include <libavutil/common.h>
@@ -29,11 +28,9 @@
 #include <libavcodec/avcodec.h>
 #include <libavutil/mastering_display_metadata.h>
 
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 16, 100)
 # include <libavutil/dovi_meta.h>
-#endif
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/av_common.h"
 #include "common/common.h"
@@ -63,13 +60,13 @@ static int mp_image_layout(int imgfmt, int w, int h, int stride_align,
 
     // Note: for non-mod-2 4:2:0 YUV frames, we have to allocate an additional
     //       top/right border. This is needed for correct handling of such
-    //       images in filter and VO code (e.g. vo_vdpau or vo_gpu).
+    //       images in filter and VO code.
 
     for (int n = 0; n < MP_MAX_PLANES; n++) {
         int alloc_w = mp_chroma_div_up(w, desc.xs[n]);
         int alloc_h = MP_ALIGN_UP(h, 32) >> desc.ys[n];
         int line_bytes = (alloc_w * desc.bpp[n] + 7) / 8;
-        out_stride[n] = MP_ALIGN_UP(line_bytes, stride_align);
+        out_stride[n] = MP_ALIGN_NPOT(line_bytes, stride_align);
         out_plane_size[n] = out_stride[n] * alloc_h;
     }
     if (desc.flags & MP_IMGFLAG_PAL)
@@ -166,8 +163,8 @@ fail:
 
 static bool mp_image_alloc_planes(struct mp_image *mpi)
 {
-    assert(!mpi->planes[0]);
-    assert(!mpi->bufs[0]);
+    mp_assert(!mpi->planes[0]);
+    mp_assert(!mpi->bufs[0]);
 
     int align = MP_IMAGE_BYTE_ALIGN;
 
@@ -188,15 +185,19 @@ static bool mp_image_alloc_planes(struct mp_image *mpi)
     return true;
 }
 
-void mp_image_setfmt(struct mp_image *mpi, int out_fmt)
+void mp_image_sethwfmt(struct mp_image *mpi, enum mp_imgfmt hw_fmt, enum mp_imgfmt sw_fmt)
 {
-    struct mp_image_params params = mpi->params;
-    struct mp_imgfmt_desc fmt = mp_imgfmt_get_desc(out_fmt);
-    params.imgfmt = fmt.id;
+    struct mp_imgfmt_desc fmt = mp_imgfmt_get_desc(sw_fmt ? sw_fmt : hw_fmt);
+    mpi->params.imgfmt = hw_fmt;
+    mpi->params.hw_subfmt = sw_fmt;
     mpi->fmt = fmt;
-    mpi->imgfmt = fmt.id;
+    mpi->imgfmt = hw_fmt;
     mpi->num_planes = fmt.num_planes;
-    mpi->params = params;
+}
+
+void mp_image_setfmt(struct mp_image *mpi, enum mp_imgfmt fmt)
+{
+    mp_image_sethwfmt(mpi, fmt, IMGFMT_NONE);
 }
 
 static void mp_image_destructor(void *ptr)
@@ -235,7 +236,7 @@ int mp_image_plane_h(struct mp_image *mpi, int plane)
 // Caller has to make sure this doesn't exceed the allocated plane data/strides.
 void mp_image_set_size(struct mp_image *mpi, int w, int h)
 {
-    assert(w >= 0 && h >= 0);
+    mp_assert(w >= 0 && h >= 0);
     mpi->w = mpi->params.w = w;
     mpi->h = mpi->params.h = h;
 }
@@ -291,8 +292,8 @@ struct mp_image *mp_image_new_copy(struct mp_image *img)
 // Only works with ref-counted images, and can't change image size/format.
 void mp_image_steal_data(struct mp_image *dst, struct mp_image *src)
 {
-    assert(dst->imgfmt == src->imgfmt && dst->w == src->w && dst->h == src->h);
-    assert(dst->bufs[0] && src->bufs[0]);
+    mp_assert(dst->imgfmt == src->imgfmt && dst->w == src->w && dst->h == src->h);
+    mp_assert(dst->bufs[0] && src->bufs[0]);
 
     mp_image_destructor(dst); // unref old
     talloc_free_children(dst);
@@ -435,7 +436,7 @@ bool mp_image_make_writeable(struct mp_image *img)
     if (!new)
         return false;
     mp_image_steal_data(img, new);
-    assert(mp_image_is_writeable(img));
+    mp_assert(mp_image_is_writeable(img));
     return true;
 }
 
@@ -478,9 +479,9 @@ void memcpy_pic(void *dst, const void *src, int bytesPerLine, int height,
 
 void mp_image_copy(struct mp_image *dst, struct mp_image *src)
 {
-    assert(dst->imgfmt == src->imgfmt);
-    assert(dst->w == src->w && dst->h == src->h);
-    assert(mp_image_is_writeable(dst));
+    mp_assert(dst->imgfmt == src->imgfmt);
+    mp_assert(dst->w == src->w && dst->h == src->h);
+    mp_assert(mp_image_is_writeable(dst));
     for (int n = 0; n < dst->num_planes; n++) {
         int line_bytes = (mp_image_plane_w(dst, n) * dst->fmt.bpp[n] + 7) / 8;
         int plane_h = mp_image_plane_h(dst, n);
@@ -508,13 +509,14 @@ static void assign_bufref(AVBufferRef **dst, AVBufferRef *new)
 
 void mp_image_copy_attributes(struct mp_image *dst, struct mp_image *src)
 {
-    assert(dst != src);
+    mp_assert(dst != src);
 
     dst->pict_type = src->pict_type;
     dst->fields = src->fields;
     dst->pts = src->pts;
     dst->dts = src->dts;
     dst->pkt_duration = src->pkt_duration;
+    dst->params.vflip = src->params.vflip;
     dst->params.rotate = src->params.rotate;
     dst->params.stereo3d = src->params.stereo3d;
     dst->params.p_w = src->params.p_w;
@@ -561,11 +563,11 @@ void mp_image_copy_attributes(struct mp_image *dst, struct mp_image *src)
 // x0/y0 must be naturally aligned.
 void mp_image_crop(struct mp_image *img, int x0, int y0, int x1, int y1)
 {
-    assert(x0 >= 0 && y0 >= 0);
-    assert(x0 <= x1 && y0 <= y1);
-    assert(x1 <= img->w && y1 <= img->h);
-    assert(!(x0 & (img->fmt.align_x - 1)));
-    assert(!(y0 & (img->fmt.align_y - 1)));
+    mp_assert(x0 >= 0 && y0 >= 0);
+    mp_assert(x0 <= x1 && y0 <= y1);
+    mp_assert(x1 <= img->w && y1 <= img->h);
+    mp_assert(!(x0 & (img->fmt.align_x - 1)));
+    mp_assert(!(y0 & (img->fmt.align_y - 1)));
 
     for (int p = 0; p < img->num_planes; ++p) {
         img->planes[p] += (y0 >> img->fmt.ys[p]) * img->stride[p] +
@@ -582,7 +584,7 @@ void mp_image_crop_rc(struct mp_image *img, struct mp_rect rc)
 // Repeatedly write count patterns of src[0..src_size] to p.
 static void memset_pattern(void *p, size_t count, uint8_t *src, size_t src_size)
 {
-    assert(src_size >= 1);
+    mp_assert(src_size >= 1);
 
     if (src_size == 1) {
         memset(p, src[0], count);
@@ -629,11 +631,11 @@ static bool endian_swap_bytes(void *d, size_t bytes, size_t word_size)
 // Alpha is cleared to 0 (fully transparent).
 void mp_image_clear(struct mp_image *img, int x0, int y0, int x1, int y1)
 {
-    assert(x0 >= 0 && y0 >= 0);
-    assert(x0 <= x1 && y0 <= y1);
-    assert(x1 <= img->w && y1 <= img->h);
-    assert(!(x0 & (img->fmt.align_x - 1)));
-    assert(!(y0 & (img->fmt.align_y - 1)));
+    mp_assert(x0 >= 0 && y0 >= 0);
+    mp_assert(x0 <= x1 && y0 <= y1);
+    mp_assert(x1 <= img->w && y1 <= img->h);
+    mp_assert(!(x0 & (img->fmt.align_x - 1)));
+    mp_assert(!(y0 & (img->fmt.align_y - 1)));
 
     struct mp_image area = *img;
     struct mp_imgfmt_desc *fmt = &area.fmt;
@@ -816,11 +818,24 @@ bool mp_image_params_equal(const struct mp_image_params *p1,
            p1->hw_subfmt == p2->hw_subfmt &&
            p1->w == p2->w && p1->h == p2->h &&
            p1->p_w == p2->p_w && p1->p_h == p2->p_h &&
+           p1->force_window == p2->force_window &&
            mp_colorspace_equal(p1->color, p2->color) &&
            p1->chroma_location == p2->chroma_location &&
+           p1->vflip == p2->vflip &&
            p1->rotate == p2->rotate &&
            p1->stereo3d == p2->stereo3d &&
            p1->alpha == p2->alpha;
+}
+
+// Compare only static video parameters, excluding dynamic metadata.
+// In dmpv, since we don't have separate dynamic metadata fields like
+// Dolby Vision or HDR metadata in mp_image_params, this is equivalent
+// to mp_image_params_equal. This function exists for compatibility with
+// upstream.
+bool mp_image_params_static_equal(const struct mp_image_params *p1,
+                                  const struct mp_image_params *p2)
+{
+    return mp_image_params_equal(p1, p2);
 }
 
 // Set most image parameters, but not image format or size.
@@ -835,6 +850,34 @@ void mp_image_set_attributes(struct mp_image *image,
     if (nparams.imgfmt != params->imgfmt)
         nparams.color = (struct mp_colorspace){0};
     mp_image_set_params(image, &nparams);
+}
+
+static enum mp_csp_levels infer_levels(enum mp_imgfmt imgfmt)
+{
+    switch (imgfmt2pixfmt(imgfmt)) {
+    case AV_PIX_FMT_YUVJ420P:
+    case AV_PIX_FMT_YUVJ411P:
+    case AV_PIX_FMT_YUVJ422P:
+    case AV_PIX_FMT_YUVJ444P:
+    case AV_PIX_FMT_YUVJ440P:
+    case AV_PIX_FMT_GRAY8:
+    case AV_PIX_FMT_YA8:
+    case AV_PIX_FMT_GRAY9LE:
+    case AV_PIX_FMT_GRAY9BE:
+    case AV_PIX_FMT_GRAY10LE:
+    case AV_PIX_FMT_GRAY10BE:
+    case AV_PIX_FMT_GRAY12LE:
+    case AV_PIX_FMT_GRAY12BE:
+    case AV_PIX_FMT_GRAY14LE:
+    case AV_PIX_FMT_GRAY14BE:
+    case AV_PIX_FMT_GRAY16LE:
+    case AV_PIX_FMT_GRAY16BE:
+    case AV_PIX_FMT_YA16BE:
+    case AV_PIX_FMT_YA16LE:
+        return MP_CSP_LEVELS_PC;
+    default:
+        return MP_CSP_LEVELS_TV;
+    }
 }
 
 // If details like params->colorspace/colorlevels are missing, guess them from
@@ -861,7 +904,7 @@ void mp_image_params_guess_csp(struct mp_image_params *params)
             if (params->color.gamma == MP_CSP_TRC_V_LOG) {
                 params->color.levels = MP_CSP_LEVELS_PC;
             } else {
-                params->color.levels = MP_CSP_LEVELS_TV;
+                params->color.levels = infer_levels(params->imgfmt);
             }
         }
         if (params->color.primaries == MP_CSP_PRIM_AUTO) {
@@ -951,7 +994,12 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
 
     dst->hwctx = src->hw_frames_ctx;
 
-    mp_image_setfmt(dst, pixfmt2imgfmt(src->format));
+    if (dst->hwctx) {
+        AVHWFramesContext *fctx = (void *)dst->hwctx->data;
+        dst->params.hw_subfmt = pixfmt2imgfmt(fctx->sw_format);
+    }
+
+    mp_image_sethwfmt(dst, pixfmt2imgfmt(src->format), dst->params.hw_subfmt);
     mp_image_set_size(dst, src->width, src->height);
 
     dst->params.p_w = src->sample_aspect_ratio.num;
@@ -965,17 +1013,11 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
     dst->pict_type = src->pict_type;
 
     dst->fields = 0;
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(58, 7, 100)
+
     if (src->flags & AV_FRAME_FLAG_INTERLACED)
         dst->fields |= MP_IMGFIELD_INTERLACED;
     if (src->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)
         dst->fields |= MP_IMGFIELD_TOP_FIRST;
-#else
-    if (src->interlaced_frame)
-        dst->fields |= MP_IMGFIELD_INTERLACED;
-    if (src->top_field_first)
-        dst->fields |= MP_IMGFIELD_TOP_FIRST;
-#endif
     if (src->repeat_pict == 1)
         dst->fields |= MP_IMGFIELD_REPEAT_FIRST;
 
@@ -990,7 +1032,6 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
 
     if (src->opaque_ref) {
         struct mp_image_params *p = (void *)src->opaque_ref->data;
-        dst->params.rotate = p->rotate;
         dst->params.stereo3d = p->stereo3d;
         // Might be incorrect if colorspace changes.
         dst->params.color.light = p->color.light;
@@ -999,9 +1040,15 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
 
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_DISPLAYMATRIX);
     if (sd) {
-        double r = av_display_rotation_get((int32_t *)(sd->data));
-        if (!isnan(r))
+        int32_t *matrix = (int32_t *) sd->data;
+        // determinant
+        int vflip = ((int64_t)matrix[0] * (int64_t)matrix[4]
+                    - (int64_t)matrix[1] * (int64_t)matrix[3]) < 0;
+        double r = av_display_rotation_get(matrix);
+        if (!isnan(r)) {
             dst->params.rotate = (((int)(-r) % 360) + 360) % 360;
+            dst->params.vflip = vflip;
+        }
     }
 
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_ICC_PROFILE);
@@ -1027,7 +1074,6 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
     if (sd)
         dst->a53_cc = sd->buf;
 
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 16, 100)
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_DOVI_METADATA);
     if (sd)
         dst->dovi = sd->buf;
@@ -1035,7 +1081,6 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_DOVI_RPU_BUFFER);
     if (sd)
         dst->dovi_buf = sd->buf;
-#endif
 
     sd = av_frame_get_side_data(src, AV_FRAME_DATA_FILM_GRAIN_PARAMS);
     if (sd)
@@ -1048,11 +1093,6 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
             .buf = sd->buf,
         };
         MP_TARRAY_APPEND(NULL, dst->ff_side_data, dst->num_ff_side_data, mpsd);
-    }
-
-    if (dst->hwctx) {
-        AVHWFramesContext *fctx = (void *)dst->hwctx->data;
-        dst->params.hw_subfmt = pixfmt2imgfmt(fctx->sw_format);
     }
 
     struct mp_image *res = mp_image_new_ref(dst);
@@ -1097,17 +1137,10 @@ struct AVFrame *mp_image_to_av_frame(struct mp_image *src)
     dst->extended_data = dst->data;
 
     dst->pict_type = src->pict_type;
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(58, 7, 100)
     if (src->fields & MP_IMGFIELD_INTERLACED)
         dst->flags |= AV_FRAME_FLAG_INTERLACED;
     if (src->fields & MP_IMGFIELD_TOP_FIRST)
         dst->flags |= AV_FRAME_FLAG_TOP_FIELD_FIRST;
-#else
-    if (src->fields & MP_IMGFIELD_INTERLACED)
-        dst->interlaced_frame = 1;
-    if (src->fields & MP_IMGFIELD_TOP_FIRST)
-        dst->top_field_first = 1;
-#endif
     if (src->fields & MP_IMGFIELD_REPEAT_FIRST)
         dst->repeat_pict = 1;
 
@@ -1136,6 +1169,14 @@ struct AVFrame *mp_image_to_av_frame(struct mp_image *src)
             av_content_light_metadata_create_side_data(dst);
         MP_HANDLE_OOM(clm);
         clm->MaxCLL = src->params.color.sig_peak * MP_REF_WHITE;
+    }
+
+    {
+        AVFrameSideData *sd = av_frame_new_side_data(dst,
+                                                     AV_FRAME_DATA_DISPLAYMATRIX,
+                                                     sizeof(int32_t) * 9);
+        MP_HANDLE_OOM(sd);
+        av_display_rotation_set((int32_t *)sd->data, src->params.rotate);
     }
 
     // Add back side data, but only for types which are not specially handled
@@ -1199,8 +1240,8 @@ void memset16_pic(void *dst, int fill, int unitsPerLine, int height, int stride)
 // You cannot access e.g. individual luma pixels on the luma plane with yuv420p.
 void *mp_image_pixel_ptr(struct mp_image *img, int plane, int x, int y)
 {
-    assert(MP_IS_ALIGNED(x, img->fmt.align_x));
-    assert(MP_IS_ALIGNED(y, img->fmt.align_y));
+    mp_assert(MP_IS_ALIGNED(x, img->fmt.align_x));
+    mp_assert(MP_IS_ALIGNED(y, img->fmt.align_y));
     return mp_image_pixel_ptr_ny(img, plane, x, y);
 }
 
@@ -1209,8 +1250,8 @@ void *mp_image_pixel_ptr(struct mp_image *img, int plane, int x, int y)
 // Useful for addressing luma rows.
 void *mp_image_pixel_ptr_ny(struct mp_image *img, int plane, int x, int y)
 {
-    assert(MP_IS_ALIGNED(x, img->fmt.align_x));
-    assert(MP_IS_ALIGNED(y, 1 << img->fmt.ys[plane]));
+    mp_assert(MP_IS_ALIGNED(x, img->fmt.align_x));
+    mp_assert(MP_IS_ALIGNED(y, 1 << img->fmt.ys[plane]));
     return img->planes[plane] +
            img->stride[plane] * (ptrdiff_t)(y >> img->fmt.ys[plane]) +
            (x >> img->fmt.xs[plane]) * (size_t)img->fmt.bpp[plane] / 8;

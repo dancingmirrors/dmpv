@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_MP_MSG_H
@@ -64,11 +64,11 @@ void mp_msg_set_max_level(struct mp_log *log, int lev);
 
 // Convenience macros.
 #define mp_fatal(log, ...)      mp_msg(log, MSGL_FATAL, __VA_ARGS__)
-#define mp_err(log, ...)        mp_msg(log, MSGL_ERR, __VA_ARGS__)
+#define mp_err(log, ...)        do { if (unlikely(mp_msg_test(log, MSGL_ERR))) mp_msg(log, MSGL_ERR, __VA_ARGS__); } while (0)
 #define mp_warn(log, ...)       mp_msg(log, MSGL_WARN, __VA_ARGS__)
 #define mp_info(log, ...)       mp_msg(log, MSGL_INFO, __VA_ARGS__)
 #define mp_verbose(log, ...)    mp_msg(log, MSGL_V, __VA_ARGS__)
-#define mp_dbg(log, ...)        mp_msg(log, MSGL_DEBUG, __VA_ARGS__)
+#define mp_dbg(log, ...)        do { if (unlikely(mp_msg_test(log, MSGL_DEBUG))) mp_msg(log, MSGL_DEBUG, __VA_ARGS__); } while (0)
 #define mp_trace(log, ...)      mp_msg(log, MSGL_TRACE, __VA_ARGS__)
 
 // Convenience macros, typically called with a pointer to a context struct
@@ -77,16 +77,16 @@ void mp_msg_set_max_level(struct mp_log *log, int lev);
 #define MP_MSG(obj, lev, ...)   mp_msg((obj)->log, lev, __VA_ARGS__)
 
 #define MP_FATAL(obj, ...)      MP_MSG(obj, MSGL_FATAL, __VA_ARGS__)
-#define MP_ERR(obj, ...)        MP_MSG(obj, MSGL_ERR, __VA_ARGS__)
+#define MP_ERR(obj, ...)        do { if (unlikely(mp_msg_test((obj)->log, MSGL_ERR))) MP_MSG(obj, MSGL_ERR, __VA_ARGS__); } while (0)
 #define MP_WARN(obj, ...)       MP_MSG(obj, MSGL_WARN, __VA_ARGS__)
 #define MP_INFO(obj, ...)       MP_MSG(obj, MSGL_INFO, __VA_ARGS__)
 #define MP_VERBOSE(obj, ...)    MP_MSG(obj, MSGL_V, __VA_ARGS__)
-#define MP_DBG(obj, ...)        MP_MSG(obj, MSGL_DEBUG, __VA_ARGS__)
+#define MP_DBG(obj, ...)        do { if (unlikely(mp_msg_test((obj)->log, MSGL_DEBUG))) MP_MSG(obj, MSGL_DEBUG, __VA_ARGS__); } while (0)
 #define MP_TRACE(obj, ...)      MP_MSG(obj, MSGL_TRACE, __VA_ARGS__)
 
 // This is a bit special. See TOOLS/stats-conv.py what rules text passed
 // to these functions should follow. Also see --dump-stats.
-#define mp_stats(obj, ...)      mp_msg(obj, MSGL_STATS, __VA_ARGS__)
-#define MP_STATS(obj, ...)      MP_MSG(obj, MSGL_STATS, __VA_ARGS__)
+#define mp_stats(obj, ...)      do { if (unlikely(mp_msg_test(obj, MSGL_STATS))) mp_msg(obj, MSGL_STATS, __VA_ARGS__); } while (0)
+#define MP_STATS(obj, ...)      do { if (unlikely(mp_msg_test((obj)->log, MSGL_STATS))) MP_MSG(obj, MSGL_STATS, __VA_ARGS__); } while (0)
 
 #endif /* MPLAYER_MP_MSG_H */

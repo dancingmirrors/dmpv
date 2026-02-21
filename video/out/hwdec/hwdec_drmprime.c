@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <fcntl.h>
@@ -23,12 +23,14 @@
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_drm.h>
+#include <libavutil/pixdesc.h>
 #include <xf86drm.h>
 
 #include "config.h"
 
-#include "libmpv/render_gl.h"
-#include "options/m_config.h"
+#include "misc/render_gl.h"
+#include "options/m_config_core.h"
+#include "video/fmt-conversion.h"
 #include "video/out/drm_common.h"
 #include "video/out/gpu/hwdec.h"
 #include "video/out/hwdec/dmabuf_interop.h"
@@ -50,14 +52,14 @@ static void uninit(struct ra_hwdec *hw)
     av_buffer_unref(&p->hwctx.av_device_ref);
 }
 
-const static dmabuf_interop_init interop_inits[] = {
-#if HAVE_DMABUF_INTEROP_GL
+static const dmabuf_interop_init interop_inits[] = {
+#if HAVE_DRM && HAVE_EGL && HAVE_GL
     dmabuf_interop_gl_init,
 #endif
-#if HAVE_DMABUF_INTEROP_PL
+#if HAVE_EGL && HAVE_LIBPLACEBO && HAVE_VAAPI
     dmabuf_interop_pl_init,
 #endif
-#if HAVE_DMABUF_WAYLAND
+#if HAVE_WAYLAND
     dmabuf_interop_wl_init,
 #endif
     NULL
@@ -67,14 +69,17 @@ static int init(struct ra_hwdec *hw)
 {
     struct priv_owner *p = hw->priv;
 
+    MP_VERBOSE(hw, "DRM PRIME: Initializing hardware decode support\n");
+
     for (int i = 0; interop_inits[i]; i++) {
         if (interop_inits[i](hw, &p->dmabuf_interop)) {
+            MP_VERBOSE(hw, "DRM PRIME: Initialized interop backend %d\n", i);
             break;
         }
     }
 
     if (!p->dmabuf_interop.interop_map || !p->dmabuf_interop.interop_unmap) {
-        MP_VERBOSE(hw, "drmprime hwdec requires at least one dmabuf interop backend.\n");
+        MP_WARN(hw, "drmprime hwdec requires at least one DMA-BUF interop backend.\n");
         return -1;
     }
 
@@ -83,7 +88,7 @@ static int init(struct ra_hwdec *hw)
      * there are extensions that supposedly provide this information from the
      * drivers. Not properly documented. Of course.
      */
-    mpv_opengl_drm_params_v2 *params = ra_get_native_resource(hw->ra_ctx->ra,
+    dmpv_opengl_drm_params_v2 *params = ra_get_native_resource(hw->ra_ctx->ra,
                                                               "drm_params_v2");
 
     /*
@@ -100,6 +105,7 @@ static int init(struct ra_hwdec *hw)
                               opt_path ? opt_path : "/dev/dri/renderD128";
     MP_VERBOSE(hw, "Using DRM device: %s\n", device_path);
 
+    MP_VERBOSE(hw, "DRM PRIME: Creating hwdevice context for %s\n", device_path);
     int ret = av_hwdevice_ctx_create(&p->hwctx.av_device_ref,
                                      AV_HWDEVICE_TYPE_DRM,
                                      device_path, NULL, 0);
@@ -108,6 +114,7 @@ static int init(struct ra_hwdec *hw)
         MP_VERBOSE(hw, "Failed to create hwdevice_ctx: %s\n", av_err2str(ret));
         return -1;
     }
+    MP_VERBOSE(hw, "DRM PRIME: hwdevice context created successfully\n");
 
     /*
      * At the moment, there is no way to discover compatible formats
@@ -117,7 +124,14 @@ static int init(struct ra_hwdec *hw)
     int num_formats = 0;
     MP_TARRAY_APPEND(p, p->formats, num_formats, IMGFMT_NV12);
     MP_TARRAY_APPEND(p, p->formats, num_formats, IMGFMT_420P);
+    MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_NV16));
+    MP_TARRAY_APPEND(p, p->formats, num_formats, IMGFMT_P010);
+#ifdef AV_PIX_FMT_P210
+    MP_TARRAY_APPEND(p, p->formats, num_formats, pixfmt2imgfmt(AV_PIX_FMT_P210));
+#endif
     MP_TARRAY_APPEND(p, p->formats, num_formats, 0); // terminate it
+
+    MP_VERBOSE(hw, "DRM PRIME: Configured %d supported formats\n", num_formats);
 
     p->hwctx.hw_imgfmt = IMGFMT_DRMPRIME;
     p->hwctx.supported_formats = p->formats;
@@ -167,17 +181,7 @@ static int mapper_init(struct ra_hwdec_mapper *mapper)
     struct dmabuf_interop_priv *p = mapper->priv;
 
     mapper->dst_params = mapper->src_params;
-
-    /*
-     * rpi4_8 and rpi4_10 function identically to NV12. These two pixel
-     * formats however are not defined in upstream ffmpeg so a string
-     * comparison is used to identify them instead of a mpv IMGFMT.
-     */
-    const char* fmt_name = mp_imgfmt_to_name(mapper->src_params.hw_subfmt);
-    if (strcmp(fmt_name, "rpi4_8") == 0 || strcmp(fmt_name, "rpi4_10") == 0)
-        mapper->dst_params.imgfmt = IMGFMT_NV12;
-    else
-        mapper->dst_params.imgfmt = mapper->src_params.hw_subfmt;
+    mapper->dst_params.imgfmt = mapper->src_params.hw_subfmt;
     mapper->dst_params.hw_subfmt = 0;
 
     struct ra_imgfmt_desc desc = {0};
@@ -208,6 +212,8 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     struct priv_owner *p_owner = mapper->owner->priv;
     struct dmabuf_interop_priv *p = mapper->priv;
 
+    MP_VERBOSE(mapper, "DRM PRIME: Mapping frame to DMA-buf\n");
+
     /*
      * Although we use the same AVDRMFrameDescriptor to hold the dmabuf
      * properties, we additionally need to dup the fds to ensure the
@@ -217,18 +223,32 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     const AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)mapper->src->planes[0];
     p->desc.nb_layers = desc->nb_layers;
     p->desc.nb_objects = desc->nb_objects;
+
+    MP_VERBOSE(mapper, "DRM PRIME: Frame has %d layers, %d objects\n",
+               desc->nb_layers, desc->nb_objects);
+
     for (int i = 0; i < desc->nb_layers; i++) {
         p->desc.layers[i].format = desc->layers[i].format;
         p->desc.layers[i].nb_planes = desc->layers[i].nb_planes;
+        MP_VERBOSE(mapper, "DRM PRIME: Layer %d: format=0x%x planes=%d\n",
+                   i, desc->layers[i].format, desc->layers[i].nb_planes);
         for (int j = 0; j < desc->layers[i].nb_planes; j++) {
             p->desc.layers[i].planes[j].object_index = desc->layers[i].planes[j].object_index;
             p->desc.layers[i].planes[j].offset = desc->layers[i].planes[j].offset;
             p->desc.layers[i].planes[j].pitch = desc->layers[i].planes[j].pitch;
+            MP_VERBOSE(mapper, "DRM PRIME:   Plane %d: object=%d offset=%td pitch=%td\n",
+                       j, desc->layers[i].planes[j].object_index,
+                       desc->layers[i].planes[j].offset,
+                       desc->layers[i].planes[j].pitch);
         }
     }
     for (int i = 0; i < desc->nb_objects; i++) {
         p->desc.objects[i].format_modifier = desc->objects[i].format_modifier;
         p->desc.objects[i].size = desc->objects[i].size;
+        MP_VERBOSE(mapper, "DRM PRIME: Object %d: size=%zu modifier=0x%lx fd=%d\n",
+                   i, desc->objects[i].size,
+                   (unsigned long)desc->objects[i].format_modifier,
+                   desc->objects[i].fd);
         // Initialise fds to -1 to make partial failure cleanup easier.
         p->desc.objects[i].fd = -1;
     }
@@ -236,6 +256,7 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
     p->surface_acquired = true;
 
     // Now actually dup the fds
+    MP_VERBOSE(mapper, "DRM PRIME: Duplicating %d dmabuf fds\n", desc->nb_objects);
     for (int i = 0; i < desc->nb_objects; i++) {
         p->desc.objects[i].fd = fcntl(desc->objects[i].fd, F_DUPFD_CLOEXEC, 0);
         if (p->desc.objects[i].fd == -1) {
@@ -243,6 +264,8 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
                    mp_strerror(errno));
             goto err;
         }
+        MP_VERBOSE(mapper, "DRM PRIME: Duplicated fd %d -> %d\n",
+                   desc->objects[i].fd, p->desc.objects[i].fd);
     }
 
     // We can handle composed formats if the total number of planes is still
@@ -263,10 +286,13 @@ static int mapper_map(struct ra_hwdec_mapper *mapper)
         goto err;
     }
 
+    MP_VERBOSE(mapper, "DRM PRIME: Calling interop_map for %d planes\n", num_returned_planes);
+
     if (!p_owner->dmabuf_interop.interop_map(mapper, &p_owner->dmabuf_interop,
                                              false))
         goto err;
 
+    MP_VERBOSE(mapper, "DRM PRIME: Frame mapped successfully\n");
     return 0;
 
 err:
@@ -280,6 +306,7 @@ const struct ra_hwdec_driver ra_hwdec_drmprime = {
     .name = "drmprime",
     .priv_size = sizeof(struct priv_owner),
     .imgfmts = {IMGFMT_DRMPRIME, 0},
+    .device_type = AV_HWDEVICE_TYPE_DRM,
     .init = init,
     .uninit = uninit,
     .mapper = &(const struct ra_hwdec_mapper_driver){

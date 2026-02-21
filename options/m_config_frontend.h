@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -29,7 +29,6 @@
 #include "misc/bstr.h"
 #include "misc/dispatch.h"
 #include "options/m_option.h"
-#include "osdep/atomic.h"
 
 // m_config provides an API to manipulate the config variables in MPlayer.
 // It makes use of the Options API to provide a context stack that
@@ -60,7 +59,7 @@ struct m_config_option {
 /** \ingroup Config */
 typedef struct m_config {
     struct mp_log *log;
-    struct mpv_global *global; // can be NULL
+    struct dmpv_global *global; // can be NULL
 
     // Registered options.
     struct m_config_option *opts; // all options, even suboptions
@@ -70,6 +69,8 @@ typedef struct m_config {
     struct m_profile *profiles;
     // Depth when recursively including profiles.
     int profile_depth;
+    char **profile_stack;
+    size_t profile_stack_depth;
     // Temporary during profile application.
     struct m_opt_backup **profile_backup_tmp;
     int profile_backup_flags;
@@ -115,10 +116,9 @@ struct m_config *m_config_new(void *talloc_ctx, struct mp_log *log,
 // different sub-options for every filter (represented by separate desc
 // structs).
 // args is an array of key/value pairs (args=[k0, v0, k1, v1, ..., NULL]).
-// name/defaults is only needed for the legacy af-defaults/vf-defaults options.
 struct m_config *m_config_from_obj_desc_and_args(void *ta_parent,
-    struct mp_log *log, struct mpv_global *global, struct m_obj_desc *desc,
-    const char *name, struct m_obj_settings *defaults, char **args);
+    struct mp_log *log, struct dmpv_global *global, struct m_obj_desc *desc,
+    char **args);
 
 // Like m_config_from_obj_desc_and_args(), but don't allocate option the
 // struct, i.e. m_config.optstruct==NULL. This is used by the sub-option
@@ -173,10 +173,10 @@ int m_config_set_option_raw(struct m_config *config, struct m_config_option *co,
 
 void m_config_mark_co_flags(struct m_config_option *co, int flags);
 
-// Convert the mpv_node to raw option data, then call m_config_set_option_raw().
-struct mpv_node;
+// Convert the dmpv_node to raw option data, then call m_config_set_option_raw().
+struct dmpv_node;
 int m_config_set_option_node(struct m_config *config, bstr name,
-                             struct mpv_node *data, int flags);
+                             struct dmpv_node *data, int flags);
 
 // Return option descriptor. You shouldn't use this.
 struct m_config_option *m_config_get_co(const struct m_config *config,
@@ -260,7 +260,7 @@ int m_config_set_profile(struct m_config *config, char *name, int flags);
 // Attempt to "unset" a profile if possible.
 int m_config_restore_profile(struct m_config *config, char *name);
 
-struct mpv_node m_config_get_profiles(struct m_config *config);
+struct dmpv_node m_config_get_profiles(struct m_config *config);
 
 // Run async option updates here. This will call option_change_callback() on it.
 void m_config_set_update_dispatch_queue(struct m_config *config,

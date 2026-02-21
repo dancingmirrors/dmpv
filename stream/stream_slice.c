@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/common.h>
@@ -61,7 +61,7 @@ static int64_t get_size(struct stream *s)
     if (size <= 0)
         return size;
     if (size <= p->slice_start)
-      return 0;
+        return 0;
     if (p->slice_max_end)
         size = MPMIN(size, p->slice_max_end);
     return size - p->slice_start;
@@ -123,7 +123,7 @@ static int parse_slice_range(stream_t *stream)
     }
 
     if (max_end_is_offset)
-      p->slice_max_end += p->slice_start;
+        p->slice_max_end += p->slice_start;
 
     if (p->slice_max_end && p->slice_max_end < p->slice_start) {
         MP_ERR(stream, "The byte range end (%"PRId64") can't be smaller than the start (%"PRId64"): '%s'\n",
@@ -158,7 +158,11 @@ static int open2(struct stream *stream, const struct stream_open_args *args)
         return inner_ret;
     }
 
-    if (!p->inner->seekable) {
+    if (p->inner->is_directory) {
+        MP_FATAL(stream, "Inner stream '%s' is a directory\n", p->inner->url);
+        free_stream(p->inner);
+        return STREAM_ERROR;
+    } else if (!p->inner->seekable) {
         MP_FATAL(stream, "Non-seekable stream '%s' can't be used with 'slice://'\n", p->inner->url);
         free_stream(p->inner);
         return STREAM_ERROR;

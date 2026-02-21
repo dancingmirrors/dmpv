@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_COMMAND_H
@@ -20,12 +20,13 @@
 
 #include <stdbool.h>
 
-#include "libmpv/client.h"
+#include "misc/client.h"
+#include "osdep/compiler.h"
 
 struct MPContext;
 struct mp_cmd;
 struct mp_log;
-struct mpv_node;
+struct dmpv_node;
 struct m_config_option;
 
 void command_init(struct MPContext *mpctx);
@@ -50,7 +51,7 @@ struct mp_cmd_ctx {
     // Return values (to be set by command implementation, read by the
     // completion callback).
     bool success;       // true by default
-    struct mpv_node result;
+    struct dmpv_node result;
     // Command handlers can set this to false if returning from the command
     // handler does not complete the command. It stops the common command code
     // from signaling the completion automatically, and you can call
@@ -63,6 +64,11 @@ struct mp_cmd_ctx {
     // this is called see run_command() comments.
     void (*on_completion)(struct mp_cmd_ctx *cmd);
     void *on_completion_priv; // for free use by on_completion callback
+};
+
+struct mp_option_callback {
+    struct m_config_option *co;
+    int flags;
 };
 
 void run_command(struct MPContext *mpctx, struct mp_cmd *cmd,
@@ -80,6 +86,7 @@ int mp_property_do(const char* name, int action, void* val,
 
 void mp_option_change_callback(void *ctx, struct m_config_option *co, int flags,
                                bool self_update);
+void mp_option_run_callback(struct MPContext *mpctx, int index);
 
 void mp_notify(struct MPContext *mpctx, int event, void *arg);
 void mp_notify_property(struct MPContext *mpctx, const char *property);
@@ -90,8 +97,8 @@ int mp_get_property_id(struct MPContext *mpctx, const char *name);
 uint64_t mp_get_property_event_mask(const char *name);
 
 enum {
-    // Must start with the first unused positive value in enum mpv_event_id
-    // MPV_EVENT_* and MP_EVENT_* must not overlap.
+    // Must start with the first unused positive value in enum dmpv_event_id
+    // DMPV_EVENT_* and MP_EVENT_* must not overlap.
     INTERNAL_EVENT_BASE = 26,
     MP_EVENT_CHANGE_ALL,
     MP_EVENT_CACHE_UPDATE,

@@ -1,27 +1,28 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <math.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "config.h"
 #include "ao.h"
@@ -35,75 +36,32 @@
 #include "common/common.h"
 #include "common/global.h"
 
-extern const struct ao_driver audio_out_oss;
-extern const struct ao_driver audio_out_audiotrack;
-extern const struct ao_driver audio_out_audiounit;
-extern const struct ao_driver audio_out_coreaudio;
-extern const struct ao_driver audio_out_coreaudio_exclusive;
-extern const struct ao_driver audio_out_rsound;
 extern const struct ao_driver audio_out_pipewire;
-extern const struct ao_driver audio_out_sndio;
 extern const struct ao_driver audio_out_pulse;
-extern const struct ao_driver audio_out_jack;
-extern const struct ao_driver audio_out_openal;
-extern const struct ao_driver audio_out_opensles;
-extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_alsa;
-extern const struct ao_driver audio_out_dsound;
-extern const struct ao_driver audio_out_wasapi;
+extern const struct ao_driver audio_out_oss;
+extern const struct ao_driver audio_out_sndio;
+extern const struct ao_driver audio_out_null;
 extern const struct ao_driver audio_out_pcm;
 extern const struct ao_driver audio_out_lavc;
-extern const struct ao_driver audio_out_sdl;
 
 static const struct ao_driver * const audio_out_drivers[] = {
-// native:
-#if HAVE_ANDROID
-    &audio_out_audiotrack,
-#endif
-#if HAVE_AUDIOUNIT
-    &audio_out_audiounit,
-#endif
-#if HAVE_COREAUDIO
-    &audio_out_coreaudio,
-#endif
 #if HAVE_PIPEWIRE
     &audio_out_pipewire,
 #endif
-#if HAVE_PULSE
+#if HAVE_PULSEAUDIO
     &audio_out_pulse,
 #endif
 #if HAVE_ALSA
     &audio_out_alsa,
 #endif
-#if HAVE_WASAPI
-    &audio_out_wasapi,
-#endif
-#if HAVE_DSOUND
-    &audio_out_dsound,
-#endif
-#if HAVE_OSS_AUDIO
+#if HAVE_OSS
     &audio_out_oss,
-#endif
-    // wrappers:
-#if HAVE_JACK
-    &audio_out_jack,
-#endif
-#if HAVE_OPENAL
-    &audio_out_openal,
-#endif
-#if HAVE_OPENSLES
-    &audio_out_opensles,
-#endif
-#if HAVE_SDL2_AUDIO
-    &audio_out_sdl,
 #endif
 #if HAVE_SNDIO
     &audio_out_sndio,
 #endif
     &audio_out_null,
-#if HAVE_COREAUDIO
-    &audio_out_coreaudio_exclusive,
-#endif
     &audio_out_pcm,
     &audio_out_lavc,
 };
@@ -151,15 +109,15 @@ const struct m_sub_options ao_conf = {
     .defaults = &(const OPT_BASE_STRUCT){
         .audio_buffer = 0.2,
         .audio_device = "auto",
-        .audio_client_name = "mpv",
+        .audio_client_name = "dmpv",
     },
 };
 
-static struct ao *ao_alloc(bool probing, struct mpv_global *global,
+static struct ao *ao_alloc(bool probing, struct dmpv_global *global,
                            void (*wakeup_cb)(void *ctx), void *wakeup_ctx,
                            char *name)
 {
-    assert(wakeup_cb);
+    mp_assert(wakeup_cb);
 
     struct mp_log *log = mp_log_new(NULL, global->log, "ao");
     struct m_obj_desc desc;
@@ -192,7 +150,7 @@ error:
     return NULL;
 }
 
-static struct ao *ao_init(bool probing, struct mpv_global *global,
+static struct ao *ao_init(bool probing, struct dmpv_global *global,
                           void (*wakeup_cb)(void *ctx), void *wakeup_ctx,
                           struct encode_lavc_context *encode_lavc_ctx, int flags,
                           int samplerate, int format, struct mp_chmap channels,
@@ -220,7 +178,6 @@ static struct ao *ao_init(bool probing, struct mpv_global *global,
 
     int r = ao->driver->init(ao);
     if (r < 0) {
-        // Silly exception for coreaudio spdif redirection
         if (ao->redirect) {
             char redirect[80], rdevice[80];
             snprintf(redirect, sizeof(redirect), "%s", ao->redirect);
@@ -241,7 +198,7 @@ static struct ao *ao_init(bool probing, struct mpv_global *global,
     } else {
         ao->sstride *= ao->channels.num;
     }
-    ao->bps = ao->samplerate * ao->sstride;
+    ao->bps = (int64_t)ao->samplerate * ao->sstride;
 
     if (ao->device_buffer <= 0 && ao->driver->write) {
         MP_ERR(ao, "Device buffer size not set.\n");
@@ -281,7 +238,7 @@ static void split_ao_device(void *tmp, char *opt, char **out_ao, char **out_dev)
     *out_ao = bstrto0(tmp, b_ao);
 }
 
-struct ao *ao_init_best(struct mpv_global *global,
+struct ao *ao_init_best(struct dmpv_global *global,
                         int init_flags,
                         void (*wakeup_cb)(void *ctx), void *wakeup_ctx,
                         struct encode_lavc_context *encode_lavc_ctx,
@@ -362,7 +319,7 @@ int ao_query_and_reset_events(struct ao *ao, int events)
 }
 
 // Returns events that were set by this calls.
-int ao_add_events(struct ao *ao, int events)
+static int ao_add_events(struct ao *ao, int events)
 {
     unsigned prev_events = atomic_fetch_or(&ao->events_, events);
     unsigned new = events & ~prev_events;
@@ -451,7 +408,7 @@ bool ao_untimed(struct ao *ao)
 // ---
 
 struct ao_hotplug {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     void (*wakeup_cb)(void *ctx);
     void *wakeup_ctx;
     // A single AO instance is used to listen to hotplug events. It wouldn't
@@ -465,7 +422,7 @@ struct ao_hotplug {
     bool needs_update;
 };
 
-struct ao_hotplug *ao_hotplug_create(struct mpv_global *global,
+struct ao_hotplug *ao_hotplug_create(struct dmpv_global *global,
                                      void (*wakeup_cb)(void *ctx),
                                      void *wakeup_ctx)
 {
@@ -590,7 +547,7 @@ static void dummy_wakeup(void *ctx)
 {
 }
 
-void ao_print_devices(struct mpv_global *global, struct mp_log *log,
+void ao_print_devices(struct dmpv_global *global, struct mp_log *log,
                       struct ao *playback_ao)
 {
     struct ao_hotplug *hp = ao_hotplug_create(global, dummy_wakeup, NULL);
@@ -616,7 +573,7 @@ void ao_set_gain(struct ao *ao, float gain)
 
 #define MUL_GAIN_f(d, num_samples, gain)                                        \
     for (int n = 0; n < (num_samples); n++)                                     \
-        (d)[n] = MPCLAMP(((d)[n]) * (gain), -1.0, 1.0)
+        (d)[n] = (d)[n] * (gain)
 
 static void process_plane(struct ao *ao, void *data, int num_samples)
 {

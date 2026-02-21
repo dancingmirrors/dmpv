@@ -1,1082 +1,736 @@
-#! /bin/sh
+#!/usr/bin/env python3
+
+import os
+import platform
+from TOOLS.configure_common import *
+
+begin()
+
+# (workaround for insufficient Python lambda syntax)
+def chain(*a):
+    return a[-1]
+
+# ============================================================================
+# Understanding check() name patterns:
+# ============================================================================
+# The first argument to check() determines its behavior:
 #
-# Original version (C) 2000 Pontscho/fresh!mindworkz pontscho@makacs.poliod.hu
-# Cleanups all over the place (c) 2001 pl
-# Rewritten for mpv in 2014.
+#   check("name")
+#     - Internal dependency identifier only
+#     - No command-line options generated
+#     - Used by other checks via deps/deps_any/deps_neg
+#     - Result not emitted to config.h
 #
+#   check("-name")
+#     - Optional feature controllable via command line
+#     - Generates: --enable-name, --disable-name, --with-name=yes/no/auto
+#     - Used for optional features that should be auto-detected
+#     - Result not emitted to config.h
 #
-# Warning: this is not officially supported. Use on your own risk. Might require
-#          modifications when used on systems other than Linux. Contributors
-#          are not expected to update these files when making changes to the
-#          normal/preferred waf build system.
+#   check("name*")
+#     - Internal dependency identifier
+#     - No command-line options generated
+#     - Result emitted to config.h as HAVE_NAME (0 or 1)
+#     - Used for platform-specific features that code needs to check
 #
+#   check("-name*")
+#     - Optional feature controllable via command line
+#     - Generates: --enable-name, --disable-name, --with-name=yes/no/auto
+#     - Result emitted to config.h as HAVE_NAME (0 or 1)
+#     - Used for optional features that need both CLI control and C code checks
 #
-# This configure script is *not* autoconf-based and has different semantics.
-# It attempts to autodetect all settings and options where possible. It is
-# possible to override autodetection with the --enable-option/--disable-option
-# command line parameters.  --enable-option forces the option on skipping
-# autodetection. Yes, this means that compilation may fail and yes, this is not
-# how autoconf-based configure scripts behave.
+# Additional parameters:
+#   required="message"
+#     - Makes the check mandatory (configure fails if check fails)
+#     - Should NOT be combined with "-" prefix (contradictory)
+#     - Use for dependencies that are truly required to build
 #
-# configure generates a series of configuration files:
-#  - config.h contains #defines that are used in the C code.
-#  - config.mak is included from the Makefiles.
+#   default=False
+#     - Disables the feature by default (can be enabled with --enable-name)
+#     - Only makes sense with "-" prefix
 #
-# If you want to add a new check for $feature, look at the existing checks
-# and try to use helper functions where you can.
-#############################################################################
-
-# Prevent locale nonsense from breaking basic text processing utils
-export LC_ALL=C
-
-# Store the configure line that was used
-configuration="$*"
-
-# Prefer these macros to full length text !
-# These macros only return an error code - NO display is done
-command_check() {
-  echo >> "$TMPLOG"
-  echo "$@" >> "$TMPLOG"
-  "$@" >> "$TMPLOG" 2>&1
-  TMPRES="$?"
-  echo >> "$TMPLOG"
-  return "$TMPRES"
-}
-
-compile_check() {
-  source="$1"
-  shift
-  echo >> "$TMPLOG"
-  cat "$source" >> "$TMPLOG"
-  echo >> "$TMPLOG"
-  echo "$_cc $OURCFLAGS $CFLAGS $source $extra_cflags $_ld_static $extra_ldflags $libs_mplayer -o $TMPEXE $@" >> "$TMPLOG"
-  rm -f "$TMPEXE"
-  $_cc $OURCFLAGS $CFLAGS "$source" $extra_cflags $_ld_static $extra_ldflags $libs_mplayer -o "$TMPEXE" $@ >> "$TMPLOG" 2>&1
-  TMPRES="$?"
-  echo >> "$TMPLOG"
-  echo >> "$TMPLOG"
-  return "$TMPRES"
-}
-
-cflag_check() {
-    echo "int main(void) { return 0; }" > $TMPC
-    compile_check $TMPC $@
-}
-
-statement_check() {
-    echo "" > $TMPC
-    for _header in $1 ; do echo "#include <$_header>" >> $TMPC ; done
-    echo "int main(void) { $2; return 0; }" >> $TMPC
-    shift 2
-    compile_check $TMPC $@
-}
-
-pkg_config_add() {
-  echo >> "$TMPLOG"
-  echo "$_pkg_config --cflags $@" >> "$TMPLOG"
-  ctmp=$($_pkg_config --cflags "$@" 2>> "$TMPLOG") || return $?
-  echo >> "$TMPLOG"
-  echo "$_pkg_config --libs $@" >> "$TMPLOG"
-  ltmp=$($_pkg_config --libs "$@" 2>> "$TMPLOG") || return $?
-  echo >> "$TMPLOG"
-  echo "cflags: $ctmp" >> "$TMPLOG"
-  echo "libs: $ltmp" >> "$TMPLOG"
-  echo >> "$TMPLOG"
-  extra_cflags="$extra_cflags $ctmp"
-  libs_mplayer="$libs_mplayer $ltmp"
-}
-
-# Display error message, flushes tempfile, exit
-die () {
-  echo
-  echo "Error: $@" >&2
-  echo >&2
-  rm -f "$TMPEXE" "$TMPC"
-  echo "Check \"$TMPLOG\" if you do not understand why it failed."
-  exit 1
-}
-
-# Use this before starting a check
-echocheck() {
-  echo "============ Checking for $@ ============" >> "$TMPLOG"
-  echo ${_echo_n} "Checking for $@ ... ${_echo_c}"
-}
-
-# Use this to echo the results of a check
-echores() {
-  test "$res_comment" && res_comment="($res_comment)"
-  echo "Result is: $@ $res_comment" >> "$TMPLOG"
-  echo "##########################################" >> "$TMPLOG"
-  echo "" >> "$TMPLOG"
-  echo "$@ $res_comment"
-  res_comment=""
-}
-
-# Check how echo works in this /bin/sh
-case $(echo -n) in
-  -n)   _echo_n=        _echo_c='\c'    ;;      # SysV echo
-  *)    _echo_n='-n '   _echo_c=        ;;      # BSD echo
-esac
-
-# setind $a b sets the variable named by the value of the variable a to b
-setind() { eval "$1=\"\$2\"" ; }
-
-# Generate --enable-NAME/--disable-NAME options, set $1 to the option value.
-# Since shell has no data structures, do a weird statemachine thing.
-# Arguments: "_name"($1) "description"($2) "default"($3)
-# If "default"($3) is empty, use "auto"
-# Option name: a leading "_" in name is stripped, further "_" are changed to "-"
-opt_yes_no() {
-    _name=$(echo "$1" | sed 's/^_//' | tr _ -)
-    _defval="$3"
-    test -z "$_defval" && _defval=auto
-
-    case "$_opt_state_mode" in
-    init)
-        setind "$1" "$_defval"
-        ;;
-    help)
-        if test "$_defval" = yes || test "$_defval" = auto ; then
-            _defdesc=enable
-            test "$_defval" = auto && _defdesc=auto
-            printf "  %-21s  disable $2 [$_defdesc]\n" "--disable-$_name"
-            unset _defdesc
-        else
-            printf "  %-21s  enable $2 [disable]\n" "--enable-$_name"
-        fi
-        ;;
-    parse)
-        if test "$_opt_state_name" = "--enable-$_name" ; then
-            setind "$1" yes
-            _opt_state_known=yes
-        elif test "$_opt_state_name" = "--disable-$_name" ; then
-            setind "$1" no
-            _opt_state_known=yes
-        elif test "$_opt_state_name" = "--auto-$_name" ; then
-            setind "$1" auto
-            _opt_state_known=yes
-        fi
-        ;;
-    esac
-    unset _name
-    unset _defval
-}
-
-options_state_machine() {
-    _opt_state_mode=$1
-    _opt_state_name=$2
-    _opt_state_known=no
-
-    opt_yes_no _gl          "OpenGL video output"
-    opt_yes_no _libguess    "libguess"
-    opt_yes_no _termios     "termios database for key codes"
-    opt_yes_no _iconv       "iconv for encoding conversion"
-    opt_yes_no _vm          "X video mode extensions"
-    opt_yes_no _dvb         "DVB input"
-    opt_yes_no _tv          "TV interface (TV/DVB grabbers)" yes
-    opt_yes_no _tv_v4l2     "Video4Linux2 TV interface"
-    opt_yes_no _libv4l2     "libv4l2"
-    opt_yes_no _smb         "Samba (SMB) input"
-    opt_yes_no _lcms2       "LCMS2 support"
-    opt_yes_no _bluray      "Blu-ray support"
-    opt_yes_no _dvdread     "libdvdread"
-    opt_yes_no _dvdnav      "libdvdnav"
-    opt_yes_no _enca        "ENCA charset oracle library"
-    opt_yes_no _uchardet    "uchardet charset detection library"
-    opt_yes_no _libass      "subtitle rendering with libass"
-    opt_yes_no _libavdevice "libavdevice demuxers"
-    opt_yes_no _libavfilter "libavfilter"
-    opt_yes_no _jpeg        "support for writing JPEG screenshots"
-    opt_yes_no _libcdio     "libcdio support"
-    opt_yes_no _librubberband "librubberband support"
-    opt_yes_no _ffmpeg      "skip FFmpeg/Libav autodetection"
-    opt_yes_no _libavresample "libavresample (preferred over libswresample)"
-    opt_yes_no _libswresample "libswresample"
-    opt_yes_no _caca        "CACA  video output"
-    opt_yes_no _sdl2        "SDL2 video and audio outputs" no
-    opt_yes_no _xv          "Xv video output"
-    opt_yes_no _vdpau       "VDPAU acceleration"
-    opt_yes_no _vaapi       "VAAPI acceleration"
-    opt_yes_no _xrandr      "Xrandr support (used for monitor FPS detection)"
-    opt_yes_no _xinerama    "Xinerama support"
-    opt_yes_no _x11         "X11 video output"
-    opt_yes_no _wayland     "Wayland video output"
-    opt_yes_no _xss         "support for disabling screensaver via xss"
-    opt_yes_no _alsa        "ALSA audio output"
-    opt_yes_no _ossaudio    "OSS audio output"
-    opt_yes_no _rsound      "RSound audio output"
-    opt_yes_no _sndio       "sndio audio output"
-    opt_yes_no _pulse       "Pulseaudio audio output"
-    opt_yes_no _jack        "JACK audio output"
-    opt_yes_no _openal      "OpenAL audio output"
-    opt_yes_no _shm         "X11/Xv shared memory"
-    opt_yes_no _lua         "Lua scripting"
-    opt_yes_no _vapoursynth "VapourSynth filter bridge (Python)"
-    opt_yes_no _vapoursynth_lazy "VapourSynth filter bridge (Lua)"
-    opt_yes_no _libarchive  "libarchive"
-    opt_yes_no _encoding    "encoding functionality" yes
-    opt_yes_no _build_man   "building manpage"
-}
-
-show_help(){
-cat << EOF
-Usage: $0 [OPTIONS]...
-
-Configuration:
-  -h, --help             display this help and exit
-
-Installation directories:
-  --prefix=DIR           prefix directory for installation [/usr/local]
-  --bindir=DIR           directory for installing binaries [PREFIX/bin]
-  --datadir=DIR          directory for installing machine independent
-                         data files (skins, etc) [PREFIX/share/mpv]
-  --mandir=DIR           directory for installing man pages [PREFIX/share/man]
-  --confdir=DIR          directory for installing configuration files
-                         [PREFIX/etc/mpv]
-
-Compilation options:
-  --cc=COMPILER          C compiler to build mpv [gcc]
-  --pkg-config=PKGCONFIG pkg-config to find some libraries [pkg-config]
-  --enable-static        build a statically linked binary
-  --disable-debug        compile-in debugging information [enable]
-  --disable-optimization compile without -O2 [enable]
-
-Use these options if autodetection fails:
-  --extra-cflags=FLAGS   extra CFLAGS
-  --extra-ldflags=FLAGS  extra LDFLAGS
-  --extra-libs=FLAGS     extra linker flags
-
-Features:
-EOF
-options_state_machine help
-cat << EOF
-
-This configure script is NOT autoconf-based, even though its output is similar.
-It will try to autodetect all configuration options. If you --enable an option
-it will be forcefully turned on, skipping autodetection. This can break
-compilation, so you need to know what you are doing.
-EOF
-exit 0
-} #show_help()
-
-# GOTCHA: the variables below defines the default behavior for autodetection
-# and have - unless stated otherwise - at least 2 states : yes no
-# If autodetection is available then the third state is: auto
-_pkg_config=auto
-_cc=auto
-test -n "$CC" && _cc="$CC"
-_opt=-O2
-_prefix="/usr/local"
-options_state_machine init
-for ac_option do
-  case "$ac_option" in
-  --help|-help|-h)
-    show_help
-    ;;
-  --prefix=*)
-    _prefix=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --bindir=*)
-    _bindir=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --mandir=*)
-    _mandir=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --confdir=*)
-    _confdir=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --extra-cflags=*)
-    extra_cflags="$extra_cflags $(echo $ac_option | cut -d '=' -f 2-)"
-    ;;
-  --extra-ldflags=*)
-    extra_ldflags="$extra_ldflags $(echo $ac_option | cut -d '=' -f 2-)"
-    ;;
-  --extra-libs=*)
-    libs_mplayer=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --cc=*)
-    _cc=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --pkg-config=*)
-    _pkg_config=$(echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --enable-static)
-    _ld_static='-static'
-    ;;
-  --disable-static)
-    _ld_static=''
-    ;;
-  --enable-optimization)
-    _opt='-O2'
-    ;;
-  --enable-optimization=*)
-    _opt=$(echo $_echo_n '-O'$_echo_c; echo $ac_option | cut -d '=' -f 2)
-    ;;
-  --disable-optimization)
-    _opt=
-    ;;
-  *)
-    options_state_machine parse "$ac_option"
-    if test "$_opt_state_known" != yes ; then
-        echo "Unknown parameter: $ac_option" >&2
-        exit 1
-    fi
-    ;;
-
-  esac
-done
-
-test -z "$_bindir"  && _bindir="$_prefix/bin"
-test -z "$_mandir"  && _mandir="$_prefix/share/man"
-test -z "$_confdir" && _confdir="$_prefix/etc/mpv"
-
-mplayer_tmpdir=$(mktemp -d -p ${TMPDIR:=/tmp} mpv-configure-XXXXXX)
-test -n "$mplayer_tmpdir" || die "Unable to create tmpdir."
-trap 'rm -rf "$mplayer_tmpdir"' EXIT
-
-mkdir old_build 2> /dev/null
-
-TMPLOG="old_build/config.log"
-
-rm -f "$TMPLOG"
-echo Parameters configure was run with: > "$TMPLOG"
-echo CFLAGS="'$CFLAGS'" PKG_CONFIG_PATH="'$PKG_CONFIG_PATH'" ./configure $configuration >> "$TMPLOG"
-echo >> "$TMPLOG"
-
-TMPC="$mplayer_tmpdir/tmp.c"
-TMPEXE="$mplayer_tmpdir/tmp"
-CONFIG_MAK="$mplayer_tmpdir/config.mak"
-CONFIG_H="$mplayer_tmpdir/config.h"
-
-echo > $CONFIG_MAK
-echo > $CONFIG_H
-
-test "$_pkg_config" = auto && _pkg_config=pkg-config
-test "$_cc" = auto && _cc=cc
-
-extra_cflags="-I. -D_GNU_SOURCE $extra_cflags"
-
-_rst2man=rst2man
-test -f "$(which rst2man.py)" && _rst2man=rst2man.py
-
-echocheck "whether to build manpages with rst2man"
-if test "$_build_man" = auto ; then
-    _build_man=no
-    command_check "$_rst2man" --version && _build_man=yes
-fi
-echores "$_build_man"
-
-echocheck "working compiler"
-cflag_check "" || die "Compiler is not functioning correctly. Check your installation and custom CFLAGS $CFLAGS ."
-echores "yes"
-
-echocheck "perl"
-command_check perl -Mv5.8 -e';' || die "Perl is not functioning correctly or is ancient. Install the latest perl available."
-echores yes
-
-echocheck "compiler support of -pipe option"
-cflag_check -pipe -I. && _pipe="-pipe" && echores "yes" || echores "no"
-
-addcflags() { cflag_check "$@" && OURCFLAGS="$OURCFLAGS $@" ; }
-
-OURCFLAGS="-std=c99 -Wall $_opt"
-
-addcflags -g -g3 -ggdb
-addcflags -Wundef -Wmissing-prototypes -Wshadow -Wno-switch -Wparentheses -Wpointer-arith -Wno-redundant-decls -Wno-pointer-sign -Werror=implicit-function-declaration -Wno-error=deprecated-declarations -Wno-error=unused-function -Wvla
-# clang
-addcflags -Wno-logical-op-parentheses -fcolor-diagnostics -Wno-tautological-compare -Wno-tautological-constant-out-of-range-compare
-# extra
-addcflags -Wno-format-zero-length -Wempty-body -Wdisabled-optimization -Wstrict-prototypes
-
-cflag_check -MD -MP && DEPFLAGS="-MD -MP"
-cflag_check -lm && _ld_lm="-lm"
-
-extra_ldflags="$extra_ldflags $LDFLAGS"
-extra_cflags="$extra_cflags $CPPFLAGS"
-
-# If $1 is "yes", define $2 as 1 in config.h, else define it as 0
-define_yes_no() {
-    if test "$1" = yes ; then
-        echo "#define $2 1" >> $CONFIG_H
-    else
-        echo "#define $2 0" >> $CONFIG_H
-    fi
-}
-
-# Write the results of a check to config.mak/.h.
-# Arguments: "yes/no"($1) "name"($2)
-check_yes_no() {
-    define_yes_no $1 "HAVE_$2"
-    echo "$2 = $1" >> $CONFIG_MAK
-}
-
-check_trivial() {
-    echocheck "$1"
-    check_yes_no $2 $3
-    echores "$2"
-}
-
-# Arguments: "message"($1) "setting"($2) "name"($3) "code"($4)
-# Also, $5 - $N can be libraries needed - it'll try each separately.
-# Use " " as first entry if you want to try with no libraries too.
-check_compile() {
-    _res="$2"
-    _name="$3"
-    _code="$4"
-    echocheck "$1"
-    if test $_res = auto ; then
-        _res=no
-        if test $# -gt 4 ; then
-            shift 4
-        else
-            shift $#
-        fi
-        while true ; do
-            compile_check "$_code" "$1" && libs_mplayer="$libs_mplayer $1" && _res=yes && break
-            test -z "$1" && break
-            shift
-        done
-    fi
-    check_yes_no $_res $_name
-    echores $_res
-    test $_res = yes && return 0 || return 1
-}
-
-# Arguments: "message"($1) "setting"($2) "name"($3) "include"($4) "statement"($5)
-# Also, $6 - $N can be libraries needed - it'll try each separately.
-# Use " " as first entry if you want to try with no libraries too.
-check_statement_libs() {
-    _res="$2"
-    _name="$3"
-    _inc="$4"
-    _st="$5"
-    echocheck "$1"
-    if test $_res = auto ; then
-        _res=no
-        if test $# -gt 5 ; then
-            shift 5
-        else
-            shift $#
-        fi
-        while true ; do
-            statement_check "$_inc" "$_st" "$1" && libs_mplayer="$libs_mplayer $1" && _res=yes && break
-            test -z "$1" && break
-            shift
-        done
-    fi
-    check_yes_no $_res $_name
-    echores $_res
-    test $_res = yes && return 0 || return 1
-}
-
-# Print "yes" if previous command succeeded, else "no"
-defretval() { # shell is retarded?
-    if test $? = 0 ; then
-        echo "yes"
-    else
-        echo "no"
-    fi
-}
-
-echocheck "dynamic loader"
-_dl=no
-for _ld_tmp in "" "-ldl"; do
-  statement_check dlfcn.h 'dlopen("", 0)' $_ld_tmp && _ld_dl="$_ld_tmp" && _dl=yes && break
-done
-define_yes_no $_dl HAVE_LIBDL
-echores "$_dl"
-
-echocheck "pthread"
-cflag_check -pthread && _ld_pthread="$_ld_pthread -pthread"
-cflag_check -lpthread && _ld_pthread="$_ld_pthread -lpthread"
-cflag_check -lrt && _ld_pthread="$_ld_pthread -lrt"
-extra_cflags="$extra_cflags -D_REENTRANT -D_THREAD_SAFE"
-compile_check waftools/fragments/pthreads.c "$_ld_pthread" || die "Unable to find pthreads support."
-echores "yes"
-
-check_statement_libs "support for stdatomic.h" auto STDATOMIC \
-    stdatomic.h 'atomic_int_least64_t test = ATOMIC_VAR_INIT(123); int test2 = atomic_load(&test)' \
-    " " "-latomic"
-_stdatomic=$(defretval)
-
-_atomic=auto
-test "$_stdatomic" = yes && _atomic=no
-check_statement_libs "compiler support for __atomic built-ins" $_atomic ATOMIC_BUILTINS \
-    stdint.h 'int64_t test = 0; test = __atomic_add_fetch(&test, 1, __ATOMIC_SEQ_CST)' \
-    " " "-latomic"
-_atomic=$(defretval)
-
-_sync=auto
-(test "$_atomic" = yes || test "$_stdatomic" = yes ) && _sync=no
-check_statement_libs "compiler support for __sync built-ins" $_sync SYNC_BUILTINS \
-    stdint.h 'int64_t test = 0; test = __sync_add_and_fetch(&test, 1)'
-_sync=$(defretval)
-
-_any_atomic=yes
-if test "$_atomic" = no && test "$_sync" = no && test "$_stdatomic" = no ; then
-  echo "your compiler must support either stdatomic.h, or __atomic, or __sync built-ins."
-  _any_atomic=no
-fi
-define_yes_no $_any_atomic HAVE_ATOMICS
-
-check_compile "iconv" $_iconv ICONV waftools/fragments/iconv.c " " "-liconv" "-liconv $_ld_dl"
-_iconv=$(defretval)
-if test "$_iconv" != yes ; then
-    die "Unable to find iconv which should be part of standard compilation environment. Aborting. If you really mean to compile without iconv support use --disable-iconv."
-fi
-
-_soundcard_header=sys/soundcard.h
-_check_snd=yes
-check_statement_libs "sys/soundcard.h" auto SYS_SOUNDCARD_H sys/soundcard.h
-test $(defretval) = yes && _soundcard_header=sys/soundcard.h && _check_snd=no
-check_statement_libs "soundcard.h" $_check_snd SOUNDCARD_H soundcard.h
-test $(defretval) = yes && _soundcard_header=soundcard.h
-
-check_statement_libs "sys/videoio.h" auto SYS_VIDEOIO_H sys/videoio.h
-
-_termios_ok=no
-check_statement_libs "termios.h" $_termios TERMIOS_H termios.h
-test $(defretval) = yes && _termios_ok=yes && _termios=no
-check_statement_libs "sys/termios.h" $_termios SYS_TERMIOS_H 'sys/termios.h'
-test $(defretval) = yes && _termios_ok=yes
-define_yes_no $_termios_ok HAVE_TERMIOS
-
-check_statement_libs "shm" $_shm SHM "sys/types.h sys/ipc.h sys/shm.h" \
-    "shmget(0, 0, 0); shmat(0, 0, 0); shmctl(0, 0, 0);"
-
-echocheck "pkg-config"
-if $($_pkg_config --version > /dev/null 2>&1); then
-  if test "$_ld_static"; then
-    _pkg_config="$_pkg_config --static"
-  fi
-  echores "yes"
-else
-  _pkg_config=false
-  echores "no"
-fi
-
-# Arguments: "message"($1) "setting"($2) "name"($3) "pkg-config string"($4)
-# The name will be used as "#define HAVE_$name 1/0" in config.h, and as
-# "$name = yes/no" in config.mak
-# "setting"($2) is yes/no/auto and represents the --enable/--disable option
-check_pkg_config() {
-    echocheck "$1"
-    _res=$2
-    if test "$2" = auto ; then
-        _res=no
-        if pkg_config_add "$4" ; then
-            _res=yes
-        fi
-    fi
-    check_yes_no $_res $3
-    echores "$_res"
-    test $_res = yes && return 0 || return 1
-}
-
-check_pkg_config "libguess support" $_libguess LIBGUESS 'libguess >= 1.0'
-
-check_pkg_config "Samba support (libsmbclient)" $_smb LIBSMBCLIENT 'smbclient >= 0.2.0'
-
-_wlver="1.6.0"
-check_pkg_config "Wayland" $_wayland WAYLAND "wayland-client >= $_wlver wayland-cursor >= $_wlver xkbcommon >= 0.3.0"
-_wayland=$(defretval)
-
-check_pkg_config "X11" $_x11 X11 "x11"
-_x11=$(defretval)
-
-# Disable X11 dependencies
-_xext=auto
-if test "$_x11" = no ; then
-    _xss=no
-    _xext=no
-    _xv=no
-    _vdpau=no
-    _vaapi=no
-    _xinerama=no
-    _vm=no
-fi
-
-check_pkg_config "Xss screensaver extensions" $_xss XSS "xscrnsaver"
-
-check_pkg_config "X extensions" $_xext XEXT "xext"
-
-check_pkg_config "Xv" $_xv XV "xv"
-
-check_pkg_config "VDPAU" $_vdpau VDPAU "vdpau >= 0.2"
-_vdpau=$(defretval)
-define_yes_no $_vdpau HAVE_VDPAU_HWACCEL
-
-check_pkg_config "VAAPI" $_vaapi VAAPI 'libva >= 0.32.0 libva-x11 >= 0.32.0'
-_vaapi=$(defretval)
-define_yes_no $_vaapi HAVE_VAAPI_HWACCEL
-define_yes_no $_vaapi HAVE_VAAPI_X11
-
-_vaapi_wayland=no
-if test "$_vaapi" = yes ; then
-_vaapi_wayland=auto
-fi
-check_pkg_config "VAAPI Wayland" $_vaapi_wayland VAAPI_WAYLAND 'libva-wayland >= 0.34.0'
-
-check_pkg_config "Xinerama" $_xinerama XINERAMA 'xinerama'
-
-check_pkg_config "Xrandr" $_xrandr XRANDR 'xrandr >= 1.2.0'
-
-check_pkg_config "CACA" $_caca CACA 'caca >= 0.99.beta18'
-
-check_compile "DVB" $_dvb DVB waftools/fragments/dvb.c
-_dvbin=$(defretval)
-check_yes_no $_dvbin DVBIN
-
-check_statement_libs "JPEG support" $_jpeg JPEG "stdio.h jpeglib.h" "" "-ljpeg $_ld_lm"
-
-_gl_x11_egl=no
-(test "$_x11" = no && test "$_wayland" = no) && _gl=no
-echocheck "OpenGL"
-#Note: this test is run even with --enable-gl since we autodetect linker flags
-if test "$_gl" != no ; then
-  cat > $TMPC << EOF
-#if defined(GL_WAYLAND) || defined(EGL_X11)
-#include <EGL/egl.h>
-#else
-#include <X11/Xlib.h>
-#include <GL/glx.h>
-#endif
-#include <GL/gl.h>
-#include <GL/glext.h>
-int main(int argc, char *argv[]) {
-#if defined(GL_WAYLAND)
-  eglCreateContext(NULL, NULL, EGL_NO_CONTEXT, NULL);
-#else
-  glXCreateContext(NULL, NULL, NULL, True);
-#endif
-  glFinish();
-  return !GL_INVALID_FRAMEBUFFER_OPERATION; // check correct glext.h
-}
-EOF
-  _gl=no
-  if test "$_x11" = yes ; then
-    for _ld_tmp in "" -lGL "-lGL -lXdamage" "-lGL $_ld_pthread" ; do
-      if compile_check $TMPC $_ld_tmp $_ld_lm ; then
-        _gl=yes
-        _gl_x11=yes
-        libs_mplayer="$libs_mplayer $_ld_tmp $_ld_dl"
-        test "$_gl_x11" = yes && res_comment="$res_comment x11"
-        break
-      fi
-    done
-  fi
-  if test "$_wayland" = yes && compile_check $TMPC -DGL_WAYLAND -lGL -lEGL &&
-      pkg_config_add "wayland-egl >= 9.0.0"; then
-    _gl=yes
-    _gl_wayland=yes
-    libs_mplayer="$libs_mplayer -lGL -lEGL"
-    test "$_gl_wayland" = yes && res_comment="$res_comment wayland"
-  else
-    _gl_wayland=no
-  fi
-  if test "$_x11" = yes && test "$_gl" = yes && pkg_config_add "egl"; then
-    _gl_x11_egl=yes
-    res_comment="$res_comment x11egl"
-  fi
-else
-  _gl=no
-fi
-
-if test "$_gl" = no ; then
-    _gl_x11=no
-    _gl_wayland=no
-    _gl_x11_egl=no
-fi
-check_yes_no $_gl GL
-check_yes_no $_gl_x11 GL_X11
-check_yes_no $_gl_x11_egl EGL_X11
-check_yes_no $_gl_wayland GL_WAYLAND
-echores "$_gl"
-
-echocheck "VDPAU with OpenGL/X11"
-_vdpau_gl_x11=no
-(test "$_gl_x11" = yes && test "$_vdpau" = yes) && _vdpau_gl_x11=yes
-check_yes_no $_vdpau_gl_x11 VDPAU_GL_X11
-echores "$_vdpau_gl_x11"
-
-_vaapi_glx=no
-(test "$_gl_x11" = yes && test "$_vaapi" = yes) && _vaapi_glx=auto
-check_pkg_config "VAAPI with OpenGL/X11" $_vaapi_glx VAAPI_GLX 'libva-glx >= 0.32.0'
-
-_vaapi_x_egl=no
-(test "$_gl_x11_egl" = yes && test "$_vaapi" = yes) && _vaapi_x_egl=yes
-check_yes_no $_vaapi_x_egl VAAPI_X_EGL
-check_yes_no $_vaapi_x_egl VAAPI_EGL
-
-check_pkg_config "SDL 2.0" $_sdl2 SDL2 'sdl2'
-
-check_statement_libs "OSS Audio" $_ossaudio OSS_AUDIO $_soundcard_header "int x = SNDCTL_DSP_SETFRAGMENT;"
-
-check_statement_libs "RSound" $_rsound RSOUND rsound.h 'rsd_init(NULL);' -lrsound
-
-check_statement_libs "sndio" $_sndio SNDIO sndio.h 'struct sio_par par; sio_initpar(&par); const char *s = SIO_DEVANY' -lsndio
-
-check_pkg_config "PulseAudio" $_pulse PULSE 'libpulse >= 1.0'
-
-check_pkg_config "JACK" $_jack JACK 'jack'
-
-check_pkg_config "OpenAL" $_openal OPENAL 'openal >= 1.13'
-
-check_pkg_config "ALSA audio" $_alsa ALSA 'alsa >= 1.0.9'
-
-check_pkg_config "Blu-ray support" $_bluray LIBBLURAY 'libbluray >= 0.3.0'
-
-check_pkg_config "dvdread" $_dvdread DVDREAD 'dvdread >= 4.1.0'
-
-check_pkg_config "dvdnav" $_dvdnav DVDNAV 'dvdnav >= 4.2.0'
-
-check_pkg_config "libcdio" $_libcdio CDDA 'libcdio_paranoia'
-
-check_pkg_config "rubberband" $_librubberband RUBBERBAND 'rubberband'
-
-_oldass=$_libass
-check_pkg_config "SSA/ASS support" $_libass LIBASS 'libass'
-_libass=$(defretval)
-if test $_oldass != no && test $_libass = no ; then
-    die "Unable to find development files for libass. Aborting. If you really mean to compile without libass support use --disable-libass."
-fi
-
-_dummy_osd=yes
-test $_libass = yes && _dummy_osd=no
-echo "LIBASS_OSD = $_libass" >> $CONFIG_MAK
-echo "DUMMY_OSD = $_dummy_osd" >> $CONFIG_MAK
-
-check_pkg_config "ENCA" $_enca ENCA 'enca'
-check_pkg_config "uchardet" $_uchardet UCHARDET 'uchardet'
-
-check_pkg_config "zlib" auto ZLIB 'zlib'
-test $(defretval) = no && die "Unable to find development files for zlib."
-
-check_pkg_config "LCMS2 support" $_lcms2 LCMS2 'lcms2 >= 2.6'
-
-check_pkg_config "FFmpeg/Libav" $_ffmpeg FFMPEG \
-    "libavutil >= 54.02.0 libavcodec >= 56.1.0 libavformat >= 56.01.0 libswscale >= 2.1.3 libswresample >= 1.0.0"
-test $(defretval) = no && die "Unable to find development files for some of the required Libav libraries above. Aborting."
-
-# Arguments: "message"($1) "define"($2) "header"($3) "code"($4)
-api_statement_check() {
-    echocheck "$1"
-    _res=no
-    statement_check "$3" "$4" && _res=yes
-    define_yes_no $_res "$2"
-    echores "$_res"
-}
-
-api_statement_check \
-    "libavcodec avcodec_enum_to_chroma_pos API" \
-    HAVE_AVCODEC_CHROMA_POS_API \
-    libavcodec/avcodec.h \
-    'int x, y; avcodec_enum_to_chroma_pos(&x, &y, AVCHROMA_LOC_UNSPECIFIED)'
-
-api_statement_check \
-    "libavutil AVFrame metadata" \
-    HAVE_AVFRAME_METADATA \
-    libavutil/frame.h \
-    'av_frame_get_metadata(NULL)'
-
-api_statement_check \
-    "libavutil AVFrame skip samples metadata" \
-    HAVE_AVFRAME_SKIP_SAMPLES \
-    libavutil/frame.h \
-    'enum AVFrameSideDataType type = AV_FRAME_DATA_SKIP_SAMPLES'
-
-api_statement_check \
-    "libavutil av_version_info()" \
-    HAVE_AV_VERSION_INFO \
-    libavutil/avutil.h \
-    'const char *x = av_version_info()'
-
-api_statement_check \
-    "libavutil new pixdesc fields" \
-    HAVE_AV_NEW_PIXDESC \
-    libavutil/pixdesc.h \
-    'AVComponentDescriptor d; int x = d.depth'
-
-api_statement_check \
-    "libavcodec 64 bit AVPacket.duration" \
-    HAVE_AV_AVPACKET_INT64_DURATION \
-    libavcodec/avcodec.h \
-    'int x[(int)sizeof(((AVPacket){0}).duration) - 7]'
-
-api_statement_check \
-    "libavcodec AVSubtitleRect AVPicture removal" \
-    HAVE_AV_SUBTITLE_NOPICT \
-    libavcodec/avcodec.h \
-    'AVSubtitleRect r = {.linesize={0}}'
-
-api_statement_check \
-    "new libavcodec decode/encode API" \
-    HAVE_AVCODEC_NEW_CODEC_API \
-    libavcodec/avcodec.h \
-    'avcodec_send_packet(0,0)'
-
-api_statement_check \
-    "libavcodec AVCodecParameters API" \
-    HAVE_AVCODEC_HAS_CODECPAR \
-    libavformat/avformat.h \
-    '(void)offsetof(AVStream, codecpar)'
-
-api_statement_check \
-    "libavcodec avcodec_profile_name()" \
-    HAVE_AVCODEC_PROFILE_NAME \
-    libavcodec/avcodec.h \
-    'avcodec_profile_name(0,0)'
-
-api_statement_check \
-    "libavutil AVHWFramesContext API" \
-    HAVE_AVUTIL_HAS_HWCONTEXT \
-    libavutil/frame.h \
-    '(void)offsetof(AVFrame, hw_frames_ctx)'
-
-check_pkg_config "libavfilter" $_libavfilter LIBAVFILTER 'libavfilter >= 5.0.0'
-
-check_pkg_config "libavdevice" $_libavdevice LIBAVDEVICE 'libavdevice >= 55.0.0'
-
-check_trivial "TV interface" $_tv TV
-
-check_statement_libs "Video 4 Linux 2 TV interface" $_tv_v4l2 TV_V4L2 \
-    "sys/time.h linux/videodev2.h"
-_tv_v4l2=$(defretval)
-check_trivial "TV audio input" $_tv_v4l2 AUDIO_INPUT
-
-test $_tv_v4l2 = no && _libv4l2=no
-check_pkg_config "libv4l2 support" $_libv4l2 LIBV4L2 'libv4l2'
-
-# Note: Lua has no official .pc file, so there are different OS-specific ones.
-# Also, we support luajit, which is compatible to 5.1.
-
-test_lua() {
-    if test "$_lua" = auto && $_pkg_config "$1" ; then
-        check_pkg_config "Lua ($1)" $_lua LUA "$1"
-        _lua=$(defretval)
-    fi
-}
-
-test_lua "lua >= 5.1.0 lua < 5.2.0"
-test_lua "lua5.1 >= 5.1.0" # debian
-test_lua "lua51 >= 5.1.0" # OpenBSD
-test_lua "luajit >= 2.0.0"
-test_lua "lua5.2 >= 5.2.0" # debian
-test_lua "lua52 >= 5.2.0" # OpenBSD
-test_lua "lua >= 5.2.0"
-
-test "$_lua" != yes && check_yes_no no LUA
-
-if $_pkg_config 'mujs >= 1.0'; then
-    check_yes_no yes JAVASCRIPT
-    extra_ldflags="$extra_ldflags -lmujs"
-else
-    check_yes_no no  JAVASCRIPT
-fi
-
-if ! ( $_pkg_config 'vapoursynth >= 24' ) ; then
-    _vapoursynth=no
-    _vapoursynth_lazy=no
-fi
-check_pkg_config "VapourSynth support (Python)" $_vapoursynth VAPOURSYNTH 'vapoursynth >= 23 vapoursynth-script >= 23'
-_vapoursynth=$(defretval)
-if test "$_lua" = no ; then
-    _vapoursynth_lazy=no
-fi
-check_pkg_config "VapourSynth support (Lua)" $_vapoursynth_lazy VAPOURSYNTH_LAZY 'vapoursynth >= 23'
-_vapoursynth_lazy=$(defretval)
-
-_vapoursynth_core=yes
-if test "$_vapoursynth" = no && test "$_vapoursynth_lazy" = no ; then
-    _vapoursynth_core=no
-fi
-check_trivial "VapourSynth core" $_vapoursynth_core VAPOURSYNTH_CORE
-
-check_pkg_config "libarchive support" $_libarchive LIBARCHIVE 'libarchive >= 3.0.0'
-
-check_trivial "encoding" $_encoding ENCODING
-
-# needs dlopen on unix
-_dlopen="$_dl"
-check_yes_no $_dlopen DLOPEN
-
-extra_ldflags="$extra_ldflags $_ld_pthread"
-libs_mplayer="$libs_mplayer $_ld_dl"
-
-CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE"
-
-# This is done so waf builds won't conflict with this. In fact, waf and old
-# build system can coexist in parallel, at the same time. This is because
-# waf always does out-of-tree builds, while this build system does always
-# in-tree builds.
-
-if test ! -f Makefile ; then
-    ln -s TOOLS/old-makefile Makefile
-fi
-
-cat > old_build/config.mak << EOF
-# -------- Generated by configure -----------
-export LC_ALL = C
-
-CONFIGURATION = $configuration
-
-prefix  = \$(DESTDIR)$_prefix
-BINDIR  = \$(DESTDIR)$_bindir
-MANDIR  = \$(DESTDIR)$_mandir
-CONFDIR = \$(DESTDIR)$_confdir
-
-CC      = $_cc
-INSTALL = install
-
-CFLAGS   = -Iold_build $OURCFLAGS $CFLAGS $extra_cflags
-DEPFLAGS = $DEPFLAGS
-
-EXTRALIBS = $extra_ldflags $_ld_static $_ld_lm $libs_mplayer $end_ldflags
-
-RST2MAN = $_rst2man
-BUILD_MAN = $_build_man
-
-# features
-EOF
-cat $CONFIG_MAK >> old_build/config.mak
-
-cat > $TMPC << EOF
-/*----------------------------------------------------------------------------
-** This file has been automatically generated by configure any changes in it
-** will be lost when you run configure again.
-** Instead of modifying definitions here, use the --enable/--disable options
-** of the configure script! See ./configure --help for details.
-*---------------------------------------------------------------------------*/
-
-#ifndef MPV_CONFIG_H
-#define MPV_CONFIG_H
-
-#define CONFIGURATION "$configuration"
-
-#define MPV_CONFDIR "$_confdir"
-
-/* we didn't bother to add actual config checks for this, or they are
-   for platforms not supported by this configure script */
-#define HAVE_BSD_FSTATFS 0
-#define HAVE_LINUX_FSTATFS 1
-#define HAVE_GL_COCOA 0
-#define HAVE_COCOA 0
-#define HAVE_COCOA_APPLICATION 0
-#define HAVE_COREVIDEO 0
-#define HAVE_COREAUDIO 0
-#define HAVE_GL_WIN32 0
-#define HAVE_DIRECT3D 0
-#define HAVE_DSOUND 0
-#define HAVE_WASAPI 0
-#define HAVE_DOS_PATHS 0
-#define HAVE_PRIORITY 0
-#define HAVE_GLOB 1
-#define HAVE_NANOSLEEP 1
-#define HAVE_SDL1 0
-#define HAVE_POSIX_SPAWN 1
-/* #define HAVE_GLIBC_THREAD_NAME (!!__GLIBC__) */
-#define HAVE_GLIBC_THREAD_NAME 0
-#define HAVE_OSX_THREAD_NAME 0
-#define HAVE_BSD_THREAD_NAME 0
-#define HAVE_NETBSD_THREAD_NAME 0
-#define HAVE_DXVA2_HWACCEL 0
-#define HAVE_FCHMOD 0
-#define HAVE_RPI 0
-#define HAVE_RPI_GLES 0
-#define HAVE_AV_PIX_FMT_MMAL 0
-#define HAVE_DRM 0
-#define HAVE_EGL_DRM 0
-#define HAVE_VIDEOTOOLBOX_HWACCEL 0
-#define HAVE_VIDEOTOOLBOX_GL 0
-#define HAVE_SSE4_INTRINSICS 1
-#define HAVE_C11_TLS 1
-#define HAVE_EGL_ANGLE 0
-#define HAVE_GPL3 1
-#define HAVE_WIN32 0
-#define HAVE_GL_DXINTEROP 0
-#define HAVE_VAAPI_DRM 0
-#define HAVE_SUBPROCESS 1
-#define HAVE_ANDROID_GL 0
-#define HAVE_OPENSLES 0
-#define HAVE_ANDROID 0
-#define HAVE_D3D11VA_HWACCEL 0
-#define HAVE_D3D_HWACCEL 0
-#define HAVE_MF_HWACCEL 0
-#define HAVE_POSIX 1
-#define HAVE_AVUTIL_ST2084 1
-#define HAVE_AVUTIL_HDR 0
-#define HAVE_AVUTIL_MASTERING_METADATA 1
-#define HAVE_CUDA_GL 1
-#define HAVE_CUDA_HWACCEL 1
-#define HAVE_MALI_FBDEV 0
-#define HAVE_IOS_GL 0
-#define HAVE_GCC_TLS 1
-#define HAVE_FNMATCH 1
-#define HAVE_AUDIOUNIT 0
-#define HAVE_AVFORMAT_IOOPEN 1
-#define HAVE_CPLUGINS 0
-#define HAVE_VAAPI_HWACCEL_OLD 0
-#define HAVE_VAAPI_HWACCEL_NEW 1
-#define HAVE_IS_FFMPEG 1
-#define HAVE_IS_LIBAV 0
-#define HAVE_VIDEOTOOLBOX 0
-#define HAVE_VDPAU_HWACCEL_OLD 0
-#define HAVE_VDPAU_HWACCEL_NEW 1
-#define HAVE_STANDARD_GLES3 0
-#define HAVE_GPL 1
-/* #define HAVE_AVUTIL_CONTENT_LIGHT_LEVEL 1 */
-#define HAVE_AVUTIL_CONTENT_LIGHT_LEVEL 0
-#define HAVE_WIN32_DESKTOP 0
-#define HAVE_UWP 0
-#define HAVE_JAVASCRIPT 1
-#define HAVE_WIN32_PIPES 0
-#define HAVE_WIN32_INTERNAL_PTHREADS 0
-#define HAVE_GL_DXINTEROP_D3D9 0
-#define HAVE_EGL_ANGLE_WIN32 0
-#define HAVE_EGL_ANGLE_WIN32 0
-#define HAVE_GLOB_POSIX 1
-#define HAVE_AVUTIL_SPHERICAL 1
-/* #define HAVE_AVUTIL_ICC_PROFILE 1 */
-#define HAVE_AVUTIL_ICC_PROFILE 0
-#define HAVE_LIBAF 1
-#define HAVE_GPU 1
-
-#define HAVE_VULKAN 0
-#define HAVE_SHADERC 0
-
-#ifdef __OpenBSD__
-#define DEFAULT_CDROM_DEVICE "/dev/rcd0c"
-#define DEFAULT_DVD_DEVICE   "/dev/rcd0c"
-#else
-#define DEFAULT_CDROM_DEVICE "/dev/cdrom"
-#define DEFAULT_DVD_DEVICE   "/dev/dvd"
-#endif
-#define PATH_DEV_DSP "/dev/dsp"
-#define PATH_DEV_MIXER "/dev/mixer"
-
-EOF
-cat $CONFIG_H >> $TMPC
-echo '#endif /* MPV_CONFIG_H */' >> $TMPC
-
-# Do not overwrite an unchanged config.h to avoid superfluous rebuilds.
-cmp -s "$TMPC" old_build/config.h || mv -f "$TMPC" old_build/config.h
-
-cat <<EOF
-
-Configuration successful. See $TMPLOG for details.
-
-NOTE: The --enable-* parameters unconditionally force options on, completely
-skipping autodetection. This behavior is unlike what you may be used to from
-autoconf-based configure scripts that can decide to override you. This greater
-level of control comes at a price. You may have to provide the correct compiler
-and linker flags yourself.
-If you used one of these options and experience a compilation or
-linking failure, make sure you have passed the necessary compiler/linker flags
-to configure.
-
-WARNING: The ./old-configure + make build system you are using is deprecated in
-favour of waf and will be removed in a future version of mpv. Check the
-README for instructions on how to build mpv with the new build system.
-This will not work correctly on MinGW, Cygwin, OSX, and other systems.
-
-EOF
+# Examples of correct usage:
+#   - Required dependency: check("name", required="...", fn=...)
+#   - Optional feature: check("-name", fn=...)
+#   - Optional with config.h: check("-name*", fn=...)
+#   - Platform check: check("name*", fn=...)
+# ============================================================================
+
+check("-lgpl",
+      desc      = "LGPL (version 2.1 or later) build",
+      default   = False)
+check("gpl*",
+      desc      = "GPL (version 2 or later) build",
+      deps_neg  = "lgpl")
+
+check(desc      = "whether the compiler works",
+      required  = "C compiler: missing or broken",
+      fn        = lambda: check_program("CC") and check_cc(link = []))
+check(desc      = "pkg-config",
+      required  = "pkg-config: missing or not in PATH",
+      fn        = lambda: check_program("PKG_CONFIG"))
+
+system = platform.system()
+if system == "Linux":
+    add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_GNU_SOURCE",
+               "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
+               "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
+elif system in ["FreeBSD", "OpenBSD", "NetBSD", "DragonFly"]:
+    add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE", "-D_BSD_SOURCE",
+               "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
+               "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
+else:
+    add_cflags("-MD", "-MP", "-D_ISOC99_SOURCE",
+               "-D_LARGEFILE_SOURCE", "-D_FILE_OFFSET_BITS=64",
+               "-D_LARGEFILE64_SOURCE", "-Wall", "-fno-strict-aliasing")
+check(fn        = lambda: check_cc(flags = "-std=c11") or
+                          check_cc(flags = "-std=c99"),
+      required  = "C11 or C99 compiler: missing, broken, or too old")
+check("-optimize",
+      fn        = lambda: chain(add_cflags("-O3", "-pipe", "-fno-signed-zeros",
+                                "-fno-trapping-math"), True),
+      desc      = "optimization")
+check("-debug-build",
+      fn        = lambda: chain(add_cflags("-g3"), True),
+      desc      = "-g3",
+      default   = False)
+check("-debug-build-extensive",
+      fn        = lambda: chain(add_cflags("-O0", "-g", "-fno-omit-frame-pointer"), True),
+      desc      = "-O0, -g, -fno-omit-frame-pointer",
+      deps_neg  = "optimize",
+      default   = False)
+check(desc      = "warning CFLAGS",
+      fn        = lambda: check_cc(flags = [
+                        "-Werror=implicit-function-declaration",
+                        "-Wno-error=deprecated-declarations",
+                        "-Wno-error=unused-function",
+                        "-Wempty-body",
+                        "-Wdisabled-optimization",
+                        "-Wstrict-prototypes",
+                        "-Werror=format-security",
+                        "-Wvla",
+                        "-Wundef",
+                        "-Wtype-limits",
+                        "-Wmissing-field-initializers",
+                        "-Wabsolute-value"]))
+
+check("gnuc",
+      desc      = "GNU C",
+      fn        = lambda: check_cc(defined = "__GNUC__"))
+check("clang",
+      desc      = "clang",
+      fn        = lambda: check_cc(defined = "__clang__"))
+
+check("libdl*",
+      fn        = lambda: check_cc(link = "-ldl", include = "dlfcn.h",
+                                   expr = 'dlopen("", 0);'))
+check("libm",
+      fn        = lambda: check_cc(link = "-lm"))
+
+check(desc      = "-fno-math-errno",
+      fn        = lambda: check_cc(flags = "-fno-math-errno"))
+
+check(desc      = "extra GCC warnings",
+      deps      = "gnuc",
+      deps_neg  = "clang",
+      fn        = lambda: check_cc(flags = [
+                        "-Wmissing-prototypes",
+                        "-Wshadow",
+                        "-Wparentheses",
+                        "-Wpointer-arith",
+                        "-Woverflow",
+                        "-Wclobbered",
+                        "-Wcast-function-type",
+                        "-Wignored-qualifiers",
+                        "-Wshift-overflow=2"]))
+check(desc      = "extra clang warnings",
+      deps      = "clang",
+      fn        = lambda: check_cc(flags = [
+                        "-fcolor-diagnostics",
+                        "-Wunreachable-code-aggressive",
+                        "-Wshift-overflow"]))
+
+check("-fsanitize-undefined",
+      desc      = "-fsanitize=undefined",
+      default   = False,
+      fn        = lambda: check_cc(flags = "-fsanitize=undefined", link = ["-fsanitize=undefined"]))
+check("-fsanitize-address",
+      desc      = "-fsanitize=address",
+      default   = False,
+      fn        = lambda: check_cc(flags = "-fsanitize=address", link = ["-fsanitize=address"]))
+check("-fsanitize-thread",
+      desc       = "-fsanitize=thread",
+      default    = False,
+      fn         = lambda: check_cc(flags = "-fsanitize=thread", link = ["-fsanitize=thread"]))
+
+def check_git():
+    if not check_program("GIT"):
+        return False
+    # I've seen cases where 'git' doesn't support 'git describe'.
+    import subprocess
+    try:
+        result = subprocess.run([get_program("GIT"), "describe", "--help"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              timeout=5)
+        if result.returncode != 0:
+            return False
+        return True
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
+
+check("git*",
+      required  = "git: missing, not in PATH, or doesn't support 'git describe'",
+      fn        = check_git)
+
+check("ninja*",
+      required  = "ninja: missing or not in PATH",
+      fn        = lambda: check_program("NINJA"))
+
+check(desc      = "-fstack-protector-strong",
+      fn        = lambda: check_cc(flags = "-fstack-protector-strong"))
+
+check(fn        = lambda: check_cc(include = "unistd.h",
+                                   defined = "_POSIX_VERSION"),
+      required  = "POSIX system: required (must define _POSIX_VERSION)",
+      sources   = ["osdep/language-posix.c",
+                   "sub/filter_regex.c",
+                   "osdep/path-unix.c"])
+
+check(fn        = lambda: check_cc(link = "-pthread", flags = "-pthread",
+                                   include = "pthread.h",
+                                   expr = "pthread_self();"),
+      required  = "pthreads: missing or broken")
+
+check("stdatomic*",
+      desc      = "stdatomic.h or slow emulation",
+      fn        = lambda: check_cc(include = "stdatomic.h",
+                                   expr =
+                        "atomic_int_least64_t test = ATOMIC_VAR_INIT(123);"
+                        "atomic_fetch_add(&test, 1);"))
+check(deps_any  = ["stdatomic", "gnuc"],
+      required  = "stdatomic.h or GCC: missing (need C11 atomics support)")
+
+def check_iconv():
+    has_libiconv_plug = check_cc(flags = "-DLIBICONV_PLUG")
+    if check_cc(include = "iconv.h", link = [], expr = "iconv_open(0, 0);"):
+        return True
+    if check_cc(include = "iconv.h", link = "-liconv", expr = "iconv_open(0, 0);"):
+        return True
+    if has_libiconv_plug:
+        if check_cc(flags = "-DLIBICONV_PLUG", include = "iconv.h", link = "-liconv",
+                    expr = "iconv_open(0, 0);"):
+            return True
+    return False
+check("-libiconv-plug*",
+      desc      = "-DLIBICONV_PLUG",
+      fn        = lambda: check_cc(flags = "-DLIBICONV_PLUG"))
+check("iconv*",
+      fn        = check_iconv)
+check("-uchardet*",
+      deps      = "iconv",
+      fn        = lambda: check_pkg_config("uchardet"))
+
+check(fn        = lambda: check_cc(include = "glob.h",
+                                   expr = 'glob("filename", 0, 0, 0);'),
+      required  = "glob.h: missing or broken")
+check(fn        = lambda: check_cc(include = "sys/stat.h", expr = "fchmod(0, 0);"),
+      required  = "fchmod: missing or broken")
+
+check("glibc-thread-name*",
+      fn        = lambda: check_cc(include = "pthread.h",
+                    expr = 'pthread_setname_np(pthread_self(), "ducks");'))
+check("bsd-thread-name*",
+      fn        = lambda: check_cc(include = ["pthread.h", "pthread_np.h"],
+                    expr = 'pthread_set_name_np(pthread_self(), "ducks");')
+                  or check_cc(include = "pthread.h", expr = 'pthread_setname_np(pthread_self(), "ducks", NULL);'))
+
+check("bsd-fstatfs*",
+      desc      = "BSD fstatfs",
+      fn        = lambda: check_cc(include = ["sys/param.h", "sys/mount.h"],
+                    expr = "struct statfs fs; fstatfs(0, &fs); fs.f_fstypename;"))
+check("linux-fstatfs*",
+      desc      = "Linux fstatfs",
+      fn        = lambda: check_cc(include = "sys/vfs.h",
+                    expr = "struct statfs fs; fstatfs(0, &fs); fs.f_namelen;"))
+
+check("-lua*",
+      desc      = "Lua support",
+      fn        = lambda: check_pkg_config("luajit >= 2.0.0") or
+                          check_pkg_config("lua-5.1") or
+                          check_pkg_config("lua51") or
+                          check_pkg_config("lua-5.2") or
+                          check_pkg_config("lua52") or
+                          check_pkg_config("lua <= 5.2.999"),
+      sources   = "player/lua.c")
+
+check("libass*",
+      desc      = "libass subtitle/OSD renderer",
+      fn        = lambda: check_pkg_config("libass >= 0.17.0"),
+      required  = "libass >= 0.17.0: missing, broken, or too old",
+      sources   = ["sub/ass_mp.c",
+                   "sub/osd_libass.c",
+                   "sub/sd_ass.c"])
+
+check(fn        = lambda: check_cc(link = "-lz", include = "zlib.h",
+                                   expr = "inflate(0, Z_NO_FLUSH);"),
+      required  = "zlib: missing or broken")
+
+check("-lcms2*",
+      desc      = "Little Color Management System 2",
+      fn        = lambda: check_pkg_config("lcms2 >= 2.6"))
+
+check("-libarchive*",
+      fn        = lambda: check_pkg_config("libarchive >= 3.0.0"),
+      sources   = ["demux/demux_libarchive.c",
+                   "stream/stream_libarchive.c"])
+
+check(desc      = "FFmpeg",
+      fn        = lambda: check_pkg_config(
+                    "libavutil      >= 58.12.100",
+                    "libavcodec     >= 60.15.100",
+                    "libavformat    >= 60.6.100",
+                    "libswscale     >= 7.2.100",
+                    "libavfilter    >= 9.12.100",
+                    "libswresample  >= 4.10.100"),
+      required  = "FFmpeg libraries: missing, broken, or too old (need libavutil >= 58.12.100, libavcodec >= 60.15.100, libavformat >= 60.6.100, libswscale >= 7.2.100, libavfilter >= 9.12.100, libswresample >= 4.10.100)")
+check("-libavdevice*",
+      fn        = lambda: check_pkg_config("libavdevice >= 60.3.100"))
+
+check("-zimg*",
+      fn        = lambda: check_pkg_config("zimg >= 3.0.5"),
+      sources   = "video/zimg.c")
+
+check("-pipewire*",
+      desc      = "PipeWire audio output",
+      fn        = lambda: check_pkg_config("libpipewire-0.3 >= 0.3.57") and check_binary_exists("pipewire"),
+      sources   = "audio/out/ao_pipewire.c")
+check("-pulseaudio*",
+      desc      = "PulseAudio audio output",
+      fn        = lambda: check_pkg_config("libpulse >= 16.0") and check_binary_exists("pulseaudio"),
+      sources   = "audio/out/ao_pulse.c")
+check("-alsa*",
+      desc      = "ALSA audio output",
+      fn        = lambda: check_pkg_config("alsa >= 1.0.18"),
+      sources   = "audio/out/ao_alsa.c")
+check("-oss*",
+      desc      = "OSS audio output",
+      deps      = "gpl",
+      fn        = lambda: check_cc(include = "sys/soundcard.h",
+                  expr = "SNDCTL_DSP_HALT;"),
+      sources   = "audio/out/ao_oss.c")
+check("-sndio*",
+      desc      = "sndio audio output",
+      fn        = lambda: check_pkg_config("sndio >= 1.0.0"),
+      sources   = "audio/out/ao_sndio.c")
+
+check("wsdisplay-usl-io-h*",
+      fn        = lambda: check_cc(include = ["sys/types.h",
+                  "dev/wscons/wsdisplay_usl_io.h"]))
+check("vt_h*",
+      fn        = lambda: check_cc(include = ["sys/vt.h", "sys/ioctl.h"],
+                                   expr = "int m; ioctl(0, VT_GETMODE, &m);"))
+check("consio_h*",
+      deps_neg  = "vt_h",
+      fn        = lambda: check_cc(include = ["sys/consio.h", "sys/ioctl.h"],
+                                   expr = "int m; ioctl(0, VT_GETMODE, &m);"))
+check("-drm*",
+      desc      = "Direct Rendering Manager",
+      deps_any  = ["wsdisplay-usl-io-h", "vt_h", "consio_h"],
+      fn        = lambda: check_pkg_config("libdrm >= 2.4.105"),
+      sources   = ["video/out/drm_atomic.c",
+                   "video/out/drm_common.c",
+                   "video/out/vo_drm.c"])
+check("-drmprime*",
+      fn        = lambda: check_cc(include = "libavutil/pixfmt.h",
+                                   expr = "int i = AV_PIX_FMT_DRM_PRIME;"))
+check(deps      = ["drm", "drmprime"],
+      sources   = ["video/drmprime.c",
+                   "video/out/drm_prime.c",
+                   "video/out/hwdec/hwdec_drmprime.c",
+                   "video/out/hwdec/hwdec_drmprime_overlay.c"])
+
+check("gbm",
+      desc      = "Generic Buffer Management",
+      fn        = lambda: check_pkg_config("gbm"))
+
+check("-libplacebo*",
+      desc      = "libplacebo support",
+      fn        = lambda: check_pkg_config("libplacebo >= 6.338.2"),
+      sources   = ["video/out/placebo/ra_pl.c",
+                   "video/out/placebo/utils.c",
+                   "video/out/placebo/tone_map_helpers.c"])
+
+def check_wayland_protos():
+    data = get_pkg_config_variable("wayland-protocols", "pkgdatadir")
+    if data is None:
+        return False
+    add_config_mak_var("WL_PROTO_DIR", data)
+    return True
+
+check("-wayland*",
+      desc = "Wayland support",
+      fn = lambda: (
+          check_wayland_protos() and
+          check_cc(include="linux/input-event-codes.h", link=[]) and
+          check_program("WAYSCAN") and
+          check_pkg_config(
+              "wayland-client    >= 1.21.0",
+              "wayland-cursor    >= 1.21.0",
+              "wayland-protocols >= 1.41",
+              "xkbcommon         >= 0.3.0"
+          )
+      ),
+      sources = [
+          "video/out/wayland_common.c",
+          "generated/wayland/idle-inhibit-unstable-v1.c",
+          "generated/wayland/presentation-time.c",
+          "generated/wayland/xdg-shell.c",
+          "generated/wayland/fractional-scale-v1.c",
+          "generated/wayland/cursor-shape-v1.c",
+          "generated/wayland/tablet-v2.c",
+          "generated/wayland/xdg-decoration-unstable-v1.c",
+          "generated/wayland/xdg-activation-v1.c",
+          "generated/wayland/viewporter.c",
+          "generated/wayland/linux-dmabuf-unstable-v1.c",
+          "generated/wayland/fifo-v1.c",
+          "generated/wayland/color-management-v1.c",
+          "video/out/hwdec/dmabuf_interop_wl.c",
+          "video/out/wldmabuf/context_wldmabuf.c",
+          "video/out/wldmabuf/ra_wldmabuf.c"
+      ],
+)
+
+check("-wayland-protocols-147*",
+      desc      = "wayland-protocols >= 1.47",
+      deps      = "wayland",
+      fn        = lambda: check_pkg_config("wayland-protocols >= 1.47"))
+
+check("memfd-create*",
+      desc      = "memfd_create() for Wayland",
+      deps      = "wayland",
+      fn        = lambda: check_cc(include = "sys/mman.h", link = [],
+                                   expr = "memfd_create(0, MFD_CLOEXEC | MFD_ALLOW_SEALING);"),
+      sources   = "video/out/vo_wlshm.c")
+
+check("-x11*",
+      desc      = "X11 support",
+      deps      = "gpl",
+      fn        = lambda: check_pkg_config("x11         >= 1.0.0",
+                                           "xscrnsaver  >= 1.0.0",
+                                           "xext        >= 1.0.0",
+                                           "xinerama    >= 1.0.0",
+                                           "xpresent    >= 1.0.0",
+                                           "xrandr      >= 1.2.0"),
+      sources   = ["video/out/x11_common.c",
+                   "video/out/vo_x11.c"])
+
+check("-vulkan*",
+      desc      = "Vulkan context support (libplacebo)",
+      deps      = "libplacebo",
+      fn        = lambda: check_pkg_config("vulkan"),
+      sources   = ["video/out/vulkan/context.c",
+                   "video/out/vulkan/utils.c"])
+check(deps      = ["vulkan", "x11"],
+      sources   = "video/out/vulkan/context_xlib.c")
+check(deps      = ["vulkan", "wayland"],
+      sources   = "video/out/vulkan/context_wayland.c")
+check("-hwdec-vulkan*",
+      desc      = "Vulkan hardware acceleration (libplacebo)",
+      deps      = ["libplacebo", "vulkan"],
+      sources   = "video/out/hwdec/hwdec_vulkan.c")
+
+check("-egl*",
+      desc      = "EGL",
+      fn        = lambda: check_pkg_config("egl") or
+                          (check_cc(link = "-lEGL") and
+                           check_cc(link = "-lGLESv2")))
+check("libgl*",
+      desc      = "libGL",
+      fn        = lambda: check_cc(link = "-lGL"))
+check("-gl-x11-backend*",
+      desc      = "OpenGL X11 Backend (GLX)",
+      deps      = ["libgl", "x11"],
+      fn        = lambda: check_cc(include = "GL/glx.h",
+                                   expr = "glXGetCurrentDisplay();"))
+check("-egl-x11-backend*",
+      desc      = "OpenGL X11 EGL Backend",
+      deps      = ["libgl", "x11", "egl", "gbm"])
+check("-egl-drm-backend*",
+      desc      = "OpenGL DRM EGL Backend",
+      deps      = ["libgl", "drm", "gbm", "egl"])
+check("-gl-wayland-backend*",
+      desc      = "OpenGL Wayland Backend",
+      deps      =  ["libgl", "wayland", "egl"],
+      fn        = lambda: check_pkg_config("wayland-egl >= 9.0.0"))
+check("-gl*",
+      desc      = "OpenGL context support",
+      deps      = "libgl",
+      deps_any  = ["gl-x11-backend", "egl-x11-backend", "egl-drm-backend", "gl-wayland-backend"],
+      sources   = ["video/out/opengl/common.c",
+                   "video/out/opengl/context.c",
+                   "video/out/opengl/formats.c",
+                   "video/out/opengl/ra_gl.c",
+                   "video/out/opengl/utils.c"])
+check("-gl-x11*",
+      desc      = "OpenGL X11",
+      deps      = ["gl", "gl-x11-backend"],
+      sources   = "video/out/opengl/context_glx.c")
+check("-egl-x11*",
+      desc      = "OpenGL X11 EGL",
+      deps      = ["gl", "egl-x11-backend"],
+      sources   = "video/out/opengl/context_x11egl.c")
+check("-egl-drm*",
+      desc      = "OpenGL DRM EGL",
+      deps      = ["gl", "egl-drm-backend"],
+      sources   = "video/out/opengl/context_drm_egl.c")
+check("-gl-wayland*",
+      desc      = "OpenGL Wayland",
+      deps      = ["gl", "gl-wayland-backend"],
+      sources   = "video/out/opengl/context_wayland.c")
+check("egl-helpers*",
+      desc      = "EGL helper functions",
+      deps_any  = ["egl-x11", "egl-drm", "gl-wayland"],
+      sources   = "video/out/opengl/egl_helpers.c"),
+
+check("-vdpau*",
+      desc      = "VDPAU",
+      deps      = ["gpl", "x11"],
+      fn        = lambda: check_pkg_config("vdpau >= 0.2"),
+      sources   = ["video/filter/vf_vdpaupp.c",
+                   "video/vdpau.c",
+                   "video/vdpau_mixer.c",
+                   "video/out/vo_vdpau.c"])
+check("-vdpau-gl-x11*",
+      desc      = "VDPAU with OpenGL/X11",
+      deps      = ["vdpau", "gl-x11"],
+      sources   = "video/out/opengl/hwdec_vdpau.c")
+
+check("-vaapi*",
+      desc      = "VA-API acceleration",
+      fn        = lambda: check_pkg_config("libva >= 0.36.0"),
+      sources   = ["video/vaapi.c",
+                   "video/filter/vf_vavpp.c"])
+check("-vaapi-x11*",
+      desc      = "VA-API (X11 support)",
+      deps      = ["vaapi", "x11"],
+      fn        = lambda: check_pkg_config("libva-x11 >= 0.36.0"))
+check("-vaapi-wayland*",
+      desc      = "VA-API (Wayland support)",
+      deps      = ["vaapi", "gl-wayland"],
+      fn        = lambda: check_pkg_config("libva-wayland >= 0.36.0"),
+      sources   = "video/out/vo_dmabuf_wayland.c")
+check("-vaapi-drm*",
+      desc      = "VA-API (DRM/EGL support)",
+      deps      = ["vaapi", "egl-drm"],
+      fn        = lambda: check_pkg_config("libva-drm >= 0.36.0"))
+check("-vaapi-glx*",
+      desc      = "VA-API GLX",
+      deps      = ["gpl", "vaapi-x11", "gl-x11"])
+check("-vaapi-x-egl*",
+      desc      = "VA-API EGL on X11",
+      deps      = ["vaapi-x11", "egl-x11"])
+check("-vaapi-vulkan*",
+      desc      = "VA-API Vulkan",
+      deps      = ["vaapi", "vulkan"],
+      sources   = ["video/out/hwdec/hwdec_vaapi.c"])
+check("-vaapi-egl*",
+      desc      = "VA-API EGL",
+      deps_any  = ["vaapi-x-egl", "vaapi-wayland"],
+      sources   = ["video/out/hwdec/hwdec_vaapi.c"])
+check(deps      = ["drm", "egl", "gl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["egl", "libplacebo", "vaapi"],
+      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
+check(deps      = ["drm", "egl", "gl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+check(deps      = ["drm", "egl", "libplacebo", "vaapi"],
+      sources   = "video/out/hwdec/dmabuf_interop_pl.c")
+
+check("-jpeg*",
+      desc      = "JPEG support",
+      fn        = lambda: chain (check_pkg_config("libjxl.pc"),
+                                 check_cc(include = ["stdio.h", "jpeglib.h"],
+                                          link = "-ljpeg")))
+
+check(deps      = ["drm", "egl", "gbm", "gl"],
+      sources   = "video/out/hwdec/dmabuf_interop_gl.c")
+
+check(deps_any   = ["drm", "x11", "wayland"],
+      sources    = "video/out/present_sync.c")
+
+check(deps      = ["vulkan", "wayland"],
+      sources   = "video/out/vulkan/context_wayland.c")
+check(deps      = ["vulkan", "x11"],
+      sources   = "video/out/vulkan/context_xlib.c")
+
+check(deps      = ["gl", "egl", "egl-helpers"],
+      sources   = "video/filter/vf_gpu.c")
+
+add_sources(
+    "audio/aframe.c",
+    "audio/chmap.c",
+    "audio/chmap_avchannel.c",
+    "audio/chmap_sel.c",
+    "audio/decode/ad_lavc.c",
+    "audio/decode/ad_spdif.c",
+    "audio/filter/af_drop.c",
+    "audio/filter/af_format.c",
+    "audio/filter/af_lavcac3enc.c",
+    "audio/filter/af_scaletempo.c",
+    "audio/fmt-conversion.c",
+    "audio/format.c",
+    "audio/out/ao.c",
+    "audio/out/ao_lavc.c",
+    "audio/out/ao_null.c",
+    "audio/out/ao_pcm.c",
+    "audio/out/buffer.c",
+    "common/av_common.c",
+    "common/av_log.c",
+    "common/codecs.c",
+    "common/common.c",
+    "common/encode_lavc.c",
+    "common/msg.c",
+    "common/playlist.c",
+    "common/recorder.c",
+    "common/stats.c",
+    "common/tags.c",
+    "common/version.c",
+    "demux/cache.c",
+    "demux/codec_tags.c",
+    "demux/cue.c",
+    "demux/demux.c",
+    "demux/demux_cue.c",
+    "demux/demux_edl.c",
+    "demux/demux_lavf.c",
+    "demux/demux_mf.c",
+    "demux/demux_mkv.c",
+    "demux/demux_mkv_timeline.c",
+    "demux/demux_null.c",
+    "demux/demux_playlist.c",
+    "demux/demux_raw.c",
+    "demux/demux_timeline.c",
+    "demux/ebml.c",
+    "demux/packet.c",
+    "demux/packet_pool.c",
+    "demux/timeline.c",
+    "filters/filter.c",
+    "filters/f_async_queue.c",
+    "filters/f_auto_filters.c",
+    "filters/f_autoconvert.c",
+    "filters/f_decoder_wrapper.c",
+    "filters/f_demux_in.c",
+    "filters/f_hwtransfer.c",
+    "filters/f_lavfi.c",
+    "filters/f_output_chain.c",
+    "filters/f_swresample.c",
+    "filters/f_swscale.c",
+    "filters/f_utils.c",
+    "filters/frame.c",
+    "filters/user_filters.c",
+    "input/cmd.c",
+    "input/event.c",
+    "input/input.c",
+    "input/ipc.c",
+    "input/ipc-unix.c",
+    "input/keycodes.c",
+    "misc/bstr.c",
+    "misc/charset_conv.c",
+    "misc/dispatch.c",
+    "misc/json.c",
+    "misc/language.c",
+    "misc/natural_sort.c",
+    "misc/node.c",
+    "misc/random.c",
+    "misc/rendezvous.c",
+    "misc/ta.c",
+    "misc/ta_talloc.c",
+    "misc/ta_utils.c",
+    "misc/thread_pool.c",
+    "misc/thread_tools.c",
+    "options/m_config_core.c",
+    "options/m_config_frontend.c",
+    "options/m_option.c",
+    "options/m_property.c",
+    "options/options.c",
+    "options/parse_commandline.c",
+    "options/parse_configfile.c",
+    "options/path.c",
+    "osdep/io.c",
+    "osdep/subprocess.c",
+    "osdep/subprocess-posix.c",
+    "osdep/terminal-unix.c",
+    "osdep/threads.c",
+    "osdep/timer.c",
+    "osdep/timer-unix.c",
+    "player/audio.c",
+    "player/client.c",
+    "player/command.c",
+    "player/configfiles.c",
+    "player/external_files.c",
+    "player/loadfile.c",
+    "player/main.c",
+    "player/misc.c",
+    "player/osd.c",
+    "player/playloop.c",
+    "player/screenshot.c",
+    "player/scripting.c",
+    "player/sub.c",
+    "player/video.c",
+    "stream/cookies.c",
+    "stream/stream.c",
+    "stream/stream_avdevice.c",
+    "stream/stream_cb.c",
+    "stream/stream_concat.c",
+    "stream/stream_edl.c",
+    "stream/stream_file.c",
+    "stream/stream_lavf.c",
+    "stream/stream_memory.c",
+    "stream/stream_mf.c",
+    "stream/stream_null.c",
+    "stream/stream_slice.c",
+    "sub/dec_sub.c",
+    "sub/draw_bmp.c",
+    "sub/filter_sdh.c",
+    "sub/img_convert.c",
+    "sub/lavc_conv.c",
+    "sub/osd.c",
+    "sub/sd_lavc.c",
+    "video/csputils.c",
+    "video/filter/refqueue.c",
+    "video/filter/vf_format.c",
+    "video/filter/vf_sub.c",
+    "video/fmt-conversion.c",
+    "video/hwdec.c",
+    "video/image_loader.c",
+    "video/image_writer.c",
+    "video/img_format.c",
+    "video/mp_image.c",
+    "video/mp_image_pool.c",
+    "video/vd_lavc.c",
+    "video/out/aspect.c",
+    "video/out/bitmap_packer.c",
+    "video/out/dither.c",
+    "video/out/dr_helper.c",
+    "video/out/filter_kernels.c",
+    "video/out/gpu/context.c",
+    "video/out/gpu/error_diffusion.c",
+    "video/out/gpu/hwdec.c",
+    "video/out/gpu/lcms.c",
+    "video/out/gpu/osd.c",
+    "video/out/gpu/ra.c",
+    "video/out/gpu/shader_cache.c",
+    "video/out/gpu/user_shaders.c",
+    "video/out/gpu/utils.c",
+    "video/out/gpu/video.c",
+    "video/out/gpu/video_shaders.c",
+    "video/out/vo.c",
+    "video/out/vo_gpu.c",
+    "video/out/vo_image.c",
+    "video/out/vo_lavc.c",
+    "video/out/vo_null.c",
+    "video/out/win_state.c",
+    "video/repack.c",
+    "video/sws_utils.c",
+)
+
+finish()

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -23,12 +23,14 @@
 #include <unistd.h>
 #include <poll.h>
 #include <string.h>
-#include <assert.h>
+#include <stdatomic.h>
+#include "misc/mp_assert.h"
 
 #include <X11/Xmd.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/Xresource.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 #include <X11/XF86keysym.h>
@@ -36,13 +38,15 @@
 #include <X11/extensions/scrnsaver.h>
 #include <X11/extensions/dpms.h>
 #include <X11/extensions/shape.h>
-#include <X11/extensions/Xinerama.h>
+#ifndef PRESENT_FUTURE_VERSION
+#define PRESENT_FUTURE_VERSION 0
+#endif
 #include <X11/extensions/Xpresent.h>
 #include <X11/extensions/Xrandr.h>
 
 #include "misc/bstr.h"
 #include "options/options.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "input/input.h"
@@ -51,7 +55,7 @@
 #include "video/mp_image.h"
 #include "present_sync.h"
 #include "x11_common.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "vo.h"
 #include "win_state.h"
@@ -61,6 +65,8 @@
 
 #include "input/input.h"
 #include "input/keycodes.h"
+#include "config.h"
+#include "gpu/lcms.h"
 
 #define vo_wm_LAYER 1
 #define vo_wm_FULLSCREEN 2
@@ -110,22 +116,22 @@ typedef struct
 } MotifWmHints;
 
 static const char x11_icon_16[] =
-#include "generated/etc/mpv-icon-8bit-16x16.png.inc"
+#include "generated/etc/dmpv-icon-8bit-16x16.png.inc"
 ;
 
 static const char x11_icon_32[] =
-#include "generated/etc/mpv-icon-8bit-32x32.png.inc"
+#include "generated/etc/dmpv-icon-8bit-32x32.png.inc"
 ;
 
 static const char x11_icon_64[] =
-#include "generated/etc/mpv-icon-8bit-64x64.png.inc"
+#include "generated/etc/dmpv-icon-8bit-64x64.png.inc"
 ;
 
 static const char x11_icon_128[] =
-#include "generated/etc/mpv-icon-8bit-128x128.png.inc"
+#include "generated/etc/dmpv-icon-8bit-128x128.png.inc"
 ;
 
-#define ICON_ENTRY(var) { (char *)var, sizeof(var) }
+#define ICON_ENTRY(var) { (unsigned char *)var, sizeof(var) }
 static const struct bstr x11_icons[] = {
     ICON_ENTRY(x11_icon_16),
     ICON_ENTRY(x11_icon_32),
@@ -137,6 +143,7 @@ static const struct bstr x11_icons[] = {
 static struct mp_log *x11_error_output;
 static atomic_int x11_error_silence;
 
+static bool rc_overlaps(struct mp_rect rc1, struct mp_rect rc2);
 static void vo_x11_update_geometry(struct vo *vo);
 static void vo_x11_fullscreen(struct vo *vo);
 static void xscreensaver_heartbeat(struct vo_x11_state *x11);
@@ -180,7 +187,7 @@ static char *x11_atom_name_buf(struct vo_x11_state *x11, Atom atom,
 static void *x11_get_property(struct vo_x11_state *x11, Window w, Atom property,
                               Atom type, int format, int *out_nitems)
 {
-    assert(format == 8 || format == 16 || format == 32);
+    mp_assert(format == 8 || format == 16 || format == 32);
     *out_nitems = 0;
     if (!w)
         return NULL;
@@ -423,12 +430,7 @@ static void xrandr_read(struct vo_x11_state *x11)
         return;
     }
 
-    /* Look at the available providers on the current screen and try to determine
-     * the driver. If amd/intel/radeon, assume this is mesa. If nvidia is found,
-     * assume nvidia. Because the same screen can have multiple providers (e.g.
-     * a laptop with switchable graphics), we need to know both of these things.
-     * In practice, this is used for determining whether or not to use XPresent
-     * (i.e. needs to be Mesa and not Nvidia). Requires Randr 1.4. */
+     /* We determine whether or not to use XPresent here. Requires Xrandr 1.4. */
     if (randr_14) {
         XRRProviderResources *pr = XRRGetProviderResources(x11->display, x11->rootwin);
         for (int i = 0; i < pr->nproviders; i++) {
@@ -498,6 +500,7 @@ static void xrandr_read(struct vo_x11_state *x11)
 
     for (int i = 0; i < x11->num_displays; i++) {
         struct xrandr_display *d = &(x11->displays[i]);
+        d->screen = i;
 
         if (i == primary_id) {
             d->atom_id = 0;
@@ -513,19 +516,13 @@ static void xrandr_read(struct vo_x11_state *x11)
     XRRFreeScreenResources(r);
 }
 
-static void vo_x11_update_screeninfo(struct vo *vo)
+static int vo_x11_select_screen(struct vo *vo)
 {
     struct vo_x11_state *x11 = vo->x11;
     struct mp_vo_opts *opts = x11->opts;
-    bool all_screens = opts->fullscreen && opts->fsscreen_id == -2;
-    x11->screenrc = (struct mp_rect){.x1 = x11->ws_width, .y1 = x11->ws_height};
-    if ((opts->screen_id >= -1 || opts->screen_name) && XineramaIsActive(x11->display) &&
-         !all_screens)
-    {
-        int screen = opts->fullscreen ? opts->fsscreen_id : opts->screen_id;
-        XineramaScreenInfo *screens;
-        int num_screens;
-
+    int screen = -2; // all displays
+    if (!opts->fullscreen || opts->fsscreen_id != -2) {
+        screen = opts->fullscreen ? opts->fsscreen_id : opts->screen_id;
         if (opts->fullscreen && opts->fsscreen_id == -1)
             screen = opts->screen_id;
 
@@ -546,32 +543,54 @@ static void vo_x11_update_screeninfo(struct vo *vo)
             }
         }
 
-        screens = XineramaQueryScreens(x11->display, &num_screens);
-        if (screen >= num_screens)
-            screen = num_screens - 1;
+        if (screen >= x11->num_displays)
+            screen = x11->num_displays - 1;
+    }
+    return screen;
+}
+
+static void vo_x11_update_screeninfo(struct vo *vo)
+{
+    struct vo_x11_state *x11 = vo->x11;
+    x11->screenrc = (struct mp_rect){.x1 = x11->ws_width, .y1 = x11->ws_height};
+    int screen = vo_x11_select_screen(vo);
+    if (screen >= -1) {
         if (screen == -1) {
             int x = x11->winrc.x0 + RC_W(x11->winrc) / 2;
             int y = x11->winrc.y0 + RC_H(x11->winrc) / 2;
-            for (screen = num_screens - 1; screen > 0; screen--) {
-                int left = screens[screen].x_org;
-                int right = left + screens[screen].width;
-                int top = screens[screen].y_org;
-                int bottom = top + screens[screen].height;
+            for (screen = x11->num_displays - 1; screen > 0; screen--) {
+                struct xrandr_display *disp = &x11->displays[screen];
+                int left = disp->rc.x0;
+                int right = disp->rc.x1;
+                int top = disp->rc.y0;
+                int bottom = disp->rc.y1;
                 if (left <= x && x <= right && top <= y && y <= bottom)
                     break;
             }
         }
+
         if (screen < 0)
             screen = 0;
         x11->screenrc = (struct mp_rect){
-            .x0 = screens[screen].x_org,
-            .y0 = screens[screen].y_org,
-            .x1 = screens[screen].x_org + screens[screen].width,
-            .y1 = screens[screen].y_org + screens[screen].height,
+            .x0 = x11->displays[screen].rc.x0,
+            .y0 = x11->displays[screen].rc.y0,
+            .x1 = x11->displays[screen].rc.x1,
+            .y1 = x11->displays[screen].rc.y1,
         };
-
-        XFree(screens);
     }
+}
+
+static struct xrandr_display *get_xrandr_display(struct vo *vo, struct mp_rect rc)
+{
+    struct vo_x11_state *x11 = vo->x11;
+    struct xrandr_display *selected_disp = NULL;
+    for (int n = 0; n < x11->num_displays; n++) {
+        struct xrandr_display *disp = &x11->displays[n];
+        disp->overlaps = rc_overlaps(disp->rc, rc);
+        if (disp->overlaps && (!selected_disp || disp->fps < selected_disp->fps))
+            selected_disp = disp;
+    }
+    return selected_disp;
 }
 
 // Get the monitors for the 4 edges of the rectangle spanning all screens.
@@ -579,29 +598,88 @@ static void vo_x11_get_bounding_monitors(struct vo_x11_state *x11, long b[4])
 {
     //top  bottom left   right
     b[0] = b[1] = b[2] = b[3] = 0;
-    int num_screens = 0;
-    XineramaScreenInfo *screens = XineramaQueryScreens(x11->display, &num_screens);
-    if (!screens)
-        return;
-    for (int n = 0; n < num_screens; n++) {
-        XineramaScreenInfo *s = &screens[n];
-        if (s->y_org < screens[b[0]].y_org)
+    for (int n = 0; n < x11->num_displays; n++) {
+        struct xrandr_display *d = &x11->displays[n];
+        if (d->rc.y0 < x11->displays[b[0]].rc.y0)
             b[0] = n;
-        if (s->y_org + s->height > screens[b[1]].y_org + screens[b[1]].height)
+        if (d->rc.y1 < x11->displays[b[1]].rc.y1)
             b[1] = n;
-        if (s->x_org < screens[b[2]].x_org)
+        if (d->rc.x0 < x11->displays[b[2]].rc.x0)
             b[2] = n;
-        if (s->x_org + s->width > screens[b[3]].x_org + screens[b[3]].width)
+        if (d->rc.x1 < x11->displays[b[3]].rc.x1)
             b[3] = n;
     }
-    XFree(screens);
+}
+
+// Get the dpi scale of the x11 screen. Almost no GUI programs use this value
+// nowadays, and it has inconsistent behavior for different drivers.
+// (it returns the physical display DPI for proprietary NVIDIA driver only,
+// but essentially a user-set prefrence value everywhere else)
+static void vo_x11_get_x11_screen_dpi_scale(struct vo_x11_state *x11)
+{
+    int w_mm = DisplayWidthMM(x11->display, x11->screen);
+    int h_mm = DisplayHeightMM(x11->display, x11->screen);
+    double dpi_x = x11->ws_width * 25.4 / w_mm;
+    double dpi_y = x11->ws_height * 25.4 / h_mm;
+    double base_dpi = 96;
+    if (isfinite(dpi_x) && isfinite(dpi_y)) {
+        int s_x = lrint(MPCLAMP(2 * dpi_x / base_dpi, 0, 20));
+        int s_y = lrint(MPCLAMP(2 * dpi_y / base_dpi, 0, 20));
+        if (s_x == s_y && s_x > 2 && s_x < 20) {
+            x11->dpi_scale = s_x / 2.0;
+            MP_VERBOSE(x11, "Using X11 screen DPI scale: %g", x11->dpi_scale);
+        }
+    }
+}
+
+// Get the dpi scale from the Xft.dpi resource. In practice, this value is much more
+// commonly used by GUI programs for scaling compared to the x11 screen dpi.
+// This is always a preference value so it's also more consistent.
+static bool vo_x11_get_xft_dpi_scale(struct vo_x11_state *x11)
+{
+    XrmInitialize();
+    char *resman = XResourceManagerString(x11->display);
+    if (!resman)
+        return false;
+
+    XrmDatabase db = XrmGetStringDatabase(resman);
+    if (!db)
+        return false;
+
+    XrmValue ret;
+    char *type;
+    double base_dpi = 96;
+    bool success = false;
+    if (XrmGetResource(db, "Xft.dpi", "String", &type, &ret) == True &&
+        ret.addr && !strcmp("String", type))
+    {
+        char *end;
+        long value = strtol(ret.addr, &end, 10);
+        if (*ret.addr && *end == '\0') {
+            int s = lrint(MPCLAMP(2 * value / base_dpi, 0, 20));
+            if (s > 2 && s < 20) {
+                x11->dpi_scale = s / 2.0;
+                MP_VERBOSE(x11, "Using Xft.dpi scale: %g", x11->dpi_scale);
+                success = true;
+            }
+        }
+    }
+    XrmDestroyDatabase(db);
+    return success;
+}
+
+static void vo_x11_get_dpi_scale(struct vo_x11_state *x11)
+{
+    if (!vo_x11_get_xft_dpi_scale(x11))
+        vo_x11_get_x11_screen_dpi_scale(x11);
+    x11->pending_vo_events |= VO_EVENT_DPI;
 }
 
 bool vo_x11_init(struct vo *vo)
 {
     char *dispName;
 
-    assert(!vo->x11);
+    mp_assert(!vo->x11);
 
     XInitThreads();
 
@@ -661,21 +739,7 @@ bool vo_x11_init(struct vo *vo)
            x11->ws_width, x11->ws_height, dispName,
            x11->display_is_local ? "local" : "remote");
 
-    int w_mm = DisplayWidthMM(x11->display, x11->screen);
-    int h_mm = DisplayHeightMM(x11->display, x11->screen);
-    double dpi_x = x11->ws_width * 25.4 / w_mm;
-    double dpi_y = x11->ws_height * 25.4 / h_mm;
-    double base_dpi = 96;
-    if (isfinite(dpi_x) && isfinite(dpi_y) && x11->opts->hidpi_window_scale) {
-        int s_x = lrint(MPCLAMP(dpi_x / base_dpi, 0, 10));
-        int s_y = lrint(MPCLAMP(dpi_y / base_dpi, 0, 10));
-        if (s_x == s_y && s_x > 1 && s_x < 10) {
-            x11->dpi_scale = s_x;
-            MP_VERBOSE(x11, "Assuming DPI scale %d for prescaling. This can "
-                       "be disabled with --hidpi-window-scale=no.\n",
-                       x11->dpi_scale);
-        }
-    }
+    vo_x11_get_dpi_scale(x11);
 
     x11->wm_type = vo_wm_detect(vo);
 
@@ -818,7 +882,7 @@ static void vo_x11_classhint(struct vo *vo, Window window, const char *name)
     long pid = getpid();
 
     wmClass.res_name = opts->winname ? opts->winname : (char *)name;
-    wmClass.res_class = "mpv";
+    wmClass.res_class = "dmpv";
     XSetClassHint(x11->display, window, &wmClass);
     XChangeProperty(x11->display, window, XA(x11, _NET_WM_PID), XA_CARDINAL,
                     32, PropModeReplace, (unsigned char *) &pid, 1);
@@ -835,7 +899,12 @@ void vo_x11_uninit(struct vo *vo)
     set_screensaver(x11, true);
 
     if (x11->window != None && x11->window != x11->rootwin) {
-        XUnmapWindow(x11->display, x11->window);
+        // Reset compositor bypass hint before destroying the window to avoid
+        // leaving compositors in a bad state.
+        long hint = 0; // 0 = enable compositor
+        XChangeProperty(x11->display, x11->window, XA(x11, _NET_WM_BYPASS_COMPOSITOR),
+                        XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&hint, 1);
+        XSync(x11->display, False);
         XDestroyWindow(x11->display, x11->window);
     }
     if (x11->xic)
@@ -861,7 +930,7 @@ void vo_x11_uninit(struct vo *vo)
     vo->x11 = NULL;
 }
 
-#define DND_PROPERTY "mpv_dnd_selection"
+#define DND_PROPERTY "dmpv_dnd_selection"
 
 static void vo_x11_dnd_init_window(struct vo *vo)
 {
@@ -1066,7 +1135,7 @@ static void vo_x11_update_composition_hint(struct vo *vo)
     case 3: hint = 2; break; // always enable
     }
 
-    XChangeProperty(x11->display, x11->window, XA(x11,_NET_WM_BYPASS_COMPOSITOR),
+    XChangeProperty(x11->display, x11->window, XA(x11, _NET_WM_BYPASS_COMPOSITOR),
                     XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&hint, 1);
 }
 
@@ -1157,7 +1226,6 @@ static void release_all_keys(struct vo *vo)
 
     if (x11->no_autorepeat)
         mp_input_put_key(x11->input_ctx, MP_INPUT_RELEASE_ALL);
-    x11->win_drag_button1_down = false;
 }
 
 void vo_x11_check_events(struct vo *vo)
@@ -1170,6 +1238,8 @@ void vo_x11_check_events(struct vo *vo)
 
     while (XPending(display)) {
         XNextEvent(display, &Event);
+        if (XFilterEvent(&Event, x11->window))
+            continue;
         MP_TRACE(x11, "XEvent: %d\n", Event.type);
         switch (Event.type) {
         case Expose:
@@ -1179,6 +1249,7 @@ void vo_x11_check_events(struct vo *vo)
             if (x11->window == None)
                 break;
             vo_x11_update_geometry(vo);
+            vo_x11_update_screeninfo(vo);
             if (x11->parent && Event.xconfigure.window == x11->parent) {
                 MP_TRACE(x11, "adjusting embedded window position\n");
                 XMoveResizeWindow(x11->display, x11->window,
@@ -1199,7 +1270,7 @@ void vo_x11_check_events(struct vo *vo)
                 if (mpkey) {
                     mp_input_put_key(x11->input_ctx, mpkey | modifiers);
                 } else if (status == XLookupChars || status == XLookupBoth) {
-                    struct bstr t = { buf, len };
+                    struct bstr t = { (unsigned char *)buf, len };
                     mp_input_put_key_utf8(x11->input_ctx, modifiers, t);
                 }
             } else {
@@ -1226,7 +1297,28 @@ void vo_x11_check_events(struct vo *vo)
             release_all_keys(vo);
             break;
         case MotionNotify:
-            if (x11->win_drag_button1_down && !x11->fs &&
+            mp_input_set_mouse_pos(x11->input_ctx, Event.xmotion.x,
+                                                   Event.xmotion.y);
+            break;
+        case LeaveNotify:
+            if (Event.xcrossing.mode != NotifyNormal)
+                break;
+            mp_input_put_key(x11->input_ctx, MP_KEY_MOUSE_LEAVE);
+            break;
+        case EnterNotify:
+            if (Event.xcrossing.mode != NotifyNormal)
+                break;
+            mp_input_put_key(x11->input_ctx, MP_KEY_MOUSE_ENTER);
+            break;
+        case ButtonPress:
+            if (Event.xbutton.button - 1 >= MP_KEY_MOUSE_BTN_COUNT)
+                break;
+            mp_input_put_key(x11->input_ctx,
+                             (MP_MBTN_BASE + Event.xbutton.button - 1) |
+                             get_mods(Event.xbutton.state) | MP_KEY_STATE_DOWN);
+            long msg[4] = {XEMBED_REQUEST_FOCUS};
+            vo_x11_xembed_send_message(x11, msg);
+            if (Event.xbutton.button == 1 && !x11->fs &&
                 !mp_input_test_dragging(x11->input_ctx, Event.xmotion.x,
                                                         Event.xmotion.y))
             {
@@ -1240,39 +1332,11 @@ void vo_x11_check_events(struct vo *vo)
                     1, // source indication: normal
                 };
                 x11_send_ewmh_msg(x11, "_NET_WM_MOVERESIZE", params);
-            } else {
-                mp_input_set_mouse_pos(x11->input_ctx, Event.xmotion.x,
-                                                       Event.xmotion.y);
             }
-            x11->win_drag_button1_down = false;
-            break;
-        case LeaveNotify:
-            if (Event.xcrossing.mode != NotifyNormal)
-                break;
-            x11->win_drag_button1_down = false;
-            mp_input_put_key(x11->input_ctx, MP_KEY_MOUSE_LEAVE);
-            break;
-        case EnterNotify:
-            if (Event.xcrossing.mode != NotifyNormal)
-                break;
-            mp_input_put_key(x11->input_ctx, MP_KEY_MOUSE_ENTER);
-            break;
-        case ButtonPress:
-            if (Event.xbutton.button - 1 >= MP_KEY_MOUSE_BTN_COUNT)
-                break;
-            if (Event.xbutton.button == 1)
-                x11->win_drag_button1_down = true;
-            mp_input_put_key(x11->input_ctx,
-                             (MP_MBTN_BASE + Event.xbutton.button - 1) |
-                             get_mods(Event.xbutton.state) | MP_KEY_STATE_DOWN);
-            long msg[4] = {XEMBED_REQUEST_FOCUS};
-            vo_x11_xembed_send_message(x11, msg);
             break;
         case ButtonRelease:
             if (Event.xbutton.button - 1 >= MP_KEY_MOUSE_BTN_COUNT)
                 break;
-            if (Event.xbutton.button == 1)
-                x11->win_drag_button1_down = false;
             mp_input_put_key(x11->input_ctx,
                              (MP_MBTN_BASE + Event.xbutton.button - 1) |
                              get_mods(Event.xbutton.state) | MP_KEY_STATE_UP);
@@ -1280,7 +1344,7 @@ void vo_x11_check_events(struct vo *vo)
         case MapNotify:
             x11->window_hidden = false;
             x11->pseudo_mapped = true;
-            x11->current_icc_screen = -1;
+            x11->current_screen = -1;
             vo_x11_update_geometry(vo);
             break;
         case DestroyNotify:
@@ -1322,7 +1386,8 @@ void vo_x11_check_events(struct vo *vo)
                 if (cookie->evtype == PresentCompleteNotify) {
                     XPresentCompleteNotifyEvent *present_event;
                     present_event = (XPresentCompleteNotifyEvent *)cookie->data;
-                    present_update_sync_values(x11->present, present_event->ust,
+                    present_update_sync_values(x11->present,
+                                               present_event->ust * 1000,
                                                present_event->msc);
                 }
             }
@@ -1336,6 +1401,7 @@ void vo_x11_check_events(struct vo *vo)
             }
             if (Event.type == x11->xrandr_event) {
                 xrandr_read(x11);
+                vo_x11_get_dpi_scale(x11);
                 vo_x11_update_geometry(vo);
             }
             break;
@@ -1353,16 +1419,19 @@ static void vo_x11_sizehint(struct vo *vo, struct mp_rect rc, bool override_pos)
     if (!x11->window || x11->parent)
         return;
 
+    bool screen = opts->screen_id >= 0 || (opts->screen_name &&
+                                           opts->screen_name[0]);
+    bool fsscreen = opts->fsscreen_id >= 0 || (opts->fsscreen_name &&
+                                               opts->fsscreen_name[0]);
     bool force_pos = opts->geometry.xy_valid ||     // explicitly forced by user
                      opts->force_window_position || // resize -> reset position
-                     opts->screen_id >= 0 ||        // force onto screen area
+                     screen || fsscreen          || // force onto screen area
                      opts->screen_name ||           // also force onto screen area
                      x11->parent ||                 // force to fill parent
                      override_pos;                  // for fullscreen and such
 
     XSizeHints *hint = XAllocSizeHints();
-    if (!hint)
-        return; // OOM
+    MP_HANDLE_OOM(hint);
 
     hint->flags |= PSize | (force_pos ? PPosition : 0);
     hint->x = rc.x0;
@@ -1410,7 +1479,7 @@ static void vo_x11_set_property_utf8(struct vo *vo, Atom name, const char *t)
     struct vo_x11_state *x11 = vo->x11;
 
     XChangeProperty(x11->display, x11->window, name, XA(x11, UTF8_STRING), 8,
-                    PropModeReplace, t, strlen(t));
+                    PropModeReplace, (unsigned char *)t, strlen(t));
 }
 
 // set a X text property that expects a STRING or COMPOUND_TEXT type
@@ -1428,9 +1497,7 @@ static void vo_x11_set_property_string(struct vo *vo, Atom name, const char *t)
         // can do this correctly.
         vo_x11_set_property_utf8(vo, name, t);
     }
-
-    if (prop.value)
-        XFree(prop.value);
+    XFree(prop.value);
 }
 
 static void vo_x11_update_window_title(struct vo *vo)
@@ -1459,7 +1526,7 @@ static void vo_x11_xembed_update(struct vo_x11_state *x11, int flags)
     long xembed_info[] = {XEMBED_VERSION, flags};
     Atom name = XA(x11, _XEMBED_INFO);
     XChangeProperty(x11->display, x11->window, name, name, 32,
-                    PropModeReplace, (char *)xembed_info, 2);
+                    PropModeReplace, (unsigned char *)xembed_info, 2);
 }
 
 static void vo_x11_xembed_handle_message(struct vo *vo, XClientMessageEvent *ce)
@@ -1524,8 +1591,8 @@ static void vo_x11_create_window(struct vo *vo, XVisualInfo *vis,
 {
     struct vo_x11_state *x11 = vo->x11;
 
-    assert(x11->window == None);
-    assert(!x11->xic);
+    mp_assert(x11->window == None);
+    mp_assert(!x11->xic);
 
     XVisualInfo vinfo_storage;
     if (!vis) {
@@ -1570,7 +1637,7 @@ static void vo_x11_create_window(struct vo *vo, XVisualInfo *vis,
 
     if (x11->xim) {
         x11->xic = XCreateIC(x11->xim,
-                             XNInputStyle, XIMPreeditNone | XIMStatusNone,
+                             XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
                              XNClientWindow, x11->window,
                              XNFocusWindow, x11->window,
                              NULL);
@@ -1598,6 +1665,7 @@ static void vo_x11_map_window(struct vo *vo, struct mp_rect rc)
         XChangeProperty(x11->display, x11->window, XA(x11, _NET_WM_STATE), XA_ATOM,
                         32, PropModeAppend, (unsigned char *)&state, 1);
         x11->fs = 1;
+        x11->init_fs = true;
         // The "saved" positions are bogus, so reset them when leaving FS again.
         x11->size_changed_during_fs = true;
         x11->pos_changed_during_fs = true;
@@ -1657,12 +1725,12 @@ static void vo_x11_map_window(struct vo *vo, struct mp_rect rc)
     vo_x11_xembed_update(x11, XEMBED_MAPPED);
 }
 
-static void vo_x11_highlevel_resize(struct vo *vo, struct mp_rect rc)
+static void vo_x11_highlevel_resize(struct vo *vo, struct mp_rect rc, bool force)
 {
     struct vo_x11_state *x11 = vo->x11;
     struct mp_vo_opts *opts = x11->opts;
 
-    bool reset_pos = opts->force_window_position;
+    bool reset_pos = opts->force_window_position || force;
     if (reset_pos) {
         x11->nofsrc = rc;
     } else {
@@ -1703,7 +1771,7 @@ bool vo_x11_create_vo_window(struct vo *vo, XVisualInfo *vis,
                              const char *classname)
 {
     struct vo_x11_state *x11 = vo->x11;
-    assert(!x11->window);
+    mp_assert(!x11->window);
 
     if (x11->parent) {
         if (x11->parent == x11->rootwin) {
@@ -1730,7 +1798,7 @@ void vo_x11_config_vo_window(struct vo *vo)
     struct vo_x11_state *x11 = vo->x11;
     struct mp_vo_opts *opts = x11->opts;
 
-    assert(x11->window);
+    mp_assert(x11->window);
 
     // Don't attempt to change autofit/geometry on maximized windows.
     if (x11->geometry_change && opts->window_maximized)
@@ -1739,7 +1807,7 @@ void vo_x11_config_vo_window(struct vo *vo)
     vo_x11_update_screeninfo(vo);
 
     struct vo_win_geometry geo;
-    vo_calc_window_geometry2(vo, &x11->screenrc, x11->dpi_scale, &geo);
+    vo_calc_window_geometry(vo, &x11->screenrc, &x11->screenrc, x11->dpi_scale, &geo);
     vo_apply_window_geometry(vo, &geo);
 
     struct mp_rect rc = geo.win;
@@ -1749,17 +1817,19 @@ void vo_x11_config_vo_window(struct vo *vo)
         rc = (struct mp_rect){0, 0, RC_W(x11->winrc), RC_H(x11->winrc)};
     }
 
-    bool reset_size = (x11->old_dw != RC_W(rc) || x11->old_dh != RC_H(rc)) &&
-                      (opts->auto_window_resize || x11->geometry_change);
+    bool reset_size = (x11->old_x != rc.x0 || x11->old_y != rc.y0) &&
+                  (x11->geometry_change);
 
     x11->old_dw = RC_W(rc);
     x11->old_dh = RC_H(rc);
+    x11->old_x = rc.x0;
+    x11->old_y = rc.y0;
 
     if (x11->window_hidden) {
         x11->nofsrc = rc;
         vo_x11_map_window(vo, rc);
     } else if (reset_size) {
-        vo_x11_highlevel_resize(vo, rc);
+        vo_x11_highlevel_resize(vo, rc, x11->geometry_change);
     }
 
     x11->geometry_change = false;
@@ -1831,23 +1901,6 @@ static bool rc_overlaps(struct mp_rect rc1, struct mp_rect rc2)
     return mp_rect_intersection(&rc1, &rc2); // changes the first argument
 }
 
-// which screen's ICC profile we're going to use
-static int get_icc_screen(struct vo *vo)
-{
-    struct vo_x11_state *x11 = vo->x11;
-    int cx = x11->winrc.x0 + (x11->winrc.x1 - x11->winrc.x0)/2,
-    cy = x11->winrc.y0 + (x11->winrc.y1 - x11->winrc.y0)/2;
-    int screen = x11->current_icc_screen; // xinerama screen number
-    for (int n = 0; n < x11->num_displays; n++) {
-        struct xrandr_display *disp = &x11->displays[n];
-        if (mp_rect_contains(&disp->rc, cx, cy)) {
-            screen = n;
-            break;
-        }
-    }
-    return screen;
-}
-
 // update x11->winrc with current boundaries of vo->x11->window
 static void vo_x11_update_geometry(struct vo *vo)
 {
@@ -1860,32 +1913,32 @@ static void vo_x11_update_geometry(struct vo *vo)
     x11->winrc = (struct mp_rect){0, 0, 0, 0};
     if (win) {
         XGetGeometry(x11->display, win, &dummy_win, &dummy_int, &dummy_int,
-                     &w, &h, &dummy_int, &dummy_uint);
+                     &w, &h, (unsigned int *)&dummy_int, &dummy_uint);
         if (w > INT_MAX || h > INT_MAX)
             w = h = 0;
         XTranslateCoordinates(x11->display, win, x11->rootwin, 0, 0,
                               &x, &y, &dummy_win);
         x11->winrc = (struct mp_rect){x, y, x + w, y + h};
     }
-    double fps = 1000.0;
-    for (int n = 0; n < x11->num_displays; n++) {
-        struct xrandr_display *disp = &x11->displays[n];
-        disp->overlaps = rc_overlaps(disp->rc, x11->winrc);
-        if (disp->overlaps)
-            fps = MPMIN(fps, disp->fps);
+    struct xrandr_display *disp = get_xrandr_display(vo, x11->winrc);
+    // Try to fallback to something reasonable if we have no disp yet
+    if (!disp) {
+        int screen = vo_x11_select_screen(vo);
+        if (screen > -1) {
+            disp = &x11->displays[screen];
+        } else if (x11->current_screen > - 1) {
+            disp = &x11->displays[x11->current_screen];
+        }
     }
-    double fallback = x11->num_displays > 0 ? x11->displays[0].fps : 0;
-    fps = fps < 1000.0 ? fps : fallback;
+    double fps = disp ? disp->fps : 0;
     if (fps != x11->current_display_fps)
         MP_VERBOSE(x11, "Current display FPS: %f\n", fps);
     x11->current_display_fps = fps;
-    // might have changed displays
-    x11->pending_vo_events |= VO_EVENT_WIN_STATE;
-    int icc_screen = get_icc_screen(vo);
-    if (x11->current_icc_screen != icc_screen) {
-        x11->current_icc_screen = icc_screen;
+    if (disp && x11->current_screen != disp->screen) {
+        x11->current_screen = disp->screen;
         x11->pending_vo_events |= VO_EVENT_ICC_PROFILE_CHANGED;
     }
+    x11->pending_vo_events |= VO_EVENT_WIN_STATE;
 }
 
 static void vo_x11_fullscreen(struct vo *vo)
@@ -1909,19 +1962,35 @@ static void vo_x11_fullscreen(struct vo *vo)
 
     if (x11->wm_type & vo_wm_FULLSCREEN) {
         x11_set_ewmh_state(x11, "_NET_WM_STATE_FULLSCREEN", x11->fs);
-        if (!x11->fs && (x11->pos_changed_during_fs ||
-                         x11->size_changed_during_fs))
-        {
+        // Always explicitly restore window size when exiting fullscreen
+        if (!x11->fs) {
+            // Handle screen translation for --fs startup on different screen
+            if (x11->init_fs) {
+                struct xrandr_display *fs_disp = get_xrandr_display(vo, x11->winrc);
+                struct xrandr_display *nofs_disp = get_xrandr_display(vo, x11->nofsrc);
+                if (fs_disp && nofs_disp && fs_disp->screen != nofs_disp->screen) {
+                    int old_w = mp_rect_w(x11->nofsrc);
+                    int old_h = mp_rect_h(x11->nofsrc);
+                    int new_x = (mp_rect_w(fs_disp->rc) - old_w) / 2 + fs_disp->rc.x0;
+                    int new_y = (mp_rect_h(fs_disp->rc) - old_h) / 2 + fs_disp->rc.y0;
+                    x11->nofsrc.x0 = new_x;
+                    x11->nofsrc.x1 = new_x + old_w;
+                    x11->nofsrc.y0 = new_y;
+                    x11->nofsrc.y1 = new_y + old_h;
+                    rc = x11->nofsrc;
+                }
+                x11->init_fs = false;
+            }
+
             if (x11->screenrc.x0 == rc.x0 && x11->screenrc.x1 == rc.x1 &&
                 x11->screenrc.y0 == rc.y0 && x11->screenrc.y1 == rc.y1)
             {
-                // Workaround for some WMs switching back to FS in this case.
-                MP_VERBOSE(x11, "avoiding triggering old-style fullscreen\n");
                 rc.x1 -= 1;
                 rc.y1 -= 1;
             }
-            vo_x11_move_resize(vo, x11->pos_changed_during_fs,
-                                   x11->size_changed_during_fs, rc);
+
+            vo_x11_move_resize(vo, x11->pos_changed_during_fs || x11->init_fs,
+                               true, rc);
         }
     } else {
         if (x11->fs) {
@@ -1987,10 +2056,7 @@ bool vo_x11_check_visible(struct vo *vo)
 {
     struct vo_x11_state *x11 = vo->x11;
     struct mp_vo_opts *opts = x11->opts;
-
-    bool render = !x11->hidden || opts->force_render ||
-                  VS_IS_DISP(opts->video_sync);
-    return render;
+    return !x11->hidden || opts->force_render;
 }
 
 static void vo_x11_set_input_region(struct vo *vo, bool passthrough)
@@ -2039,6 +2105,8 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
                 vo_x11_set_input_region(vo, opts->cursor_passthrough);
             if (opt == &opts->x11_present)
                 xpresent_set(x11);
+            if (opt == &opts->keepaspect || opt == &opts->keepaspect_window)
+                vo_x11_sizehint(vo, x11->fs ? x11->nofsrc : x11->winrc, false);
             if (opt == &opts->geometry || opt == &opts->autofit ||
                 opt == &opts->autofit_smaller || opt == &opts->autofit_larger)
             {
@@ -2051,16 +2119,16 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
         int *s = arg;
         if (!x11->window || x11->parent)
             return VO_FALSE;
-        s[0] = (x11->fs ? RC_W(x11->nofsrc) : RC_W(x11->winrc)) / x11->dpi_scale;
-        s[1] = (x11->fs ? RC_H(x11->nofsrc) : RC_H(x11->winrc)) / x11->dpi_scale;
+        s[0] = x11->fs ? RC_W(x11->nofsrc) : RC_W(x11->winrc);
+        s[1] = x11->fs ? RC_H(x11->nofsrc) : RC_H(x11->winrc);
         return VO_TRUE;
     }
     case VOCTRL_SET_UNFS_WINDOW_SIZE: {
         int *s = arg;
         if (!x11->window || x11->parent)
             return VO_FALSE;
-        int w = s[0] * x11->dpi_scale;
-        int h = s[1] * x11->dpi_scale;
+        int w = s[0];
+        int h = s[1];
         struct mp_rect rc = x11->winrc;
         rc.x1 = rc.x0 + w;
         rc.y1 = rc.y0 + h;
@@ -2070,7 +2138,7 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
                     &x11->opts->window_maximized);
             vo_x11_maximize(vo);
         }
-        vo_x11_highlevel_resize(vo, rc);
+        vo_x11_highlevel_resize(vo, rc, false);
         if (!x11->fs) { // guess new window size, instead of waiting for X
             x11->winrc.x1 = x11->winrc.x0 + w;
             x11->winrc.y1 = x11->winrc.y0 + h;
@@ -2096,26 +2164,44 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
         return VO_TRUE;
     }
     case VOCTRL_GET_ICC_PROFILE: {
-        if (!x11->pseudo_mapped)
+        bstr *out = (bstr *)arg;
+        if (!out || !x11->pseudo_mapped)
             return VO_NOTAVAIL;
-        int screen = get_icc_screen(vo);
-        int atom_id = x11->displays[screen].atom_id;
+
+        // Try to get ICC profile from X11 property
+        int atom_id = x11->displays[x11->current_screen].atom_id;
         char prop[80];
         snprintf(prop, sizeof(prop), "_ICC_PROFILE");
         if (atom_id > 0)
             mp_snprintf_cat(prop, sizeof(prop), "_%d", atom_id);
         x11->icc_profile_property = XAs(x11, prop);
         int len;
-        MP_VERBOSE(x11, "Retrieving ICC profile for display: %d\n", screen);
+        MP_VERBOSE(x11, "Retrieving ICC profile for display: %d\n", x11->current_screen);
         void *icc = x11_get_property(x11, x11->rootwin, x11->icc_profile_property,
                                      XA_CARDINAL, 8, &len);
-        if (!icc)
-            return VO_FALSE;
-        *(bstr *)arg = bstrdup(NULL, (bstr){icc, len});
-        XFree(icc);
-        // Watch x11->icc_profile_property
-        XSelectInput(x11->display, x11->rootwin, PropertyChangeMask);
-        return VO_TRUE;
+        if (icc) {
+            MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: returning X11 ICC (%d bytes)\n", len);
+            *out = bstrdup(NULL, (bstr){icc, len});
+            XFree(icc);
+            // Watch x11->icc_profile_property
+            XSelectInput(x11->display, x11->rootwin, PropertyChangeMask);
+            return VO_TRUE;
+        }
+
+#if HAVE_LCMS2
+        // Try to generate ICC profile from default color space parameters
+        // X11 doesn't provide parametric color space info, so we use sRGB/BT.709 as fallback
+        *out = gl_lcms_generate_profile_from_csp(NULL, x11->log,
+                                                  MP_CSP_PRIM_BT_709,
+                                                  MP_CSP_TRC_SRGB);
+        if (out->len > 0) {
+            MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: generated sRGB ICC profile (%zu bytes)\n", out->len);
+            return VO_TRUE;
+        }
+#endif
+
+        MP_VERBOSE(x11, "VOCTRL_GET_ICC_PROFILE: no ICC profile available\n");
+        return VO_FALSE;
     }
     case VOCTRL_SET_CURSOR_VISIBILITY:
         x11->mouse_cursor_visible = *(bool *)arg;
@@ -2141,16 +2227,13 @@ int vo_x11_control(struct vo *vo, int *events, int request, void *arg)
         return VO_TRUE;
     }
     case VOCTRL_GET_DISPLAY_RES: {
-        struct xrandr_display *selected_disp = NULL;
-        for (int n = 0; n < x11->num_displays; n++) {
-            struct xrandr_display *disp = &x11->displays[n];
-            if (disp->overlaps)
-                selected_disp = disp;
-        }
-        if (!x11->window || x11->parent || !selected_disp)
+        struct xrandr_display *disp = NULL;
+        if (x11->current_screen > -1)
+            disp = &x11->displays[x11->current_screen];
+        if (!x11->window || x11->parent || !disp)
             return VO_NOTAVAIL;
-        ((int *)arg)[0] = selected_disp->rc.x1 - selected_disp->rc.x0;
-        ((int *)arg)[1] = selected_disp->rc.y1 - selected_disp->rc.y0;
+        ((int *)arg)[0] = mp_rect_w(disp->rc);
+        ((int *)arg)[1] = mp_rect_h(disp->rc);
         return VO_TRUE;
     }
     case VOCTRL_GET_WINDOW_ID: {
@@ -2177,10 +2260,11 @@ void vo_x11_wakeup(struct vo *vo)
 {
     struct vo_x11_state *x11 = vo->x11;
 
-    (void)write(x11->wakeup_pipe[1], &(char){0}, 1);
+    ssize_t ignored = write(x11->wakeup_pipe[1], &(char){0}, 1);
+    (void)ignored;
 }
 
-void vo_x11_wait_events(struct vo *vo, int64_t until_time_us)
+void vo_x11_wait_events(struct vo *vo, int64_t until_time_ns)
 {
     struct vo_x11_state *x11 = vo->x11;
 
@@ -2188,8 +2272,8 @@ void vo_x11_wait_events(struct vo *vo, int64_t until_time_us)
         { .fd = x11->event_fd, .events = POLLIN },
         { .fd = x11->wakeup_pipe[0], .events = POLLIN },
     };
-    int64_t wait_us = until_time_us - mp_time_us();
-    int timeout_ms = MPCLAMP((wait_us + 999) / 1000, 0, 10000);
+    int64_t wait_ns = until_time_ns - mp_time_ns();
+    int timeout_ms = MPCLAMP(wait_ns / MP_TIME_MS_TO_NS(1), 0, 10000);
 
     poll(fds, 2, timeout_ms);
 

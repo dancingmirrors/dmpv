@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_INPUT_H
@@ -27,7 +27,7 @@ struct input_ctx;
 struct mp_log;
 
 struct mp_input_src {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
     struct input_ctx *input_ctx;
 
@@ -83,7 +83,8 @@ void mp_input_src_feed_cmd_text(struct mp_input_src *src, char *buf, size_t len)
 void mp_input_put_key(struct input_ctx *ictx, int code);
 
 // Like mp_input_put_key(), but ignore mouse disable option for mouse buttons.
-void mp_input_put_key_artificial(struct input_ctx *ictx, int code);
+// value can be used like with mp_input_put_wheel(), use 1 if not applicable.
+void mp_input_put_key_artificial(struct input_ctx *ictx, int code, double value);
 
 // Like mp_input_put_key(), but process all UTF-8 characters in the given
 // string as key events.
@@ -172,12 +173,16 @@ bool mp_input_test_mouse_active(struct input_ctx *ictx, int x, int y);
 bool mp_input_test_dragging(struct input_ctx *ictx, int x, int y);
 
 // Initialize the input system
-struct mpv_global;
-struct input_ctx *mp_input_init(struct mpv_global *global,
+struct dmpv_global;
+struct input_ctx *mp_input_init(struct dmpv_global *global,
                                 void (*wakeup_cb)(void *ctx),
                                 void *wakeup_ctx);
 
+// Load the configured input.conf files.
 void mp_input_load_config(struct input_ctx *ictx);
+
+// Load a specific input.conf file.
+bool mp_input_load_config_file(struct input_ctx *ictx, char *file);
 
 void mp_input_update_opts(struct input_ctx *ictx);
 
@@ -194,7 +199,7 @@ void mp_input_wakeup(struct input_ctx *ictx);
 // characters. If false, count Right Alt as the modifier Alt key.
 bool mp_input_use_alt_gr(struct input_ctx *ictx);
 
-// Return true if mpv should intercept keyboard media keys
+// Return true if dmpv should intercept keyboard media keys
 bool mp_input_use_media_keys(struct input_ctx *ictx);
 
 // Like mp_input_parse_cmd_strv, but also run the command.
@@ -205,17 +210,15 @@ void mp_input_bind_key(struct input_ctx *ictx, int key, bstr command);
 
 void mp_input_set_repeat_info(struct input_ctx *ictx, int rate, int delay);
 
-struct mpv_node mp_input_get_bindings(struct input_ctx *ictx);
-
-void mp_input_sdl_gamepad_add(struct input_ctx *ictx);
+struct dmpv_node mp_input_get_bindings(struct input_ctx *ictx);
 
 struct mp_ipc_ctx;
 struct mp_client_api;
-struct mpv_handle;
+struct dmpv_handle;
 
 // Platform specific implementation, provided by ipc-*.c.
 struct mp_ipc_ctx *mp_init_ipc(struct mp_client_api *client_api,
-                               struct mpv_global *global);
+                               struct dmpv_global *global);
 // Start a thread for the given handle and return a socket in out_fd[0] that
 // is served by this thread. If the FD is not full-duplex, then out_fd[0] is
 // the user's read-end, and out_fd[1] the write-end, otherwise out_fd[1] is set
@@ -223,17 +226,17 @@ struct mp_ipc_ctx *mp_init_ipc(struct mp_client_api *client_api,
 //  returns:
 //      true: out_fd[0] and out_fd[1] are set, ownership of h is transferred
 //      false: out_fd are not touched, caller retains ownership of h
-bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct mpv_handle *h,
+bool mp_ipc_start_anon_client(struct mp_ipc_ctx *ctx, struct dmpv_handle *h,
                               int out_fd[2]);
 void mp_uninit_ipc(struct mp_ipc_ctx *ctx);
 
-// Serialize the given mpv_event structure to JSON. Returns an allocated string.
-struct mpv_event;
-char *mp_json_encode_event(struct mpv_event *event);
+// Serialize the given dmpv_event structure to JSON. Returns an allocated string.
+struct dmpv_event;
+char *mp_json_encode_event(struct dmpv_event *event);
 
 // Given the raw IPC input buffer "buf", remove the first newline-separated
 // command, execute it and return the result (if any) as an allocated string.
-struct mpv_handle;
-char *mp_ipc_consume_next_command(struct mpv_handle *client, void *ctx, bstr *buf);
+struct dmpv_handle;
+char *mp_ipc_consume_next_command(struct dmpv_handle *client, void *ctx, bstr *buf);
 
 #endif /* MPLAYER_INPUT_H */

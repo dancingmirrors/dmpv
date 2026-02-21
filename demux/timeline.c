@@ -4,7 +4,7 @@
 
 #include "timeline.h"
 
-struct timeline *timeline_load(struct mpv_global *global, struct mp_log *log,
+struct timeline *timeline_load(struct dmpv_global *global, struct mp_log *log,
                                struct demuxer *demuxer)
 {
     if (!demuxer->desc->load_timeline)

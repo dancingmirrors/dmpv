@@ -1,32 +1,31 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <assert.h>
 
 #include "config.h"
 
 #include "vaapi.h"
 #include "common/common.h"
+#include "common/global.h"
 #include "common/msg.h"
 #include "osdep/threads.h"
 #include "mp_image.h"
 #include "img_format.h"
 #include "mp_image_pool.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
@@ -53,6 +52,14 @@ int va_get_colorspace_flag(enum mp_csp csp)
     case MP_CSP_BT_601:         return VA_SRC_BT601;
     case MP_CSP_BT_709:         return VA_SRC_BT709;
     case MP_CSP_SMPTE_240M:     return VA_SRC_SMPTE_240;
+    case MP_CSP_AUTO:
+    case MP_CSP_BT_2020_NC:
+    case MP_CSP_BT_2020_C:
+    case MP_CSP_RGB:
+    case MP_CSP_XYZ:
+    case MP_CSP_YCGCO:
+    case MP_CSP_COUNT:
+        break;
     }
     return 0;
 }
@@ -70,7 +77,7 @@ static void va_error_callback(void *context, const char *msg)
 
 static void va_info_callback(void *context, const char *msg)
 {
-    va_message_callback(context, msg, MSGL_DEBUG);
+    va_message_callback(context, msg, MSGL_V);
 }
 
 static void free_device_ref(struct AVHWDeviceContext *hwctx)
@@ -116,10 +123,10 @@ struct mp_vaapi_ctx *va_initialize(VADisplay *display, struct mp_log *plog,
     int status = vaInitialize(display, &major, &minor);
     if (status != VA_STATUS_SUCCESS) {
         if (!probing)
-            MP_ERR(res, "Failed to initialize VAAPI: %s\n", vaErrorStr(status));
+            MP_ERR(res, "Failed to initialize VA-API: %s\n", vaErrorStr(status));
         goto error;
     }
-    MP_VERBOSE(res, "Initialized VAAPI: version %d.%d\n", major, minor);
+    MP_VERBOSE(res, "Initialized VA-API: version %d.%d\n", major, minor);
 
     vactx->display = res->display;
 
@@ -166,8 +173,8 @@ bool va_guess_if_emulated(struct mp_vaapi_ctx *ctx)
 }
 
 struct va_native_display {
-    void (*create)(VADisplay **out_display, void **out_native_ctx,
-                   const char *path);
+    void (*create)(struct mp_log *log, VADisplay **out_display,
+                   void **out_native_ctx, const char *path);
     void (*destroy)(void *native_ctx);
 };
 
@@ -180,8 +187,8 @@ static void x11_destroy(void *native_ctx)
     XCloseDisplay(native_ctx);
 }
 
-static void x11_create(VADisplay **out_display, void **out_native_ctx,
-                       const char *path)
+static void x11_create(struct mp_log *log, VADisplay **out_display,
+                       void **out_native_ctx, const char *path)
 {
     void *native_display = XOpenDisplay(NULL);
     if (!native_display)
@@ -216,8 +223,8 @@ static void drm_destroy(void *native_ctx)
     talloc_free(ctx);
 }
 
-static void drm_create(VADisplay **out_display, void **out_native_ctx,
-                       const char *path)
+static void drm_create(struct mp_log *log, VADisplay **out_display,
+                       void **out_native_ctx, const char *path)
 {
     int drm_fd = open(path, O_RDWR);
     if (drm_fd < 0)
@@ -251,7 +258,7 @@ static const struct va_native_display *const native_displays[] = {
     NULL
 };
 
-static struct AVBufferRef *va_create_standalone(struct mpv_global *global,
+static struct AVBufferRef *va_create_standalone(struct dmpv_global *global,
         struct mp_log *log, struct hwcontext_create_dev_params *params)
 {
     struct AVBufferRef *ret = NULL;
@@ -260,13 +267,14 @@ static struct AVBufferRef *va_create_standalone(struct mpv_global *global,
     for (int n = 0; native_displays[n]; n++) {
         VADisplay *display = NULL;
         void *native_ctx = NULL;
-        native_displays[n]->create(&display, &native_ctx, opts->path);
+        native_displays[n]->create(global->log, &display, &native_ctx, opts->path);
         if (display) {
             struct mp_vaapi_ctx *ctx =
                 va_initialize(display, log, params->probing);
             if (!ctx) {
                 vaTerminate(display);
-                native_displays[n]->destroy(native_ctx);
+                if (native_displays[n]->destroy)
+                    native_displays[n]->destroy(native_ctx);
                 goto end;
             }
             ctx->native_ctx = native_ctx;

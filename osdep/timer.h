@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_TIMER_H
@@ -23,39 +23,37 @@
 // Initialize timer, must be called at least once at start.
 void mp_time_init(void);
 
-// Return time in microseconds. Never wraps. Never returns 0 or negative values.
-int64_t mp_time_us(void);
+// Return time in nanoseconds. Never wraps. Never returns 0 or negative values.
+int64_t mp_time_ns(void);
 
-// Return time in seconds. Can have down to 1 microsecond resolution, but will
+// Return time in seconds. Can have down to 1 nanosecond resolution, but will
 // be much worse when casted to float.
 double mp_time_sec(void);
 
 // Provided by OS specific functions (timer-linux.c)
 void mp_raw_time_init(void);
-uint64_t mp_raw_time_us(void);
+// ensure this doesn't return 0
+uint64_t mp_raw_time_ns(void);
 
-// Sleep in microseconds.
-void mp_sleep_us(int64_t us);
+// Sleep in nanoseconds.
+void mp_sleep_ns(int64_t ns);
 
-#ifdef _WIN32
-// returns: timer resolution in ms if needed and started successfully, else 0
-int mp_start_hires_timers(int wait_ms);
+// Converts time units to nanoseconds (int64_t)
+#define MP_TIME_S_TO_NS(s) ((s) * INT64_C(1000000000))
+#define MP_TIME_MS_TO_NS(ms) ((ms) * INT64_C(1000000))
+#define MP_TIME_US_TO_NS(us) ((us) * INT64_C(1000))
 
-// call unconditionally with the return value of mp_start_hires_timers
-void mp_end_hires_timers(int resolution_ms);
-#endif  /* _WIN32 */
+// Converts nanoseconds to specified time unit (double)
+#define MP_TIME_NS_TO_S(ns) ((ns) / (double)1000000000)
+#define MP_TIME_NS_TO_MS(ns) ((ns) / (double)1000000)
+#define MP_TIME_NS_TO_US(ns) ((ns) / (double)1000)
 
-#define MP_START_TIME 10000000
-
-// Duration of a second in mpv time.
-#define MP_SECOND_US (1000 * 1000)
-
-// Add a time in seconds to the given time in microseconds, and return it.
+// Add a time in seconds to the given time in nanoseconds, and return it.
 // Takes care of possible overflows. Never returns a negative or 0 time.
-int64_t mp_add_timeout(int64_t time_us, double timeout_sec);
+int64_t mp_time_ns_add(int64_t time_ns, double timeout_sec);
 
-// Convert the mp time in microseconds to a timespec using CLOCK_REALTIME.
-struct timespec mp_time_us_to_timespec(int64_t time_us);
+// Convert the mp time in nanoseconds to a timespec using CLOCK_REALTIME.
+struct timespec mp_time_ns_to_realtime(int64_t time_ns);
 
 // Convert the relative timeout in seconds to a timespec.
 // The timespec is absolute, using CLOCK_REALTIME.

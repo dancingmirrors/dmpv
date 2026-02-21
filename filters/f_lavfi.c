@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -21,7 +21,7 @@
 #include <math.h>
 #include <inttypes.h>
 #include <stdarg.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include <libavutil/avstring.h>
 #include <libavutil/mem.h>
@@ -34,6 +34,17 @@
 #include <libavfilter/buffersrc.h>
 
 #include "config.h"
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
+#endif
+#if HAVE_LIBPLACEBO
+#include <libplacebo/utils/libav.h>
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #include "common/common.h"
 #include "common/av_common.h"
@@ -255,7 +266,7 @@ static void add_pads_direct(struct lavfi *c, int dir, AVFilterContext *f,
 // Parse the user-provided filter graph, and populate the unlinked filter pads.
 static void precreate_graph(struct lavfi *c, bool first_init)
 {
-    assert(!c->graph);
+    mp_assert(!c->graph);
 
     c->failed = false;
 
@@ -310,7 +321,6 @@ static void precreate_graph(struct lavfi *c, bool first_init)
 error:
     free_graph(c);
     c->failed = true;
-    return;
 }
 
 // Ensure to send EOF to each input pad, so the graph can be drained properly.
@@ -357,7 +367,7 @@ static bool is_format_ok(struct mp_frame a, struct mp_frame b)
 
 static void read_pad_input(struct lavfi *c, struct lavfi_pad *pad)
 {
-    assert(pad->dir == MP_PIN_IN);
+    mp_assert(pad->dir == MP_PIN_IN);
 
     if (pad->pending.type || c->draining_recover)
         return;
@@ -407,7 +417,7 @@ static bool init_pads(struct lavfi *c)
             goto error;
 
         char name[256];
-        snprintf(name, sizeof(name), "mpv_sink_%s", pad->name);
+        snprintf(name, sizeof(name), "dmpv_sink_%s", pad->name);
 
         if (avfilter_graph_create_filter(&pad->buffer, dst_filter,
                                          name, NULL, NULL, c->graph) < 0)
@@ -430,7 +440,7 @@ static bool init_pads(struct lavfi *c)
             return false;
 
         if (mp_frame_is_data(pad->pending)) {
-            assert(pad->pending.type == pad->type);
+            mp_assert(pad->pending.type == pad->type);
 
             pad->in_fmt = mp_frame_ref(pad->pending);
             if (!pad->in_fmt.type)
@@ -476,11 +486,7 @@ static bool init_pads(struct lavfi *c)
             params->sample_rate = mp_aframe_get_rate(fmt);
             struct mp_chmap chmap = {0};
             mp_aframe_get_chmap(fmt, &chmap);
-#if !HAVE_AV_CHANNEL_LAYOUT
-            params->channel_layout = mp_chmap_to_lavc(&chmap);
-#else
             mp_chmap_to_av_layout(&params->ch_layout, &chmap);
-#endif
             pad->timebase = (AVRational){1, mp_aframe_get_rate(fmt)};
             filter_name = "abuffer";
         } else if (pad->type == MP_FRAME_VIDEO) {
@@ -492,6 +498,10 @@ static bool init_pads(struct lavfi *c)
             params->sample_aspect_ratio.den = fmt->params.p_h;
             params->hw_frames_ctx = fmt->hwctx;
             params->frame_rate = av_d2q(fmt->nominal_fps, 1000000);
+#if LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(9, 16, 100)
+            params->color_space = mp_csp_to_avcol_spc(fmt->params.color.space);
+            params->color_range = mp_csp_levels_to_avcol_range(fmt->params.color.levels);
+#endif
             filter_name = "buffer";
         } else {
             MP_ASSERT_UNREACHABLE();
@@ -502,7 +512,7 @@ static bool init_pads(struct lavfi *c)
         const AVFilter *filter = avfilter_get_by_name(filter_name);
         if (filter) {
             char name[256];
-            snprintf(name, sizeof(name), "mpv_src_%s", pad->name);
+            snprintf(name, sizeof(name), "dmpv_src_%s", pad->name);
 
             pad->buffer = avfilter_graph_alloc_filter(c->graph, filter, name);
         }
@@ -543,7 +553,7 @@ static void dump_graph(struct lavfi *c)
 // initialized, or can't be initialized yet, do nothing.
 static void init_graph(struct lavfi *c)
 {
-    assert(!c->initialized);
+    mp_assert(!c->initialized);
 
     if (!c->graph)
         precreate_graph(c, false);
@@ -555,7 +565,9 @@ static void init_graph(struct lavfi *c)
             if (c->hwdec_interop) {
                 int imgfmt =
                     ra_hwdec_driver_get_imgfmt_for_name(c->hwdec_interop);
-                hwdec_ctx = mp_filter_load_hwdec_device(c->f, imgfmt);
+                enum AVHWDeviceType device_type =
+                    ra_hwdec_driver_get_device_type_for_name(c->hwdec_interop);
+                hwdec_ctx = mp_filter_load_hwdec_device(c->f, imgfmt, device_type);
             } else {
                 hwdec_ctx = hwdec_devices_get_first(info->hwdec_devs);
             }
@@ -597,7 +609,7 @@ static bool feed_input_pads(struct lavfi *c)
     bool progress = false;
     bool was_draining = c->draining_recover;
 
-    assert(c->initialized);
+    mp_assert(c->initialized);
 
     for (int n = 0; n < c->num_in_pads; n++) {
         struct lavfi_pad *pad = c->in_pads[n];
@@ -689,7 +701,7 @@ static bool read_output_pads(struct lavfi *c)
 {
     bool progress = false;
 
-    assert(c->initialized);
+    mp_assert(c->initialized);
 
     for (int n = 0; n < c->num_out_pads; n++) {
         struct lavfi_pad *pad = c->out_pads[n];
@@ -697,7 +709,7 @@ static bool read_output_pads(struct lavfi *c)
         if (!mp_pin_in_needs_data(pad->pin))
             continue;
 
-        assert(pad->buffer);
+        mp_assert(pad->buffer);
 
         int r = AVERROR_EOF;
         if (!pad->buffer_is_eof)
@@ -814,7 +826,8 @@ static bool lavfi_command(struct mp_filter *f, struct mp_filter_command *cmd)
 
     switch (cmd->type) {
     case MP_FILTER_COMMAND_TEXT: {
-        return avfilter_graph_send_command(c->graph, "all", cmd->cmd, cmd->arg,
+        return avfilter_graph_send_command(c->graph, cmd->target,
+                                           cmd->cmd, cmd->arg,
                                            &(char){0}, 0, 0) >= 0;
     }
     case MP_FILTER_COMMAND_GET_META: {
@@ -902,6 +915,9 @@ struct mp_lavfi *mp_lavfi_create_graph(struct mp_filter *parent,
                                        char *hwdec_interop,
                                        char **graph_opts, const char *graph)
 {
+    if (!graph)
+        return NULL;
+
     struct lavfi *c = lavfi_alloc(parent);
     if (!c)
         return NULL;
@@ -974,16 +990,17 @@ static struct mp_filter *lavfi_create(struct mp_filter *parent, void *options)
 // Does it have exactly one video input and one video output?
 static bool is_usable(const AVFilter *filter, int media_type)
 {
-#if LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(8, 3, 0)
     int nb_inputs  = avfilter_filter_pad_count(filter, 0),
         nb_outputs = avfilter_filter_pad_count(filter, 1);
-#else
-    int nb_inputs  = avfilter_pad_count(filter->inputs),
-        nb_outputs = avfilter_pad_count(filter->outputs);
-#endif
-    return nb_inputs == 1 && nb_outputs == 1 &&
-           avfilter_pad_get_type(filter->inputs, 0) == media_type &&
-           avfilter_pad_get_type(filter->outputs, 0) == media_type;
+    if (nb_inputs > 1 || nb_outputs > 1)
+        return false;
+    bool input_ok = filter->flags & AVFILTER_FLAG_DYNAMIC_INPUTS;
+    bool output_ok = filter->flags & AVFILTER_FLAG_DYNAMIC_OUTPUTS;
+    if (nb_inputs == 1)
+        input_ok = avfilter_pad_get_type(filter->inputs, 0) == media_type;
+    if (nb_outputs == 1)
+        output_ok = avfilter_pad_get_type(filter->outputs, 0) == media_type;
+    return input_ok && output_ok;
 }
 
 bool mp_lavfi_is_usable(const char *name, int media_type)
@@ -1024,7 +1041,11 @@ static const char *get_avopt_type_name(enum AVOptionType type)
     case AV_OPT_TYPE_VIDEO_RATE:        return "fps";
     case AV_OPT_TYPE_DURATION:          return "duration";
     case AV_OPT_TYPE_COLOR:             return "color";
+#if LIBAVUTIL_VERSION_MAJOR < 59
     case AV_OPT_TYPE_CHANNEL_LAYOUT:    return "channellayout";
+#else
+    case AV_OPT_TYPE_CHLAYOUT:          return "channellayout";
+#endif
     case AV_OPT_TYPE_BOOL:              return "bool";
     case AV_OPT_TYPE_CONST: // fallthrough
     default:
@@ -1079,7 +1100,7 @@ void print_lavfi_help(struct mp_log *log, const char *name, int media_type)
 void print_lavfi_help_list(struct mp_log *log, int media_type)
 {
     dump_list(log, media_type);
-    mp_info(log, "\nIf libavfilter filters clash with builtin mpv filters,\n"
+    mp_info(log, "\nIf libavfilter filters clash with builtin dmpv filters,\n"
             "prefix them with lavfi- to select the libavfilter one.\n\n");
 }
 
@@ -1096,7 +1117,7 @@ static void print_help(struct mp_log *log, int mediatype, char *name, char *ex)
         "\n"
         " \"%s\"\n"
         "\n"
-        "Otherwise, mpv and libavfilter syntax will conflict.\n"
+        "Otherwise, dmpv and libavfilter syntax will conflict.\n"
         "\n", name, name, ex);
 }
 

@@ -1,22 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 #include <math.h>
 #include <limits.h>
@@ -24,14 +23,14 @@
 #include <libavutil/common.h>
 #include <ass/ass.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
-#include "config.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "common/common.h"
 #include "common/msg.h"
 #include "demux/demux.h"
+#include "demux/packet_pool.h"
 #include "video/csputils.h"
 #include "video/mp_image.h"
 #include "dec_sub.h"
@@ -67,12 +66,7 @@ static void fill_plaintext(struct sd *sd, double pts);
 static const struct sd_filter_functions *const filters[] = {
     // Note: list order defines filter order.
     &sd_filter_sdh,
-#if HAVE_POSIX
     &sd_filter_regex,
-#endif
-#if HAVE_JAVASCRIPT
-    &sd_filter_jsre,
-#endif
     NULL,
 };
 
@@ -103,6 +97,7 @@ static void mp_ass_add_default_styles(ASS_Track *track, struct mp_subtitle_opts 
 static const char *const font_mimetypes[] = {
     "application/x-truetype-font",
     "application/vnd.ms-opentype",
+    "application/x-font-otf",
     "application/x-font-ttf",
     "application/x-font", // probably incorrect
     "application/font-sfnt",
@@ -174,10 +169,11 @@ static void filters_init(struct sd *sd)
         *ft = (struct sd_filter){
             .global = sd->global,
             .log = sd->log,
+            .packet_pool = demux_packet_pool_get(sd->global),
             .opts = mp_get_config_group(ft, sd->global, &mp_sub_filter_opts),
             .driver = filters[n],
             .codec = "ass",
-            .event_format = ctx->ass_track->event_format,
+            .event_format = talloc_strdup(ft, ctx->ass_track->event_format),
         };
         if (ft->driver->init(ft)) {
             MP_TARRAY_APPEND(ctx, ctx->filters, ctx->num_filters, ft);
@@ -224,7 +220,7 @@ static void assobjects_init(struct sd *sd)
     ctx->shadow_track->PlayResY = 288;
     mp_ass_add_default_styles(ctx->shadow_track, opts);
 
-    char *extradata = sd->codec->extradata;
+    char *extradata = (char *)sd->codec->extradata;
     int extradata_size = sd->codec->extradata_size;
     if (ctx->converter) {
         extradata = lavc_conv_get_extradata(ctx->converter);
@@ -235,9 +231,7 @@ static void assobjects_init(struct sd *sd)
 
     mp_ass_add_default_styles(ctx->ass_track, opts);
 
-#if LIBASS_VERSION >= 0x01302000
     ass_set_check_readorder(ctx->ass_track, sd->opts->sub_clear_on_seek ? 0 : 1);
-#endif
 
     enable_output(sd, true);
 }
@@ -295,7 +289,7 @@ static void filter_and_add(struct sd *sd, struct demux_packet *pkt)
             return;
     }
 
-    ass_process_chunk(ctx->ass_track, pkt->buffer, pkt->len,
+    ass_process_chunk(ctx->ass_track, (char *)pkt->buffer, pkt->len,
                       llrint(pkt->pts * 1000),
                       llrint(pkt->duration * 1000));
 
@@ -343,7 +337,7 @@ static void decode(struct sd *sd, struct demux_packet *packet)
                                     &sub_duration);
         if (packet->duration < 0 || sub_duration == UINT32_MAX) {
             if (!ctx->duration_unknown) {
-                MP_WARN(sd, "Subtitle with unknown duration.\n");
+                MP_VERBOSE(sd, "Subtitle with unknown duration.\n");
                 ctx->duration_unknown = true;
             }
             sub_duration = UNKNOWN_DURATION;
@@ -353,7 +347,7 @@ static void decode(struct sd *sd, struct demux_packet *packet)
             struct demux_packet pkt2 = {
                 .pts = sub_pts,
                 .duration = sub_duration,
-                .buffer = r[n],
+                .buffer = (unsigned char *)r[n],
                 .len = strlen(r[n]),
             };
             filter_and_add(sd, &pkt2);
@@ -424,13 +418,21 @@ static void configure_ass(struct sd *sd, struct mp_osd_res *dim,
     ass_set_line_position(priv, set_sub_pos);
     ass_set_shaper(priv, opts->ass_shaper);
     int set_force_flags = 0;
-    if (total_override)
-        set_force_flags |= ASS_OVERRIDE_BIT_STYLE | ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
+    if (total_override) {
+        set_force_flags |= ASS_OVERRIDE_BIT_FONT_NAME
+                            | ASS_OVERRIDE_BIT_FONT_SIZE_FIELDS
+                            | ASS_OVERRIDE_BIT_COLORS
+                            | ASS_OVERRIDE_BIT_BORDER
+                            | ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
+#if LIBASS_VERSION >= 0x01703020
+        set_force_flags |= ASS_OVERRIDE_BIT_BLUR;
+#endif
+    }
     if (opts->ass_style_override == 4) // 'scale'
         set_force_flags |= ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE;
     if (converted)
         set_force_flags |= ASS_OVERRIDE_BIT_ALIGNMENT;
-#ifdef ASS_JUSTIFY_AUTO
+#if LIBASS_VERSION >= 0x01306000
     if ((converted || opts->ass_style_override) && opts->ass_justify)
         set_force_flags |= ASS_OVERRIDE_BIT_JUSTIFY;
 #endif
@@ -446,10 +448,8 @@ static void configure_ass(struct sd *sd, struct mp_osd_res *dim,
     ass_set_font_scale(priv, set_font_scale);
     ass_set_hinting(priv, set_hinting);
     ass_set_line_spacing(priv, set_line_spacing);
-#if LIBASS_VERSION >= 0x01600010
     if (converted)
         ass_track_set_feature(track, ASS_FEATURE_WRAP_UNICODE, 1);
-#endif
     if (converted) {
         bool override_playres = true;
         char **ass_force_style_list = opts->ass_force_style_list;
@@ -471,7 +471,7 @@ static void configure_ass(struct sd *sd, struct mp_osd_res *dim,
             int vidw = dim->w - (dim->ml + dim->mr);
             int vidh = dim->h - (dim->mt + dim->mb);
             track->PlayResX = track->PlayResY * (double)vidw / MPMAX(vidh, 1);
-            // ffmpeg and mpv use a default PlayResX of 384 when it is not known,
+            // ffmpeg and dmpv use a default PlayResX of 384 when it is not known,
             // this comes from VSFilter.
             double fix_margins = track->PlayResX / 384.0;
             track->styles->MarginL = round(track->styles->MarginL * fix_margins);
@@ -649,7 +649,7 @@ static void ass_to_plaintext(struct buf *b, const char *in)
             if (in[0] == '}') {
                 in += 1;
                 in_tag = false;
-            } else if (in[0] == '\\' && in[1] == 'p') {
+            } else if (in[0] == '\\' && in[1] == 'p' && in[2] != 'o') {
                 in += 2;
                 // Skip text between \pN and \p0 tags. A \p without a number
                 // is the same as \p0, and leading 0s are also allowed.
@@ -706,7 +706,7 @@ static char *get_text_buf(struct sd *sd, double pts, enum sd_text_type type)
         return NULL;
     long long ipts = find_timestamp(sd, pts);
 
-    struct buf b = {ctx->last_text, sizeof(ctx->last_text) - 1};
+    struct buf b = {ctx->last_text, sizeof(ctx->last_text) - 1, 0};
 
     for (int i = 0; i < track->n_events; ++i) {
         ASS_Event *event = track->events + i;
@@ -748,7 +748,7 @@ static struct sd_times get_times(struct sd *sd, double pts)
     ASS_Track *track = ctx->ass_track;
     struct sd_times res = { .start = MP_NOPTS_VALUE, .end = MP_NOPTS_VALUE };
 
-    if (pts == MP_NOPTS_VALUE || ctx->duration_unknown)
+    if (pts == MP_NOPTS_VALUE)
         return res;
 
     long long ipts = find_timestamp(sd, pts);
@@ -790,7 +790,7 @@ static void fill_plaintext(struct sd *sd, double pts)
     while (*text) {
         if (*text == '{')
             bstr_xappend(NULL, &dst, bstr0("\\"));
-        bstr_xappend(NULL, &dst, (bstr){text, 1});
+        bstr_xappend(NULL, &dst, (bstr){(unsigned char *)text, 1});
         // Break ASS escapes with U+2060 WORD JOINER
         if (*text == '\\')
             mp_append_utf8_bstr(NULL, &dst, 0x2060);
@@ -805,7 +805,7 @@ static void fill_plaintext(struct sd *sd, double pts)
     event->Start = 0;
     event->Duration = INT_MAX;
     event->Style = track->default_style;
-    event->Text = strdup(dst.start);
+    event->Text = strdup((char *)dst.start);
 
     talloc_free(dst.start);
 }
@@ -844,7 +844,8 @@ static int control(struct sd *sd, enum sd_ctrl cmd, void *arg)
         long long res = ass_step_sub(ctx->ass_track, ts, a[1]);
         if (!res)
             return false;
-        a[0] += res / 1000.0;
+        // Try to account for overlapping durations
+        a[0] += res / 1000.0 + SUB_SEEK_OFFSET;
         return true;
     }
     case SD_CTRL_SET_VIDEO_PARAMS:
@@ -1011,7 +1012,7 @@ int sd_ass_fmt_offset(const char *evt_fmt)
 bstr sd_ass_pkt_text(struct sd_filter *ft, struct demux_packet *pkt, int offset)
 {
     // e.g. pkt->buffer ("4" is ReadOrder): "4,0,Default,,0,0,0,,fifth line"
-    bstr txt = {(char *)pkt->buffer, pkt->len}, t0 = txt;
+    bstr txt = {pkt->buffer, pkt->len}, t0 = txt;
     while (offset-- > 0) {
         int n = bstrchr(txt, ',');
         if (n < 0) {  // shouldn't happen
@@ -1029,5 +1030,5 @@ bstr sd_ass_to_plaintext(char *out, size_t out_siz, const char *in)
     ass_to_plaintext(&b, in);
     if (b.len < out_siz)
         out[b.len] = 0;
-    return (bstr){out, b.len};
+    return (bstr){(unsigned char *)out, b.len};
 }

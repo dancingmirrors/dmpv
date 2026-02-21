@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -25,7 +25,7 @@
 
 #include "common/av_common.h"
 
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 
 #include "stream/stream.h"
@@ -77,7 +77,6 @@ const struct m_sub_options demux_rawaudio_conf = {
     },
     .size = sizeof(struct demux_rawaudio_opts),
     .defaults = &(const struct demux_rawaudio_opts){
-        // Note that currently, stream_cdda expects exactly these parameters!
         .channels = {
             .set = 1,
             .chmaps = (struct mp_chmap[]){ MP_CHMAP_INIT_STEREO, },
@@ -273,7 +272,8 @@ static bool raw_read_packet(struct demuxer *demuxer, struct demux_packet **pkt)
     if (demuxer->stream->eof)
         return false;
 
-    struct demux_packet *dp = new_demux_packet(p->frame_size * p->read_frames);
+    struct demux_packet *dp = new_demux_packet(demuxer->packet_pool,
+                                               p->frame_size * p->read_frames);
     if (!dp) {
         MP_ERR(demuxer, "Can't read packet.\n");
         return true;

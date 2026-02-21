@@ -1,29 +1,29 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_MP_CORE_H
 #define MPLAYER_MP_CORE_H
 
 #include <stdbool.h>
-#include <pthread.h>
+#include <stdatomic.h>
 
-#include "osdep/atomic.h"
+#include "osdep/threads.h"
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 #include "common/common.h"
 #include "filters/filter.h"
@@ -69,7 +69,8 @@ enum seek_type {
     MPSEEK_RELATIVE,
     MPSEEK_ABSOLUTE,
     MPSEEK_FACTOR,
-    MPSEEK_BACKSTEP,
+    MPSEEK_FRAMESTEP,
+    MPSEEK_CHAPTER,
 };
 
 enum seek_precision {
@@ -146,9 +147,6 @@ struct track {
     struct vo_chain *vo_c;
     struct ao_chain *ao_c;
     struct mp_pin *sink;
-
-    // For stream recording (remuxing mode).
-    struct mp_recorder_sink *remux_sink;
 };
 
 // Summarizes video filtering and output.
@@ -168,6 +166,7 @@ struct vo_chain {
     bool is_coverart;
     // - video consists of sparse still images
     bool is_sparse;
+    bool sparse_eof_signalled;
 
     bool underrun;
     bool underrun_signaled;
@@ -193,6 +192,8 @@ struct ao_chain {
 
     double start_pts;
     bool start_pts_known;
+
+    bool audio_started;
 
     struct track *track;
     struct mp_pin *filter_src;
@@ -230,7 +231,7 @@ extern const int num_ptracks[STREAM_TYPE_COUNT];
 typedef struct MPContext {
     bool initialized;
     bool is_cli;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct MPOpts *opts;
     struct mp_log *log;
     struct stats_ctx *stats;
@@ -274,6 +275,8 @@ typedef struct MPContext {
     struct playlist_entry *playing; // currently playing file
     char *filename; // immutable copy of playing->filename (or NULL)
     char *stream_open_filename;
+    char **playlist_paths; // used strictly for playlist validation
+    int playlist_paths_len;
     enum stop_play_reason stop_play;
     bool playback_initialized; // playloop can be run/is running
     int error_playing;
@@ -344,6 +347,7 @@ typedef struct MPContext {
     bool hrseek_backstep;   // go to frame before seek target
     double hrseek_pts;
     struct seek_params current_seek;
+    bool seek_muted;        // audio muted during seek (when --seek-mute is enabled)
     bool ab_loop_clip;      // clip to the "b" part of an A-B loop if available
     // AV sync: the next frame should be shown when the audio out has this
     // much (in seconds) buffered data left. Increased when more data is
@@ -391,7 +395,7 @@ typedef struct MPContext {
     double start_timestamp;
 
     // Timestamp from the last time some timing functions read the
-    // current time, in microseconds.
+    // current time, in nanoseconds.
     // Used to turn a new time value to a delta from last time.
     int64_t last_time;
 
@@ -401,7 +405,7 @@ typedef struct MPContext {
      * the user wanted to go to, even if we aren't exactly within the
      * boundaries of that chapter due to an inaccurate seek. */
     int last_chapter_seek;
-    double last_chapter_pts;
+    bool last_chapter_flag;
 
     bool paused;            // internal pause state
     bool playback_active;   // not paused, restarting, loading, unloading
@@ -413,7 +417,11 @@ typedef struct MPContext {
     int max_frames;
     bool playing_msg_shown;
 
+    int remaining_file_loops;
+    int remaining_ab_loops;
+
     bool paused_for_cache;
+    bool paused_for_image; // true if pause was triggered by --pause-images
     bool demux_underrun;
     double cache_stop_time;
     int cache_buffer;
@@ -423,15 +431,16 @@ typedef struct MPContext {
     // playback rate. Used to avoid showing it multiple times.
     bool drop_message_shown;
 
-    struct mp_recorder *recorder;
-
     struct screenshot_ctx *screenshot_ctx;
     struct command_ctx *command_ctx;
     struct encode_lavc_context *encode_lavc_ctx;
 
+    struct mp_option_callback *option_callbacks;
+    int num_option_callbacks;
+
     struct mp_ipc_ctx *ipc_ctx;
 
-    int64_t builtin_script_ids[5];
+    int64_t builtin_script_ids[8];
 
     pthread_mutex_t abort_lock;
 
@@ -441,7 +450,7 @@ typedef struct MPContext {
     bool abort_all; // during final termination
 
     // --- Owned by MPContext
-    pthread_t open_thread;
+    mp_thread open_thread;
     bool open_active; // open_thread is a valid thread handle, all setup
     atomic_bool open_done;
     // --- All fields below are immutable while open_active is true.
@@ -466,8 +475,8 @@ struct mp_abort_entry {
     // without holding the abort_lock.
     struct mp_cancel *cancel;
     // For client API.
-    struct mpv_handle *client;  // non-NULL if done by a client API user
-    int client_work_type;       // client API type, e.h. MPV_EVENT_COMMAND_REPLY
+    struct dmpv_handle *client;  // non-NULL if done by a client API user
+    int client_work_type;       // client API type, e.h. DMPV_EVENT_COMMAND_REPLY
     uint64_t client_work_id;    // client API user reply_userdata value
                                 // (only valid if client_work_type set)
 };
@@ -484,11 +493,9 @@ void clear_audio_output_buffers(struct MPContext *mpctx);
 void update_playback_speed(struct MPContext *mpctx);
 void uninit_audio_out(struct MPContext *mpctx);
 void uninit_audio_chain(struct MPContext *mpctx);
-int init_audio_decoder(struct MPContext *mpctx, struct track *track);
 void reinit_audio_chain_src(struct MPContext *mpctx, struct track *track);
+float audio_get_gain(struct MPContext *mpctx);
 void audio_update_volume(struct MPContext *mpctx);
-void audio_update_balance(struct MPContext *mpctx);
-void audio_update_media_role(struct MPContext *mpctx);
 void reload_audio_output(struct MPContext *mpctx);
 void audio_start_ao(struct MPContext *mpctx);
 
@@ -509,7 +516,6 @@ void mp_abort_recheck_locked(struct MPContext *mpctx,
                              struct mp_abort_entry *abort);
 void mp_abort_trigger_locked(struct MPContext *mpctx,
                              struct mp_abort_entry *abort);
-void uninit_player(struct MPContext *mpctx, unsigned int mask);
 int mp_add_external_file(struct MPContext *mpctx, char *filename,
                          enum stream_type filter, struct mp_cancel *cancel,
                          bool cover_art);
@@ -533,14 +539,11 @@ void update_demuxer_properties(struct MPContext *mpctx);
 void print_track_list(struct MPContext *mpctx, const char *msg);
 void reselect_demux_stream(struct MPContext *mpctx, struct track *track,
                            bool refresh_only);
-void prepare_playlist(struct MPContext *mpctx, struct playlist *pl);
+void prepare_playlist(struct MPContext *mpctx, struct playlist *pl, bool overwrite_current);
 void autoload_external_files(struct MPContext *mpctx, struct mp_cancel *cancel);
 struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
-void close_recorder(struct MPContext *mpctx);
-void close_recorder_and_error(struct MPContext *mpctx);
-void open_recorder(struct MPContext *mpctx, bool on_init);
 void update_lavfi_complex(struct MPContext *mpctx);
 
 // main.c
@@ -581,12 +584,14 @@ void mp_wakeup_core(struct MPContext *mpctx);
 void mp_wakeup_core_cb(void *ctx);
 void mp_core_lock(struct MPContext *mpctx);
 void mp_core_unlock(struct MPContext *mpctx);
+void handle_option_callbacks(struct MPContext *mpctx);
 double get_relative_time(struct MPContext *mpctx);
 void reset_playback_state(struct MPContext *mpctx);
 void set_pause_state(struct MPContext *mpctx, bool user_pause);
 void update_internal_pause_state(struct MPContext *mpctx);
 void update_core_idle_state(struct MPContext *mpctx);
-void add_step_frame(struct MPContext *mpctx, int dir);
+void add_step_frame(struct MPContext *mpctx, int dir, bool use_seek);
+void step_frame_mute(struct MPContext *mpctx, bool mute);
 void queue_seek(struct MPContext *mpctx, enum seek_type type, double amount,
                 enum seek_precision exact, int flags);
 double get_time_length(struct MPContext *mpctx);
@@ -616,13 +621,13 @@ struct mp_script_args {
     const struct mp_scripting *backend;
     struct MPContext *mpctx;
     struct mp_log *log;
-    struct mpv_handle *client;
+    struct dmpv_handle *client;
     const char *filename;
     const char *path;
 };
 struct mp_scripting {
-    const char *name;       // e.g. "lua script"
-    const char *file_ext;   // e.g. "lua"
+    const char *name;
+    const char *file_ext;
     bool no_thread;         // don't run load() on dedicated thread
     int (*load)(struct mp_script_args *args);
 };
@@ -640,8 +645,6 @@ void update_osd_msg(struct MPContext *mpctx);
 bool update_subtitles(struct MPContext *mpctx, double video_pts);
 
 // video.c
-int video_get_colors(struct vo_chain *vo_c, const char *item, int *value);
-int video_set_colors(struct vo_chain *vo_c, const char *item, int value);
 void reset_video_state(struct MPContext *mpctx);
 int init_video_decoder(struct MPContext *mpctx, struct track *track);
 void reinit_video_chain(struct MPContext *mpctx);
@@ -652,6 +655,6 @@ void mp_force_video_refresh(struct MPContext *mpctx);
 void uninit_video_out(struct MPContext *mpctx);
 void uninit_video_chain(struct MPContext *mpctx);
 double calc_average_frame_duration(struct MPContext *mpctx);
-int init_video_decoder(struct MPContext *mpctx, struct track *track);
+void update_vo_input_sections(struct MPContext *mpctx);
 
 #endif /* MPLAYER_MP_CORE_H */

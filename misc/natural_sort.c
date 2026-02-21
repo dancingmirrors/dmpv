@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
@@ -54,9 +54,9 @@ int mp_natural_sort_cmp(const char *name1, const char *name2)
                 name2++;
             }
         } else {
-            if (mp_tolower(name1[0]) < mp_tolower(name2[0]))
+            if ((unsigned char)mp_tolower(name1[0]) < (unsigned char)mp_tolower(name2[0]))
                 return -1;
-            if (mp_tolower(name1[0]) > mp_tolower(name2[0]))
+            if ((unsigned char)mp_tolower(name1[0]) > (unsigned char)mp_tolower(name2[0]))
                 return 1;
             name1++;
             name2++;
