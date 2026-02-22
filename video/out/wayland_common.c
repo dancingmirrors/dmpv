@@ -2507,7 +2507,7 @@ void vo_wayland_handle_scale(struct vo_wayland_state *wl)
 bool vo_wayland_init(struct vo *vo)
 {
     if (vo->probing && !getenv("WAYLAND_DISPLAY") && !getenv("WAYLAND_SOCKET")) {
-        MP_WARN(vo, "Skipping Wayland because neither WAYLAND_DISPLAY nor "
+        MP_VERBOSE(vo, "Skipping Wayland because neither WAYLAND_DISPLAY nor "
                     "WAYLAND_SOCKET is set.\n");
         goto err;
     }
