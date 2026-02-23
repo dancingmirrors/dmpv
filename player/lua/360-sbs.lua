@@ -10,45 +10,37 @@ local update = function ()
 end
 
 local increment_res = function ()
-    update()
     res = math.min(res + 1.0, 6.0)
     update()
 end
 local decrement_res = function ()
-    update()
     res = math.max(res - 1.0, 1.0)
     update()
 end
 
 local increment_pitch = function ()
-    update()
     pitch = math.min(pitch + 5.0, 40.0)
     update()
 end
 local decrement_pitch = function ()
-    update()
     pitch = math.max(pitch - 5.0, -40.0)
     update()
 end
 
 local increment_yaw = function ()
-    update()
     yaw = math.min(yaw + 5.0, 40.0)
     update()
 end
 local decrement_yaw = function ()
-    update()
     yaw = math.max(yaw - 5.0, -40.0)
     update()
 end
 
 local increment_zoom = function ()
-    update()
     dfov = math.max(dfov - 10.0, 30.0)
     update()
 end
 local decrement_zoom = function ()
-    update()
     dfov = math.min(dfov + 10.0, 140.0)
     update()
 end
@@ -66,7 +58,6 @@ mp.add_forced_key_binding("=", increment_zoom, 'nonrepeatable')
 mp.add_forced_key_binding("-", decrement_zoom, 'nonrepeatable')
 
 mp.set_property("fullscreen", "yes")
-mp.set_property("hwdec", "auto-copy")
-mp.set_property("sws-fast", "yes")
+mp.set_property("hwdec", "no")
 
 update()
