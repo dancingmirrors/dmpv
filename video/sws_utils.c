@@ -85,6 +85,7 @@ const struct m_sub_options sws_conf = {
     .defaults = &(const struct sws_opts){
         .scaler = SWS_BILINEAR,
         .zimg = true,
+        .fast = true,
     },
 };
 
