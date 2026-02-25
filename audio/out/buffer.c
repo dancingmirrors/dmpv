@@ -562,11 +562,6 @@ bool init_buffer_post(struct ao *ao)
         }
     }
 
-    if (ao->stream_silence) {
-        MP_WARN(ao, "The --audio-stream-silence option is set. This will break "
-                "certain player behavior.\n");
-    }
-
     return true;
 }
 

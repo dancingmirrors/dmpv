@@ -1162,6 +1162,15 @@ static void handle_playback_restart(struct MPContext *mpctx)
 
     handle_update_cache(mpctx);
 
+    if (mpctx->ao_chain && mpctx->ao_chain->ao_resume_time > 0) {
+        double wait = mpctx->ao_chain->ao_resume_time - mp_time_sec();
+        if (wait > 0) {
+            mp_set_timeout(mpctx, wait);
+            return;
+        }
+        mpctx->ao_chain->ao_resume_time = 0;
+    }
+
     if (mpctx->video_status == STATUS_READY) {
         mpctx->video_status = STATUS_PLAYING;
         get_relative_time(mpctx);

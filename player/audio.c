@@ -401,7 +401,7 @@ static int reinit_audio_filters_and_output(struct MPContext *mpctx)
     if (opts->ao_null_fallback && !spdif_fallback)
         ao_flags |= AO_INIT_NULL_FALLBACK;
 
-    if (opts->audio_stream_silence)
+    if (opts->audio_stream_silence || opts->audio_wait_open > 0)
         ao_flags |= AO_INIT_STREAM_SILENCE;
 
     if (opts->audio_exclusive)

@@ -792,6 +792,7 @@ static const struct MPOpts mp_default_opts = {
     .softvol_max = 260,
     .softvol_volume = 100,
     .gapless_audio = -1,
+    .audio_wait_open = 2,
     .wintitle = "dmpv",
     .media_title = "dmpv",
     .stop_screensaver = 1,
