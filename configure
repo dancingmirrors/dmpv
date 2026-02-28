@@ -507,7 +507,8 @@ check("-vdpau-gl-x11*",
 
 check("-vaapi*",
       desc      = "VA-API acceleration",
-      fn        = lambda: check_pkg_config("libva >= 0.36.0"),
+      fn        = lambda: chain (check_pkg_config("libva >= 0.36.0")
+                  and check_cc(link = "-Wl,--allow-shlib-undefined")),
       sources   = ["video/vaapi.c",
                    "video/filter/vf_vavpp.c"])
 check("-vaapi-x11*",
