@@ -738,7 +738,6 @@ static void add_uniforms(struct gl_shader_cache *sc, bstr *dst)
             ADD(dst, "uniform restrict %s %s;\n", u->glsl_type, u->input.name);
         }
         case RA_VARTYPE_INVALID:
-            MP_ASSERT_UNREACHABLE();
         default:
             break;
         }
