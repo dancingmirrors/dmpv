@@ -438,6 +438,10 @@ check("-hwdec-vulkan*",
       desc      = "Vulkan hardware acceleration (libplacebo)",
       deps      = ["libplacebo", "vulkan"],
       sources   = "video/out/hwdec/hwdec_vulkan.c")
+check("-displayvk*",
+      desc      = "Vulkan DRM context",
+      deps      = ["drm", "libplacebo", "vulkan"],
+      sources   = "video/out/vulkan/context_display.c")
 
 check("-egl*",
       desc      = "EGL",

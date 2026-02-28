@@ -38,6 +38,7 @@ extern const struct ra_ctx_fns ra_ctx_wayland_egl;
 extern const struct ra_ctx_fns ra_ctx_x11_egl;
 extern const struct ra_ctx_fns ra_ctx_glx;
 extern const struct ra_ctx_fns ra_ctx_drm_egl;
+extern const struct ra_ctx_fns ra_ctx_vulkan_display;
 
 #if HAVE_WAYLAND
 extern const struct ra_ctx_fns ra_ctx_wldmabuf;
@@ -70,6 +71,10 @@ static const struct ra_ctx_fns *contexts[] = {
 
 #if HAVE_WAYLAND
     &ra_ctx_wldmabuf,
+#endif
+
+#if HAVE_DRM && HAVE_LIBPLACEBO && HAVE_VULKAN
+    &ra_ctx_vulkan_display,
 #endif
 };
 

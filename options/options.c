@@ -68,6 +68,7 @@ extern const struct m_sub_options encode_config;
 extern const struct m_sub_options ra_ctx_conf;
 extern const struct m_sub_options gl_video_conf;
 extern const struct m_sub_options ao_alsa_conf;
+extern const struct m_sub_options vulkan_display_conf;
 
 extern const struct m_sub_options demux_conf;
 extern const struct m_sub_options demux_cache_conf;
@@ -766,6 +767,10 @@ static const m_option_t mp_opts[] = {
 
 #if HAVE_DRM
     {"", OPT_SUBSTRUCT(drm_opts, drm_conf)},
+#endif
+
+#if HAVE_DRM && HAVE_LIBPLACEBO && HAVE_VULKAN
+    {"", OPT_SUBSTRUCT(vulkan_display_opts, vulkan_display_conf)},
 #endif
 
 #if HAVE_WAYLAND
