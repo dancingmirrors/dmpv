@@ -6,7 +6,7 @@ local res   = 4.0
 local dfov  = 100.0
 
 local update = function ()
-    local ok, err = mp.command(string.format("no-osd sync vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*180.0:h=%s*180.0",dfov,yaw,pitch,res,res))
+    local ok, err = mp.command(string.format("no-osd sync vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*140.0:h=%s*140.0",dfov,yaw,pitch,res,res))
 end
 
 local increment_res = function ()
