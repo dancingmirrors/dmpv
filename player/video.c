@@ -1330,6 +1330,12 @@ void update_vo_input_sections(struct MPContext *mpctx)
         mp_input_disable_section(mpctx->input, "vo_gpu");
     }
 
+    if (strcmp(vo_name, "gpu-next") == 0) {
+        mp_input_enable_section(mpctx->input, "vo_gpu_next", 0);
+    } else {
+        mp_input_disable_section(mpctx->input, "vo_gpu_next");
+    }
+
     if (strcmp(vo_name, "dmabuf-wayland") == 0) {
         mp_input_enable_section(mpctx->input, "vo_dmabuf_wayland", 0);
     } else {

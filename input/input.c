@@ -221,6 +221,10 @@ static const char builtin_input_vo_gpu_conf[] =
 #include "generated/etc/input_vo_gpu.conf.inc"
 ;
 
+static const char builtin_input_vo_gpu_next_conf[] =
+#include "generated/etc/input_vo_gpu_next.conf.inc"
+;
+
 static const char builtin_input_vo_dmabuf_wayland_conf[] =
 #include "generated/etc/input_vo_dmabuf_wayland.conf.inc"
 ;
@@ -1408,6 +1412,9 @@ void mp_input_load_config(struct input_ctx *ictx)
 
     define_vo_section(ictx, "vo_gpu", "<builtin-vo-gpu>",
                       builtin_input_vo_gpu_conf);
+
+   define_vo_section(ictx, "vo_gpu_next", "<builtin-vo-gpu-next>",
+                      builtin_input_vo_gpu_next_conf);
 
     define_vo_section(ictx, "vo_dmabuf_wayland", "<builtin-vo-dmabuf-wayland>",
                       builtin_input_vo_dmabuf_wayland_conf);

@@ -849,6 +849,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
     inc_files = [
         ("etc/input.conf", "$builddir/generated/etc/input.conf.inc"),
         ("etc/input_vo_gpu.conf", "$builddir/generated/etc/input_vo_gpu.conf.inc"),
+        ("etc/input_vo_gpu_next.conf", "$builddir/generated/etc/input_vo_gpu_next.conf.inc"),
         ("etc/input_vo_dmabuf_wayland.conf", "$builddir/generated/etc/input_vo_dmabuf_wayland.conf.inc"),
         ("etc/input_vo_wlshm.conf", "$builddir/generated/etc/input_vo_wlshm.conf.inc"),
         ("etc/input_vo_vdpau.conf", "$builddir/generated/etc/input_vo_vdpau.conf.inc"),
@@ -925,6 +926,7 @@ def _generate_ninja_file(sources, cflags_str, ldflags_str):
         if "input/input.c" in src:
             implicit_deps.append("$builddir/generated/etc/input.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_gpu.conf.inc")
+            implicit_deps.append("$builddir/generated/etc/input_vo_gpu_next.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_dmabuf_wayland.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_wlshm.conf.inc")
             implicit_deps.append("$builddir/generated/etc/input_vo_vdpau.conf.inc")
