@@ -4333,7 +4333,7 @@ static const struct property_osd_display {
     {"ab-loop-b", .msg = "A-B loop: ${ab-loop-a} - ${ab-loop-b}"
                             "${?=ab-loop-count==0: (disabled)}"},
     {.name = "audio-device", .osd_name = "Audio device"},
-    {"hwdec", .msg = "Hardware decoding: ${hwdec-current}"},
+    {"hwdec", .msg = "Hardware decoding: ${hwdec}"},
     {.name = "video-aspect-override", .osd_name = "Aspect ratio override"},
     // By default, don't display the following properties on OSD
     {.name = "pause"},
