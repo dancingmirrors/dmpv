@@ -59,6 +59,7 @@ mp.add_forced_key_binding("-", decrement_zoom, 'nonrepeatable')
 
 mp.set_property("correct-downscaling", "yes")
 mp.set_property("dscale", "ewa_hanning")
+mp.set_property("dscale-blur", "1.11")
 mp.set_property("scale", "ewa_hanning")
 mp.set_property("scale-blur", "1.11")
 mp.set_property("fullscreen", "yes")
