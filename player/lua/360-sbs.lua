@@ -6,7 +6,7 @@ local res   = 4.0
 local dfov  = 100.0
 
 local update = function ()
-    local ok, err = mp.command(string.format("no-osd sync vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*140.0:h=%s*140.0",dfov,yaw,pitch,res,res))
+    local ok, err = mp.command(string.format("no-osd sync vf add @vrrev:v360=hequirect:flat:in_stereo=sbs:out_stereo=2d:id_fov=180.0:d_fov=%s:yaw=%s:pitch=%s:w=%s*160.0:h=%s*160.0",dfov,yaw,pitch,res,res))
 end
 
 local increment_res = function ()
@@ -57,7 +57,12 @@ mp.add_forced_key_binding("_", decrement_res, 'nonrepeatable')
 mp.add_forced_key_binding("=", increment_zoom, 'nonrepeatable')
 mp.add_forced_key_binding("-", decrement_zoom, 'nonrepeatable')
 
+mp.set_property("correct-downscaling", "yes")
+mp.set_property("dscale", "ewa_hanning")
+mp.set_property("scale", "ewa_hanning")
+mp.set_property("scale-blur", "1.11")
 mp.set_property("fullscreen", "yes")
+mp.set_property("interpolation", "no")
 mp.set_property("hwdec", "no")
 
 update()
