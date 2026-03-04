@@ -77,6 +77,36 @@ local hfov  = 90.0
 
 local shader_file = nil
 
+local SBS_OPTS = {
+    "correct-downscaling",
+    "dscale",
+    "dscale-blur",
+    "interpolation",
+    "scale",
+    "scale-blur",
+}
+local saved_sbs_opts = {}
+
+local function apply_sbs_opts()
+    for _, key in ipairs(SBS_OPTS) do
+        saved_sbs_opts[key] = mp.get_property(key)
+    end
+    mp.set_property("correct-downscaling", "yes")
+    mp.set_property("dscale", "ewa_hanning")
+    mp.set_property("dscale-blur", "1.11")
+    mp.set_property("interpolation", "no")
+    mp.set_property("scale", "ewa_hanning")
+    mp.set_property("scale-blur", "1.11")
+end
+
+local function restore_sbs_opts()
+    for _, key in ipairs(SBS_OPTS) do
+        local v = saved_sbs_opts[key]
+        if v ~= nil then mp.set_property(key, v) end
+    end
+    saved_sbs_opts = {}
+end
+
 local function norm_yaw(y)
     y = y % 360.0
     if y > 180.0 then y = y - 360.0 end
@@ -114,6 +144,11 @@ end
 local function decrement_zoom()
     hfov = math.min(hfov + 10.0, 170.0)
     update()
+end
+
+if not mp.get_property("libplacebo-version") then
+    mp.msg.error("gpu-next is unavailable.")
+    return
 end
 
 mp.add_forced_key_binding("i", increment_pitch, 'nonrepeatable')
@@ -167,7 +202,7 @@ local function load_shader()
     shader_file = string.format("/tmp/dmpv-360-sbs-%s.glsl", tag)
     local f = io.open(shader_file, "w")
     if not f then
-        mp.msg.error("360-sbs: Failed to create /tmp shader file!")
+        mp.msg.error("Failed to create /tmp shader file!")
         shader_file = nil
         return
     end
@@ -190,6 +225,8 @@ mp.register_event("shutdown", function()
         os.remove(shader_file)
         shader_file = nil
     end
+    restore_sbs_opts()
 end)
 
+apply_sbs_opts()
 load_shader()
