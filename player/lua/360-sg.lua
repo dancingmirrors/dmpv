@@ -59,5 +59,6 @@ mp.add_forced_key_binding("-", decrement_zoom, 'nonrepeatable')
 
 mp.set_property("fullscreen", "yes")
 mp.set_property("hwdec", "no")
+mp.set_property("load-360-sbs", "no")
 
 update()
