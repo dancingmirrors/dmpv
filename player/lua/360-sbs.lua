@@ -168,10 +168,7 @@ mp.set_property("interpolation", "no")
 local function load_shader()
     local tag = string.format("%d-%06d", os.time(), math.random(0, 999999))
     shader_file = string.format("/tmp/dmpv-360-sbs-%s.glsl", tag)
-    local f = io.open(shader_file, "wx")
-    if not f then
-        f = io.open(shader_file, "w")
-    end
+    local f = io.open(shader_file, "w")
     if not f then
         mp.msg.error("360-sbs: Failed to create tmp shader file: " .. shader_file)
         shader_file = nil

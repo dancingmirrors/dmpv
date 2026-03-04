@@ -134,7 +134,7 @@ mp.add_key_binding(nil, "cursor-centric-zoom", function (t)
     local command = (options.suppress_osd and "no-osd " or "") ..
                     "add video-zoom " .. amount .. ";"
 
-    local x, y
+    local x, y = 0, 0
     local touch_positions = mp.get_property_native("touch-pos")
     if touch_positions[1] then
         for _, position in pairs(touch_positions) do
