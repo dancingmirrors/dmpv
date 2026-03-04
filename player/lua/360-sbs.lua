@@ -165,6 +165,7 @@ mp.set_property("scale-blur", "1.11")
 mp.set_property("interpolation", "no")
 mp.set_property("load-360-sg", "no")
 mp.set_property("load-positioning", "no")
+mp.set_property("vo", "gpu-next")
 
 -- XXX
 local function load_shader()
