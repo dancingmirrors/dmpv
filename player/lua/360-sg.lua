@@ -19,20 +19,20 @@ local decrement_res = function ()
 end
 
 local increment_pitch = function ()
-    pitch = math.min(pitch + 5.0, 30.0)
+    pitch = math.min(pitch + 5.0, 180.0)
     update()
 end
 local decrement_pitch = function ()
-    pitch = math.max(pitch - 5.0, -60.0)
+    pitch = math.max(pitch - 5.0, -180.0)
     update()
 end
 
 local increment_yaw = function ()
-    yaw = math.min(yaw + 5.0, 20.0)
+    yaw = math.min(yaw + 5.0, 180.0)
     update()
 end
 local decrement_yaw = function ()
-    yaw = math.max(yaw - 5.0, -20.0)
+    yaw = math.max(yaw - 5.0, -180.0)
     update()
 end
 
