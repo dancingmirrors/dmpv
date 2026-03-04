@@ -264,7 +264,7 @@ check("-lua*",
                           check_pkg_config("lua51") or
                           check_pkg_config("lua-5.2") or
                           check_pkg_config("lua52") or
-                          check_pkg_config("lua <= 5.2.999"),
+                          check_pkg_config("lua <= 5.2.9999"),
       sources   = "player/lua.c")
 
 check("libass*",

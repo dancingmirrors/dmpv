@@ -62,10 +62,10 @@ vec4 hook() {
 
     vec3 dir = Ry * Rx * ray;
 
-    float lon = atan(dir.x, dir.z);              // [-PI,   PI  ]
-    float lat = asin(clamp(dir.y, -1.0, 1.0));   // [-PI/2, PI/2]
-    float u   = lon / (2.0 * PI) + 0.5;          // [ 0,    1   ]
-    float v   = 0.5 - lat / PI;                  // [ 0,    1   ] top = north pole
+    float lon = atan(dir.x, dir.z);            // [-PI,   PI  ]
+    float lat = asin(clamp(dir.y, -1.0, 1.0)); // [-PI/2, PI/2]
+    float u   = lon / (2.0 * PI) + 0.5;        // [ 0,    1   ]
+    float v   = 0.5 - lat / PI;                // [ 0,    1   ] top = north pole
 
     return HOOKED_tex(vec2(u, v));
 }
@@ -159,12 +159,12 @@ end)
 mp.set_property("correct-downscaling", "yes")
 mp.set_property("dscale", "ewa_hanning")
 mp.set_property("dscale-blur", "1.11")
+mp.set_property("fullscreen", "yes")
 mp.set_property("scale", "ewa_hanning")
 mp.set_property("scale-blur", "1.11")
-mp.set_property("fullscreen", "yes")
 mp.set_property("interpolation", "no")
-mp.set_property("load-positioning", "no")
 mp.set_property("load-360-sg", "no")
+mp.set_property("load-positioning", "no")
 
 -- XXX
 local function load_shader()
@@ -172,7 +172,7 @@ local function load_shader()
     shader_file = string.format("/tmp/dmpv-360-sbs-%s.glsl", tag)
     local f = io.open(shader_file, "w")
     if not f then
-        mp.msg.error("360-sbs: Failed to create tmp shader file: " .. shader_file)
+        mp.msg.error("360-sbs: Failed to create /tmp shader file!")
         shader_file = nil
         return
     end
@@ -188,10 +188,6 @@ mp.register_event("file-loaded", function()
     hfov  = 90.0
     update()
     local stereo = mp.get_property("video-params/stereo-in") or ""
-    if stereo == "sbs2l" or stereo == "sbs2r" then
-        -- XXX
-        mp.msg.info("360-sbs: SBS stereo metadata detected.")
-    end
 end)
 
 mp.register_event("shutdown", function()
