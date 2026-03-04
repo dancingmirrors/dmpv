@@ -1257,7 +1257,7 @@ static int send_packet(struct mp_filter *vd, struct demux_packet *pkt)
         return AVERROR_EOF;
 
     if (ctx->wait_for_keyframe && pkt) {
-        if (!pkt->keyframe) {
+        if (!pkt->keyframe && !ctx->intra_only) {
             MP_DBG(vd, "Waiting for keyframe after reinit (dropping frame).\n");
             return 0;
         }
