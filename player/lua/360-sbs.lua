@@ -188,7 +188,6 @@ mp.register_event("file-loaded", function()
     pitch = 0.0
     hfov  = 90.0
     update()
-    local stereo = mp.get_property("video-params/stereo-in") or ""
 end)
 
 mp.register_event("shutdown", function()
