@@ -33,7 +33,7 @@ local SHADER_SRC = [[
 
 vec4 hook() {
     vec2 ndc = HOOKED_pos * 2.0 - 1.0;
-    ndc.y    = -ndc.y;
+    ndc.y = -ndc.y;
 
     float aspect = target_size.x / target_size.y;
 
@@ -47,17 +47,17 @@ vec4 hook() {
     float p  = pitch * (PI / 180.0);
     float cp = cos(p), sp = sin(p);
     mat3 Rx = mat3(
-        1.0, 0.0,  0.0,   // col 0
-        0.0,  cp,  -sp,   // col 1
-        0.0,  sp,   cp    // col 2
+        1.0, 0.0,  0.0, // col 0
+        0.0,  cp,  -sp, // col 1
+        0.0,  sp,   cp  // col 2
     );
 
     float ya = yaw * (PI / 180.0);
     float cy = cos(ya), sy = sin(ya);
     mat3 Ry = mat3(
-         cy, 0.0, -sy,    // col 0
-        0.0, 1.0,  0.0,   // col 1
-         sy, 0.0,  cy     // col 2
+         cy, 0.0, -sy,  // col 0
+        0.0, 1.0,  0.0, // col 1
+         sy, 0.0,  cy   // col 2
     );
 
     vec3 dir = Ry * Rx * ray;
