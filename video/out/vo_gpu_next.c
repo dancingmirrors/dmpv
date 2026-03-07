@@ -835,11 +835,18 @@ static void apply_target_options(struct priv *p, struct pl_frame *target,
     if (!target->color.hdr.min_luma)
         apply_target_contrast(p, &target->color);
     if (opts->target_gamut) {
-        // Ensure resulting gamut still fits inside container
+        // Ensure resulting gamut still fits inside container.
+        // scRGB is an extended-range format that supports wide gamut natively,
+        // so skipping the clip is correct.
+#if PL_API_VER >= 362
+        if (target->color.transfer != PL_COLOR_TRC_SCRGB)
+#endif
+        {
         const struct pl_raw_primaries *gamut, *container;
         gamut = pl_raw_primaries_get(mp_prim_to_pl(opts->target_gamut));
         container = pl_raw_primaries_get(target->color.primaries);
         target->color.hdr.prim = pl_primaries_clip(gamut, container);
+        }
     }
     int dither_depth = opts->dither_depth;
     if (dither_depth == 0) {

@@ -135,6 +135,9 @@ const struct m_opt_choice_alternatives mp_csp_trc_names[] = {
     {"s-log1",      MP_CSP_TRC_S_LOG1},
     {"s-log2",      MP_CSP_TRC_S_LOG2},
     {"st428",       MP_CSP_TRC_ST428},
+#if HAVE_LIBPLACEBO
+    {"scrgb",       MP_CSP_TRC_SCRGB},
+#endif
     {0}
 };
 
@@ -570,6 +573,7 @@ float mp_trc_nom_peak(enum mp_csp_trc trc)
 {
     switch (trc) {
     case MP_CSP_TRC_PQ:           return 10000.0 / MP_REF_WHITE;
+    case MP_CSP_TRC_SCRGB:        return 10000.0 / MP_REF_WHITE;
     case MP_CSP_TRC_HLG:          return 12.0 / MP_REF_WHITE_HLG;
     case MP_CSP_TRC_V_LOG:        return 46.0855;
     case MP_CSP_TRC_S_LOG1:       return 6.52;

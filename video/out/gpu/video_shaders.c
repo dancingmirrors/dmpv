@@ -340,7 +340,7 @@ static const float SLOG_A = 0.432699,
 // absolute scale, multiply the result by `mp_trc_nom_peak(trc)`
 void pass_linearize(struct gl_shader_cache *sc, enum mp_csp_trc trc)
 {
-    if (trc == MP_CSP_TRC_LINEAR)
+    if (trc == MP_CSP_TRC_LINEAR || trc == MP_CSP_TRC_SCRGB)
         return;
 
     GLSLF("// linearize\n");
@@ -440,7 +440,7 @@ void pass_linearize(struct gl_shader_cache *sc, enum mp_csp_trc trc)
 // Like pass_linearize, this functions ingests values on an normalized scale
 void pass_delinearize(struct gl_shader_cache *sc, enum mp_csp_trc trc)
 {
-    if (trc == MP_CSP_TRC_LINEAR)
+    if (trc == MP_CSP_TRC_LINEAR || trc == MP_CSP_TRC_SCRGB)
         return;
 
     GLSLF("// delinearize\n");

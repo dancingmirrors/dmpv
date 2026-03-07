@@ -147,6 +147,12 @@ enum pl_color_transfer mp_trc_to_pl(enum mp_csp_trc trc)
     case MP_CSP_TRC_S_LOG1:         return PL_COLOR_TRC_S_LOG1;
     case MP_CSP_TRC_S_LOG2:         return PL_COLOR_TRC_S_LOG2;
     case MP_CSP_TRC_ST428:          return PL_COLOR_TRC_ST428;
+    case MP_CSP_TRC_SCRGB:
+#if PL_API_VER >= 362
+                                    return PL_COLOR_TRC_SCRGB;
+#else
+                                    return PL_COLOR_TRC_LINEAR;
+#endif
     case MP_CSP_TRC_COUNT:          return PL_COLOR_TRC_COUNT;
     }
 
@@ -174,10 +180,9 @@ enum mp_csp_trc mp_trc_from_pl(enum pl_color_transfer trc)
     case PL_COLOR_TRC_S_LOG2: return MP_CSP_TRC_S_LOG2;
     case PL_COLOR_TRC_ST428: return MP_CSP_TRC_ST428;
     case PL_COLOR_TRC_COUNT: return MP_CSP_TRC_COUNT;
-    // XXX
-    #if PL_API_VER >= 362
-    case PL_COLOR_TRC_SCRGB:
-    #endif
+#if PL_API_VER >= 362
+    case PL_COLOR_TRC_SCRGB: return MP_CSP_TRC_SCRGB;
+#endif
     default:
     break;
     }
