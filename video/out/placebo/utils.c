@@ -174,6 +174,12 @@ enum mp_csp_trc mp_trc_from_pl(enum pl_color_transfer trc)
     case PL_COLOR_TRC_S_LOG2: return MP_CSP_TRC_S_LOG2;
     case PL_COLOR_TRC_ST428: return MP_CSP_TRC_ST428;
     case PL_COLOR_TRC_COUNT: return MP_CSP_TRC_COUNT;
+    // XXX
+    #if PL_API_VER >= 362
+    case PL_COLOR_TRC_SCRGB:
+    #endif
+    default:
+    break;
     }
 
     MP_ASSERT_UNREACHABLE();
