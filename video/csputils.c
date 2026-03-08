@@ -33,6 +33,10 @@
 #include "options/m_config_core.h"
 #include "options/m_option.h"
 
+#if HAVE_LIBPLACEBO
+#include <libplacebo/options.h>
+#endif
+
 #if !HAVE_LIBPLACEBO
 void pl_hdr_metadata_merge(struct pl_hdr_metadata *dst, const struct pl_hdr_metadata *src)
 {
@@ -135,7 +139,7 @@ const struct m_opt_choice_alternatives mp_csp_trc_names[] = {
     {"s-log1",      MP_CSP_TRC_S_LOG1},
     {"s-log2",      MP_CSP_TRC_S_LOG2},
     {"st428",       MP_CSP_TRC_ST428},
-#if HAVE_LIBPLACEBO
+#if HAVE_LIBPLACEBO && PL_API_VER >= 362
     {"scrgb",       MP_CSP_TRC_SCRGB},
 #endif
     {0}
