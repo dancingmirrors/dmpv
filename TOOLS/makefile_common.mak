@@ -30,6 +30,7 @@ install:
 	$(LOG) "INSTALL"
 	$(Q) mkdir -p ${PREFIX}/bin
 	$(Q) cp $(BUILD)/dmpv ${PREFIX}/bin
+	$(Q) cp TOOLS/udmpv ${PREFIX}/bin
 	$(Q) mkdir -p ${PREFIX}/share/icons/hicolor/16x16/apps
 	$(Q) mkdir -p ${PREFIX}/share/icons/hicolor/32x32/apps
 	$(Q) mkdir -p ${PREFIX}/share/icons/hicolor/64x64/apps
@@ -72,6 +73,7 @@ install-strip:
 uninstall:
 	$(LOG) "UNINSTALL"
 	$(Q) rm -f ${PREFIX}/bin/dmpv
+	$(Q) rm -f ${PREFIX}/bin/udmpv
 	$(Q) rm -f ${PREFIX}/share/icons/hicolor/16x16/apps/dmpv.png
 	$(Q) rm -f ${PREFIX}/share/icons/hicolor/32x32/apps/dmpv.png
 	$(Q) rm -f ${PREFIX}/share/icons/hicolor/64x64/apps/dmpv.png
