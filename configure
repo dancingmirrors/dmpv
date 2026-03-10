@@ -449,7 +449,7 @@ check("-displayvk*",
       deps      = ["drm", "libplacebo", "vulkan"],
       sources   = "video/out/vulkan/context_display.c")
 check("-vulkan-sws*",
-      desc      = "Vulkan swscale (libswscale >= 9.3.100)",
+      desc      = "Vulkan swscale",
       deps      = "vulkan",
       fn        = lambda: check_pkg_config("libswscale >= 9.3.100"))
 
