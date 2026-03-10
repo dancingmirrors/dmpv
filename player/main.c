@@ -333,7 +333,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     }
 
     if (opts->operation_mode == 1) {
-        m_config_set_profile(mpctx->mconfig, "builtin-pseudo-gui",
+        m_config_set_profile(mpctx->mconfig, "pseudo-gui",
                              M_SETOPT_NO_OVERWRITE);
         m_config_set_profile(mpctx->mconfig, "pseudo-gui", 0);
     }
