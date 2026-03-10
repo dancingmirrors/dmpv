@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include "mp_image.h"
 #include "config.h"
+#include "mp_image.h"
 
 struct mp_image;
 struct dmpv_global;

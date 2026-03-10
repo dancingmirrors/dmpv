@@ -16,29 +16,29 @@
  */
 
 #include "config.h"
-#include "misc/mp_assert.h"
 
-#include <libswscale/swscale.h>
-#include <libavcodec/avcodec.h>
 #include <libavutil/bswap.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+
 #if HAVE_VULKAN_SWS
-#include <libavutil/hwcontext.h>
 #include <libavutil/error.h>
+#include <libavutil/hwcontext.h>
 #endif
 
-#include "sws_utils.h"
-
 #include "common/common.h"
+#include "common/msg.h"
+#include "csputils.h"
+#include "fmt-conversion.h"
+#include "misc/mp_assert.h"
 #include "options/m_config_core.h"
 #include "options/m_option.h"
+#include "osdep/endian.h"
+#include "sws_utils.h"
 #include "video/mp_image.h"
 #include "video/img_format.h"
-#include "fmt-conversion.h"
-#include "csputils.h"
-#include "common/msg.h"
-#include "osdep/endian.h"
 
 #if HAVE_ZIMG
 #include "zimg.h"
