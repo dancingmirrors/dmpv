@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "mp_image.h"
+#include "config.h"
 
 struct mp_image;
 struct dmpv_global;
@@ -27,6 +28,7 @@ enum mp_sws_scaler {
     MP_SWS_AUTO = 0, // use command line
     MP_SWS_SWS,
     MP_SWS_ZIMG,
+    MP_SWS_VULKAN,
 };
 
 struct mp_sws_context {
@@ -36,6 +38,7 @@ struct mp_sws_context {
     // mp_sws_scale() will handle the changes transparently.
     int flags;
     bool allow_zimg; // use zimg if available (ignores filters and all)
+    bool allow_vulkan;
     bool force_reload;
     // These are also implicitly set by mp_sws_scale(), and thus optional.
     // Setting them before that call makes sense when using mp_sws_reinit().
@@ -64,6 +67,14 @@ struct mp_sws_context {
     struct mp_zimg_context *zimg;
     bool zimg_ok;
     struct mp_image *aligned_src, *aligned_dst;
+
+#if HAVE_VULKAN_SWS
+    struct AVBufferRef *vulkan_hw_device;
+    // Private Vulkan frame pool state.
+    struct AVBufferRef *vulkan_src_frames;
+    struct AVBufferRef *vulkan_dst_frames;
+    bool vulkan_ok;
+#endif
 };
 
 struct mp_sws_context *mp_sws_alloc(void *talloc_ctx);

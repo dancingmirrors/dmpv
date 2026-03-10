@@ -26,6 +26,7 @@
 
 #include "common/msg.h"
 #include "common/common.h"
+#include "config.h"
 #include "filters/f_autoconvert.h"
 #include "filters/filter.h"
 #include "filters/filter_internal.h"
@@ -222,9 +223,17 @@ static const m_option_t vf_opts_fields[] = {
     {"convert", OPT_BOOL(convert)},
     {"dolbyvision", OPT_BOOL(dovi)},
     {"film-grain", OPT_BOOL(film_grain)},
+#if HAVE_VULKAN_SWS
+#define MP_SWS_VULKAN_OPT , {"vulkan", MP_SWS_VULKAN}
+#else
+#define MP_SWS_VULKAN_OPT
+#endif
     {"force-scaler", OPT_CHOICE(force_scaler,
                                 {"auto", MP_SWS_AUTO},
-                                {"sws", MP_SWS_SWS})},
+                                {"sws", MP_SWS_SWS}
+                                MP_SWS_VULKAN_OPT
+                                )},
+#undef MP_SWS_VULKAN_OPT
     {0}
 };
 

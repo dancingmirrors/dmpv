@@ -448,6 +448,10 @@ check("-displayvk*",
       desc      = "Vulkan DRM context",
       deps      = ["drm", "libplacebo", "vulkan"],
       sources   = "video/out/vulkan/context_display.c")
+check("-vulkan-sws*",
+      desc      = "Vulkan swscale (libswscale >= 9.3.100)",
+      deps      = "vulkan",
+      fn        = lambda: check_pkg_config("libswscale >= 9.3.100"))
 
 check("-egl*",
       desc      = "EGL",
