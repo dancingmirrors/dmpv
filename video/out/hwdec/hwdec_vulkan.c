@@ -49,24 +49,6 @@ struct queue_lock_ctx {
     pthread_mutex_t mutex;
 };
 
-static void lock_queue(struct AVHWDeviceContext *ctx,
-                       uint32_t queue_family, uint32_t index)
-{
-    struct queue_lock_ctx *lock_ctx = ctx->user_opaque;
-
-    mp_mutex_lock(&lock_ctx->mutex);
-    lock_ctx->vulkan->lock_queue(lock_ctx->vulkan, queue_family, index);
-}
-
-static void unlock_queue(struct AVHWDeviceContext *ctx,
-                         uint32_t queue_family, uint32_t index)
-{
-    struct queue_lock_ctx *lock_ctx = ctx->user_opaque;
-
-    lock_ctx->vulkan->unlock_queue(lock_ctx->vulkan, queue_family, index);
-    mp_mutex_unlock(&lock_ctx->mutex);
-}
-
 static int vulkan_init(struct ra_hwdec *hw)
 {
     AVBufferRef *hw_device_ctx = NULL;
@@ -172,8 +154,6 @@ static int vulkan_init(struct ra_hwdec *hw)
     pthread_mutex_init(&p->lock_ctx->mutex, NULL);
 
     device_ctx->user_opaque = (void *)p->lock_ctx;
-    device_hwctx->lock_queue = lock_queue;
-    device_hwctx->unlock_queue = unlock_queue;
     device_hwctx->get_proc_addr = vk->vkinst->get_proc_addr;
     device_hwctx->inst = vk->vkinst->instance;
     device_hwctx->phys_dev = vk->vulkan->phys_device;
