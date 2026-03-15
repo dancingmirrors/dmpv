@@ -196,7 +196,7 @@ static void mp_load_per_file_config(struct MPContext *mpctx)
             return;
         }
 
-        char *name = mp_basename(cfg);
+        const char *name = mp_basename(cfg);
 
         bstr dir = mp_dirname(cfg);
         char *dircfg = mp_path_join_bstr(NULL, dir, bstr0("dmpv.conf"));
@@ -324,7 +324,7 @@ static bool needs_config_quoting(const char *s)
     return false;
 }
 
-static void write_filename(struct MPContext *mpctx, FILE *file, char *filename)
+static void write_filename(struct MPContext *mpctx, FILE *file, const char *filename)
 {
     if (mpctx->opts->write_filename_in_watch_later_config) {
         char write_name[1024] = {0};

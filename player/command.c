@@ -1262,7 +1262,7 @@ static int tag_property(int action, void *arg, struct mp_tags *tags)
     case M_PROPERTY_KEY_ACTION: {
         struct m_property_action_arg *ka = arg;
         bstr key;
-        char *rem;
+        const char *rem;
         m_property_split_path(ka->key, &key, &rem);
         if (bstr_equals0(key, "list")) {
             struct m_property_action_arg nka = *ka;
@@ -1332,7 +1332,7 @@ static int mp_property_filter_metadata(void *ctx, struct m_property *prop,
     if (action == M_PROPERTY_KEY_ACTION) {
         struct m_property_action_arg *ka = arg;
         bstr key;
-        char *rem;
+        const char *rem;
         m_property_split_path(ka->key, &key, &rem);
         struct mp_tags *metadata = NULL;
         struct mp_output_chain *chain = NULL;
@@ -2133,7 +2133,7 @@ static int property_current_tracks(void *ctx, struct m_property *prop,
 
     struct m_property_action_arg *ka = arg;
     bstr key;
-    char *rem;
+    const char *rem;
     m_property_split_path(ka->key, &key, &rem);
 
     if (bstr_equals0(key, "video")) {
@@ -3525,7 +3525,7 @@ static int mp_property_option_info(void *ctx, struct m_property *prop,
     case M_PROPERTY_KEY_ACTION: {
         struct m_property_action_arg *ka = arg;
         bstr key;
-        char *rem;
+        const char *rem;
         m_property_split_path(ka->key, &key, &rem);
         struct m_config_option *co = m_config_get_co(mpctx->mconfig, key);
         if (!co)
@@ -3732,7 +3732,7 @@ static int do_op_udata(struct udata_ctx* ctx, int action, void *arg)
 
         // See if the next layer down will also be a sub-object access
         bstr key;
-        char *rem;
+        const char *rem;
         bool has_split = m_property_split_path(act->key, &key, &rem);
 
         if (!has_split && act->action == M_PROPERTY_DELETE) {
