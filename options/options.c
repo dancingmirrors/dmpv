@@ -477,6 +477,7 @@ static const m_option_t mp_opts[] = {
         M_RANGE(0, INFINITY)},
 
      {"index", OPT_CHOICE(index_mode, {"default", 1}, {"recreate", 0})},
+     {"idx", OPT_ALIAS("index")},
 
     // select audio/video/subtitle stream
     // keep in sync with num_ptracks[] and MAX_PTRACKS
