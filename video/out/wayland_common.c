@@ -1384,7 +1384,7 @@ static void feedback_presented(void *data, struct wp_presentation_feedback *fbac
 
     bool current_zero_copy = flags & WP_PRESENTATION_FEEDBACK_KIND_ZERO_COPY;
     if (fback_pool->last_zero_copy == -1 || fback_pool->last_zero_copy != current_zero_copy) {
-        MP_DBG(wl, "Presentation was done with %s.\n",
+        MP_VERBOSE(wl, "Presentation was done with %s.\n",
                  current_zero_copy ? "direct scanout" : "a copy");
         fback_pool->last_zero_copy = current_zero_copy;
     }
