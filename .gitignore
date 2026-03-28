@@ -1,0 +1,5 @@
+*.gch
+*.o
+/TOOLS/__pycache__
+__pycache__
+build

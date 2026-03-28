@@ -1,0 +1,211 @@
+name: dmpv
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: actions/checkout@v6
+        uses: actions/checkout@v6
+
+      - name: check whitespace
+        run: |
+          ./TOOLS/check-whitespace.sh
+
+      - name: Setup ccache
+        uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: dependencies
+        run: |
+          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get update
+          sudo apt-get install -y build-essential ccache clang gcc git meson nasm ninja-build yasm
+          sudo apt-get build-dep -y mpv
+          sudo apt-get install -y libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev \
+                       libavfilter-dev libswscale-dev libswresample-dev libpostproc-dev \
+                       libplacebo-dev
+
+          sudo apt-get build-dep -y libxkbcommon wayland-protocols
+
+          set -x
+
+          git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland.git --branch 1.24
+          cd wayland
+          meson setup --prefix=/usr/local -Ddocumentation=false build
+          meson compile -C build
+          sudo ninja -C build install
+
+          git clone --depth 1 https://gitlab.freedesktop.org/wayland/wayland-protocols.git --branch 1.47
+          cd wayland-protocols
+          meson setup --prefix=/usr/local build
+          meson compile -C build
+          sudo ninja -C build install
+
+          git clone --depth 1 https://github.com/ffmpeg/ffmpeg.git
+          cd ffmpeg
+          ./configure --enable-shared --prefix=/usr/local
+          make -j4
+          sudo make install
+
+          git clone --depth 1 --recursive https://github.com/haasn/libplacebo.git
+          cd libplacebo
+          meson setup --prefix=/usr/local build
+          meson compile -C build
+          sudo ninja -C build install
+
+          sudo ldconfig
+
+      - name: Configure ccache
+        run: |
+          if ! command -v ccache &> /dev/null; then
+            echo "Error: ccache is not installed"
+            exit 1
+          fi
+          ccache --version
+          ccache --set-config=cache_dir=$HOME/.ccache
+          ccache --set-config=max_size=999M
+          ccache --set-config=compression=true
+          ccache --zero-stats
+
+      - name: configure, build, install, test (GCC and clang)
+        run: |
+          set -x
+
+          sudo apt-get install -y --reinstall meson ninja-build
+
+          CFLAGS="-Werror" ./configure
+          CFLAGS="-Werror" make
+          sudo ninja -C build install
+          sudo ninja -C build uninstall
+
+          CC=clang CFLAGS="-Werror" ./configure
+          CC=clang CFLAGS="-Werror" make
+          sudo ninja -C build install
+          sudo ninja -C build uninstall
+
+          ./configure --enable-lgpl
+          ninja -C build
+          sudo ninja -C build install
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
+          sudo ninja -C build uninstall
+
+          CC=clang ./configure --enable-lgpl
+          ninja -C build
+          sudo ninja -C build install
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
+          sudo ninja -C build uninstall
+
+          ./configure
+          ninja -C build
+          sudo ninja -C build install
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
+
+          CC=clang ./configure
+          ninja -C build
+          sudo ninja -C build install
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH ldd /usr/local/bin/dmpv
+          LD_LIBRARY_PATH=/usr/local/lib/x86_64-linux-gnu:/usr/local/lib:LD_LIBRARY_PATH /usr/local/bin/dmpv
+
+          sudo rm -f /usr/local/lib/libav* /usr/local/lib/libplacebo*
+          sudo rm -f /usr/local/lib/x86_64-linux-gnu/libplacebo*
+          sudo rm -f /usr/local/lib/pkgconfig/*.pc
+          sudo rm -rf /usr/local/include/libav* /usr/local/include/libswscale /usr/local/include/libswresample /usr/local/include/libpostproc
+          sudo rm -rf /usr/local/include/libplacebo
+          sudo rm -f /usr/local/lib/x86_64-linux-gnu/pkgconfig/libplacebo.pc
+          sudo apt-get install -y --reinstall meson ninja-build
+
+          CFLAGS="-Werror" ./configure
+          CFLAGS="-Werror" ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          CC=clang CFLAGS="-Werror" ./configure
+          CFLAGS="-Werror" ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          ./configure --disable-libplacebo
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          CC=clang ./configure --disable-libplacebo
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          sudo apt-get purge -y libplacebo-dev
+          sudo apt-get install -y meson ninja-build
+          git clone --depth 1 --recursive --branch v6.338.2 https://github.com/haasn/libplacebo.git
+          cd libplacebo
+          meson setup --prefix=/usr/local build
+          meson compile -C build
+          sudo ninja -C build install
+          cd ..
+
+          sudo ldconfig
+
+          ./configure
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          CC=clang ./configure
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          ./configure --disable-gl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          ./configure --disable-egl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          CC=clang ./configure --disable-gl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          CC=clang ./configure --disable-egl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          ./configure --disable-gl --disable-egl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
+
+          CC=clang ./configure --disable-gl --disable-egl
+          ninja -C build
+          sudo ninja -C build install
+          ldd /usr/local/bin/dmpv
+          /usr/local/bin/dmpv
