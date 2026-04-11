@@ -122,7 +122,7 @@ const struct m_sub_options dec_wrapper_conf = {
         {"audio-spdif", OPT_STRING(audio_spdif),
             .help = decoder_list_help},
         {"video-rotate", OPT_CHOICE(video_rotate, {"no", -1}),
-            .flags = UPDATE_IMGPAR, M_RANGE(0, 359)},
+            .flags = UPDATE_IMGPAR, M_RANGE(0, INT_MAX)},
         {"video-aspect-override", OPT_ASPECT(movie_aspect),
             .flags = UPDATE_IMGPAR, M_RANGE(-1, 10)},
         {"video-aspect-method", OPT_CHOICE(aspect_method,
@@ -617,7 +617,7 @@ static void fix_image_params(struct priv *p,
     if (opts->video_rotate < 0) {
         m.rotate = 0;
     } else {
-        // ffmpeg commit 535a835e51 says that frame rotate takes priority
+        // FFmpeg commit 535a835e51 says that frame rotate takes priority.
         if (!m.rotate)
             m.rotate = p->codec->rotate;
         m.rotate = (m.rotate + opts->video_rotate) % 360;
