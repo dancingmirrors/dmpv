@@ -1,45 +1,47 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <float.h>
+#include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <math.h>
-#include <assert.h>
-#include <pthread.h>
 
 #include <libavutil/buffer.h>
 #include <libavutil/common.h>
+#include <libavutil/opt.h>
 #include <libavutil/rational.h>
 
 #include "options/options.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
+#include "osdep/compiler.h"
 #include "osdep/timer.h"
 #include "osdep/threads.h"
 
 #include "demux/demux.h"
 #include "demux/packet.h"
+#include "demux/packet_pool.h"
 
 #include "common/codecs.h"
 #include "common/global.h"
 #include "common/recorder.h"
 #include "misc/dispatch.h"
+#include "misc/mp_assert.h"
 
 #include "audio/aframe.h"
 #include "video/out/vo.h"
@@ -52,8 +54,9 @@
 #include "f_demux_in.h"
 #include "filter_internal.h"
 
+#include "config.h"
+
 struct dec_queue_opts {
-    bool use_queue;
     int64_t max_bytes;
     int64_t max_samples;
     double max_duration;
@@ -62,7 +65,6 @@ struct dec_queue_opts {
 #define OPT_BASE_STRUCT struct dec_queue_opts
 
 static const struct m_option dec_queue_opts_list[] = {
-    {"enable", OPT_BOOL(use_queue)},
     {"max-secs", OPT_DOUBLE(max_duration), M_RANGE(0, DBL_MAX)},
     {"max-bytes", OPT_BYTE_SIZE(max_bytes), M_RANGE(0, M_MAX_MEM_BYTES)},
     {"max-samples", OPT_INT64(max_samples), M_RANGE(0, DBL_MAX)},
@@ -93,7 +95,7 @@ static const struct m_sub_options adec_queue_conf = {
 #define OPT_BASE_STRUCT struct dec_wrapper_opts
 
 struct dec_wrapper_opts {
-    float movie_aspect;
+    double movie_aspect;
     int aspect_method;
     double force_fps;
     bool correct_pts;
@@ -121,7 +123,7 @@ const struct m_sub_options dec_wrapper_conf = {
         {"audio-spdif", OPT_STRING(audio_spdif),
             .help = decoder_list_help},
         {"video-rotate", OPT_CHOICE(video_rotate, {"no", -1}),
-            .flags = UPDATE_IMGPAR, M_RANGE(0, 359)},
+            .flags = UPDATE_IMGPAR, M_RANGE(0, INT_MAX)},
         {"video-aspect-override", OPT_ASPECT(movie_aspect),
             .flags = UPDATE_IMGPAR, M_RANGE(-1, 10)},
         {"video-aspect-method", OPT_CHOICE(aspect_method,
@@ -218,15 +220,16 @@ struct priv {
     struct mp_async_queue *queue; // decoded frame output queue
     struct mp_dispatch_queue *dec_dispatch; // non-NULL if decoding thread used
     bool dec_thread_lock; // debugging (esp. for no-thread case)
-    pthread_t dec_thread;
+    mp_thread dec_thread;
     bool dec_thread_valid;
-    pthread_mutex_t cache_lock;
+    mp_mutex cache_lock;
 
     // --- Protected by cache_lock.
     char *cur_hwdec;
     char *decoder_desc;
     bool try_spdif;
     bool attached_picture;
+    bool is_image; // still images
     bool pts_reset;
     int attempt_framedrops; // try dropping this many frames
     int dropped_frames; // total frames _probably_ dropped
@@ -256,15 +259,17 @@ static int decoder_list_help(struct mp_log *log, const m_option_t *opt,
 
 // Update cached values for main thread which require access to the decoder
 // thread state. Must run on/locked with decoder thread.
-static void update_cached_values(struct priv *p)
+static int update_cached_values(struct priv *p)
 {
-    pthread_mutex_lock(&p->cache_lock);
+    int res = CONTROL_UNKNOWN;
+    mp_mutex_lock(&p->cache_lock);
 
     p->cur_hwdec = NULL;
     if (p->decoder && p->decoder->control)
-        p->decoder->control(p->decoder->f, VDCTRL_GET_HWDEC, &p->cur_hwdec);
+        res = p->decoder->control(p->decoder->f, VDCTRL_GET_HWDEC, &p->cur_hwdec);
 
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
+    return res;
 }
 
 // Lock the decoder thread. This may synchronously wait until the decoder thread
@@ -276,14 +281,14 @@ static void thread_lock(struct priv *p)
     if (p->dec_dispatch)
         mp_dispatch_lock(p->dec_dispatch);
 
-    assert(!p->dec_thread_lock);
+    mp_assert(!p->dec_thread_lock);
     p->dec_thread_lock = true;
 }
 
 // Undo thread_lock().
 static void thread_unlock(struct priv *p)
 {
-    assert(p->dec_thread_lock);
+    mp_assert(p->dec_thread_lock);
     p->dec_thread_lock = false;
 
     if (p->dec_dispatch)
@@ -318,16 +323,16 @@ static void reset_decoder(struct priv *p)
 static void decf_reset(struct mp_filter *f)
 {
     struct priv *p = f->priv;
-    assert(p->decf == f);
+    mp_assert(p->decf == f);
 
     p->pts = MP_NOPTS_VALUE;
     p->last_format = p->fixed_format = (struct mp_image_params){0};
 
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     p->pts_reset = false;
     p->attempt_framedrops = 0;
     p->dropped_frames = 0;
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
 
     p->coverart_returned = 0;
 
@@ -345,24 +350,25 @@ int mp_decoder_wrapper_control(struct mp_decoder_wrapper *d,
 {
     struct priv *p = d->f->priv;
     int res = CONTROL_UNKNOWN;
+    thread_lock(p);
     if (cmd == VDCTRL_GET_HWDEC) {
-        pthread_mutex_lock(&p->cache_lock);
+        res = update_cached_values(p);
+        mp_mutex_lock(&p->cache_lock);
         *(char **)arg = p->cur_hwdec;
-        pthread_mutex_unlock(&p->cache_lock);
+        mp_mutex_unlock(&p->cache_lock);
     } else {
-        thread_lock(p);
         if (p->decoder && p->decoder->control)
             res = p->decoder->control(p->decoder->f, cmd, arg);
         update_cached_values(p);
-        thread_unlock(p);
     }
+    thread_unlock(p);
     return res;
 }
 
 static void decf_destroy(struct mp_filter *f)
 {
     struct priv *p = f->priv;
-    assert(p->decf == f);
+    mp_assert(p->decf == f);
 
     if (p->decoder) {
         MP_DBG(f, "Uninit decoder.\n");
@@ -414,9 +420,9 @@ static bool reinit_decoder(struct priv *p)
         user_list = p->opts->audio_decoders;
         fallback = "aac";
 
-        pthread_mutex_lock(&p->cache_lock);
+        mp_mutex_lock(&p->cache_lock);
         bool try_spdif = p->try_spdif;
-        pthread_mutex_unlock(&p->cache_lock);
+        mp_mutex_unlock(&p->cache_lock);
 
         if (try_spdif && p->codec->codec) {
             struct mp_decoder_list *spdif =
@@ -430,10 +436,12 @@ static bool reinit_decoder(struct priv *p)
         }
     }
 
+    if (!driver)
+        return false;
+
     if (!list) {
         struct mp_decoder_list *full = talloc_zero(NULL, struct mp_decoder_list);
-        if (driver)
-            driver->add_decoders(full);
+        driver->add_decoders(full);
         const char *codec = p->codec->codec;
         if (codec && strcmp(codec, "null") == 0)
             codec = fallback;
@@ -449,11 +457,11 @@ static bool reinit_decoder(struct priv *p)
 
         p->decoder = driver->create(p->decf, p->codec, sel->decoder);
         if (p->decoder) {
-            pthread_mutex_lock(&p->cache_lock);
+            mp_mutex_lock(&p->cache_lock);
             p->decoder_desc =
                 talloc_asprintf(p, "%s (%s)", sel->decoder, sel->desc);
             MP_VERBOSE(p, "Selected codec: %s\n", p->decoder_desc);
-            pthread_mutex_unlock(&p->cache_lock);
+            mp_mutex_unlock(&p->cache_lock);
             break;
         }
 
@@ -471,6 +479,12 @@ static bool reinit_decoder(struct priv *p)
     return !!p->decoder;
 }
 
+static bool decoder_wrapper_reinit(struct mp_decoder_wrapper *d)
+{
+    struct priv *p = d->f->priv;
+    return reinit_decoder(p);
+}
+
 bool mp_decoder_wrapper_reinit(struct mp_decoder_wrapper *d)
 {
     struct priv *p = d->f->priv;
@@ -484,25 +498,25 @@ void mp_decoder_wrapper_get_desc(struct mp_decoder_wrapper *d,
                                  char *buf, size_t buf_size)
 {
     struct priv *p = d->f->priv;
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     snprintf(buf, buf_size, "%s", p->decoder_desc ? p->decoder_desc : "");
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
 }
 
 void mp_decoder_wrapper_set_frame_drops(struct mp_decoder_wrapper *d, int num)
 {
     struct priv *p = d->f->priv;
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     p->attempt_framedrops = num;
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
 }
 
 int mp_decoder_wrapper_get_frames_dropped(struct mp_decoder_wrapper *d)
 {
     struct priv *p = d->f->priv;
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     int res = p->dropped_frames;
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
     return res;
 }
 
@@ -518,25 +532,33 @@ double mp_decoder_wrapper_get_container_fps(struct mp_decoder_wrapper *d)
 void mp_decoder_wrapper_set_spdif_flag(struct mp_decoder_wrapper *d, bool spdif)
 {
     struct priv *p = d->f->priv;
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     p->try_spdif = spdif;
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
 }
 
 void mp_decoder_wrapper_set_coverart_flag(struct mp_decoder_wrapper *d, bool c)
 {
     struct priv *p = d->f->priv;
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     p->attached_picture = c;
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
+}
+
+void mp_decoder_wrapper_set_image_flag(struct mp_decoder_wrapper *d, bool is_image)
+{
+    struct priv *p = d->f->priv;
+    mp_mutex_lock(&p->cache_lock);
+    p->is_image = is_image;
+    mp_mutex_unlock(&p->cache_lock);
 }
 
 bool mp_decoder_wrapper_get_pts_reset(struct mp_decoder_wrapper *d)
 {
     struct priv *p = d->f->priv;
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     bool res = p->pts_reset;
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
     return res;
 }
 
@@ -596,7 +618,7 @@ static void fix_image_params(struct priv *p,
     if (opts->video_rotate < 0) {
         m.rotate = 0;
     } else {
-        // ffmpeg commit 535a835e51 says that frame rotate takes priority
+        // FFmpeg commit 535a835e51 says that frame rotate takes priority.
         if (!m.rotate)
             m.rotate = p->codec->rotate;
         m.rotate = (m.rotate + opts->video_rotate) % 360;
@@ -631,9 +653,9 @@ void mp_decoder_wrapper_get_video_dec_params(struct mp_decoder_wrapper *d,
     *m = p->dec_format;
 }
 
-// This code exists only because multimedia is so god damn crazy. In a sane
-// world, the video decoder would always output a video frame with a valid PTS;
-// this deals with cases where it doesn't.
+// This code exists only because multimedia is so crazy. In a sane world, the
+// video decoder would always output a video frame with a valid PTS; this deals
+// with cases where it doesn't.
 static void crazy_video_pts_stuff(struct priv *p, struct mp_image *mpi)
 {
     // Note: the PTS is reordered, but the DTS is not. Both must be monotonic.
@@ -687,7 +709,8 @@ static bool process_decoded_frame(struct priv *p, struct mp_frame *frame)
 
         crazy_video_pts_stuff(p, mpi);
 
-        struct demux_packet *ccpkt = new_demux_packet_from_buf(mpi->a53_cc);
+        struct demux_packet *ccpkt = new_demux_packet_from_buf(p->public.f->packet_pool,
+                                                               mpi->a53_cc);
         if (ccpkt) {
             av_buffer_unref(&mpi->a53_cc);
             ccpkt->pts = mpi->pts;
@@ -780,9 +803,9 @@ static void correct_audio_pts(struct priv *p, struct mp_aframe *aframe)
         if (p->pts != MP_NOPTS_VALUE && diff > 0.1) {
             MP_WARN(p, "Invalid audio PTS: %f -> %f\n", p->pts, frame_pts);
             if (diff >= 5) {
-                pthread_mutex_lock(&p->cache_lock);
+                mp_mutex_lock(&p->cache_lock);
                 p->pts_reset = true;
-                pthread_mutex_unlock(&p->cache_lock);
+                mp_mutex_unlock(&p->cache_lock);
             }
         }
 
@@ -813,6 +836,10 @@ static void process_output_frame(struct priv *p, struct mp_frame frame)
 
         mpi->params = p->fixed_format;
         mpi->nominal_fps = p->fps;
+
+        mp_mutex_lock(&p->cache_lock);
+        mpi->params.is_image = p->is_image;
+        mp_mutex_unlock(&p->cache_lock);
     } else if (frame.type == MP_FRAME_AUDIO) {
         struct mp_aframe *aframe = frame.data;
 
@@ -864,12 +891,12 @@ static void feed_packet(struct priv *p)
 
     // Flush current data if the packet is a new segment.
     if (is_new_segment(p, p->packet)) {
-        assert(!p->new_segment);
+        mp_assert(!p->new_segment);
         p->new_segment = p->packet.data;
         p->packet = MP_EOF_FRAME;
     }
 
-    assert(p->packet.type == MP_FRAME_PACKET || p->packet.type == MP_FRAME_EOF);
+    mp_assert(p->packet.type == MP_FRAME_PACKET || p->packet.type == MP_FRAME_EOF);
     struct demux_packet *packet =
         p->packet.type == MP_FRAME_PACKET ? p->packet.data : NULL;
 
@@ -882,10 +909,10 @@ static void feed_packet(struct priv *p)
 
         int framedrop_type = 0;
 
-        pthread_mutex_lock(&p->cache_lock);
+        mp_mutex_lock(&p->cache_lock);
         if (p->attempt_framedrops)
             framedrop_type = 1;
-        pthread_mutex_unlock(&p->cache_lock);
+        mp_mutex_unlock(&p->cache_lock);
 
         if (start_pts != MP_NOPTS_VALUE && packet && p->play_dir > 0 &&
             packet->pts < start_pts - .005 && !p->has_broken_packet_pts)
@@ -933,6 +960,8 @@ static void enqueue_backward_frame(struct priv *p, struct mp_frame frame)
         switch (p->header->type) {
         case STREAM_VIDEO: queue_size = opts->video_reverse_size; break;
         case STREAM_AUDIO: queue_size = opts->audio_reverse_size; break;
+        default:
+            break;
         }
 
         if (p->reverse_queue_byte_size >= queue_size) {
@@ -956,7 +985,12 @@ static void read_frame(struct priv *p)
     struct mp_pin *pin = p->decf->ppins[0];
     struct mp_frame frame = {0};
 
-    if (!p->decoder || !mp_pin_in_needs_data(pin))
+    if (!p->decoder) {
+        if (mp_pin_in_needs_data(pin))
+            mp_pin_in_write(pin, MP_EOF_FRAME);
+        return;
+    }
+    if (!mp_pin_in_needs_data(pin))
         return;
 
     if (p->decoded_coverart.type) {
@@ -983,7 +1017,7 @@ static void read_frame(struct priv *p)
     if (!frame.type)
         return;
 
-    pthread_mutex_lock(&p->cache_lock);
+    mp_mutex_lock(&p->cache_lock);
     if (p->attached_picture && frame.type == MP_FRAME_VIDEO)
         p->decoded_coverart = frame;
     if (p->attempt_framedrops) {
@@ -991,7 +1025,7 @@ static void read_frame(struct priv *p)
         p->attempt_framedrops = MPMAX(0, p->attempt_framedrops - dropped);
         p->dropped_frames += dropped;
     }
-    pthread_mutex_unlock(&p->cache_lock);
+    mp_mutex_unlock(&p->cache_lock);
 
     if (p->decoded_coverart.type) {
         mp_filter_internal_mark_progress(p->decf);
@@ -1027,7 +1061,7 @@ static void read_frame(struct priv *p)
         if (new_segment->segmented) {
             if (p->codec != new_segment->codec) {
                 p->codec = new_segment->codec;
-                if (!mp_decoder_wrapper_reinit(&p->public))
+                if (!decoder_wrapper_reinit(&p->public))
                     mp_filter_internal_mark_failed(p->decf);
             }
 
@@ -1069,7 +1103,7 @@ static void update_queue_config(struct priv *p)
 static void decf_process(struct mp_filter *f)
 {
     struct priv *p = f->priv;
-    assert(p->decf == f);
+    mp_assert(p->decf == f);
 
     if (m_config_cache_update(p->opt_cache))
         update_queue_config(p);
@@ -1078,7 +1112,7 @@ static void decf_process(struct mp_filter *f)
     read_frame(p);
 }
 
-static void *dec_thread(void *ptr)
+static MP_THREAD_VOID dec_thread(void *ptr)
 {
     struct priv *p = ptr;
 
@@ -1086,8 +1120,10 @@ static void *dec_thread(void *ptr)
     switch (p->header->type) {
     case STREAM_VIDEO: t_name = "vdec"; break;
     case STREAM_AUDIO: t_name = "adec"; break;
+    default:
+        break;
     }
-    mpthread_set_name(t_name);
+    mp_thread_set_name(t_name);
 
     while (!p->request_terminate_dec_thread) {
         mp_filter_graph_run(p->dec_root_filter);
@@ -1095,19 +1131,18 @@ static void *dec_thread(void *ptr)
         mp_dispatch_queue_process(p->dec_dispatch, INFINITY);
     }
 
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 static void public_f_reset(struct mp_filter *f)
 {
     struct priv *p = f->priv;
-    assert(p->public.f == f);
+    mp_assert(p->public.f == f);
 
     if (p->queue) {
         mp_async_queue_reset(p->queue);
         thread_lock(p);
-        if (p->dec_root_filter)
-            mp_filter_reset(p->dec_root_filter);
+        mp_filter_reset(p->dec_root_filter);
         mp_dispatch_interrupt(p->dec_dispatch);
         thread_unlock(p);
         mp_async_queue_resume(p->queue);
@@ -1117,15 +1152,15 @@ static void public_f_reset(struct mp_filter *f)
 static void public_f_destroy(struct mp_filter *f)
 {
     struct priv *p = f->priv;
-    assert(p->public.f == f);
+    mp_assert(p->public.f == f);
 
     if (p->dec_thread_valid) {
-        assert(p->dec_dispatch);
+        mp_assert(p->dec_dispatch);
         thread_lock(p);
         p->request_terminate_dec_thread = 1;
         mp_dispatch_interrupt(p->dec_dispatch);
         thread_unlock(p);
-        pthread_join(p->dec_thread, NULL);
+        mp_thread_join(p->dec_thread);
         p->dec_thread_valid = false;
     }
 
@@ -1133,7 +1168,7 @@ static void public_f_destroy(struct mp_filter *f)
 
     talloc_free(p->dec_root_filter);
     talloc_free(p->queue);
-    pthread_mutex_destroy(&p->cache_lock);
+    mp_mutex_destroy(&p->cache_lock);
 }
 
 static const struct mp_filter_info decf_filter = {
@@ -1150,6 +1185,7 @@ static const struct mp_filter_info decode_wrapper_filter = {
     .destroy = public_f_destroy,
 };
 
+#if LIBAVUTIL_VERSION_MAJOR >= 60
 static void wakeup_dec_thread(void *ptr)
 {
     struct priv *p = ptr;
@@ -1163,6 +1199,7 @@ static void onlock_dec_thread(void *ptr)
 
     mp_filter_graph_interrupt(p->dec_root_filter);
 }
+#endif
 
 struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
                                                      struct sh_stream *src)
@@ -1174,7 +1211,7 @@ struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
     struct priv *p = public_f->priv;
     p->public.f = public_f;
 
-    pthread_mutex_init(&p->cache_lock, NULL);
+    mp_mutex_init(&p->cache_lock);
     p->opt_cache = m_config_cache_alloc(p, public_f->global, &dec_wrapper_conf);
     p->opts = p->opt_cache->opts;
     p->header = src;
@@ -1203,7 +1240,8 @@ struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
         goto error;
     }
 
-    if (p->queue_opts && p->queue_opts->use_queue) {
+#if LIBAVUTIL_VERSION_MAJOR >= 60
+    if (p->queue_opts) {
         p->queue = mp_async_queue_create();
         p->dec_dispatch = mp_dispatch_create(p);
         p->dec_root_filter = mp_filter_create_root(public_f->global);
@@ -1221,9 +1259,12 @@ struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
 
         update_queue_config(p);
     }
+#endif
 
     p->decf = mp_filter_create(p->dec_root_filter ? p->dec_root_filter : public_f,
                                &decf_filter);
+    if (!p->decf)
+        goto error;
     p->decf->priv = p;
     p->decf->log = public_f->log = p->log;
     mp_filter_add_pin(p->decf, MP_PIN_OUT, "out");
@@ -1244,7 +1285,7 @@ struct mp_decoder_wrapper *mp_decoder_wrapper_create(struct mp_filter *parent,
         mp_pin_connect(f_out->pins[0], p->decf->pins[0]);
 
         p->dec_thread_valid = true;
-        if (pthread_create(&p->dec_thread, NULL, dec_thread, p)) {
+        if (mp_thread_create(&p->dec_thread, dec_thread, p)) {
             p->dec_thread_valid = false;
             goto error;
         }
@@ -1305,7 +1346,7 @@ void lavc_process(struct mp_filter *f, struct lavc_state *state,
             return;
         }
         state->packets_sent = true;
-        talloc_free(pkt);
+        demux_packet_pool_push(f->packet_pool, pkt);
         mp_filter_internal_mark_progress(f);
     } else {
         // Decoding error, or hwdec fallback recovery. Just try again.

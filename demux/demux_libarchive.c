@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <archive.h>
@@ -20,7 +20,7 @@
 
 #include "common/common.h"
 #include "common/playlist.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "stream/stream.h"
 #include "misc/natural_sort.h"
 #include "demux.h"
@@ -91,7 +91,7 @@ static int open_file(struct demuxer *demuxer, enum demux_check check)
         qsort(files, num_files, sizeof(files[0]), cmp_filename);
 
     for (int n = 0; n < num_files; n++)
-        playlist_add_file(pl, files[n]);
+        playlist_append_file(pl, files[n]);
 
     playlist_set_stream_flags(pl, demuxer->stream_origin);
 

@@ -1,30 +1,32 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
 #include <limits.h>
 
 #include "common/common.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
+#include "options/options.h"
 
 #include "demux.h"
-#include "timeline.h"
 #include "stheader.h"
 #include "stream/stream.h"
+#include "timeline.h"
 
 struct segment {
     int index; // index into virtual_source.segments[] (and timeline.parts[])
@@ -57,6 +59,7 @@ struct virtual_source {
     struct timeline_par *tl;
 
     bool dash, no_clip, delay_open;
+    bool rebase;
 
     struct segment **segments;
     int num_segments;
@@ -210,16 +213,15 @@ static void reopen_lazy_segments(struct demuxer *demuxer,
     if (src->current->d)
         return;
 
-    // Note: in delay_open mode, we must _not_ close segments during demuxing,
+    // Note: we must _not_ close segments during demuxing,
     // because demuxed packets have demux_packet.codec set to objects owned
     // by the segments. Closing them would create dangling pointers.
-    if (!src->delay_open)
-        close_lazy_segments(demuxer, src);
 
     struct demuxer_params params = {
         .init_fragment = src->tl->init_fragment,
         .skip_lavf_probing = src->tl->dash,
         .stream_flags = demuxer->stream_origin,
+        .depth = demuxer->depth + 1,
     };
     src->current->d = demux_open_url(src->current->url, &params,
                                      demuxer->cancel, demuxer->global);
@@ -249,6 +251,8 @@ static void switch_segment(struct demuxer *demuxer, struct virtual_source *src,
     reselect_streams(demuxer);
     if (!src->no_clip)
         demux_set_ts_offset(new->d, new->start - new->d_start);
+    else if (src->rebase)
+        demux_set_ts_offset(new->d, new->start - new->d->start_time);
     if (!src->no_clip || !init)
         demux_seek(new->d, start_pts, flags);
 
@@ -543,6 +547,7 @@ static bool add_tl(struct demuxer *demuxer, struct timeline_par *tl)
 {
     struct priv *p = demuxer->priv;
 
+    struct MPOpts *mp_opts = mp_get_config_group(NULL, demuxer->global, &mp_opt_root);
     struct virtual_source *src = talloc_ptrtype(p, src);
     *src = (struct virtual_source){
         .tl = tl,
@@ -550,7 +555,9 @@ static bool add_tl(struct demuxer *demuxer, struct timeline_par *tl)
         .delay_open = tl->delay_open,
         .no_clip = tl->no_clip || tl->dash,
         .dts = MP_NOPTS_VALUE,
+        .rebase = tl->delay_open && mp_opts->rebase_start_time,
     };
+    TA_FREEP(&mp_opts);
 
     if (!tl->num_parts)
         return false;
@@ -595,7 +602,7 @@ static bool add_tl(struct demuxer *demuxer, struct timeline_par *tl)
             .sh = new,
         };
         MP_TARRAY_APPEND(p, p->streams, p->num_streams, vs);
-        assert(demux_get_stream(demuxer, p->num_streams - 1) == new);
+        mp_assert(demux_get_stream(demuxer, p->num_streams - 1) == new);
         MP_TARRAY_APPEND(src, src->streams, src->num_streams, vs);
     }
 
@@ -610,7 +617,7 @@ static bool add_tl(struct demuxer *demuxer, struct timeline_par *tl)
         }
 
         if (!part->source)
-            assert(tl->dash || tl->delay_open);
+            mp_assert(tl->dash || tl->delay_open);
 
         struct segment *seg = talloc_ptrtype(src, seg);
         *seg = (struct segment){

@@ -20,7 +20,7 @@ typedef struct mp_vo_opts {
     bool all_workspaces;
     bool window_minimized;
     bool window_maximized;
-    bool focus_on_open;
+    bool focus_on;
 
     int screen_id;
     char *screen_name;
@@ -28,7 +28,6 @@ typedef struct mp_vo_opts {
     char *fsscreen_name;
     char *winname;
     char *appid;
-    int content_type;
     int x11_netwm;
     int x11_bypass_compositor;
     int x11_present;
@@ -50,7 +49,6 @@ typedef struct mp_vo_opts {
     struct m_geometry autofit_smaller;
     double window_scale;
 
-    bool auto_window_resize;
     bool keepaspect;
     bool keepaspect_window;
     bool hidpi_window_scale;
@@ -63,13 +61,9 @@ typedef struct mp_vo_opts {
     bool force_render;
     bool force_window_position;
 
-    char *mmcss_profile;
-
     double override_display_fps;
     double timing_offset;
     int video_sync;
-
-    struct m_geometry android_surface_size;
 
     int swapchain_depth;  // max number of images to render ahead
 } mp_vo_opts;
@@ -116,10 +110,10 @@ struct mp_subtitle_opts {
 struct mp_sub_filter_opts {
     bool sub_filter_SDH;
     bool sub_filter_SDH_harder;
+    char *sub_filter_SDH_enclosures;
     bool rf_enable;
     bool rf_plain;
     char **rf_items;
-    char **jsre_items;
     bool rf_warn;
 };
 
@@ -132,6 +126,7 @@ struct mp_osd_render_opts {
     bool osd_scale_by_window;
     struct osd_style_opts *osd_style;
     bool force_rgba_osd;
+    int osd_shaper;
 };
 
 typedef struct MPOpts {
@@ -151,15 +146,14 @@ typedef struct MPOpts {
     char **reset_options;
     char **script_files;
     char **script_opts;
-    bool lua_load_osc;
+    bool lua_load_stats;
+    bool lua_load_360_sbs;
+    bool lua_load_360_sg;
+    bool auto_load_scripts;
+    bool lua_load_positioning;
     bool lua_load_ytdl;
     char *lua_ytdl_format;
     char **lua_ytdl_raw_options;
-    bool lua_load_stats;
-    bool lua_load_console;
-    int lua_load_auto_profiles;
-
-    bool auto_load_scripts;
 
     bool audio_exclusive;
     bool ao_null_fallback;
@@ -196,10 +190,10 @@ typedef struct MPOpts {
     bool osd_fractions;
     int osd_on_seek;
     bool video_osd;
+    bool osd_preload;
 
     bool untimed;
     char *stream_dump;
-    char *record_file;
     bool stop_playback_on_init_failure;
     int loop_times;
     int loop_file;
@@ -223,6 +217,7 @@ typedef struct MPOpts {
     int hr_seek;
     float hr_seek_demuxer_offset;
     bool hr_seek_framedrop;
+    bool seek_mute;
     float audio_delay;
     float default_max_pts_correction;
     int autosync;
@@ -258,6 +253,7 @@ typedef struct MPOpts {
     char *watch_later_directory;
     char **watch_later_options;
     bool pause;
+    bool pause_images;
     int keep_open;
     bool keep_open_pause;
     double image_display_duration;
@@ -271,11 +267,12 @@ typedef struct MPOpts {
     int audio_display;
     char **display_tags;
 
+    bool image_correct_downscaling;
+
     char **audio_files;
     char *demuxer_name;
     bool demuxer_thread;
     double demux_termination_timeout;
-    bool demuxer_cache_wait;
     bool prefetch_open;
     char *audio_demuxer_name;
     char *sub_demuxer_name;
@@ -296,8 +293,8 @@ typedef struct MPOpts {
     int force_srate;
     double playback_speed;
     bool pitch_correction;
-    struct m_obj_settings *vf_settings, *vf_defs;
-    struct m_obj_settings *af_settings, *af_defs;
+    struct m_obj_settings *vf_settings;
+    struct m_obj_settings *af_settings;
     struct filter_opts *filter_opts;
     struct dec_wrapper_opts *dec_wrapper;
     char **sub_name;
@@ -307,19 +304,16 @@ typedef struct MPOpts {
     char **external_files;
     bool autoload_files;
     int sub_auto;
+    char **sub_auto_exts;
     int audiofile_auto;
+    char **audiofile_auto_exts;
     int coverart_auto;
+    char **coverart_auto_exts;
     bool coverart_whitelist;
     bool osd_bar_visible;
 
-    int w32_priority;
-
-    struct cdda_params *stream_cdda_opts;
-    struct dvb_params *stream_dvb_opts;
-    struct stream_lavf_params *stream_lavf_opts;
-
-    char *cdrom_device;
-    char *bluray_device;
+    struct mp_network_opts *network_opts;
+    struct stream_lavf_opts *stream_lavf_opts;
 
     double mf_fps;
     char *mf_type;
@@ -346,43 +340,26 @@ typedef struct MPOpts {
     char *ipc_path;
     char *ipc_client;
 
-    int wingl_dwm_flush;
-
     struct mp_resample_opts *resample_opts;
-
     struct ra_ctx_opts *ra_ctx_opts;
     struct gl_video_opts *gl_video_opts;
-    struct angle_opts *angle_opts;
     struct opengl_opts *opengl_opts;
     struct vulkan_opts *vulkan_opts;
     struct vulkan_display_opts *vulkan_display_opts;
-    struct spirv_opts *spirv_opts;
-    struct d3d11_opts *d3d11_opts;
-    struct d3d11va_opts *d3d11va_opts;
-    struct cocoa_opts *cocoa_opts;
-    struct macos_opts *macos_opts;
     struct drm_opts *drm_opts;
     struct wayland_opts *wayland_opts;
-    struct dvd_opts *dvd_opts;
     struct vaapi_opts *vaapi_opts;
     struct sws_opts *sws_opts;
     struct zimg_opts *zimg_opts;
-
-    int cuda_device;
+    struct egl_opts *egl_opts;
 } MPOpts;
 
-struct dvd_opts {
-    int angle;
-    int speed;
-    char *device;
-};
-
 struct filter_opts {
-    bool deinterlace;
+    int deinterlace;
+    int field_parity;
 };
 
 extern const struct m_sub_options vo_sub_opts;
-extern const struct m_sub_options dvd_conf;
 extern const struct m_sub_options mp_subtitle_sub_opts;
 extern const struct m_sub_options mp_sub_filter_opts;
 extern const struct m_sub_options mp_osd_render_sub_opts;

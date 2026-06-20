@@ -1,43 +1,44 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <assert.h>
-
-#include <libswscale/swscale.h>
-#include <libavcodec/avcodec.h>
-#include <libavutil/bswap.h>
-#include <libavutil/opt.h>
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
-#include <libavutil/pixdesc.h>
-#endif
 
 #include "config.h"
 
-#include "sws_utils.h"
+#include <libavutil/bswap.h>
+#include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+
+#if HAVE_VULKAN_SWS
+#include <libavutil/error.h>
+#include <libavutil/hwcontext.h>
+#endif
 
 #include "common/common.h"
-#include "options/m_config.h"
+#include "common/msg.h"
+#include "csputils.h"
+#include "fmt-conversion.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
+#include "osdep/endian.h"
+#include "sws_utils.h"
 #include "video/mp_image.h"
 #include "video/img_format.h"
-#include "fmt-conversion.h"
-#include "csputils.h"
-#include "common/msg.h"
-#include "osdep/endian.h"
 
 #if HAVE_ZIMG
 #include "zimg.h"
@@ -55,6 +56,7 @@ struct sws_opts {
     bool fast;
     bool bitexact;
     bool zimg;
+    bool vulkan;
 };
 
 #define OPT_BASE_STRUCT struct sws_opts
@@ -74,19 +76,21 @@ const struct m_sub_options sws_conf = {
             {"spline",          SWS_SPLINE})},
         {"lgb", OPT_FLOAT(lum_gblur), M_RANGE(0, 100.0)},
         {"cgb", OPT_FLOAT(chr_gblur), M_RANGE(0, 100.0)},
-        {"cvs", OPT_INT(chr_vshift)},
-        {"chs", OPT_INT(chr_hshift)},
+        {"cvs", OPT_INT(chr_vshift), M_RANGE(-100, 100)},
+        {"chs", OPT_INT(chr_hshift), M_RANGE(-100, 100)},
         {"ls", OPT_FLOAT(lum_sharpen), M_RANGE(-100.0, 100.0)},
         {"cs", OPT_FLOAT(chr_sharpen), M_RANGE(-100.0, 100.0)},
         {"fast", OPT_BOOL(fast)},
         {"bitexact", OPT_BOOL(bitexact)},
         {"allow-zimg", OPT_BOOL(zimg)},
+        {"allow-vulkan", OPT_BOOL(vulkan)},
         {0}
     },
     .size = sizeof(struct sws_opts),
     .defaults = &(const struct sws_opts){
-        .scaler = SWS_LANCZOS,
+        .scaler = SWS_BILINEAR,
         .zimg = true,
+        .fast = true,
     },
 };
 
@@ -95,7 +99,7 @@ static const int mp_sws_hq_flags = SWS_FULL_CHR_H_INT | SWS_FULL_CHR_H_INP |
                                    SWS_ACCURATE_RND;
 
 // Fast, lossy.
-const int mp_sws_fast_flags = SWS_BILINEAR;
+const int mp_sws_fast_flags = SWS_FAST_BILINEAR;
 
 // Set ctx parameters to global command line flags.
 static void mp_sws_update_from_cmdline(struct mp_sws_context *ctx)
@@ -117,6 +121,7 @@ static void mp_sws_update_from_cmdline(struct mp_sws_context *ctx)
         ctx->flags |= SWS_BITEXACT;
 
     ctx->allow_zimg = opts->zimg;
+    ctx->allow_vulkan = opts->vulkan;
 }
 
 bool mp_sws_supported_format(int imgfmt)
@@ -140,9 +145,24 @@ static bool allow_sws(struct mp_sws_context *ctx)
     return ctx->force_scaler == MP_SWS_SWS || ctx->force_scaler == MP_SWS_AUTO;
 }
 
+static bool allow_vulkan(struct mp_sws_context *ctx)
+{
+    return ctx->force_scaler == MP_SWS_VULKAN ||
+           (ctx->force_scaler == MP_SWS_AUTO && ctx->allow_vulkan);
+}
+
 bool mp_sws_supports_formats(struct mp_sws_context *ctx,
                              int imgfmt_out, int imgfmt_in)
 {
+#if HAVE_VULKAN_SWS
+    if (allow_vulkan(ctx) && sws_test_hw_format(AV_PIX_FMT_VULKAN)) {
+        enum AVPixelFormat s = imgfmt2pixfmt(imgfmt_in);
+        enum AVPixelFormat d = imgfmt2pixfmt(imgfmt_out);
+        return s != AV_PIX_FMT_NONE && d != AV_PIX_FMT_NONE &&
+               sws_isSupportedInput(s) && sws_isSupportedOutput(d);
+    }
+#endif
+
 #if HAVE_ZIMG
     if (allow_zimg(ctx)) {
         if (mp_zimg_supports_in_format(imgfmt_in) &&
@@ -184,6 +204,11 @@ static void free_mp_sws(void *p)
     sws_freeFilter(ctx->dst_filter);
     TA_FREEP(&ctx->aligned_src);
     TA_FREEP(&ctx->aligned_dst);
+#if HAVE_VULKAN_SWS
+    av_buffer_unref(&ctx->vulkan_hw_device);
+    av_buffer_unref(&ctx->vulkan_src_frames);
+    av_buffer_unref(&ctx->vulkan_dst_frames);
+#endif
 }
 
 // You're supposed to set your scaling parameters on the returned context.
@@ -211,7 +236,7 @@ struct mp_sws_context *mp_sws_alloc(void *talloc_ctx)
 // Enable auto-update of parameters from command line. Don't try to set custom
 // options (other than possibly .src/.dst), because they might be overwritten
 // if the user changes any options.
-void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct mpv_global *g)
+void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct dmpv_global *g)
 {
     // Should only ever be NULL for tests.
     if (!g)
@@ -227,6 +252,166 @@ void mp_sws_enable_cmdline_opts(struct mp_sws_context *ctx, struct mpv_global *g
     mp_zimg_enable_cmdline_opts(ctx->zimg, g);
 #endif
 }
+
+#if HAVE_VULKAN_SWS
+static int create_vulkan_frames_ctx(AVBufferRef **out, AVBufferRef *device_ref,
+                                    enum AVPixelFormat sw_fmt, int w, int h)
+{
+    AVBufferRef *ref = av_hwframe_ctx_alloc(device_ref);
+    if (!ref)
+        return AVERROR(ENOMEM);
+
+    AVHWFramesContext *fc = (AVHWFramesContext *)ref->data;
+    fc->format            = AV_PIX_FMT_VULKAN;
+    fc->sw_format         = sw_fmt;
+    fc->width             = w;
+    fc->height            = h;
+    fc->initial_pool_size = 2;
+
+    int ret = av_hwframe_ctx_init(ref);
+    if (ret < 0) {
+        av_buffer_unref(&ref);
+        return ret;
+    }
+
+    *out = ref;
+    return 0;
+}
+
+static int reinit_vulkan(struct mp_sws_context *ctx)
+{
+    if (!sws_test_hw_format(AV_PIX_FMT_VULKAN)) {
+        return 0;
+    }
+
+    if (!ctx->vulkan_hw_device) {
+        int ret = av_hwdevice_ctx_create(&ctx->vulkan_hw_device,
+                                         AV_HWDEVICE_TYPE_VULKAN,
+                                         NULL, NULL, 0);
+        if (ret < 0) {
+            return 0;
+        }
+        MP_VERBOSE(ctx, "Created Vulkan device for swscale.\n");
+    }
+
+    av_buffer_unref(&ctx->vulkan_src_frames);
+    av_buffer_unref(&ctx->vulkan_dst_frames);
+
+    enum AVPixelFormat s_fmt = imgfmt2pixfmt(ctx->src.imgfmt);
+    enum AVPixelFormat d_fmt = imgfmt2pixfmt(ctx->dst.imgfmt);
+    if (s_fmt == AV_PIX_FMT_NONE || d_fmt == AV_PIX_FMT_NONE) {
+        return 0;
+    }
+
+    int ret = create_vulkan_frames_ctx(&ctx->vulkan_src_frames,
+                                       ctx->vulkan_hw_device,
+                                       s_fmt, ctx->src.w, ctx->src.h);
+    if (ret < 0) {
+        return 0;
+    }
+
+    ret = create_vulkan_frames_ctx(&ctx->vulkan_dst_frames,
+                                   ctx->vulkan_hw_device,
+                                   d_fmt, ctx->dst.w, ctx->dst.h);
+    if (ret < 0) {
+        av_buffer_unref(&ctx->vulkan_src_frames);
+        return 0;
+    }
+
+    sws_freeContext(ctx->sws);
+    ctx->sws = sws_alloc_context();
+    if (!ctx->sws) {
+        av_buffer_unref(&ctx->vulkan_src_frames);
+        av_buffer_unref(&ctx->vulkan_dst_frames);
+        return -1;
+    }
+    ctx->sws->flags = ctx->flags | SWS_UNSTABLE;
+
+    MP_INFO(ctx, "Vulkan swscale (%s -> %s).\n",
+            av_get_pix_fmt_name(s_fmt), av_get_pix_fmt_name(d_fmt));
+    ctx->vulkan_ok = true;
+    return 1;
+}
+
+static int scale_vulkan(struct mp_sws_context *ctx,
+                        struct mp_image *dst, struct mp_image *src)
+{
+    int ret = -1;
+    AVFrame *vk_src = NULL, *vk_dst = NULL;
+    AVFrame *sw_src = NULL, *sw_dst = NULL;
+
+    sw_src = mp_image_to_av_frame(src);
+    if (!sw_src)
+        goto done;
+
+    vk_src = av_frame_alloc();
+    if (!vk_src)
+        goto done;
+
+    ret = av_hwframe_get_buffer(ctx->vulkan_src_frames, vk_src, 0);
+    if (ret < 0) {
+        MP_ERR(ctx, "Vulkan swscale: failed to alloc src frame: %s\n",
+               av_err2str(ret));
+        ret = -1;
+        goto done;
+    }
+
+    ret = av_hwframe_transfer_data(vk_src, sw_src, 0);
+    if (ret < 0) {
+        MP_ERR(ctx, "Vulkan swscale: upload failed: %s\n", av_err2str(ret));
+        ret = -1;
+        goto done;
+    }
+    av_frame_copy_props(vk_src, sw_src);
+
+    vk_dst = av_frame_alloc();
+    if (!vk_dst) {
+        ret = -1;
+        goto done;
+    }
+
+    ret = av_hwframe_get_buffer(ctx->vulkan_dst_frames, vk_dst, 0);
+    if (ret < 0) {
+        MP_ERR(ctx, "Vulkan swscale: failed to alloc dst frame: %s\n",
+               av_err2str(ret));
+        ret = -1;
+        goto done;
+    }
+
+    ret = sws_scale_frame(ctx->sws, vk_dst, vk_src);
+    if (ret < 0) {
+        AVHWFramesContext *sfc = (AVHWFramesContext *)ctx->vulkan_src_frames->data;
+        AVHWFramesContext *dfc = (AVHWFramesContext *)ctx->vulkan_dst_frames->data;
+        MP_ERR(ctx, "Vulkan swscale: sws_scale_frame failed: %s "
+                    "(src %s %dx%d -> dst %s %dx%d\n", av_err2str(ret),
+               av_get_pix_fmt_name(sfc->sw_format), ctx->src.w, ctx->src.h,
+               av_get_pix_fmt_name(dfc->sw_format), ctx->dst.w, ctx->dst.h);
+        ret = -1;
+        goto done;
+    }
+
+    sw_dst = mp_image_to_av_frame(dst);
+    if (!sw_dst) {
+        ret = -1;
+        goto done;
+    }
+
+    ret = av_hwframe_transfer_data(sw_dst, vk_dst, 0);
+    if (ret < 0) {
+        MP_ERR(ctx, "Vulkan swscale: download failed: %s\n", av_err2str(ret));
+        ret = -1;
+        goto done;
+    }
+
+    ret = 0;
+done:
+    av_frame_free(&sw_src);
+    av_frame_free(&sw_dst);
+    av_frame_free(&vk_src);
+    av_frame_free(&vk_dst);
+    return ret;
+}
+#endif /* HAVE_VULKAN_SWS */
 
 // Reinitialize (if needed) - return error code.
 // Optional, but possibly useful to avoid having to handle mp_sws_scale errors.
@@ -247,6 +432,26 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
     TA_FREEP(&ctx->aligned_src);
     TA_FREEP(&ctx->aligned_dst);
 
+#if HAVE_VULKAN_SWS
+    ctx->vulkan_ok = false;
+    av_buffer_unref(&ctx->vulkan_src_frames);
+    av_buffer_unref(&ctx->vulkan_dst_frames);
+
+    if (allow_vulkan(ctx)) {
+        int vret = reinit_vulkan(ctx);
+        if (vret < 0)
+            return -1;
+        if (vret > 0)
+            goto success;
+    }
+#else
+    if (allow_vulkan(ctx)) {
+        if (ctx->force_scaler == MP_SWS_VULKAN) {
+            return -1;
+        }
+    }
+#endif
+
 #if HAVE_ZIMG
     if (allow_zimg(ctx)) {
         ctx->zimg->log = ctx->log;
@@ -259,7 +464,7 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
             MP_VERBOSE(ctx, "Using zimg.\n");
             goto success;
         }
-        MP_WARN(ctx, "Not using zimg, falling back to swscale.\n");
+        MP_WARN(ctx, "Not using zimg; falling back to swscale.\n");
     }
 #endif
 
@@ -311,7 +516,7 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
     int cr_src = mp_chroma_location_to_av(src.chroma_location);
     int cr_dst = mp_chroma_location_to_av(dst.chroma_location);
     int cr_xpos, cr_ypos;
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+
     if (av_chroma_location_enum_to_pos(&cr_xpos, &cr_ypos, cr_src) >= 0) {
         av_opt_set_int(ctx->sws, "src_h_chr_pos", cr_xpos, 0);
         av_opt_set_int(ctx->sws, "src_v_chr_pos", cr_ypos, 0);
@@ -320,16 +525,6 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
         av_opt_set_int(ctx->sws, "dst_h_chr_pos", cr_xpos, 0);
         av_opt_set_int(ctx->sws, "dst_v_chr_pos", cr_ypos, 0);
     }
-#else
-    if (avcodec_enum_to_chroma_pos(&cr_xpos, &cr_ypos, cr_src) >= 0) {
-        av_opt_set_int(ctx->sws, "src_h_chr_pos", cr_xpos, 0);
-        av_opt_set_int(ctx->sws, "src_v_chr_pos", cr_ypos, 0);
-    }
-    if (avcodec_enum_to_chroma_pos(&cr_xpos, &cr_ypos, cr_dst) >= 0) {
-        av_opt_set_int(ctx->sws, "dst_h_chr_pos", cr_xpos, 0);
-        av_opt_set_int(ctx->sws, "dst_v_chr_pos", cr_ypos, 0);
-    }
-#endif
 
     // This can fail even with normal operation, e.g. if a conversion path
     // simply does not support these settings.
@@ -342,7 +537,7 @@ int mp_sws_reinit(struct mp_sws_context *ctx)
     if (sws_init_context(ctx->sws, ctx->src_filter, ctx->dst_filter) < 0)
         return -1;
 
-#if HAVE_ZIMG
+#if HAVE_ZIMG || HAVE_VULKAN_SWS
 success:
 #endif
 
@@ -363,9 +558,9 @@ static struct mp_image *check_alignment(struct mp_log *log,
     // corrupting memory...
     // So use 32, a value that has been experimentally determined to be safe,
     // and which in most cases is not larger than decoder output. It is smaller
-    // or equal to what most image allocators in mpv/ffmpeg use.
+    // or equal to what most image allocators in dmpv/ffmpeg use.
     size_t align = 32;
-    assert(align <= MP_IMAGE_BYTE_ALIGN); // or mp_image_alloc will not cut it
+    mp_assert(align <= MP_IMAGE_BYTE_ALIGN); // or mp_image_alloc will not cut it
 
     bool is_aligned = true;
     for (int p = 0; p < img->num_planes; p++) {
@@ -401,6 +596,11 @@ int mp_sws_scale(struct mp_sws_context *ctx, struct mp_image *dst,
         MP_ERR(ctx, "libswscale initialization failed.\n");
         return r;
     }
+
+#if HAVE_VULKAN_SWS
+    if (ctx->vulkan_ok)
+        return scale_vulkan(ctx, dst, src);
+#endif
 
 #if HAVE_ZIMG
     if (ctx->zimg_ok)

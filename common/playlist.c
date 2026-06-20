@@ -1,31 +1,33 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include "playlist.h"
 #include "common/common.h"
 #include "common/global.h"
 #include "common/msg.h"
 #include "misc/random.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "options/path.h"
 
 #include "demux/demux.h"
 #include "stream/stream.h"
+
+#include <time.h>
 
 struct playlist_entry *playlist_entry_new(const char *filename)
 {
@@ -60,13 +62,23 @@ static void playlist_update_indexes(struct playlist *pl, int start, int end)
         pl->entries[n]->pl_index = n;
 }
 
-void playlist_add(struct playlist *pl, struct playlist_entry *add)
+// Inserts the entry so that it takes "at"'s place, shifting "at" and all
+// further entires to the right (or append to end, if at==NULL).
+void playlist_insert_at(struct playlist *pl, struct playlist_entry *add,
+                        struct playlist_entry *at)
 {
-    assert(add->filename);
-    MP_TARRAY_APPEND(pl, pl->entries, pl->num_entries, add);
+    mp_assert(add->filename);
+    mp_assert(!at || at->pl == pl);
+
+    int index = at ? at->pl_index : pl->num_entries;
+    MP_TARRAY_INSERT_AT(pl, pl->entries, pl->num_entries, index, add);
+
     add->pl = pl;
-    add->pl_index = pl->num_entries - 1;
+    add->pl_index = index;
     add->id = ++pl->id_alloc;
+
+    playlist_update_indexes(pl, index, pl->num_entries);
+
     talloc_steal(pl, add);
 }
 
@@ -74,14 +86,14 @@ void playlist_entry_unref(struct playlist_entry *e)
 {
     e->reserved--;
     if (e->reserved < 0) {
-        assert(!e->pl);
+        mp_assert(!e->pl);
         talloc_free(e);
     }
 }
 
 void playlist_remove(struct playlist *pl, struct playlist_entry *entry)
 {
-    assert(pl && entry->pl == pl);
+    mp_assert(pl && entry->pl == pl);
 
     if (pl->current == entry) {
         pl->current = playlist_entry_get_rel(entry, 1);
@@ -103,8 +115,10 @@ void playlist_clear(struct playlist *pl)
 {
     for (int n = pl->num_entries - 1; n >= 0; n--)
         playlist_remove(pl, pl->entries[n]);
-    assert(!pl->current);
+    mp_assert(!pl->current);
     pl->current_was_replaced = false;
+    pl->playlist_completed = false;
+    pl->playlist_started = false;
 }
 
 void playlist_clear_except_current(struct playlist *pl)
@@ -113,6 +127,8 @@ void playlist_clear_except_current(struct playlist *pl)
         if (pl->entries[n] != pl->current)
             playlist_remove(pl, pl->entries[n]);
     }
+    pl->playlist_completed = false;
+    pl->playlist_started = false;
 }
 
 // Moves the entry so that it takes "at"'s place (or move to end, if at==NULL).
@@ -122,8 +138,8 @@ void playlist_move(struct playlist *pl, struct playlist_entry *entry,
     if (entry == at)
         return;
 
-    assert(entry && entry->pl == pl);
-    assert(!at || at->pl == pl);
+    mp_assert(entry && entry->pl == pl);
+    mp_assert(!at || at->pl == pl);
 
     int index = at ? at->pl_index : pl->num_entries;
     MP_TARRAY_INSERT_AT(pl, pl->entries, pl->num_entries, index, entry);
@@ -137,18 +153,27 @@ void playlist_move(struct playlist *pl, struct playlist_entry *entry,
                                 MPMAX(index + 1, old_index + 1));
 }
 
-void playlist_add_file(struct playlist *pl, const char *filename)
+void playlist_append_file(struct playlist *pl, const char *filename)
 {
-    playlist_add(pl, playlist_entry_new(filename));
+    playlist_insert_at(pl, playlist_entry_new(filename), NULL);
+}
+
+void playlist_populate_playlist_path(struct playlist *pl, const char *path)
+{
+    for (int n = 0; n < pl->num_entries; n++) {
+        struct playlist_entry *e = pl->entries[n];
+        e->playlist_path = talloc_strdup(e, path);
+    }
 }
 
 void playlist_shuffle(struct playlist *pl)
 {
     for (int n = 0; n < pl->num_entries; n++)
         pl->entries[n]->original_index = n;
+    mp_rand_state s = mp_rand_seed(0);
     for (int n = 0; n < pl->num_entries - 1; n++) {
-        size_t j = (size_t)((pl->num_entries - n) * mp_rand_next_double());
-        MPSWAP(struct playlist_entry *, pl->entries[n], pl->entries[n + j]);
+        size_t j = mp_rand_in_range32(&s, n, pl->num_entries);
+        MPSWAP(struct playlist_entry *, pl->entries[n], pl->entries[j]);
     }
     playlist_update_indexes(pl, 0, -1);
 }
@@ -186,10 +211,15 @@ struct playlist_entry *playlist_get_last(struct playlist *pl)
 
 struct playlist_entry *playlist_get_next(struct playlist *pl, int direction)
 {
-    assert(direction == -1 || direction == +1);
-    if (!pl->current)
+    mp_assert(direction == -1 || direction == +1);
+    if (!pl->current && pl->playlist_completed && direction < 0) {
+        return playlist_entry_from_index(pl, pl->num_entries - 1);
+    } else if (!pl->current && !pl->playlist_started && direction > 0) {
+        return playlist_entry_from_index(pl, 0);
+    } else if (!pl->current) {
         return NULL;
-    assert(pl->current->pl == pl);
+    }
+    mp_assert(pl->current->pl == pl);
     if (direction < 0)
         return playlist_entry_get_rel(pl->current, -1);
     return pl->current_was_replaced ? pl->current :
@@ -200,10 +230,127 @@ struct playlist_entry *playlist_get_next(struct playlist *pl, int direction)
 struct playlist_entry *playlist_entry_get_rel(struct playlist_entry *e,
                                               int direction)
 {
-    assert(direction == -1 || direction == +1);
+    mp_assert(direction == -1 || direction == +1);
     if (!e->pl)
         return NULL;
     return playlist_entry_from_index(e->pl, e->pl_index + direction);
+}
+
+struct playlist_entry *playlist_get_first_in_next_playlist(struct playlist *pl,
+                                                           int direction)
+{
+    struct playlist_entry *entry = playlist_get_next(pl, direction);
+    if (!entry)
+        return NULL;
+
+    while (entry && entry->playlist_path && pl->current->playlist_path &&
+           strcmp(entry->playlist_path, pl->current->playlist_path) == 0)
+        entry = playlist_entry_get_rel(entry, direction);
+
+    if (direction < 0)
+        entry = playlist_get_first_in_same_playlist(entry,
+                                                    pl->current->playlist_path);
+
+    return entry;
+}
+
+struct playlist_entry *playlist_get_first_in_same_playlist(
+    struct playlist_entry *entry, char *current_playlist_path)
+{
+    void *tmp = talloc_new(NULL);
+
+    if (!entry || !entry->playlist_path)
+        goto exit;
+
+    // Don't go to the beginning of the playlist when the current playlist-path
+    // starts with the previous playlist-path, e.g. with dmpv --loop-playlist
+    // archive_dir/, which expands to archive_dir/{1..9}.zip, the current
+    // playlist path "archive_dir/1.zip" begins with the playlist-path
+    // "archive_dir/" of {2..9}.zip, so go to 9.zip instead of 2.zip. But
+    // playlist-prev-playlist from e.g. the directory "foobar" to the directory
+    // "foo" should still go to the first entry in "foo/", and this should all
+    // work whether dmpv's arguments have trailing slashes or not, e.g. in the
+    // first example:
+    // dmpv archive_dir results in the playlist-paths "archive_dir/1.zip" and
+    // "archive_dir"
+    // dmpv archive_dir/ in "archive_dir/1.zip" and "archive_dir/"
+    // dmpv archive_dir// in "archive_dir//1.zip" and "archive_dir//"
+    // Always adding a separator to entry->playlist_path to fix the foobar foo
+    // case would break the previous 2 cases instead. Stripping the separator
+    // from entry->playlist_path if present and appending it again makes this
+    // work in all cases.
+    char* playlist_path = talloc_strdup(tmp, entry->playlist_path);
+    mp_path_strip_trailing_separator(playlist_path);
+    if (bstr_startswith(bstr0(current_playlist_path),
+                        bstr0(talloc_strdup_append(playlist_path, "/")))
+       )
+        goto exit;
+
+    struct playlist_entry *prev = playlist_entry_get_rel(entry, -1);
+
+    while (prev && prev->playlist_path &&
+           strcmp(prev->playlist_path, entry->playlist_path) == 0) {
+        entry = prev;
+        prev = playlist_entry_get_rel(entry, -1);
+    }
+
+exit:
+    talloc_free(tmp);
+    return entry;
+}
+
+// Helper function to extract the archive base path from an archive:// URL
+// Returns NULL if not an archive URL or extraction fails
+// Format: archive://path/to/file.zip|/internal_file.jpg -> path/to/file.zip
+static char *get_archive_base_path(void *ctx, const char *filename)
+{
+    if (!filename)
+        return NULL;
+
+    if (strncmp(filename, "archive://", 10) != 0)
+        return NULL;
+
+    const char *pipe = strchr(filename + 10, '|');
+    if (!pipe)
+        return NULL;
+
+    return talloc_strndup(ctx, filename + 10, pipe - (filename + 10));
+}
+
+struct playlist_entry *playlist_get_next_archive(struct playlist *pl, int direction)
+{
+    if (!pl->current)
+        return NULL;
+
+    void *tmp = talloc_new(NULL);
+    char *current_archive = get_archive_base_path(tmp, pl->current->filename);
+
+    // XXX
+    if (!current_archive) {
+        talloc_free(tmp);
+        return NULL;
+    }
+
+    struct playlist_entry *entry = playlist_entry_get_rel(pl->current, direction);
+
+    // Skip entries from the same archive
+    while (entry) {
+        char *entry_archive = get_archive_base_path(tmp, entry->filename);
+
+        if (!entry_archive) {
+            break;
+        }
+
+        if (strcmp(entry_archive, current_archive) != 0) {
+            talloc_free(tmp);
+            return entry;
+        }
+
+        entry = playlist_entry_get_rel(entry, direction);
+    }
+
+    talloc_free(tmp);
+    return entry;
 }
 
 void playlist_add_base_path(struct playlist *pl, bstr base_path)
@@ -220,29 +367,16 @@ void playlist_add_base_path(struct playlist *pl, bstr base_path)
     }
 }
 
-// Add redirected_from as new redirect entry to each item in pl.
-void playlist_add_redirect(struct playlist *pl, const char *redirected_from)
-{
-    for (int n = 0; n < pl->num_entries; n++) {
-        struct playlist_entry *e = pl->entries[n];
-        if (e->num_redirects >= 10) // arbitrary limit for sanity
-            continue;
-        char *s = talloc_strdup(e, redirected_from);
-        if (s)
-            MP_TARRAY_APPEND(e, e->redirects, e->num_redirects, s);
-    }
-}
-
 void playlist_set_stream_flags(struct playlist *pl, int flags)
 {
     for (int n = 0; n < pl->num_entries; n++)
         pl->entries[n]->stream_flags = flags;
 }
 
-static int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
-                                            struct playlist *source_pl)
+int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
+                                     struct playlist *source_pl)
 {
-    assert(pl != source_pl);
+    mp_assert(pl != source_pl);
     struct playlist_entry *first = playlist_get_first(source_pl);
 
     int count = source_pl->num_entries;
@@ -259,6 +393,9 @@ static int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
 
     playlist_update_indexes(pl, dst_index + count, -1);
     source_pl->num_entries = 0;
+
+    pl->playlist_completed = source_pl->playlist_completed;
+    pl->playlist_started = source_pl->playlist_started;
 
     return first ? first->id : 0;
 }
@@ -277,8 +414,8 @@ int64_t playlist_transfer_entries(struct playlist *pl, struct playlist *source_p
         if (pl->current_was_replaced)
             add_at += 1;
     }
-    assert(add_at >= 0);
-    assert(add_at <= pl->num_entries);
+    mp_assert(add_at >= 0);
+    mp_assert(add_at <= pl->num_entries);
 
     return playlist_transfer_entries_to(pl, add_at, source_pl);
 }
@@ -310,7 +447,7 @@ struct playlist_entry *playlist_entry_from_index(struct playlist *pl, int index)
 }
 
 struct playlist *playlist_parse_file(const char *file, struct mp_cancel *cancel,
-                                     struct mpv_global *global)
+                                     struct dmpv_global *global)
 {
     struct mp_log *log = mp_log_new(NULL, global->log, "!playlist_parser");
     mp_verbose(log, "Parsing playlist file %s...\n", file);
@@ -328,6 +465,7 @@ struct playlist *playlist_parse_file(const char *file, struct mp_cancel *cancel,
     struct playlist *ret = NULL;
     if (d && d->playlist) {
         ret = talloc_zero(NULL, struct playlist);
+        playlist_populate_playlist_path(d->playlist, file);
         playlist_transfer_entries(ret, d->playlist);
         if (d->filetype && strcmp(d->filetype, "hls") == 0) {
             mp_warn(log, "This might be a HLS stream. For correct operation, "

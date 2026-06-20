@@ -1,20 +1,20 @@
 /*
- * Original authors: Albeu, probably Arpi
+ * Original authors: Albeu, probably A'rpi
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
@@ -26,9 +26,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifndef __MINGW32__
 #include <poll.h>
-#endif
 
 #include "osdep/io.h"
 
@@ -46,16 +44,6 @@
 
 #if HAVE_LINUX_FSTATFS
 #include <sys/vfs.h>
-#endif
-
-#ifdef _WIN32
-#include <windows.h>
-#include <winternl.h>
-#include <io.h>
-
-#ifndef FILE_REMOTE_DEVICE
-#define FILE_REMOTE_DEVICE (0x10)
-#endif
 #endif
 
 struct priv {
@@ -89,7 +77,6 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
 {
     struct priv *p = s->priv;
 
-#ifndef __MINGW32__
     if (p->use_poll) {
         int c = mp_cancel_get_fd(p->cancel);
         struct pollfd fds[2] = {
@@ -100,7 +87,6 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
         if (fds[1].revents & POLLIN)
             return -1;
     }
-#endif
 
     for (int retries = 0; retries < MAX_RETRIES; retries++) {
         int r = read(p->fd, buffer, max_len);
@@ -110,7 +96,7 @@ static int fill_buffer(stream_t *s, void *buffer, int max_len)
         // Try to detect and handle files being appended during playback.
         int64_t size = get_size(s);
         if (p->regular_file && size > p->orig_size && !p->appending) {
-            MP_WARN(s, "File is apparently being appended to, will keep "
+            MP_WARN(s, "File is apparently being appended to; will keep "
                     "retrying with timeouts.\n");
             p->appending = true;
         }
@@ -152,11 +138,7 @@ char *mp_file_url_to_filename(void *talloc_ctx, bstr url)
         return NULL;
     char *filename = bstrto0(talloc_ctx, url);
     mp_url_unescape_inplace(filename);
-#if HAVE_DOS_PATHS
-    // extract '/' from '/x:/path'
-    if (filename[0] == '/' && filename[1] && filename[2] == ':')
-        memmove(filename, filename + 1, strlen(filename)); // including \0
-#endif
+
     return filename;
 }
 
@@ -208,37 +190,6 @@ static bool check_stream_network(int fd)
     return false;
 
 }
-#elif defined(_WIN32)
-static bool check_stream_network(int fd)
-{
-    NTSTATUS (NTAPI *pNtQueryVolumeInformationFile)(HANDLE,
-        PIO_STATUS_BLOCK, PVOID, ULONG, FS_INFORMATION_CLASS) = NULL;
-
-    // NtQueryVolumeInformationFile is an internal Windows function. It has
-    // been present since Windows XP, however this code should fail gracefully
-    // if it's removed from a future version of Windows.
-    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
-    pNtQueryVolumeInformationFile = (NTSTATUS (NTAPI*)(HANDLE,
-        PIO_STATUS_BLOCK, PVOID, ULONG, FS_INFORMATION_CLASS))
-        GetProcAddress(ntdll, "NtQueryVolumeInformationFile");
-
-    if (!pNtQueryVolumeInformationFile)
-        return false;
-
-    HANDLE h = (HANDLE)_get_osfhandle(fd);
-    if (h == INVALID_HANDLE_VALUE)
-        return false;
-
-    FILE_FS_DEVICE_INFORMATION info = { 0 };
-    IO_STATUS_BLOCK io;
-    NTSTATUS status = pNtQueryVolumeInformationFile(h, &io, &info,
-        sizeof(info), FileFsDeviceInformation);
-    if (!NT_SUCCESS(status))
-        return false;
-
-    return info.DeviceType == FILE_DEVICE_NETWORK_FILE_SYSTEM ||
-           (info.Characteristics & FILE_REMOTE_DEVICE);
-}
 #else
 static bool check_stream_network(int fd)
 {
@@ -272,10 +223,16 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
     if (strncmp(url, "fd://", 5) == 0 || is_fdclose) {
         char *begin = strstr(stream->url, "://") + 3, *end = NULL;
         p->fd = strtol(begin, &end, 0);
-        if (!end || end == begin || end[0]) {
-            MP_ERR(stream, "Invalid FD: %s\n", stream->url);
+        if (!end || end == begin || end[0] || p->fd < 0) {
+            MP_ERR(stream, "Invalid FD number: %s\n", stream->url);
             return STREAM_ERROR;
         }
+#ifdef F_SETFD
+        if (fcntl(p->fd, F_GETFD) == -1) {
+            MP_ERR(stream, "Invalid FD: %d\n", p->fd);
+            return STREAM_ERROR;
+        }
+#endif
         if (is_fdclose)
             p->close = true;
     } else if (!strict_fs && !strcmp(filename, "-")) {
@@ -291,11 +248,9 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
             p->appending = true;
 
         mode_t openmode = S_IRUSR | S_IWUSR;
-#ifndef __MINGW32__
         openmode |= S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
         if (!write)
             m |= O_NONBLOCK;
-#endif
         p->fd = open(filename, m | O_BINARY, openmode);
         if (p->fd < 0) {
             MP_ERR(stream, "Cannot open file '%s': %s\n",
@@ -306,26 +261,20 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
     }
 
     struct stat st;
+    bool is_sock_or_fifo = false;
     if (fstat(p->fd, &st) == 0) {
         if (S_ISDIR(st.st_mode)) {
             stream->is_directory = true;
-            if (!(args->flags & STREAM_LESS_NOISE))
-                MP_INFO(stream, "This is a directory - adding to playlist.\n");
         } else if (S_ISREG(st.st_mode)) {
             p->regular_file = true;
-#ifndef __MINGW32__
             // O_NONBLOCK has weird semantics on file locks; remove it.
             int val = fcntl(p->fd, F_GETFL) & ~(unsigned)O_NONBLOCK;
             fcntl(p->fd, F_SETFL, val);
-#endif
         } else {
+            is_sock_or_fifo = S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode);
             p->use_poll = true;
         }
     }
-
-#ifdef __MINGW32__
-    setmode(p->fd, O_BINARY);
-#endif
 
     off_t len = lseek(p->fd, 0, SEEK_END);
     lseek(p->fd, 0, SEEK_SET);
@@ -340,14 +289,8 @@ static int open_f(stream_t *stream, const struct stream_open_args *args)
     stream->get_size = get_size;
     stream->close = s_close;
 
-    if (check_stream_network(p->fd)) {
+    if (is_sock_or_fifo || check_stream_network(p->fd)) {
         stream->streaming = true;
-#if HAVE_COCOA
-        if (fcntl(p->fd, F_RDAHEAD, 0) < 0) {
-            MP_VERBOSE(stream, "Cannot disable read ahead on file '%s': %s\n",
-                       filename, mp_strerror(errno));
-        }
-#endif
     }
 
     p->orig_size = get_size(stream);

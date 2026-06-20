@@ -1,21 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "context.h"
 #include "ra_gl.h"
 #include "utils.h"
@@ -57,18 +57,15 @@ const struct m_sub_options opengl_conf = {
     .opts = (const struct m_option[]) {
         {"opengl-glfinish", OPT_BOOL(use_glfinish)},
         {"opengl-waitvsync", OPT_BOOL(waitvsync)},
-        {"opengl-swapinterval", OPT_INT(swapinterval)},
+        {"opengl-swapinterval", OPT_INT(swapinterval), .flags = UPDATE_VO},
         {"opengl-check-pattern-a", OPT_INT(vsync_pattern[0])},
         {"opengl-check-pattern-b", OPT_INT(vsync_pattern[1])},
-        {"opengl-restrict", OPT_REMOVED(NULL)},
         {"opengl-es", OPT_CHOICE(gles_mode,
-            {"auto", GLES_AUTO}, {"yes", GLES_YES}, {"no", GLES_NO})},
+            {"auto", GLES_AUTO}, {"yes", GLES_YES}, {"no", GLES_NO}),
+            .flags = UPDATE_VO,
+        },
         {"opengl-early-flush", OPT_CHOICE(early_flush,
             {"no", FLUSH_NO}, {"yes", FLUSH_YES}, {"auto", FLUSH_AUTO})},
-        {"opengl-debug", OPT_REPLACED("gpu-debug")},
-        {"opengl-sw", OPT_REPLACED("gpu-sw")},
-        {"opengl-vsync-fences", OPT_REPLACED("swapchain-depth")},
-        {"opengl-backend", OPT_REPLACED("gpu-context")},
         {0},
     },
     .defaults = &(const struct opengl_opts) {
@@ -80,7 +77,7 @@ const struct m_sub_options opengl_conf = {
 struct priv {
     GL *gl;
     struct mp_log *log;
-    struct ra_gl_ctx_params params;
+    struct ra_ctx_params params;
     struct opengl_opts *opts;
     struct ra_swapchain_fns fns;
     GLuint main_fb;
@@ -128,7 +125,7 @@ void ra_gl_ctx_uninit(struct ra_ctx *ctx)
 
 static const struct ra_swapchain_fns ra_gl_swapchain_fns;
 
-bool ra_gl_ctx_init(struct ra_ctx *ctx, GL *gl, struct ra_gl_ctx_params params)
+bool ra_gl_ctx_init(struct ra_ctx *ctx, GL *gl, struct ra_ctx_params params)
 {
     struct ra_swapchain *sw = ctx->swapchain = talloc_ptrtype(NULL, sw);
     *sw = (struct ra_swapchain) {
@@ -230,7 +227,6 @@ bool ra_gl_ctx_start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
     if (!visible)
         return false;
 
-    // If out_fbo is NULL, this was called from vo_gpu_next. Bail out.
     if (out_fbo == NULL || !visible)
         return visible;
 
@@ -279,7 +275,7 @@ static void check_pattern(struct priv *p, int item)
         p->matches++;
     } else {
         p->mismatches++;
-        MP_WARN(p, "wrong pattern, expected %d got %d (hit: %d, mis: %d)\n",
+        MP_WARN(p, "wrong pattern, expected %d got %d (hit: %d, miss: %d)\n",
                 expected, item, p->matches, p->mismatches);
     }
 }

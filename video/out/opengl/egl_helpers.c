@@ -1,21 +1,22 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
+#include "options/m_config_core.h"
 
 #if HAVE_LIBDL
 #include <dlfcn.h>
@@ -28,12 +29,6 @@
 #include "utils.h"
 #include "context.h"
 
-#if HAVE_EGL_ANGLE
-// On Windows, egl_helpers.c is only used by ANGLE, where the EGL functions may
-// be loaded dynamically from ANGLE DLLs
-#include "angle_dynamic.h"
-#endif
-
 // EGL 1.5
 #ifndef EGL_CONTEXT_OPENGL_PROFILE_MASK
 #define EGL_CONTEXT_MAJOR_VERSION               0x3098
@@ -44,13 +39,19 @@
 typedef intptr_t EGLAttrib;
 #endif
 
-// Not every EGL provider (like RPI) has these.
+// Not every EGL provider has these.
 #ifndef EGL_CONTEXT_FLAGS_KHR
 #define EGL_CONTEXT_FLAGS_KHR EGL_NONE
 #endif
 
 #ifndef EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR
 #define EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR 0
+#endif
+
+#ifndef EGL_COLOR_COMPONENT_TYPE_EXT
+#define EGL_COLOR_COMPONENT_TYPE_EXT EGL_NONE
+#define EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT EGL_NONE
+#define EGL_COLOR_COMPONENT_TYPE_FIXED_EXT EGL_NONE
 #endif
 
 struct mp_egl_config_attr {
@@ -100,8 +101,44 @@ static void *mpegl_get_proc_address(void *ctx, const char *name)
     return p;
 }
 
+struct egl_opts {
+    int config_id;
+    int output_format;
+};
+
+#define RGBA_FORMAT(r, g, b, a) ((r) << 18 | (g) << 12 | (b) << 6 | (a))
+#define FLOAT_FORMAT (1 << 24)
+static void unpack_format(int format, EGLint *r_size, EGLint *g_size, EGLint *b_size, EGLint *a_size, bool *is_float) {
+    *is_float = format & FLOAT_FORMAT;
+    *r_size = format >> 18 & 0x3f;
+    *g_size = (format >> 12) & 0x3f;
+    *b_size = (format >> 6) & 0x3f;
+    *a_size = format & 0x3f;
+}
+
+#define OPT_BASE_STRUCT struct egl_opts
+const struct m_sub_options egl_conf = {
+    .opts = (const struct m_option[]) {
+        {"config-id", OPT_INT(config_id)},
+        {"output-format", OPT_CHOICE(output_format,
+            {"auto", 0},
+            {"rgb8", RGBA_FORMAT(8, 8, 8, 0)},
+            {"rgba8", RGBA_FORMAT(8, 8, 8, 8)},
+            {"rgb10", RGBA_FORMAT(10, 10, 10, 0)},
+            {"rgb10_a2", RGBA_FORMAT(10, 10, 10, 2)},
+            {"rgb16", RGBA_FORMAT(16, 16, 16, 0)},
+            {"rgba16", RGBA_FORMAT(16, 16, 16, 16)},
+            {"rgb16f", RGBA_FORMAT(16, 16, 16, 0) | FLOAT_FORMAT},
+            {"rgba16f", RGBA_FORMAT(16, 16, 16, 16) | FLOAT_FORMAT},
+            {"rgb32f", RGBA_FORMAT(32, 32, 32, 0) | FLOAT_FORMAT},
+            {"rgba32f", RGBA_FORMAT(32, 32, 32, 32) | FLOAT_FORMAT})},
+        {0},
+    },
+    .size = sizeof(struct egl_opts),
+};
+
 static bool create_context(struct ra_ctx *ctx, EGLDisplay display,
-                           bool es, struct mpegl_cb cb,
+                           bool es, struct mpegl_cb cb, struct egl_opts *opts,
                            EGLContext *out_context, EGLConfig *out_config)
 {
     int msgl = ctx->opts.probing ? MSGL_V : MSGL_FATAL;
@@ -120,6 +157,8 @@ static bool create_context(struct ra_ctx *ctx, EGLDisplay display,
         name = "GLES 2.x +";
     }
 
+    const char *egl_exts = eglQueryString(display, EGL_EXTENSIONS);
+
     MP_VERBOSE(ctx, "Trying to create %s context.\n", name);
 
     if (!eglBindAPI(api)) {
@@ -127,15 +166,32 @@ static bool create_context(struct ra_ctx *ctx, EGLDisplay display,
         return false;
     }
 
+    bool request_float_fmt;
+    EGLint r_size, g_size, b_size, a_size;
+    unpack_format(opts->output_format, &r_size, &g_size, &b_size, &a_size, &request_float_fmt);
+    bool has_float_format_ext = gl_check_extension(egl_exts, "EGL_EXT_pixel_format_float");
+    if (request_float_fmt && !has_float_format_ext) {
+        MP_MSG(ctx, msgl, "Could not request floating point pixel format for %s!\n", name);
+        return false;
+    }
+
     EGLint attributes[] = {
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_RED_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
-        EGL_BLUE_SIZE, 8,
-        EGL_ALPHA_SIZE, ctx->opts.want_alpha ? 8 : 0,
         EGL_RENDERABLE_TYPE, rend,
+        EGL_RED_SIZE, MPMAX(r_size, 8),
+        EGL_GREEN_SIZE, MPMAX(g_size, 8),
+        EGL_BLUE_SIZE, MPMAX(b_size, 8),
+        EGL_ALPHA_SIZE, opts->output_format ? a_size : (ctx->opts.want_alpha ? 8 : 0),
+        opts->output_format && has_float_format_ext ? EGL_COLOR_COMPONENT_TYPE_EXT : EGL_NONE,
+        request_float_fmt ? EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT : EGL_COLOR_COMPONENT_TYPE_FIXED_EXT,
         EGL_NONE
     };
+    if (opts->config_id) {
+        // Keep EGL_SURFACE_TYPE & EGL_RENDERABLE_TYPE
+        attributes[4] = EGL_CONFIG_ID;
+        attributes[5] = opts->config_id;
+        attributes[6] = EGL_NONE;
+    }
 
     EGLint num_configs;
     if (!eglChooseConfig(display, attributes, NULL, 0, &num_configs))
@@ -155,9 +211,20 @@ static bool create_context(struct ra_ctx *ctx, EGLDisplay display,
         dump_egl_config(ctx->log, MSGL_TRACE, display, configs[n]);
 
     int chosen = 0;
-    if (cb.refine_config)
+    if (opts->output_format) {
+        for (; chosen < num_configs; chosen++) {
+            EGLint real_r_size, real_g_size, real_b_size, real_a_size;
+            eglGetConfigAttrib(display, configs[chosen], EGL_RED_SIZE, &real_r_size);
+            eglGetConfigAttrib(display, configs[chosen], EGL_GREEN_SIZE, &real_g_size);
+            eglGetConfigAttrib(display, configs[chosen], EGL_BLUE_SIZE, &real_b_size);
+            eglGetConfigAttrib(display, configs[chosen], EGL_ALPHA_SIZE, &real_a_size);
+            if (r_size == real_r_size && g_size == real_g_size && b_size == real_b_size && a_size == real_a_size)
+                break;
+        }
+    } else if (cb.refine_config) {
         chosen = cb.refine_config(cb.user_data, configs, num_configs);
-    if (chosen < 0) {
+    }
+    if (chosen < 0 || chosen == num_configs) {
         talloc_free(configs);
         MP_MSG(ctx, msgl, "Could not refine EGLConfig for %s!\n", name);
         return false;
@@ -192,18 +259,20 @@ static bool create_context(struct ra_ctx *ctx, EGLDisplay display,
     }
     if (!egl_ctx) {
         // Fallback for EGL 1.4 without EGL_KHR_create_context or GLES
-        // Add the context flags only for GLES - GL has been attempted above
         EGLint attrs[] = {
-            EGL_CONTEXT_CLIENT_VERSION, 2,
-            es ? EGL_CONTEXT_FLAGS_KHR : EGL_NONE, ctx_flags,
+            EGL_CONTEXT_FLAGS_KHR, ctx_flags,
+            es ? EGL_CONTEXT_CLIENT_VERSION : EGL_NONE, 2,
             EGL_NONE
         };
 
         egl_ctx = eglCreateContext(display, config, EGL_NO_CONTEXT, attrs);
+        if (!egl_ctx)
+            egl_ctx = eglCreateContext(display, config, EGL_NO_CONTEXT, &attrs[2]);
     }
 
     if (!egl_ctx) {
-        MP_MSG(ctx, msgl, "Could not create EGL context for %s!\n", name);
+        MP_MSG(ctx, msgl, "Could not create EGL context for %s (error=%d)!\n",
+               name, eglGetError());
         return false;
     }
 
@@ -241,17 +310,23 @@ bool mpegl_create_context_cb(struct ra_ctx *ctx, EGLDisplay display,
 
     enum gles_mode mode = ra_gl_ctx_get_glesmode(ctx);
 
-    if ((mode == GLES_NO || mode == GLES_AUTO) &&
-        create_context(ctx, display, false, cb, out_context, out_config))
-        return true;
+    void *tmp = talloc_new(NULL);
+    struct egl_opts *opts = mp_get_config_group(tmp, ctx->global, &egl_conf);
 
-    if ((mode == GLES_YES || mode == GLES_AUTO) &&
-        create_context(ctx, display, true, cb, out_context, out_config))
-        return true;
+    bool r = false;
+    if (!r && (mode == GLES_NO || mode == GLES_AUTO))
+        r = create_context(ctx, display, false, cb, opts, out_context, out_config);
+    if (!r && (mode == GLES_YES || mode == GLES_AUTO))
+        r = create_context(ctx, display, true, cb, opts, out_context, out_config);
 
-    int msgl = ctx->opts.probing ? MSGL_V : MSGL_ERR;
-    MP_MSG(ctx, msgl, "Could not create a GL context.\n");
-    return false;
+    talloc_free(tmp);
+
+    if (!r) {
+        int msgl = ctx->opts.probing ? MSGL_V : MSGL_ERR;
+        MP_MSG(ctx, msgl, "Could not create a GL context.\n");
+    }
+
+    return r;
 }
 
 static int GLAPIENTRY swap_interval(int interval)
@@ -294,7 +369,7 @@ static bool is_egl15(void)
 // except that it 1. may use eglGetPlatformDisplayEXT, 2. checks for the
 // platform client extension platform_ext_name, and 3. does not support passing
 // an attrib list, because the type for that parameter is different in the EXT
-// and standard functions (EGL can't not fuck up, no matter what).
+// and standard functions.
 //  platform: e.g. EGL_PLATFORM_X11_KHR
 //  platform_ext_name: e.g. "EGL_KHR_platform_x11"
 //  native_display: e.g. X11 Display*

@@ -1,25 +1,25 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
  * Parts of video mixer creation code:
  * Copyright (C) 2008 NVIDIA (Rajib Mahapatra <rmahapatra@nvidia.com>)
  * Copyright (C) 2009 Uoti Urpala
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <assert.h>
+#include "misc/mp_assert.h"
 
 #include "vdpau_mixer.h"
 
@@ -35,7 +35,7 @@ static void free_mixed_frame(void *arg)
 // "base" is used only to set parameters, no image data is referenced.
 struct mp_image *mp_vdpau_mixed_frame_create(struct mp_image *base)
 {
-    assert(base->imgfmt == IMGFMT_VDPAU);
+    mp_assert(base->imgfmt == IMGFMT_VDPAU);
 
     struct mp_vdpau_mixer_frame *frame =
         talloc_zero(NULL, struct mp_vdpau_mixer_frame);
@@ -251,7 +251,7 @@ int mp_vdpau_mixer_render(struct mp_vdpau_mixer *mixer,
         return -1;
 
     struct mp_vdpau_mixer_frame *frame = mp_vdpau_mixed_frame_get(video);
-    struct mp_vdpau_mixer_frame fallback = {{0}};
+    struct mp_vdpau_mixer_frame fallback = {0};
     if (!frame) {
         frame = &fallback;
         frame->current = (uintptr_t)video->planes[3];
@@ -277,7 +277,7 @@ int mp_vdpau_mixer_render(struct mp_vdpau_mixer *mixer,
     CHECK_VDP_ERROR(mixer, "Error when calling vdp_video_surface_get_parameters");
 
     if (!mixer->initialized || !opts_equal(opts, &mixer->opts) ||
-        !mp_image_params_equal(&video->params, &mixer->image_params) ||
+        !mp_image_params_static_equal(&video->params, &mixer->image_params) ||
         mixer->current_w != s_w || mixer->current_h != s_h ||
         mixer->current_chroma_type != s_chroma_type)
     {

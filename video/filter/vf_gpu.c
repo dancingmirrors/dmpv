@@ -1,25 +1,26 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "common/common.h"
 #include "filters/filter.h"
 #include "filters/filter_internal.h"
 #include "filters/user_filters.h"
-#include "options/m_config.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_frontend.h"
 #include "options/m_option.h"
 #include "options/options.h"
 #include "video/out/aspect.h"
@@ -61,7 +62,7 @@ static void gl_ctx_set_context(struct offscreen_ctx *ctx, bool enable)
         MP_ERR(ctx, "Could not make EGL context current.\n");
 }
 
-static struct offscreen_ctx *gl_offscreen_ctx_create(struct mpv_global *global,
+static struct offscreen_ctx *gl_offscreen_ctx_create(struct dmpv_global *global,
                                                      struct mp_log *log)
 {
     struct offscreen_ctx *ctx = talloc_zero(NULL, struct offscreen_ctx);
@@ -212,7 +213,7 @@ static struct mp_image *gpu_render_frame(struct mp_filter *f, struct mp_image *i
 
     // (it doesn't have access to the OSD though)
     int flags = RENDER_FRAME_SUBS | RENDER_FRAME_VF_SUBS;
-    gl_video_render_frame(priv->renderer, &frame, (struct ra_fbo){priv->target},
+    gl_video_render_frame(priv->renderer, &frame, (struct ra_fbo){.tex = priv->target},
                           flags);
 
     res = mp_image_alloc(IMGFMT_RGB0, w, h);
@@ -339,7 +340,7 @@ static struct mp_filter *gpu_create(struct mp_filter *parent, void *options)
     offscreen_ctx_set_current(priv->ctx, true);
 
     priv->renderer = gl_video_init(priv->ctx->ra, f->log, f->global);
-    assert(priv->renderer); // can't fail (strangely)
+    mp_assert(priv->renderer); // can't fail (strangely)
 
     offscreen_ctx_set_current(priv->ctx, false);
 

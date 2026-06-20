@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_PLAYLIST_H
@@ -33,16 +33,12 @@ struct playlist_entry {
     uint64_t id;
 
     char *filename;
+    char *playlist_path;
 
     struct playlist_param *params;
     int num_params;
 
     char *title;
-
-    // If the user plays a playlist, then the playlist's URL will be appended
-    // as redirect to each entry. (Same for directories etc.)
-    char **redirects;
-    int num_redirects;
 
     // Used for unshuffling: the pl_index before it was shuffled. -1 => unknown.
     int original_index;
@@ -73,6 +69,8 @@ struct playlist {
     // current_was_replaced is set to true.
     struct playlist_entry *current;
     bool current_was_replaced;
+    bool playlist_completed;
+    bool playlist_started;
 
     uint64_t id_alloc;
 };
@@ -84,7 +82,9 @@ void playlist_entry_add_params(struct playlist_entry *e,
 
 struct playlist_entry *playlist_entry_new(const char *filename);
 
-void playlist_add(struct playlist *pl, struct playlist_entry *add);
+void playlist_insert_at(struct playlist *pl, struct playlist_entry *entry,
+                        struct playlist_entry *at);
+
 void playlist_remove(struct playlist *pl, struct playlist_entry *entry);
 void playlist_clear(struct playlist *pl);
 void playlist_clear_except_current(struct playlist *pl);
@@ -92,7 +92,8 @@ void playlist_clear_except_current(struct playlist *pl);
 void playlist_move(struct playlist *pl, struct playlist_entry *entry,
                    struct playlist_entry *at);
 
-void playlist_add_file(struct playlist *pl, const char *filename);
+void playlist_append_file(struct playlist *pl, const char *filename);
+void playlist_populate_playlist_path(struct playlist *pl, const char *path);
 void playlist_shuffle(struct playlist *pl);
 void playlist_unshuffle(struct playlist *pl);
 struct playlist_entry *playlist_get_first(struct playlist *pl);
@@ -100,9 +101,15 @@ struct playlist_entry *playlist_get_last(struct playlist *pl);
 struct playlist_entry *playlist_get_next(struct playlist *pl, int direction);
 struct playlist_entry *playlist_entry_get_rel(struct playlist_entry *e,
                                               int direction);
+struct playlist_entry *playlist_get_first_in_next_playlist(struct playlist *pl,
+                                                           int direction);
+struct playlist_entry *playlist_get_first_in_same_playlist(struct playlist_entry *entry,
+                                                           char *current_playlist_path);
+struct playlist_entry *playlist_get_next_archive(struct playlist *pl, int direction);
 void playlist_add_base_path(struct playlist *pl, bstr base_path);
-void playlist_add_redirect(struct playlist *pl, const char *redirected_from);
 void playlist_set_stream_flags(struct playlist *pl, int flags);
+int64_t playlist_transfer_entries_to(struct playlist *pl, int dst_index,
+                                     struct playlist *source_pl);
 int64_t playlist_transfer_entries(struct playlist *pl, struct playlist *source_pl);
 int64_t playlist_append_entries(struct playlist *pl, struct playlist *source_pl);
 
@@ -111,9 +118,9 @@ int playlist_entry_count(struct playlist *pl);
 struct playlist_entry *playlist_entry_from_index(struct playlist *pl, int index);
 
 struct mp_cancel;
-struct mpv_global;
+struct dmpv_global;
 struct playlist *playlist_parse_file(const char *file, struct mp_cancel *cancel,
-                                     struct mpv_global *global);
+                                     struct dmpv_global *global);
 
 void playlist_entry_unref(struct playlist_entry *e);
 

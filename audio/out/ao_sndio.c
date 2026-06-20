@@ -235,8 +235,8 @@ static void reset(struct ao *ao)
     if (p->playing) {
         p->playing = false;
 
-        if (!sio_stop(p->hdl)) {
-            MP_ERR(ao, "reset: couldn't sio_stop()\n");
+        if (!sio_flush(p->hdl)) {
+            MP_ERR(ao, "reset: couldn't sio_flush()\n");
         }
         p->delay = 0;
         if (!sio_start(p->hdl)) {
@@ -287,7 +287,7 @@ static void get_state(struct ao *ao, struct mp_pcm_state *state)
     state->delay = p->delay / (double)p->par.rate;
 
     /* report unexpected EOF / underrun */
-    if ((state->queued_samples && state->queued_samples &&
+    if ((state->queued_samples &&
         (state->queued_samples < state->free_samples) &&
         p->playing) || sio_eof(p->hdl))
     {
@@ -296,7 +296,7 @@ static void get_state(struct ao *ao, struct mp_pcm_state *state)
                 state->free_samples, state->queued_samples, state->delay);
         p->playing = false;
         state->playing = p->playing;
-        ao_wakeup_playthread(ao);
+        ao_wakeup(ao);
     } else {
         state->playing = p->playing;
     }

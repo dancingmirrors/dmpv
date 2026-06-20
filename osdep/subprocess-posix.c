@@ -1,22 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <poll.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -33,10 +32,16 @@
 
 extern char **environ;
 
+// XXX: _GNU_SOURCE
+#ifdef __linux__
+#include <sched.h>
+#include <sys/mman.h>
+#endif
+
 #ifdef SIGRTMAX
 #define SIGNAL_MAX SIGRTMAX
 #else
-#define SIGNAL_MAX 32
+#define SIGNAL_MAX 31
 #endif
 
 #define SAFE_CLOSE(fd) do { if ((fd) >= 0) close((fd)); (fd) = -1; } while (0)
@@ -80,9 +85,50 @@ static void reset_signals_child(void)
     sa.sa_handler = SIG_DFL;
     sigemptyset(&sigmask);
 
-    for (int nr = 1; nr < SIGNAL_MAX; nr++)
+    for (int nr = 1; nr <= SIGNAL_MAX; nr++)
         sigaction(nr, &sa, NULL);
     sigprocmask(SIG_SETMASK, &sigmask, NULL);
+}
+
+struct child_args {
+    const char *path;
+    struct mp_subprocess_opts *opts;
+    int *src_fds;
+    int pipe_end;
+};
+
+static int child_main(void* args)
+{
+    struct child_args *child_args = args;
+    const char *path = child_args->path;
+    struct mp_subprocess_opts *opts = child_args->opts;
+    int *src_fds = child_args->src_fds;
+    int *pipe_end = &child_args->pipe_end;
+
+    reset_signals_child();
+
+    for (int n = 0; n < opts->num_fds; n++) {
+        if (src_fds[n] == opts->fds[n].fd) {
+            int flags = fcntl(opts->fds[n].fd, F_GETFD);
+            if (flags == -1)
+                goto child_failed;
+            flags &= ~(unsigned)FD_CLOEXEC;
+            if (fcntl(opts->fds[n].fd, F_SETFD, flags) == -1)
+                goto child_failed;
+        } else if (dup2(src_fds[n], opts->fds[n].fd) < 0) {
+            goto child_failed;
+        }
+    }
+
+    as_execvpe(path, opts->exe, opts->args, opts->env ? opts->env : environ);
+
+child_failed:
+#ifdef __linux__
+    *pipe_end = 1;
+#else
+    (void)write(*pipe_end, &(char){1}, 1); // shouldn't be able to fail
+#endif
+    return 1;
 }
 
 // Returns 0 on any error, valid PID on success.
@@ -90,12 +136,28 @@ static void reset_signals_child(void)
 static pid_t spawn_process(const char *path, struct mp_subprocess_opts *opts,
                            int src_fds[])
 {
-    int p[2] = {-1, -1};
     pid_t fres = 0;
     sigset_t sigmask, oldmask;
+    int r;
+
     sigfillset(&sigmask);
     pthread_sigmask(SIG_BLOCK, &sigmask, &oldmask);
 
+    struct child_args child_args = {
+        .path = path,
+        .opts = opts,
+        .src_fds = src_fds,
+        .pipe_end = 0,
+    };
+
+#ifdef __linux__
+    const size_t stack_size = 0x8000;
+    void* stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+    if (stack == MAP_FAILED)
+        goto done;
+    fres = clone(child_main, (int8_t*)stack + stack_size, CLONE_VM | CLONE_VFORK | SIGCHLD, &child_args);
+#else
+    int p[2] = {-1, -1};
     // We setup a communication pipe to signal failure. Since the child calls
     // exec() and becomes the calling process, we don't know if or when the
     // child process successfully ran exec() just from the PID.
@@ -110,40 +172,24 @@ static pid_t spawn_process(const char *path, struct mp_subprocess_opts *opts,
         goto done; // require CLOEXEC; unknown if fallback would be worth it
 
     fres = fork();
+#endif
     if (fres < 0) {
         fres = 0;
         goto done;
     }
+#ifdef __linux__
+    r = child_args.pipe_end;
+#else
     if (fres == 0) {
-        // child
-        reset_signals_child();
-
-        for (int n = 0; n < opts->num_fds; n++) {
-            if (src_fds[n] == opts->fds[n].fd) {
-                int flags = fcntl(opts->fds[n].fd, F_GETFD);
-                if (flags == -1)
-                    goto child_failed;
-                flags &= ~(unsigned)FD_CLOEXEC;
-                if (fcntl(opts->fds[n].fd, F_SETFD, flags) == -1)
-                    goto child_failed;
-            } else if (dup2(src_fds[n], opts->fds[n].fd) < 0) {
-                goto child_failed;
-            }
-        }
-
-        as_execvpe(path, opts->exe, opts->args, opts->env ? opts->env : environ);
-
-    child_failed:
-        write(p[1], &(char){1}, 1); // shouldn't be able to fail
-        _exit(1);
+        _exit(child_main(&child_args));
     }
 
     SAFE_CLOSE(p[1]);
 
-    int r;
     do {
         r = read(p[0], &(char){0}, 1);
     } while (r < 0 && errno == EINTR);
+#endif
 
     // If exec()ing child failed, collect it immediately.
     if (r != 0) {
@@ -153,8 +199,12 @@ static pid_t spawn_process(const char *path, struct mp_subprocess_opts *opts,
 
 done:
     pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
+#ifdef __linux__
+    munmap(stack, stack_size);
+#else
     SAFE_CLOSE(p[0]);
     SAFE_CLOSE(p[1]);
+#endif
 
     return fres;
 }
@@ -186,13 +236,13 @@ void mp_subprocess2(struct mp_subprocess_opts *opts,
     }
 
     for (int n = 0; n < opts->num_fds; n++) {
-        assert(!(opts->fds[n].on_read && opts->fds[n].on_write));
+        mp_assert(!(opts->fds[n].on_read && opts->fds[n].on_write));
 
         if (opts->fds[n].on_read && mp_make_cloexec_pipe(comm_pipe[n]) < 0)
             goto done;
 
         if (opts->fds[n].on_write || opts->fds[n].write_buf) {
-            assert(opts->fds[n].on_write && opts->fds[n].write_buf);
+            mp_assert(opts->fds[n].on_write && opts->fds[n].write_buf);
             if (mp_make_cloexec_pipe(comm_pipe[n]) < 0)
                 goto done;
             MPSWAP(int, comm_pipe[n][0], comm_pipe[n][1]);
@@ -225,8 +275,10 @@ void mp_subprocess2(struct mp_subprocess_opts *opts,
         sigfillset(&sigmask);
         pthread_sigmask(SIG_BLOCK, &sigmask, &oldmask);
         pid_t fres = fork();
-        if (fres < 0)
+        if (fres < 0) {
+            pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
             goto done;
+        }
         if (fres == 0) {
             // child
             setsid();
@@ -282,7 +334,7 @@ void mp_subprocess2(struct mp_subprocess_opts *opts,
                     if (pid)
                         kill(pid, SIGKILL);
                     killed_by_us = true;
-                    break;
+                    goto break_poll;
                 }
                 struct mp_subprocess_fd *fd = &opts->fds[n];
                 if (fd->on_read) {
@@ -316,6 +368,8 @@ void mp_subprocess2(struct mp_subprocess_opts *opts,
             }
         }
     }
+
+break_poll:
 
     // Note: it can happen that a child process closes the pipe, but does not
     //       terminate yet. In this case, we would have to run waitpid() in

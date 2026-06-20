@@ -1,24 +1,23 @@
 /*
  * Copyright (C) 2012 Naoya OYAMA
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
-#include <assert.h>
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -33,6 +32,7 @@
 #include "demux/stheader.h"
 #include "filters/f_decoder_wrapper.h"
 #include "filters/filter_internal.h"
+#include "misc/mp_assert.h"
 #include "options/options.h"
 
 #define OUTBUF_SIZE 65536
@@ -53,7 +53,11 @@ struct spdifContext {
     struct mp_decoder public;
 };
 
+#if LIBAVFORMAT_VERSION_MAJOR < 61
 static int write_packet(void *p, uint8_t *buf, int buf_size)
+#else
+static int write_packet(void *p, const uint8_t *buf, int buf_size)
+#endif
 {
     struct spdifContext *ctx = p;
 
@@ -69,7 +73,7 @@ static int write_packet(void *p, uint8_t *buf, int buf_size)
 }
 
 // (called on both filter destruction _and_ if lavf fails to init)
-static void destroy(struct mp_filter *da)
+static void ad_spdif_destroy(struct mp_filter *da)
 {
     struct spdifContext *spdif_ctx = da->priv;
     AVFormatContext     *lavf_ctx  = spdif_ctx->lavf_ctx;
@@ -79,7 +83,7 @@ static void destroy(struct mp_filter *da)
             av_write_trailer(lavf_ctx);
         if (lavf_ctx->pb)
             av_freep(&lavf_ctx->pb->buffer);
-        av_freep(&lavf_ctx->pb);
+        avio_context_free(&lavf_ctx->pb);
         avformat_free_context(lavf_ctx);
         spdif_ctx->lavf_ctx = NULL;
     }
@@ -90,7 +94,7 @@ static void determine_codec_params(struct mp_filter *da, AVPacket *pkt,
                                    int *out_profile, int *out_rate)
 {
     struct spdifContext *spdif_ctx = da->priv;
-    int profile = FF_PROFILE_UNKNOWN;
+    int profile = AV_PROFILE_UNKNOWN;
     AVCodecContext *ctx = NULL;
     AVFrame *frame = NULL;
 
@@ -115,7 +119,7 @@ static void determine_codec_params(struct mp_filter *da, AVPacket *pkt,
         av_parser_close(parser);
     }
 
-    if (profile != FF_PROFILE_UNKNOWN || spdif_ctx->codec_id != AV_CODEC_ID_DTS)
+    if (profile != AV_PROFILE_UNKNOWN || spdif_ctx->codec_id != AV_CODEC_ID_DTS)
         return;
 
     const AVCodec *codec = avcodec_find_decoder(spdif_ctx->codec_id);
@@ -145,15 +149,17 @@ done:
     av_frame_free(&frame);
     avcodec_free_context(&ctx);
 
-    if (profile == FF_PROFILE_UNKNOWN)
+    if (profile == AV_PROFILE_UNKNOWN)
         MP_WARN(da, "Failed to parse codec profile.\n");
 }
 
-static int init_filter(struct mp_filter *da, AVPacket *pkt)
+static int init_filter(struct mp_filter *da)
 {
     struct spdifContext *spdif_ctx = da->priv;
 
-    int profile = FF_PROFILE_UNKNOWN;
+    AVPacket *pkt = spdif_ctx->avpkt;
+
+    int profile = AV_PROFILE_UNKNOWN;
     int c_rate = 0;
     determine_codec_params(da, pkt, &profile, &c_rate);
     MP_VERBOSE(da, "In: profile=%d samplerate=%d\n", profile, c_rate);
@@ -169,7 +175,7 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
         goto fail;
 
     void *buffer = av_mallocz(OUTBUF_SIZE);
-   MP_HANDLE_OOM(buffer);
+    MP_HANDLE_OOM(buffer);
     lavf_ctx->pb = avio_alloc_context(buffer, OUTBUF_SIZE, 1, spdif_ctx, NULL,
                                       write_packet, NULL);
     if (!lavf_ctx->pb) {
@@ -184,7 +190,8 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
     if (!stream)
         goto fail;
 
-    stream->codecpar->codec_id = spdif_ctx->codec_id;
+    stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+    stream->codecpar->codec_id   = spdif_ctx->codec_id;
 
     AVDictionary *format_opts = NULL;
 
@@ -206,15 +213,17 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
         num_channels                    = 2;
         break;
     case AV_CODEC_ID_DTS: {
-        bool is_hd = profile == FF_PROFILE_DTS_HD_HRA ||
-                     profile == FF_PROFILE_DTS_HD_MA  ||
-                     profile == FF_PROFILE_UNKNOWN;
+        bool is_hd = profile == AV_PROFILE_DTS_HD_HRA ||
+                     profile == AV_PROFILE_DTS_HD_MA  ||
+                     profile == AV_PROFILE_DTS_HD_MA_X ||
+                     profile == AV_PROFILE_DTS_HD_MA_X_IMAX ||
+                     profile == AV_PROFILE_UNKNOWN;
 
         // Apparently, DTS-HD over SPDIF is specified to be 7.1 (8 channels)
         // for DTS-HD MA, and stereo (2 channels) for DTS-HD HRA. The bit
         // streaming rate as well as the signaled channel count are defined
         // based on this value.
-        int dts_hd_spdif_channel_count = profile == FF_PROFILE_DTS_HD_HRA ?
+        int dts_hd_spdif_channel_count = profile == AV_PROFILE_DTS_HD_HRA ?
                                          2 : 8;
         if (spdif_ctx->use_dts_hd && is_hd) {
             av_dict_set_int(&format_opts, "dtshd_rate",
@@ -224,7 +233,7 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
             num_channels                = dts_hd_spdif_channel_count;
         } else {
             sample_format               = AF_FORMAT_S_DTS;
-            samplerate                  = 48000;
+            samplerate                  = c_rate > 44100 ? 48000 : 44100;
             num_channels                = 2;
         }
         break;
@@ -248,6 +257,8 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
         abort();
     }
 
+    stream->codecpar->sample_rate = samplerate;
+
     struct mp_chmap chmap;
     mp_chmap_from_channels(&chmap, num_channels);
     mp_aframe_set_chmap(spdif_ctx->fmt, &chmap);
@@ -268,12 +279,12 @@ static int init_filter(struct mp_filter *da, AVPacket *pkt)
     return 0;
 
 fail:
-    destroy(da);
+    ad_spdif_destroy(da);
     mp_filter_internal_mark_failed(da);
     return -1;
 }
 
-static void process(struct mp_filter *da)
+static void ad_spdif_process(struct mp_filter *da)
 {
     struct spdifContext *spdif_ctx = da->priv;
 
@@ -296,12 +307,18 @@ static void process(struct mp_filter *da)
     struct mp_aframe *out = NULL;
     double pts = mpkt->pts;
 
+    if (!spdif_ctx->avpkt) {
+        spdif_ctx->avpkt = av_packet_alloc();
+        MP_HANDLE_OOM(spdif_ctx->avpkt);
+    }
     mp_set_av_packet(spdif_ctx->avpkt, mpkt, NULL);
     spdif_ctx->avpkt->pts = spdif_ctx->avpkt->dts = 0;
     if (!spdif_ctx->lavf_ctx) {
-        if (init_filter(da, spdif_ctx->avpkt) < 0)
+        if (init_filter(da) < 0)
             goto done;
+        mp_assert(spdif_ctx->avpkt);
     }
+
     spdif_ctx->out_buffer_len  = 0;
     int ret = av_write_frame(spdif_ctx->lavf_ctx, spdif_ctx->avpkt);
     avio_flush(spdif_ctx->lavf_ctx->pb);
@@ -392,8 +409,8 @@ struct mp_decoder_list *select_spdif_codec(const char *codec, const char *pref)
 static const struct mp_filter_info ad_spdif_filter = {
     .name = "ad_spdif",
     .priv_size = sizeof(struct spdifContext),
-    .process = process,
-    .destroy = destroy,
+    .process = ad_spdif_process,
+    .destroy = ad_spdif_destroy,
 };
 
 static struct mp_decoder *create(struct mp_filter *parent,
@@ -424,9 +441,6 @@ static struct mp_decoder *create(struct mp_filter *parent,
         talloc_free(da);
         return NULL;
     }
-
-    spdif_ctx->avpkt = av_packet_alloc();
-    MP_HANDLE_OOM(spdif_ctx->avpkt);
 
     return &spdif_ctx->public;
 }

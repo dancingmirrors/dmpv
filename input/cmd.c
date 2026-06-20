@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -27,7 +27,7 @@
 #include "input.h"
 #include "misc/json.h"
 
-#include "libmpv/client.h"
+#include "misc/client.h"
 
 static void destroy_cmd(void *ptr)
 {
@@ -51,9 +51,10 @@ static const struct flag cmd_flags[] = {
     {"osd-auto",            MP_ON_OSD_FLAGS, MP_ON_OSD_AUTO},
     {"expand-properties",   0,               MP_EXPAND_PROPERTIES},
     {"raw",                 MP_EXPAND_PROPERTIES, 0},
-    {"repeatable",          0,               MP_ALLOW_REPEAT},
+    {"repeatable",          MP_DISALLOW_REPEAT, MP_ALLOW_REPEAT},
+    {"nonrepeatable",       MP_ALLOW_REPEAT,    MP_DISALLOW_REPEAT},
     {"async",               MP_SYNC_CMD,     MP_ASYNC_CMD},
-    {"sync",                MP_ASYNC_CMD,     MP_SYNC_CMD},
+    {"sync",                MP_ASYNC_CMD,    MP_SYNC_CMD},
     {0}
 };
 
@@ -140,7 +141,7 @@ static bool finish_cmd(struct mp_log *log, struct mp_cmd *cmd)
         struct mp_cmd_arg arg = {.type = opt};
         if (opt->defval)
             m_option_copy(opt, &arg.v, opt->defval);
-        assert(i <= cmd->nargs);
+        mp_assert(i <= cmd->nargs);
         if (i == cmd->nargs) {
             MP_TARRAY_APPEND(cmd, cmd->args, cmd->nargs, arg);
         } else {
@@ -155,7 +156,7 @@ static bool finish_cmd(struct mp_log *log, struct mp_cmd *cmd)
 }
 
 static bool set_node_arg(struct mp_log *log, struct mp_cmd *cmd, int i,
-                         mpv_node *val)
+                         dmpv_node *val)
 {
     const char *name = get_arg_name(cmd->def, i);
 
@@ -172,7 +173,7 @@ static bool set_node_arg(struct mp_log *log, struct mp_cmd *cmd, int i,
 
     struct mp_cmd_arg arg = {.type = opt};
     void *dst = &arg.v;
-    if (val->format == MPV_FORMAT_STRING) {
+    if (val->format == DMPV_FORMAT_STRING) {
         int r = m_option_parse(log, opt, bstr0(cmd->name),
                                 bstr0(val->u.string), dst);
         if (r < 0) {
@@ -199,14 +200,14 @@ static bool set_node_arg(struct mp_log *log, struct mp_cmd *cmd, int i,
     return true;
 }
 
-static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
+static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, dmpv_node *node)
 {
-    assert(node->format == MPV_FORMAT_NODE_ARRAY);
-    mpv_node_list *args = node->u.list;
+    mp_assert(node->format == DMPV_FORMAT_NODE_ARRAY);
+    dmpv_node_list *args = node->u.list;
     int cur = 0;
 
     while (cur < args->num) {
-        if (args->values[cur].format != MPV_FORMAT_STRING)
+        if (args->values[cur].format != DMPV_FORMAT_STRING)
             break;
         if (!apply_flag(cmd, bstr0(args->values[cur].u.string)))
             break;
@@ -214,7 +215,7 @@ static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, mpv_node *nod
     }
 
     bstr cmd_name = {0};
-    if (cur < args->num && args->values[cur].format == MPV_FORMAT_STRING)
+    if (cur < args->num && args->values[cur].format == DMPV_FORMAT_STRING)
         cmd_name = bstr0(args->values[cur++].u.string);
     if (!find_cmd(log, cmd, cmd_name))
         return false;
@@ -228,13 +229,13 @@ static bool cmd_node_array(struct mp_log *log, struct mp_cmd *cmd, mpv_node *nod
     return true;
 }
 
-static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
+static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, dmpv_node *node)
 {
-    assert(node->format == MPV_FORMAT_NODE_MAP);
-    mpv_node_list *args = node->u.list;
+    mp_assert(node->format == DMPV_FORMAT_NODE_MAP);
+    dmpv_node_list *args = node->u.list;
 
-    mpv_node *name = node_map_get(node, "name");
-    if (!name || name->format != MPV_FORMAT_STRING)
+    dmpv_node *name = node_map_get(node, "name");
+    if (!name || name->format != DMPV_FORMAT_STRING)
         return false;
 
     if (!find_cmd(log, cmd, bstr0(name->u.string)))
@@ -249,16 +250,16 @@ static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
 
     for (int n = 0; n < args->num; n++) {
         const char *key = args->keys[n];
-        mpv_node *val = &args->values[n];
+        dmpv_node *val = &args->values[n];
 
         if (strcmp(key, "name") == 0) {
             // already handled above
         } else if (strcmp(key, "_flags") == 0) {
-            if (val->format != MPV_FORMAT_NODE_ARRAY)
+            if (val->format != DMPV_FORMAT_NODE_ARRAY)
                 return false;
-            mpv_node_list *flags = val->u.list;
+            dmpv_node_list *flags = val->u.list;
             for (int i = 0; i < flags->num; i++) {
-                if (flags->values[i].format != MPV_FORMAT_STRING)
+                if (flags->values[i].format != DMPV_FORMAT_STRING)
                     return false;
                 if (!apply_flag(cmd, bstr0(flags->values[i].u.string)))
                     return false;
@@ -287,16 +288,16 @@ static bool cmd_node_map(struct mp_log *log, struct mp_cmd *cmd, mpv_node *node)
     return true;
 }
 
-struct mp_cmd *mp_input_parse_cmd_node(struct mp_log *log, mpv_node *node)
+struct mp_cmd *mp_input_parse_cmd_node(struct mp_log *log, dmpv_node *node)
 {
     struct mp_cmd *cmd = talloc_ptrtype(NULL, cmd);
     talloc_set_destructor(cmd, destroy_cmd);
     *cmd = (struct mp_cmd) { .scale = 1, .scale_units = 1 };
 
     bool res = false;
-    if (node->format == MPV_FORMAT_NODE_ARRAY) {
+    if (node->format == DMPV_FORMAT_NODE_ARRAY) {
         res = cmd_node_array(log, cmd, node);
-    } else if (node->format == MPV_FORMAT_NODE_MAP) {
+    } else if (node->format == DMPV_FORMAT_NODE_MAP) {
         res = cmd_node_map(log, cmd, node);
     }
 
@@ -354,7 +355,7 @@ static int pctx_read_token(struct parse_ctx *ctx, bstr *out)
     if (ctx->start.len > 1 && bstr_eatstart0(&ctx->str, "`")) {
         char endquote[2] = {ctx->str.start[0], '`'};
         ctx->str = bstr_cut(ctx->str, 1);
-        int next = bstr_find(ctx->str, (bstr){endquote, 2});
+        int next = bstr_find(ctx->str, (bstr){(unsigned char *)endquote, 2});
         if (next < 0) {
             MP_ERR(ctx, "Unterminated custom quote: ...>%.*s<.\n", BSTR_P(start));
             return -1;
@@ -512,11 +513,11 @@ struct mp_cmd *mp_input_parse_cmd_strv(struct mp_log *log, const char **argv)
     int count = 0;
     while (argv[count])
         count++;
-    mpv_node *items = talloc_zero_array(NULL, mpv_node, count);
-    mpv_node_list list = {.values = items, .num = count};
-    mpv_node node = {.format = MPV_FORMAT_NODE_ARRAY, .u = {.list = &list}};
+    dmpv_node *items = talloc_zero_array(NULL, dmpv_node, count);
+    dmpv_node_list list = {.values = items, .num = count};
+    dmpv_node node = {.format = DMPV_FORMAT_NODE_ARRAY, .u = {.list = &list}};
     for (int n = 0; n < count; n++) {
-        items[n] = (mpv_node){.format = MPV_FORMAT_STRING,
+        items[n] = (dmpv_node){.format = DMPV_FORMAT_STRING,
                               .u = {.string = (char *)argv[n]}};
     }
     struct mp_cmd *res = mp_input_parse_cmd_node(log, &node);
@@ -593,8 +594,8 @@ void mp_cmd_dump(struct mp_log *log, int msgl, char *header, struct mp_cmd *cmd)
         char *s = m_option_print(cmd->args[n].type, &cmd->args[n].v);
         if (n)
             mp_msg(log, msgl, ", ");
-        struct mpv_node node = {
-            .format = MPV_FORMAT_STRING,
+        struct dmpv_node node = {
+            .format = DMPV_FORMAT_STRING,
             .u.string = s ? s : "(NULL)",
         };
         char *esc = NULL;
@@ -611,7 +612,8 @@ bool mp_input_is_repeatable_cmd(struct mp_cmd *cmd)
     if (cmd->def == &mp_cmd_list && cmd->args[0].v.p)
         cmd = cmd->args[0].v.p;  // list - only 1st cmd is considered
 
-    return (cmd->def->allow_auto_repeat) || (cmd->flags & MP_ALLOW_REPEAT);
+    return (cmd->def->allow_auto_repeat && !(cmd->flags & MP_DISALLOW_REPEAT)) ||
+           (cmd->flags & MP_ALLOW_REPEAT);
 }
 
 bool mp_input_is_scalable_cmd(struct mp_cmd *cmd)
@@ -623,7 +625,7 @@ void mp_print_cmd_list(struct mp_log *out)
 {
     for (int i = 0; mp_cmds[i].name; i++) {
         const struct mp_cmd_def *def = &mp_cmds[i];
-        mp_info(out, "%-20.20s", def->name);
+        mp_info(out, "%-25s", def->name);
         for (int j = 0; j < MP_CMD_DEF_MAX_ARGS && def->args[j].type; j++) {
             const struct m_option *arg = &def->args[j];
             bool is_opt = arg->defval || (arg->flags & MP_CMD_OPT_ARG);
@@ -635,37 +637,3 @@ void mp_print_cmd_list(struct mp_log *out)
         mp_info(out, "\n");
     }
 }
-
-static int parse_cycle_dir(struct mp_log *log, const struct m_option *opt,
-                           struct bstr name, struct bstr param, void *dst)
-{
-    double val;
-    if (bstrcmp0(param, "up") == 0) {
-        val = +1;
-    } else if (bstrcmp0(param, "down") == 0) {
-        val = -1;
-    } else {
-        return m_option_type_double.parse(log, opt, name, param, dst);
-    }
-    *(double *)dst = val;
-    return 1;
-}
-
-static char *print_cycle_dir(const m_option_t *opt, const void *val)
-{
-    return talloc_asprintf(NULL, "%f", *(double *)val);
-}
-
-static void copy_opt(const m_option_t *opt, void *dst, const void *src)
-{
-    if (dst && src)
-        memcpy(dst, src, opt->type->size);
-}
-
-const struct m_option_type m_option_type_cycle_dir = {
-    .name = "up|down",
-    .parse = parse_cycle_dir,
-    .print = print_cycle_dir,
-    .copy = copy_opt,
-    .size = sizeof(double),
-};

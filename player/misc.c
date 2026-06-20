@@ -1,26 +1,25 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <assert.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "osdep/io.h"
 #include "osdep/timer.h"
@@ -29,7 +28,7 @@
 #include "common/msg.h"
 #include "options/options.h"
 #include "options/m_property.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "common/common.h"
 #include "common/global.h"
 #include "common/encode.h"
@@ -75,8 +74,9 @@ double rel_time_to_abs(struct MPContext *mpctx, struct m_rel_time t)
         break;
     case REL_TIME_CHAPTER:
         return chapter_start_time(mpctx, t.pos); // already absolute time
+    case REL_TIME_NONE:
+        break;
     }
-
     return MP_NOPTS_VALUE;
 }
 
@@ -128,7 +128,7 @@ bool get_ab_loop_times(struct MPContext *mpctx, double t[2])
     t[0] = opts->ab_loop[0];
     t[1] = opts->ab_loop[1];
 
-    if (!opts->ab_loop_count)
+    if (!mpctx->remaining_ab_loops)
         return false;
 
     if (t[0] == MP_NOPTS_VALUE || t[1] == MP_NOPTS_VALUE || t[0] == t[1])
@@ -252,7 +252,7 @@ void error_on_track(struct MPContext *mpctx, struct track *track)
         if (!mpctx->stop_play)
             mpctx->stop_play = PT_ERROR;
         if (mpctx->error_playing >= 0)
-            mpctx->error_playing = MPV_ERROR_NOTHING_TO_PLAY;
+            mpctx->error_playing = DMPV_ERROR_NOTHING_TO_PLAY;
     }
     mp_wakeup_core(mpctx);
 }
@@ -260,27 +260,36 @@ void error_on_track(struct MPContext *mpctx, struct track *track)
 int stream_dump(struct MPContext *mpctx, const char *source_filename)
 {
     struct MPOpts *opts = mpctx->opts;
+    bool ok = false;
+
     stream_t *stream = stream_create(source_filename,
                                      STREAM_ORIGIN_DIRECT | STREAM_READ,
                                      mpctx->playback_abort, mpctx->global);
-    if (!stream)
-        return -1;
+    if (!stream || stream->is_directory)
+        goto done;
 
     int64_t size = stream_get_size(stream);
+    int64_t start_pos = stream->pos;
 
     FILE *dest = fopen(opts->stream_dump, "wb");
     if (!dest) {
         MP_ERR(mpctx, "Error opening dump file: %s\n", mp_strerror(errno));
-        return -1;
+        goto done;
     }
 
-    bool ok = true;
+    ok = true;
 
     while (mpctx->stop_play == KEEP_PLAYING && ok) {
         if (!opts->quiet && ((stream->pos / (1024 * 1024)) % 2) == 1) {
-            uint64_t pos = stream->pos;
-            MP_MSG(mpctx, MSGL_STATUS, "Dumping %lld/%lld...",
-                   (long long int)pos, (long long int)size);
+            int64_t pos = stream->pos;
+            if (size > 0 && pos >= start_pos) {
+                double percent = 100.0 * (pos - start_pos) / (size - start_pos);
+                MP_MSG(mpctx, MSGL_STATUS, "Dumping %" PRId64 "/%" PRId64 " (%.2f%%)...",
+                       pos, size, percent);
+            } else {
+                MP_MSG(mpctx, MSGL_STATUS, "Dumping %" PRId64 "/%" PRId64 "...",
+                       pos, size);
+            }
         }
         uint8_t buf[4096];
         int len = stream_read(stream, buf, sizeof(buf));
@@ -294,6 +303,7 @@ int stream_dump(struct MPContext *mpctx, const char *source_filename)
     }
 
     ok &= fclose(dest) == 0;
+done:
     free_stream(stream);
     return ok ? 0 : -1;
 }
@@ -317,7 +327,7 @@ void merge_playlist_files(struct playlist *pl)
         edl = talloc_strdup_append_buffer(edl, e->filename);
     }
     playlist_clear(pl);
-    playlist_add_file(pl, edl);
+    playlist_append_file(pl, edl);
     talloc_free(edl);
 }
 

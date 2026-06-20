@@ -4,20 +4,20 @@
  *
  * Copyright (c) 2003 Dave Lambley <mplayer@davel.me.uk>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
@@ -78,7 +78,7 @@ static int parse_line(char **ptr, char *cols[7])
 
 /* Loads a cookies.txt file into a linked list. */
 static struct cookie_list_type *load_cookies_from(void *ctx,
-                                                  struct mpv_global *global,
+                                                  struct dmpv_global *global,
                                                   struct mp_log *log,
                                                   const char *filename)
 {
@@ -89,8 +89,8 @@ static struct cookie_list_type *load_cookies_from(void *ctx,
         return NULL;
     }
 
-    bstr_xappend(ctx, &data, (struct bstr){"", 1}); // null-terminate
-    char *ptr = data.start;
+    bstr_xappend(ctx, &data, (struct bstr){(unsigned char *)"", 1}); // null-terminate
+    char *ptr = (char *)data.start;
 
     struct cookie_list_type *list = NULL;
     while (*ptr) {
@@ -115,7 +115,7 @@ static struct cookie_list_type *load_cookies_from(void *ctx,
 // is like a Set-Cookie header (http://curl.haxx.se/rfc/cookie_spec.html),
 // separated by newlines.
 char *cookies_lavf(void *talloc_ctx,
-                   struct mpv_global *global,
+                   struct dmpv_global *global,
                    struct mp_log *log,
                    const char *file)
 {

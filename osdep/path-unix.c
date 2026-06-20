@@ -1,34 +1,36 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
-#include <pthread.h>
 
 #include "options/path.h"
+#include "osdep/threads.h"
 #include "path.h"
 
 #include "config.h"
 
 static pthread_once_t path_init_once = PTHREAD_ONCE_INIT;
 
-static char mpv_home[512];
-static char old_home[512];
-static char mpv_cache[512];
-static char mpv_state[512];
+#define CONF_MAX 512
+static char dmpv_home[CONF_MAX];
+static char old_home[CONF_MAX];
+static char dmpv_cache[CONF_MAX];
+static char dmpv_state[CONF_MAX];
+#define MKPATH(BUF, ...) (snprintf((BUF), CONF_MAX, __VA_ARGS__) >= CONF_MAX)
 
 static void path_init(void)
 {
@@ -37,35 +39,41 @@ static void path_init(void)
     char *xdg_config = getenv("XDG_CONFIG_HOME");
     char *xdg_state = getenv("XDG_STATE_HOME");
 
+    bool err = false;
     if (xdg_config && xdg_config[0]) {
-        snprintf(mpv_home, sizeof(mpv_home), "%s/mpv", xdg_config);
+        err = err || MKPATH(dmpv_home, "%s/dmpv", xdg_config);
     } else if (home && home[0]) {
-        snprintf(mpv_home, sizeof(mpv_home), "%s/.config/mpv", home);
+        err = err || MKPATH(dmpv_home, "%s/.config/dmpv", home);
     }
 
-    // Maintain compatibility with old ~/.mpv
+    // Maintain compatibility with old ~/.dmpv
     if (home && home[0])
-        snprintf(old_home, sizeof(old_home), "%s/.mpv", home);
+        err = err || MKPATH(old_home, "%s/.dmpv", home);
 
     if (xdg_cache && xdg_cache[0]) {
-        snprintf(mpv_cache, sizeof(mpv_cache), "%s/mpv", xdg_cache);
+        err = err || MKPATH(dmpv_cache, "%s/dmpv", xdg_cache);
     } else if (home && home[0]) {
-        snprintf(mpv_cache, sizeof(mpv_cache), "%s/.cache/mpv", home);
+        err = err || MKPATH(dmpv_cache, "%s/.cache/dmpv", home);
     }
 
     if (xdg_state && xdg_state[0]) {
-        snprintf(mpv_state, sizeof(mpv_state), "%s/mpv", xdg_state);
+        err = err || MKPATH(dmpv_state, "%s/dmpv", xdg_state);
     } else if (home && home[0]) {
-        snprintf(mpv_state, sizeof(mpv_state), "%s/.local/state/mpv", home);
+        err = err || MKPATH(dmpv_state, "%s/.local/state/dmpv", home);
     }
 
-    // If the old ~/.mpv exists, and the XDG config dir doesn't, use the old
+    // If the old ~/.dmpv exists, and the XDG config dir doesn't, use the old
     // config dir only. Also do not use any other XDG directories.
-    if (mp_path_exists(old_home) && !mp_path_exists(mpv_home)) {
-        snprintf(mpv_home, sizeof(mpv_home), "%s", old_home);
-        snprintf(mpv_cache, sizeof(mpv_cache), "%s", old_home);
-        snprintf(mpv_state, sizeof(mpv_state), "%s", old_home);
+    if (mp_path_exists(old_home) && !mp_path_exists(dmpv_home)) {
+        err = err || MKPATH(dmpv_home, "%s", old_home);
+        err = err || MKPATH(dmpv_cache, "%s", old_home);
+        err = err || MKPATH(dmpv_state, "%s", old_home);
         old_home[0] = '\0';
+    }
+
+    if (err) {
+        fprintf(stderr, "Config dir exceeds %d bytes\n", CONF_MAX);
+        abort();
     }
 }
 
@@ -73,15 +81,15 @@ const char *mp_get_platform_path_unix(void *talloc_ctx, const char *type)
 {
     pthread_once(&path_init_once, path_init);
     if (strcmp(type, "home") == 0)
-        return mpv_home;
+        return dmpv_home;
     if (strcmp(type, "old_home") == 0)
         return old_home;
     if (strcmp(type, "cache") == 0)
-        return mpv_cache;
+        return dmpv_cache;
     if (strcmp(type, "state") == 0)
-        return mpv_state;
+        return dmpv_state;
     if (strcmp(type, "global") == 0)
-        return MPV_CONFDIR;
+        return DMPV_CONFDIR;
     if (strcmp(type, "desktop") == 0)
         return getenv("HOME");
     return NULL;

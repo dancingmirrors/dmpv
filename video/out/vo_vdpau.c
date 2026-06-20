@@ -4,24 +4,24 @@
  * Copyright (C) 2008 NVIDIA (Rajib Mahapatra <rmahapatra@nvidia.com>)
  * Copyright (C) 2009 Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or modify
+ * dmpv is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
- * Actual decoding is done in video/decode/vdpau.c
+ * Actual decoding is done in video/vdpau.c
  */
 
 #include <stdio.h>
@@ -29,14 +29,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
-#include <assert.h>
 
 #include "video/vdpau.h"
 #include "video/vdpau_mixer.h"
 #include "video/hwdec.h"
 #include "common/msg.h"
 #include "options/options.h"
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
+#include "misc/mp_assert.h"
 #include "vo.h"
 #include "x11_common.h"
 #include "video/csputils.h"
@@ -256,11 +256,24 @@ static void resize(struct vo *vo)
     vc->out_rect_vid.x1 = dst_rect.x1;
     vc->out_rect_vid.y0 = dst_rect.y0;
     vc->out_rect_vid.y1 = dst_rect.y1;
-    if (vo->params->rotate == 90 || vo->params->rotate == 270) {
+    if (vo->params->rotate == 90) {
         vc->src_rect_vid.y0 = src_rect.x0;
         vc->src_rect_vid.y1 = src_rect.x1;
         vc->src_rect_vid.x0 = src_rect.y0;
         vc->src_rect_vid.x1 = src_rect.y1;
+    } else if (vo->params->rotate == 270) {
+        // For 270-degree: swap x/y and invert x-axis
+        // src_rect is in swapped space; vo->params->w is original unrotated width
+        vc->src_rect_vid.y0 = src_rect.x0;
+        vc->src_rect_vid.y1 = src_rect.x1;
+        vc->src_rect_vid.x0 = vo->params->w - src_rect.y1;
+        vc->src_rect_vid.x1 = vo->params->w - src_rect.y0;
+    } else if (vo->params->rotate == 180) {
+        // For 180-degree rotation, invert both axes
+        vc->src_rect_vid.x0 = vo->params->w - src_rect.x1;
+        vc->src_rect_vid.x1 = vo->params->w - src_rect.x0;
+        vc->src_rect_vid.y0 = vo->params->h - src_rect.y1;
+        vc->src_rect_vid.y1 = vo->params->h - src_rect.y0;
     } else {
         vc->src_rect_vid.x0 = src_rect.x0;
         vc->src_rect_vid.x1 = src_rect.x1;
@@ -279,7 +292,7 @@ static void resize(struct vo *vo)
     vc->flip_offset_us = vo->opts->fullscreen ?
                          1000LL * vc->flip_offset_fs :
                          1000LL * vc->flip_offset_window;
-    vo_set_queue_params(vo, vc->flip_offset_us, 1);
+    vo_set_queue_params(vo, MP_TIME_US_TO_NS(vc->flip_offset_us), 1);
 
     if (vc->output_surface_w < vo->dwidth || vc->output_surface_h < vo->dheight ||
         vc->rotation != vo->params->rotate)
@@ -370,7 +383,7 @@ static int win_x11_init_vdpau_flip_queue(struct vo *vo)
     }
 
     if (vc->composite_detect && vo_x11_screen_is_composited(vo)) {
-        MP_INFO(vo, "Compositing window manager detected. Assuming timing info "
+        MP_VERBOSE(vo, "Compositing window manager detected. Assuming timing info "
                 "is inaccurate.\n");
         vc->user_fps = -1;
     }
@@ -602,7 +615,7 @@ static void generate_osd_part(struct vo *vo, struct sub_bitmaps *imgs)
         MP_ASSERT_UNREACHABLE();
     };
 
-    assert(imgs->packed);
+    mp_assert(imgs->packed);
 
     int r_w = next_pow2(imgs->packed_w);
     int r_h = next_pow2(imgs->packed_h);
@@ -754,7 +767,7 @@ static void flip_page(struct vo *vo)
     struct vdp_functions *vdp = vc->vdp;
     VdpStatus vdp_st;
 
-    int64_t pts_us = vc->current_pts;
+    int64_t pts_ns = vc->current_pts;
     int duration = vc->current_duration;
 
     vc->dropped_frame = true; // changed at end if false
@@ -770,20 +783,15 @@ static void flip_page(struct vo *vo)
     }
     vc->vsync_interval = MPMAX(vc->vsync_interval, 1);
 
-    if (duration > INT_MAX / 1000)
-        duration = -1;
-    else
-        duration *= 1000;
-
     if (vc->vsync_interval == 1)
-        duration = -1;  // Make sure drop logic is disabled
+        duration = -1; // Make sure drop logic is disabled
 
     VdpTime vdp_time = 0;
     vdp_st = vdp->presentation_queue_get_time(vc->flip_queue, &vdp_time);
     CHECK_VDP_WARNING(vo, "Error when calling vdp_presentation_queue_get_time");
 
-    int64_t rel_pts_ns = (pts_us - mp_time_us()) * 1000;
-    if (!pts_us || rel_pts_ns < 0)
+    int64_t rel_pts_ns = pts_ns - mp_time_ns();
+    if (!pts_ns || rel_pts_ns < 0)
         rel_pts_ns = 0;
 
     uint64_t now = vdp_time;
@@ -798,7 +806,7 @@ static void flip_page(struct vo *vo)
      *   give some additional room by doubling the time.
      * - The last vsync can never be in the future.
      */
-    int64_t max_pts_ahead = vc->flip_offset_us * 1000 * 2;
+    int64_t max_pts_ahead = MP_TIME_US_TO_NS(vc->flip_offset_us) * 2;
     if (vc->last_queue_time > now + max_pts_ahead ||
         vc->recent_vsync_time > now)
     {
@@ -875,7 +883,7 @@ drop:
     vo_increment_drop_count(vo, 1);
 }
 
-static void draw_frame(struct vo *vo, struct vo_frame *frame)
+static bool draw_frame(struct vo *vo, struct vo_frame *frame)
 {
     struct vdpctx *vc = vo->priv;
 
@@ -898,6 +906,7 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
         video_to_output_surface(vo, vc->current_image);
         draw_osd(vo);
     }
+    return VO_TRUE;
 }
 
 // warning: the size and pixel format of surface must match that of the
@@ -917,7 +926,7 @@ static struct mp_image *read_output_surface(struct vo *vo,
     if (vdp_st != VDP_STATUS_OK)
         return NULL;
 
-    assert(fmt == OUTPUT_RGBA_FORMAT);
+    mp_assert(fmt == OUTPUT_RGBA_FORMAT);
 
     struct mp_image *image = mp_image_alloc(IMGFMT_BGR0, w, h);
     if (!image)
@@ -962,6 +971,26 @@ static void destroy_vdpau_objects(struct vo *vo)
     VdpStatus vdp_st;
 
     free_video_specific(vo);
+
+    // Wait for all queued surfaces to become idle before destroying them.
+    if (vc->flip_queue != VDP_INVALID_HANDLE) {
+        VdpTime dummy;
+        for (int i = 0; i < vc->num_output_surfaces; i++) {
+            if (vc->output_surfaces[i] != VDP_INVALID_HANDLE) {
+                vdp_st = vdp->presentation_queue_block_until_surface_idle(
+                    vc->flip_queue, vc->output_surfaces[i], &dummy);
+                CHECK_VDP_WARNING(vo, "Error waiting for surface idle");
+            }
+        }
+        if (vc->rotation_surface != VDP_INVALID_HANDLE) {
+            vdp_st = vdp->presentation_queue_block_until_surface_idle(
+                vc->flip_queue, vc->rotation_surface, &dummy);
+            CHECK_VDP_WARNING(vo, "Error waiting for rotation surface idle");
+        }
+
+        // Unfortunately VDPAU seems to be inherently racy.
+        mp_sleep_ns(20000);
+    }
 
     if (vc->flip_queue != VDP_INVALID_HANDLE) {
         vdp_st = vdp->presentation_queue_destroy(vc->flip_queue);
@@ -1035,11 +1064,6 @@ static int preinit(struct vo *vo)
     vc->video_mixer = mp_vdpau_mixer_create(vc->mpvdp, vo->log);
     vc->video_mixer->video_eq = mp_csp_equalizer_create(vo, vo->global);
 
-    if (mp_vdpau_guess_if_emulated(vc->mpvdp)) {
-        MP_WARN(vo, "VDPAU is most likely emulated via VA-API.\n"
-                    "This is inefficient. Use --vo=gpu instead.\n");
-    }
-
     // Mark everything as invalid first so uninit() can tell what has been
     // allocated
     mark_vdpau_objects_uninitialized(vo);
@@ -1051,11 +1075,6 @@ static int preinit(struct vo *vo)
 
     vc->vdp->bitmap_surface_query_capabilities(vc->vdp_device, VDP_RGBA_FORMAT_A8,
                             &vc->supports_a8, &(uint32_t){0}, &(uint32_t){0});
-
-    MP_WARN(vo, "Warning: this compatibility VO is low quality and may "
-                "have issues with OSD, scaling, screenshots and more.\n"
-                "vo=gpu is the preferred choice in any case and "
-                "includes VDPAU support via hwdec=vdpau or vdpau-copy.\n");
 
     return 0;
 }
@@ -1075,9 +1094,6 @@ static int control(struct vo *vo, uint32_t request, void *data)
     case VOCTRL_SET_PANSCAN:
         checked_resize(vo);
         return VO_TRUE;
-    case VOCTRL_SET_EQUALIZER:
-        vo->want_redraw = true;
-        return true;
     case VOCTRL_RESET:
         forget_frames(vo, true);
         return true;
@@ -1132,10 +1148,7 @@ const struct vo_driver video_out_vdpau = {
         {"colorkey", OPT_COLOR(colorkey),
             .defval = &(const struct m_color){.r = 2, .g = 5, .b = 7, .a = 255}},
         {"force-yuv", OPT_BOOL(force_yuv)},
-        {"queuetime_windowed", OPT_REPLACED("queuetime-windowed")},
-        {"queuetime_fs", OPT_REPLACED("queuetime-fs")},
-        {"output_surfaces", OPT_REPLACED("output-surfaces")},
-        {NULL},
+        {0},
     },
-    .options_prefix = "vo-vdpau",
+    .options_prefix = "vdpau",
 };

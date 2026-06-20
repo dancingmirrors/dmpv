@@ -1,34 +1,30 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 
-// FreeBSD 10.0-CURRENT lacks the GLX_ARB_create_context extension completely
 #ifndef GLX_CONTEXT_MAJOR_VERSION_ARB
 #define GLX_CONTEXT_MAJOR_VERSION_ARB           0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB           0x2092
 #define GLX_CONTEXT_FLAGS_ARB                   0x2094
 #define GLX_CONTEXT_PROFILE_MASK_ARB            0x9126
-#ifndef __APPLE__
-// These are respectively 0x00000001 and 0x00000002 on OSX
 #define GLX_CONTEXT_DEBUG_BIT_ARB               0x0001
 #define GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB  0x0002
-#endif
 #define GLX_CONTEXT_CORE_PROFILE_BIT_ARB        0x00000001
 #define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 #endif
@@ -290,7 +286,7 @@ static bool glx_init(struct ra_ctx *ctx)
     if (!success)
         goto uninit;
 
-    struct ra_gl_ctx_params params = {
+    struct ra_ctx_params params = {
         .check_visible = glx_check_visible,
         .swap_buffers = glx_swap_buffers,
         .get_vsync    = glx_get_vsync,
@@ -334,9 +330,9 @@ static void glx_wakeup(struct ra_ctx *ctx)
     vo_x11_wakeup(ctx->vo);
 }
 
-static void glx_wait_events(struct ra_ctx *ctx, int64_t until_time_us)
+static void glx_wait_events(struct ra_ctx *ctx, int64_t until_time_ns)
 {
-    vo_x11_wait_events(ctx->vo, until_time_us);
+    vo_x11_wait_events(ctx->vo, until_time_ns);
 }
 
 const struct ra_ctx_fns ra_ctx_glx = {

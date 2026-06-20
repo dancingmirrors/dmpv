@@ -1,21 +1,19 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <assert.h>
 
 #include <va/va.h>
 #include <va/va_vpp.h>
@@ -51,6 +49,7 @@ struct pipeline {
 
 struct opts {
     int deint_type;
+    int field_parity;
     bool interlaced_only;
     bool reversal_bug;
 };
@@ -143,11 +142,13 @@ static void update_pipeline(struct mp_filter *vf)
         (p->do_deint ? MP_MODE_DEINT : 0) |
         (p->opts->deint_type >= 2 ? MP_MODE_OUTPUT_FIELDS : 0) |
         (p->opts->interlaced_only ? MP_MODE_INTERLACED_ONLY : 0));
+    mp_refqueue_set_parity(p->queue, p->opts->field_parity);
     return;
 
 nodeint:
     mp_refqueue_set_refs(p->queue, 0, 0);
     mp_refqueue_set_mode(p->queue, 0);
+    mp_refqueue_set_parity(p->queue, p->opts->field_parity);
 }
 
 static struct mp_image *alloc_out(struct mp_filter *vf)
@@ -159,10 +160,13 @@ static struct mp_image *alloc_out(struct mp_filter *vf)
         return NULL;
 
     AVHWFramesContext *hw_frames = (void *)fmt->hwctx->data;
-    // VAAPI requires the full surface size to match for input and output.
+    // VA-API requires the full surface size to match for input and output.
     int src_w = hw_frames->width;
     int src_h = hw_frames->height;
 
+    /* XXX: We hardcode nv12 for dmabuf-wayland, but if we didn't this would
+     * create slight video aspect inconsistencies when the formats don't match.
+     */
     if (!mp_update_av_hw_frames_pool(&p->hw_pool, p->av_device_ref,
                                      IMGFMT_VAAPI, IMGFMT_NV12, src_w, src_h,
                                      false))
@@ -367,7 +371,7 @@ static bool initialize(struct mp_filter *vf)
 
     VAProcFilterType filters[VAProcFilterCount];
     int num_filters = VAProcFilterCount;
-    status = vaQueryVideoProcFilters(p->display, p->context, filters, &num_filters);
+    status = vaQueryVideoProcFilters(p->display, p->context, filters, (unsigned int *)&num_filters);
     if (!CHECK_VA_STATUS(vf, "vaQueryVideoProcFilters()"))
         return false;
 
@@ -448,7 +452,7 @@ static struct mp_filter *vf_vavpp_create(struct mp_filter *parent, void *options
     p->queue = mp_refqueue_alloc(f);
 
     struct mp_hwdec_ctx *hwdec_ctx =
-        mp_filter_load_hwdec_device(f, IMGFMT_VAAPI);
+        mp_filter_load_hwdec_device(f, IMGFMT_VAAPI, AV_HWDEVICE_TYPE_VAAPI);
     if (!hwdec_ctx || !hwdec_ctx->av_device_ref)
         goto error;
     p->av_device_ref = av_buffer_ref(hwdec_ctx->av_device_ref);
@@ -485,6 +489,10 @@ static const m_option_t vf_opts_fields[] = {
         {"motion-compensated", 5})},
     {"interlaced-only", OPT_BOOL(interlaced_only)},
     {"reversal-bug", OPT_BOOL(reversal_bug)},
+    {"parity", OPT_CHOICE(field_parity,
+        {"tff", MP_FIELD_PARITY_TFF},
+        {"bff", MP_FIELD_PARITY_BFF},
+        {"auto", MP_FIELD_PARITY_AUTO})},
     {0}
 };
 
@@ -496,6 +504,7 @@ const struct mp_user_filter_entry vf_vavpp = {
         .priv_defaults = &(const OPT_BASE_STRUCT){
             .deint_type = -1,
             .reversal_bug = true,
+            .field_parity = MP_FIELD_PARITY_AUTO,
         },
         .options = vf_opts_fields,
     },

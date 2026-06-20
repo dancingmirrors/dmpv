@@ -3,28 +3,28 @@
  *
  * Copyright 2009, 2012 Uoti Urpala
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
 #include <stdio.h>
 #include <limits.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 #include "bitmap_packer.h"
 #include "common/common.h"
 
@@ -138,10 +138,8 @@ int packer_pack(struct bitmap_packer *packer)
             in[i].x += packer->padding * 2;
             in[i].y += packer->padding * 2;
         }
-        if (in[i].x < 0 || in [i].x > 65535 || in[i].y < 0 || in[i].y > 65535) {
-            fprintf(stderr, "Invalid OSD / subtitle bitmap size\n");
-            abort();
-        }
+        if (in[i].x < 0 || in [i].x > 65535 || in[i].y < 0 || in[i].y > 65535)
+            return -1;
         xmax = MPMAX(xmax, in[i].x);
         ymax = MPMAX(ymax, in[i].y);
     }
@@ -157,8 +155,8 @@ int packer_pack(struct bitmap_packer *packer)
         if (y >= 0) {
             packer->used_width = MPMIN(used_width, packer->w);
             packer->used_height = MPMIN(y, packer->h);
-            assert(packer->w == 0 || IS_POWER_OF_2(packer->w));
-            assert(packer->h == 0 || IS_POWER_OF_2(packer->h));
+            mp_assert(packer->w == 0 || IS_POWER_OF_2(packer->w));
+            mp_assert(packer->h == 0 || IS_POWER_OF_2(packer->h));
             if (packer->padding) {
                 for (int i = 0; i < packer->count; i++) {
                     packer->result[i].x += packer->padding;

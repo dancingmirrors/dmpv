@@ -3,26 +3,24 @@
  *
  * Copyright (C) 2011 Rudolf Polzer <divVerent@xonotic.org>
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_ENCODE_LAVC_H
 #define MPLAYER_ENCODE_LAVC_H
-
-#include <pthread.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -33,11 +31,12 @@
 
 #include "common/common.h"
 #include "encode.h"
+#include "osdep/threads.h"
 #include "video/csputils.h"
 
 struct encode_lavc_context {
     // --- Immutable after init
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct encode_opts *options;
     struct mp_log *log;
     struct encode_priv *priv;
@@ -68,7 +67,7 @@ struct encoder_stream_info {
 // The encoder parts for each stream (no muxing parts included).
 // This is private to each stream.
 struct encoder_context {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct encode_opts *options;
     struct mp_log *log;
     const AVOutputFormat *oformat;
@@ -97,20 +96,16 @@ struct encoder_context *encoder_context_alloc(struct encode_lavc_context *ctx,
 
 // After setting your codec parameters on p->encoder, you call this to "open"
 // the encoder. This also initializes p->mux_stream. Returns false on failure.
-// on_ready is called as soon as the muxer has been initialized. Then you are
-// allowed to write packets with encoder_encode().
-// Warning: the on_ready callback is called asynchronously, so you need to
-// make sure to properly synchronize everything.
-bool encoder_init_codec_and_muxer(struct encoder_context *p,
-                                  void (*on_ready)(void *ctx), void *ctx);
+bool encoder_init_codec_and_muxer(struct encoder_context *p);
 
 // Encode the frame and write the packet. frame is ref'ed as need.
 bool encoder_encode(struct encoder_context *p, AVFrame *frame);
 
-// Return muxer timebase (only available after on_ready() has been called).
-// Caller needs to acquire encode_lavc_context.lock (or call it from on_ready).
+// Return muxer timebase (only available if p->mux_stream is initialized).
 AVRational encoder_get_mux_timebase_unlocked(struct encoder_context *p);
 
 double encoder_get_offset(struct encoder_context *p);
+
+void encoder_update_log(struct dmpv_global *global);
 
 #endif

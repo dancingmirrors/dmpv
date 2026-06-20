@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 
 #include "config.h"
 
@@ -19,14 +18,11 @@
 #if HAVE_X11
 #define VK_USE_PLATFORM_XLIB_KHR
 #endif
-#if HAVE_WIN32_DESKTOP
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
 
 #include <libplacebo/vulkan.h>
 
 // Shared struct used to hold vulkan context information
-struct mpvk_ctx {
+struct dmpvk_ctx {
     pl_log pllog;
     pl_vk_inst vkinst;
     pl_vulkan vulkan;

@@ -1,23 +1,24 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
+#include "osdep/threads.h"
 
 #include <libavutil/common.h>
 
@@ -27,8 +28,8 @@
 
 #include "osdep/timer.h"
 
-#include "mpv_talloc.h"
-#include "options/m_config.h"
+#include "misc/dmpv_talloc.h"
+#include "options/m_config_core.h"
 #include "options/options.h"
 #include "common/global.h"
 #include "common/msg.h"
@@ -54,8 +55,8 @@ static const m_option_t style_opts[] = {
     {"border-size", OPT_FLOAT(border_size)},
     {"shadow-offset", OPT_FLOAT(shadow_offset)},
     {"spacing", OPT_FLOAT(spacing), M_RANGE(-10, 10)},
-    {"margin-x", OPT_INT(margin_x), M_RANGE(0, 300)},
-    {"margin-y", OPT_INT(margin_y), M_RANGE(0, 600)},
+    {"margin-x", OPT_INT(margin_x), M_RANGE(0, INT_MAX)},
+    {"margin-y", OPT_INT(margin_y), M_RANGE(0, INT_MAX)},
     {"align-x", OPT_CHOICE(align_x,
         {"left", -1}, {"center", 0}, {"right", +1})},
     {"align-y", OPT_CHOICE(align_y,
@@ -117,9 +118,9 @@ bool osd_res_equals(struct mp_osd_res a, struct mp_osd_res b)
         && a.display_par == b.display_par;
 }
 
-struct osd_state *osd_create(struct mpv_global *global)
+struct osd_state *osd_create(struct dmpv_global *global)
 {
-    assert(MAX_OSD_PARTS >= OSDTYPE_COUNT);
+    mp_assert(MAX_OSD_PARTS >= OSDTYPE_COUNT);
 
     struct osd_state *osd = talloc_zero(NULL, struct osd_state);
     *osd = (struct osd_state) {
@@ -156,13 +157,13 @@ void osd_free(struct osd_state *osd)
         return;
     osd_destroy_backend(osd);
     talloc_free(osd->objs[OSDTYPE_EXTERNAL2]->external2);
-    pthread_mutex_destroy(&osd->lock);
+    mp_mutex_destroy(&osd->lock);
     talloc_free(osd);
 }
 
 void osd_set_text(struct osd_state *osd, const char *text)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     struct osd_object *osd_obj = osd->objs[OSDTYPE_OSD];
     if (!text)
         text = "";
@@ -172,32 +173,32 @@ void osd_set_text(struct osd_state *osd, const char *text)
         osd_obj->osd_changed = true;
         osd->want_redraw_notification = true;
     }
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 void osd_set_sub(struct osd_state *osd, int index, struct dec_sub *dec_sub)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     if (index >= 0 && index < 2) {
         struct osd_object *obj = osd->objs[OSDTYPE_SUB + index];
         obj->sub = dec_sub;
         obj->vo_change_id += 1;
     }
     osd->want_redraw_notification = true;
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 bool osd_get_render_subs_in_filter(struct osd_state *osd)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     bool r = osd->render_subs_in_filter;
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
     return r;
 }
 
 void osd_set_render_subs_in_filter(struct osd_state *osd, bool s)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     if (osd->render_subs_in_filter != s) {
         osd->render_subs_in_filter = s;
 
@@ -207,7 +208,7 @@ void osd_set_render_subs_in_filter(struct osd_state *osd, bool s)
         for (int n = 0; n < MAX_OSD_PARTS; n++)
             osd->objs[n]->vo_change_id = change_id + 1;
     }
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 void osd_set_force_video_pts(struct osd_state *osd, double video_pts)
@@ -222,7 +223,7 @@ double osd_get_force_video_pts(struct osd_state *osd)
 
 void osd_set_progbar(struct osd_state *osd, struct osd_progbar_state *s)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     struct osd_object *osd_obj = osd->objs[OSDTYPE_OSD];
     osd_obj->progbar_state.type = s->type;
     osd_obj->progbar_state.value = s->value;
@@ -234,18 +235,18 @@ void osd_set_progbar(struct osd_state *osd, struct osd_progbar_state *s)
     }
     osd_obj->osd_changed = true;
     osd->want_redraw_notification = true;
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 void osd_set_external2(struct osd_state *osd, struct sub_bitmaps *imgs)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     struct osd_object *obj = osd->objs[OSDTYPE_EXTERNAL2];
     talloc_free(obj->external2);
     obj->external2 = sub_bitmaps_copy(NULL, imgs);
     obj->vo_change_id += 1;
     osd->want_redraw_notification = true;
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 static void check_obj_resize(struct osd_state *osd, struct mp_osd_res res,
@@ -253,13 +254,14 @@ static void check_obj_resize(struct osd_state *osd, struct mp_osd_res res,
 {
     if (!osd_res_equals(res, obj->vo_res)) {
         obj->vo_res = res;
+        obj->osd_changed = true;
         mp_client_broadcast_event_external(osd->global->client_api,
                                            MP_EVENT_WIN_RESIZE, NULL);
     }
 }
 
-// Optional. Can be called for faster reaction of OSD-generating scripts like
-// osc.lua. This can achieve that the resize happens first, so that the OSD is
+// Optional. Can be called for faster reaction of OSD-generating scripts.
+// This can achieve that the resize happens first, so that the OSD is
 // generated at the correct resolution the first time the resized frame is
 // rendered. Since the OSD doesn't (and can't) wait for the script, this
 // increases the time in which the script can react, and also gets rid of the
@@ -267,11 +269,11 @@ static void check_obj_resize(struct osd_state *osd, struct mp_osd_res res,
 // Unnecessary for anything else.
 void osd_resize(struct osd_state *osd, struct mp_osd_res res)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     int types[] = {OSDTYPE_OSD, OSDTYPE_EXTERNAL, OSDTYPE_EXTERNAL2, -1};
     for (int n = 0; types[n] >= 0; n++)
         check_obj_resize(osd, res, osd->objs[types[n]]);
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 static struct sub_bitmaps *render_object(struct osd_state *osd,
@@ -325,7 +327,7 @@ struct sub_bitmap_list *osd_render(struct osd_state *osd, struct mp_osd_res res,
                                    double video_pts, int draw_flags,
                                    const bool formats[SUBBITMAP_COUNT])
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
 
     struct sub_bitmap_list *list = talloc_zero(NULL, struct sub_bitmap_list);
     list->change_id = 1;
@@ -382,7 +384,7 @@ struct sub_bitmap_list *osd_render(struct osd_state *osd, struct mp_osd_res res,
     if (!(draw_flags & OSD_DRAW_SUB_FILTER))
         osd->want_redraw_notification = false;
 
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
     return list;
 }
 
@@ -432,7 +434,7 @@ void osd_draw_on_image_p(struct osd_state *osd, struct mp_osd_res res,
         return; // on OOM, skip
 
     // Need to lock for the dumb osd->draw_cache thing.
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
 
     if (!osd->draw_cache)
         osd->draw_cache = mp_draw_sub_alloc(osd, osd->global);
@@ -445,7 +447,7 @@ void osd_draw_on_image_p(struct osd_state *osd, struct mp_osd_res res,
 
     stats_time_end(osd->stats, "draw-bmp");
 
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 
     talloc_free(list);
 }
@@ -465,29 +467,29 @@ struct mp_osd_res osd_res_from_image_params(const struct mp_image_params *p)
 // Typically called to react to OSD style changes.
 void osd_changed(struct osd_state *osd)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     osd->objs[OSDTYPE_OSD]->osd_changed = true;
     osd->want_redraw_notification = true;
     // Done here for a lack of a better place.
     m_config_cache_update(osd->opts_cache);
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
 }
 
 bool osd_query_and_reset_want_redraw(struct osd_state *osd)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     bool r = osd->want_redraw_notification;
     osd->want_redraw_notification = false;
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
     return r;
 }
 
 struct mp_osd_res osd_get_vo_res(struct osd_state *osd)
 {
-    pthread_mutex_lock(&osd->lock);
+    mp_mutex_lock(&osd->lock);
     // Any OSDTYPE is fine; but it mustn't be a subtitle one (can have lower res.)
     struct mp_osd_res res = osd->objs[OSDTYPE_OSD]->vo_res;
-    pthread_mutex_unlock(&osd->lock);
+    mp_mutex_unlock(&osd->lock);
     return res;
 }
 
@@ -505,7 +507,7 @@ void osd_rescale_bitmaps(struct sub_bitmaps *imgs, int frame_w, int frame_h,
     double xscale = (double)vidw / frame_w;
     double yscale = (double)vidh / frame_h;
     if (compensate_par < 0) {
-        assert(res.display_par);
+        mp_assert(res.display_par);
         compensate_par = xscale / yscale / res.display_par;
     }
     if (compensate_par > 0)
@@ -514,10 +516,16 @@ void osd_rescale_bitmaps(struct sub_bitmaps *imgs, int frame_w, int frame_h,
     int cy = vidh / 2 - (int)(frame_h * yscale) / 2;
     for (int i = 0; i < imgs->num_parts; i++) {
         struct sub_bitmap *bi = &imgs->parts[i];
-        bi->x = (int)(bi->x * xscale) + cx + res.ml;
-        bi->y = (int)(bi->y * yscale) + cy + res.mt;
-        bi->dw = (int)(bi->w * xscale + 0.5);
-        bi->dh = (int)(bi->h * yscale + 0.5);
+        struct mp_rect rc = {
+            .x0 = lrint(bi->x * xscale),
+            .y0 = lrint(bi->y * yscale),
+            .x1 = lrint((bi->x + bi->w) * xscale),
+            .y1 = lrint((bi->y + bi->h) * yscale),
+        };
+        bi->x = rc.x0 + cx + res.ml;
+        bi->y = rc.y0 + cy + res.mt;
+        bi->dw = mp_rect_w(rc);
+        bi->dh = mp_rect_h(rc);
     }
 }
 
@@ -545,7 +553,7 @@ struct sub_bitmaps *sub_bitmaps_copy(struct sub_bitmap_copy_cache **p_cache,
 
     // The bitmaps being refcounted is essential for performance, and for
     // not invalidating in->parts[*].bitmap pointers.
-    assert(in->packed && in->packed->bufs[0]);
+    mp_assert(in->packed && in->packed->bufs[0]);
 
     res->packed = mp_image_new_ref(res->packed);
     talloc_steal(res, res->packed);

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavformat/avformat.h>
@@ -45,17 +45,17 @@ static const char *lookup_tag(int type, uint32_t tag)
 }
 
 
-/* 
+/*
  * As seen in the following page:
- * 
+ *
  * https://web.archive.org/web/20220406060153/
  * http://dream.cs.bath.ac.uk/researchdev/wave-ex/bformat.html
- * 
+ *
  * Note that the GUID struct in the above citation has its
  * integers encoded in little-endian format, which means that
  * the unsigned short and unsigned long entries need to be
  * byte-flipped for this encoding.
- * 
+ *
  * In theory only the first element of this array should be used,
  * however some encoders incorrectly encoded the GUID byte-for-byte
  * and thus the second one exists as a fallback.
@@ -181,8 +181,15 @@ void mp_set_pcm_codec(struct mp_codec_params *c, bool sign, bool is_float,
 }
 
 static const char *const mimetype_to_codec[][2] = {
+    {"image/apng",      "apng"},
+    {"image/avif",      "av1"},
+    {"image/bmp",       "bmp"},
+    {"image/gif",       "gif"},
     {"image/jpeg",      "mjpeg"},
+    {"image/jxl",       "jpegxl"},
     {"image/png",       "png"},
+    {"image/tiff",      "tiff"},
+    {"image/webp",      "webp"},
     {0}
 };
 

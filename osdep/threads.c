@@ -1,30 +1,29 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdio.h>
 #include <errno.h>
-#include <pthread.h>
 
 #include "common/common.h"
 #include "config.h"
 #include "threads.h"
 #include "timer.h"
 
-#if HAVE_BSD_THREAD_NAME
+#if HAVE_BSD_THREAD_NAME && (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread_np.h>
 #endif
 
@@ -41,16 +40,18 @@ int mpthread_mutex_init_recursive(pthread_mutex_t *mutex)
 void mpthread_set_name(const char *name)
 {
     char tname[80];
-    snprintf(tname, sizeof(tname), "mpv/%s", name);
+    snprintf(tname, sizeof(tname), "dmpv/%s", name);
 #if HAVE_GLIBC_THREAD_NAME
     if (pthread_setname_np(pthread_self(), tname) == ERANGE) {
         tname[15] = '\0'; // glibc-checked kernel limit
         pthread_setname_np(pthread_self(), tname);
     }
-#elif HAVE_WIN32_INTERNAL_PTHREADS || HAVE_BSD_THREAD_NAME
+#elif HAVE_BSD_THREAD_NAME
+#ifdef __NetBSD__
+    pthread_setname_np(pthread_self(), tname, NULL);
+#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
     pthread_set_name_np(pthread_self(), tname);
-#elif HAVE_OSX_THREAD_NAME
-    pthread_setname_np(tname);
+#endif
 #endif
 }
 
@@ -77,5 +78,15 @@ int mp_ptwrap_mutex_init(const char *file, int line, pthread_mutex_t *m,
     int res = mp_ptwrap_check(file, line, (pthread_mutex_init)(m, attr));
     if (attr == &m_attr)
         pthread_mutexattr_destroy(&m_attr);
+    return res;
+}
+
+int mp_ptwrap_mutex_trylock(const char *file, int line, pthread_mutex_t *m)
+{
+    int res = (pthread_mutex_trylock)(m);
+
+    if (res != EBUSY)
+        mp_ptwrap_check(file, line, res);
+
     return res;
 }

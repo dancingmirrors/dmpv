@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_IMG_FORMAT_H
@@ -271,15 +271,8 @@ enum mp_imgfmt {
     // Hardware accelerated formats. Plane data points to special data
     // structures, instead of pixel data.
     IMGFMT_VDPAU,           // VdpVideoSurface
-    // plane 0: ID3D11Texture2D
-    // plane 1: slice index casted to pointer
-    IMGFMT_D3D11,
-    IMGFMT_DXVA2,           // IDirect3DSurface9 (NV12/P010/P016)
-    IMGFMT_MMAL,            // MMAL_BUFFER_HEADER_T
-    IMGFMT_MEDIACODEC,      // AVMediaCodecBuffer
-    IMGFMT_CUDA,            // CUDA Buffer
 
-    // Not an actual format; base for mpv-specific descriptor table.
+    // Not an actual format; base for dmpv-specific descriptor table.
     // Some may still map to AV_PIX_FMT_*.
     IMGFMT_CUST_BASE,
 
@@ -318,10 +311,7 @@ enum mp_imgfmt {
     // Hardware accelerated formats (again).
     IMGFMT_VDPAU_OUTPUT,    // VdpOutputSurface
     IMGFMT_VAAPI,
-    IMGFMT_VIDEOTOOLBOX,    // CVPixelBufferRef
-#if HAVE_VULKAN_INTEROP
     IMGFMT_VULKAN,          // VKImage
-#endif
     IMGFMT_DRMPRIME,        // AVDRMFrameDescriptor
 
     // Generic pass-through of AV_PIX_FMT_*. Used for formats which don't have

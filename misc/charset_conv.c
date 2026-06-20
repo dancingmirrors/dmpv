@@ -1,28 +1,27 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
  * Based on code taken from libass (ISC license), which was originally part
  * of MPlayer (GPL).
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
 #include <errno.h>
 #include <strings.h>
-#include <assert.h>
 
 #include "config.h"
 
@@ -69,7 +68,7 @@ static const char *mp_uchardet(void *talloc_ctx, struct mp_log *log, bstr buf)
     uchardet_t det = uchardet_new();
     if (!det)
         return NULL;
-    if (uchardet_handle_data(det, buf.start, buf.len) != 0) {
+    if (uchardet_handle_data(det, (const char *)buf.start, buf.len) != 0) {
         uchardet_delete(det);
         return NULL;
     }
@@ -101,18 +100,6 @@ static const char *mp_uchardet(void *talloc_ctx, struct mp_log *log, bstr buf)
 const char *mp_charset_guess(void *talloc_ctx, struct mp_log *log,  bstr buf,
                              const char *user_cp, int flags)
 {
-    if (strcasecmp(user_cp, "enca") == 0 || strcasecmp(user_cp, "guess") == 0 ||
-        strcasecmp(user_cp, "uchardet") == 0 || strchr(user_cp, ':'))
-    {
-        mp_err(log, "This syntax for the --sub-codepage option was deprecated "
-                    "and has been removed.\n");
-        if (strncasecmp(user_cp, "utf8:", 5) == 0) {
-            user_cp = user_cp + 5;
-        } else {
-            user_cp = "";
-        }
-    }
-
     if (user_cp[0] == '+') {
         mp_verbose(log, "Forcing charset '%s'.\n", user_cp + 1);
         return user_cp + 1;
@@ -126,7 +113,8 @@ const char *mp_charset_guess(void *talloc_ctx, struct mp_log *log,  bstr buf,
 
     int r = bstr_validate_utf8(buf);
     if (r >= 0 || (r > -8 && (flags & MP_ICONV_ALLOW_CUTOFF))) {
-        mp_verbose(log, "Data looks like UTF-8, ignoring user-provided charset.\n");
+        if (strcmp(user_cp, "auto") != 0 && !mp_charset_is_utf8(user_cp))
+            mp_verbose(log, "Data looks like UTF-8, ignoring user-provided charset.\n");
         return "utf-8";
     }
 
@@ -176,7 +164,7 @@ bstr mp_iconv_to_utf8(struct mp_log *log, bstr buf, const char *cp, int flags)
     // Force CP949 over EUC-KR since iconv distinguishes them and
     // EUC-KR causes error on CP949 encoded data
     if (strcasecmp(cp, "EUC-KR") == 0)
-      cp = "CP949";
+        cp = "CP949";
 
     iconv_t icdsc;
     if ((icdsc = iconv_open("UTF-8", cp)) == (iconv_t) (-1)) {
@@ -191,7 +179,7 @@ bstr mp_iconv_to_utf8(struct mp_log *log, bstr buf, const char *cp, int flags)
     size_t oleft = size - 1;
 
     char *outbuf = talloc_size(NULL, osize);
-    char *ip = buf.start;
+    char *ip = (char *)buf.start;
     char *op = outbuf;
 
     while (1) {
@@ -233,10 +221,11 @@ bstr mp_iconv_to_utf8(struct mp_log *log, bstr buf, const char *cp, int flags)
     iconv_close(icdsc);
 
     outbuf[osize - oleft - 1] = 0;
-    return (bstr){outbuf, osize - oleft - 1};
-#endif
+    return (bstr){(unsigned char *)outbuf, osize - oleft - 1};
 
 failure:
+#endif
+
     if (flags & MP_NO_LATIN1_FALLBACK) {
         return buf;
     } else {

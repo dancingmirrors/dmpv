@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stddef.h>
@@ -22,74 +22,38 @@
 
 #include "common/common.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
 #include "hwdec.h"
 
 extern const struct ra_hwdec_driver ra_hwdec_vaapi;
-extern const struct ra_hwdec_driver ra_hwdec_videotoolbox;
-extern const struct ra_hwdec_driver ra_hwdec_vdpau;
-extern const struct ra_hwdec_driver ra_hwdec_dxva2egl;
-extern const struct ra_hwdec_driver ra_hwdec_d3d11egl;
-extern const struct ra_hwdec_driver ra_hwdec_dxva2gldx;
-extern const struct ra_hwdec_driver ra_hwdec_d3d11va;
-extern const struct ra_hwdec_driver ra_hwdec_dxva2dxgi;
-extern const struct ra_hwdec_driver ra_hwdec_cuda;
-extern const struct ra_hwdec_driver ra_hwdec_rpi_overlay;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime;
 extern const struct ra_hwdec_driver ra_hwdec_drmprime_overlay;
-extern const struct ra_hwdec_driver ra_hwdec_aimagereader;
 extern const struct ra_hwdec_driver ra_hwdec_vulkan;
+#if HAVE_VDPAU_GL_X11
+extern const struct ra_hwdec_driver ra_hwdec_vdpau;
+#endif
 
 const struct ra_hwdec_driver *const ra_hwdec_drivers[] = {
-#if HAVE_VAAPI_EGL || HAVE_VAAPI_LIBPLACEBO
+#if HAVE_VAAPI_EGL
     &ra_hwdec_vaapi,
-#endif
-#if HAVE_VIDEOTOOLBOX_GL || HAVE_IOS_GL
-    &ra_hwdec_videotoolbox,
-#endif
-#if HAVE_D3D_HWACCEL
- #if HAVE_EGL_ANGLE
-    &ra_hwdec_d3d11egl,
-  #if HAVE_D3D9_HWACCEL
-    &ra_hwdec_dxva2egl,
-  #endif
- #endif
- #if HAVE_D3D11
-    &ra_hwdec_d3d11va,
-  #if HAVE_D3D9_HWACCEL
-    &ra_hwdec_dxva2dxgi,
-  #endif
- #endif
-#endif
-#if HAVE_GL_DXINTEROP_D3D9
-    &ra_hwdec_dxva2gldx,
-#endif
-#if HAVE_CUDA_INTEROP
-    &ra_hwdec_cuda,
-#endif
-#if HAVE_VDPAU_GL_X11
-    &ra_hwdec_vdpau,
-#endif
-#if HAVE_RPI_MMAL
-    &ra_hwdec_rpi_overlay,
 #endif
 #if HAVE_DRM
     &ra_hwdec_drmprime,
     &ra_hwdec_drmprime_overlay,
 #endif
-#if HAVE_ANDROID_MEDIA_NDK
-    &ra_hwdec_aimagereader,
-#endif
-#if HAVE_VULKAN_INTEROP
+#if HAVE_HWDEC_VULKAN
     &ra_hwdec_vulkan,
 #endif
-
+#if HAVE_VDPAU_GL_X11
+    &ra_hwdec_vdpau,
+#endif
     NULL
 };
 
 struct ra_hwdec *ra_hwdec_load_driver(struct ra_ctx *ra_ctx,
                                       struct mp_log *log,
-                                      struct mpv_global *global,
+                                      struct dmpv_global *global,
                                       struct mp_hwdec_devices *devs,
                                       const struct ra_hwdec_driver *drv,
                                       bool is_auto)
@@ -132,7 +96,7 @@ bool ra_hwdec_test_format(struct ra_hwdec *hwdec, int imgfmt)
 struct ra_hwdec_mapper *ra_hwdec_mapper_create(struct ra_hwdec *hwdec,
                                                const struct mp_image_params *params)
 {
-    assert(ra_hwdec_test_format(hwdec, params->imgfmt));
+    mp_assert(ra_hwdec_test_format(hwdec, params->imgfmt));
 
     struct ra_hwdec_mapper *mapper = talloc_ptrtype(NULL, mapper);
     *mapper = (struct ra_hwdec_mapper){
@@ -254,7 +218,7 @@ static void load_hwdecs_all(struct ra_hwdec_ctx *ctx, struct mp_hwdec_devices *d
 void ra_hwdec_ctx_init(struct ra_hwdec_ctx *ctx, struct mp_hwdec_devices *devs,
                        const char *type, bool load_all_by_default)
 {
-    assert(ctx->ra_ctx);
+    mp_assert(ctx->ra_ctx);
 
     /*
      * By default, or if the option value is "auto", we will not pre-emptively
@@ -355,4 +319,14 @@ int ra_hwdec_driver_get_imgfmt_for_name(const char *name)
         }
     }
     return IMGFMT_NONE;
+}
+
+enum AVHWDeviceType ra_hwdec_driver_get_device_type_for_name(const char *name)
+{
+    for (int i = 0; ra_hwdec_drivers[i]; i++) {
+        if (!strcmp(ra_hwdec_drivers[i]->name, name)) {
+            return ra_hwdec_drivers[i]->device_type;
+        }
+    }
+    return AV_HWDEVICE_TYPE_NONE;
 }

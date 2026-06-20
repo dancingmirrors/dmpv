@@ -1,5 +1,5 @@
-#include <pthread.h>
-#include <assert.h>
+#include "misc/mp_assert.h"
+#include "osdep/threads.h"
 
 #include <libavutil/hwcontext.h>
 
@@ -29,25 +29,29 @@ void hwdec_devices_destroy(struct mp_hwdec_devices *devs)
 {
     if (!devs)
         return;
-    assert(!devs->num_hwctxs); // must have been hwdec_devices_remove()ed
-    assert(!devs->load_api); // must have been unset
-    pthread_mutex_destroy(&devs->lock);
+    mp_assert(!devs->num_hwctxs); // must have been hwdec_devices_remove()ed
+    mp_assert(!devs->load_api); // must have been unset
+    mp_mutex_destroy(&devs->lock);
     talloc_free(devs);
 }
 
-struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt(struct mp_hwdec_devices *devs,
-                                                 int hw_imgfmt)
+struct mp_hwdec_ctx *hwdec_devices_get_by_imgfmt_and_type(struct mp_hwdec_devices *devs,
+                                                          int hw_imgfmt,
+                                                          enum AVHWDeviceType device_type)
 {
     struct mp_hwdec_ctx *res = NULL;
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     for (int n = 0; n < devs->num_hwctxs; n++) {
         struct mp_hwdec_ctx *dev = devs->hwctxs[n];
-        if (dev->hw_imgfmt == hw_imgfmt) {
+        AVHWDeviceContext *hw_device_ctx =
+            dev->av_device_ref ? (AVHWDeviceContext *)dev->av_device_ref->data : NULL;
+        if (dev->hw_imgfmt == hw_imgfmt &&
+            (!hw_device_ctx || hw_device_ctx->type == device_type)) {
             res = dev;
             break;
         }
     }
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
     return res;
 }
 
@@ -58,29 +62,29 @@ struct mp_hwdec_ctx *hwdec_devices_get_first(struct mp_hwdec_devices *devs)
 
 struct mp_hwdec_ctx *hwdec_devices_get_n(struct mp_hwdec_devices *devs, int n)
 {
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     struct mp_hwdec_ctx *res = n < devs->num_hwctxs ? devs->hwctxs[n] : NULL;
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
     return res;
 }
 
 void hwdec_devices_add(struct mp_hwdec_devices *devs, struct mp_hwdec_ctx *ctx)
 {
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     MP_TARRAY_APPEND(devs, devs->hwctxs, devs->num_hwctxs, ctx);
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
 }
 
 void hwdec_devices_remove(struct mp_hwdec_devices *devs, struct mp_hwdec_ctx *ctx)
 {
-    pthread_mutex_lock(&devs->lock);
+    mp_mutex_lock(&devs->lock);
     for (int n = 0; n < devs->num_hwctxs; n++) {
         if (devs->hwctxs[n] == ctx) {
             MP_TARRAY_REMOVE_AT(devs->hwctxs, devs->num_hwctxs, n);
             break;
         }
     }
-    pthread_mutex_unlock(&devs->lock);
+    mp_mutex_unlock(&devs->lock);
 }
 
 void hwdec_devices_set_loader(struct mp_hwdec_devices *devs,
@@ -110,15 +114,6 @@ char *hwdec_devices_get_names(struct mp_hwdec_devices *devs)
 }
 
 static const struct hwcontext_fns *const hwcontext_fns[] = {
-#if HAVE_CUDA_HWACCEL
-    &hwcontext_fns_cuda,
-#endif
-#if HAVE_D3D_HWACCEL
-    &hwcontext_fns_d3d11,
-#endif
-#if HAVE_D3D9_HWACCEL
-    &hwcontext_fns_dxva2,
-#endif
 #if HAVE_DRM
     &hwcontext_fns_drmprime,
 #endif

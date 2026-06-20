@@ -9,9 +9,11 @@
 #define SUB_GAP_THRESHOLD 0.210
 // don't change timings if durations are smaller
 #define SUB_GAP_KEEP 0.4
+// slight offset when sub seeking or sub stepping
+#define SUB_SEEK_OFFSET 0.01
 
 struct sd {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
     struct mp_subtitle_opts *opts;
 
@@ -57,8 +59,9 @@ void lavc_conv_reset(struct lavc_conv *priv);
 void lavc_conv_uninit(struct lavc_conv *priv);
 
 struct sd_filter {
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
+    struct demux_packet_pool *packet_pool;
     struct mp_sub_filter_opts *opts;
     const struct sd_filter_functions *driver;
 
@@ -90,8 +93,6 @@ struct sd_filter_functions {
 
 extern const struct sd_filter_functions sd_filter_sdh;
 extern const struct sd_filter_functions sd_filter_regex;
-extern const struct sd_filter_functions sd_filter_jsre;
-
 
 // convenience utils for filters with ass codec
 

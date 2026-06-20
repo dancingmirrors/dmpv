@@ -1,27 +1,25 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MP_AO_INTERNAL_H_
 #define MP_AO_INTERNAL_H_
 
 #include <stdbool.h>
-#include <pthread.h>
 
-#include "osdep/atomic.h"
 #include "audio/out/ao.h"
 
 /* global data used by ao.c and ao drivers */
@@ -29,7 +27,7 @@ struct ao {
     int samplerate;
     struct mp_chmap channels;
     int format;                 // one of AF_FORMAT_...
-    int bps;                    // bytes per second (per plane)
+    int64_t bps;                // bytes per second (per plane)
     int sstride;                // size of a sample on each plane
                                 // (format_size*num_channels/num_planes)
     int num_planes;
@@ -40,11 +38,11 @@ struct ao {
     const struct ao_driver *driver;
     bool driver_initialized;
     void *priv;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct encode_lavc_context *encode_lavc_ctx;
     void (*wakeup_cb)(void *ctx);
     void *wakeup_ctx;
-    struct mp_log *log; // Using e.g. "[ao/coreaudio]" as prefix
+    struct mp_log *log;
     int init_flags; // AO_INIT_* flags
     bool stream_silence;        // if audio inactive, just play silence
 
@@ -60,10 +58,10 @@ struct ao {
     char *redirect;
 
     // Internal events (use ao_request_reload(), ao_hotplug_event())
-    atomic_uint events_;
+    _Atomic unsigned int events_;
 
     // Float gain multiplicator
-    mp_atomic_float gain;
+    _Atomic float gain;
 
     int buffer;
     double def_buffer;
@@ -109,6 +107,7 @@ struct mp_pcm_state {
  *          start
  *     Optional for both types:
  *          control
+ *          set_pause
  *  a) ->write is called to queue audio. push.c creates a thread to regularly
  *     refill audio device buffers with ->write, but all driver functions are
  *     always called under an exclusive lock.
@@ -116,8 +115,6 @@ struct mp_pcm_state {
  *          reset
  *          write
  *          get_state
- *     Optional:
- *          set_pause
  *  b) ->write must be NULL. ->start must be provided, and should make the
  *     audio API start calling the audio callback. Your audio callback should
  *     in turn call ao_read_data() to get audio data. Most functions are
@@ -133,10 +130,6 @@ struct ao_driver {
     const char *name;
     // Description shown with --ao=help.
     const char *description;
-    // This requires waiting for a AO_EVENT_INITIAL_UNBLOCK event before the
-    // first write() call is done. Encode mode uses this, and push mode
-    // respects it automatically (don't use with pull mode).
-    bool initially_blocked;
     // If true, write units of entire frames. The write() call is modified to
     // use data==mp_aframe. Useful for encoding AO only.
     bool write_frames;
@@ -150,6 +143,9 @@ struct ao_driver {
     // Stop all audio playback, clear buffers, back to state after init().
     // Optional for pull AOs.
     void (*reset)(struct ao *ao);
+    // pull based: set pause state. Only called after start() and before reset().
+    //             The return value is ignored.
+    //             The pausing state is also cleared by reset().
     // push based: set pause state. Only called after start() and before reset().
     //             returns success (this is intended for paused=true; if it
     //             returns false, playback continues, and the core emulates via
@@ -158,7 +154,7 @@ struct ao_driver {
     bool (*set_pause)(struct ao *ao, bool paused);
     // pull based: start the audio callback
     // push based: start playing queued data
-    //             AO should call ao_wakeup_playthread() if a period boundary
+    //             AO should call ao_wakeup() if a period boundary
     //             is crossed, or playback stops due to external reasons
     //             (including underruns or device removal)
     //             must set mp_pcm_state.playing; unset on error/underrun/end
@@ -200,7 +196,7 @@ struct ao_driver {
 
 // These functions can be called by AOs.
 
-int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_us);
+int ao_read_data(struct ao *ao, void **data, int samples, int64_t out_time_ns);
 
 bool ao_chmap_sel_adjust(struct ao *ao, const struct mp_chmap_sel *s,
                          struct mp_chmap *map);
@@ -228,9 +224,9 @@ bool ao_can_convert_inplace(struct ao_convert_fmt *fmt);
 bool ao_need_conversion(struct ao_convert_fmt *fmt);
 void ao_convert_inplace(struct ao_convert_fmt *fmt, void **data, int num_samples);
 
-void ao_wakeup_playthread(struct ao *ao);
+void ao_wakeup(struct ao *ao);
 
 int ao_read_data_converted(struct ao *ao, struct ao_convert_fmt *fmt,
-                           void **data, int samples, int64_t out_time_us);
+                           void **data, int samples, int64_t out_time_ns);
 
 #endif

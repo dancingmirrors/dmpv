@@ -1,28 +1,28 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/hwcontext.h>
 
 #include "hwdec.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "video/out/drm_common.h"
 
 extern const struct m_sub_options drm_conf;
-static struct AVBufferRef *drm_create_standalone(struct mpv_global *global,
+static struct AVBufferRef *drm_create_standalone(struct dmpv_global *global,
         struct mp_log *log, struct hwcontext_create_dev_params *params)
 {
     void *tmp = talloc_new(NULL);

@@ -1,25 +1,29 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "options/m_config.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
 #include "video/out/placebo/ra_pl.h"
 
 #include "context.h"
 #include "utils.h"
+
+#include <libavutil/opt.h>
+#include <libavutil/uuid.h>
 
 struct vulkan_opts {
     char *device; // force a specific GPU
@@ -29,8 +33,7 @@ struct vulkan_opts {
     bool async_compute;
 };
 
-static int vk_validate_dev(struct mp_log *log, const struct m_option *opt,
-                           struct bstr name, const char **value)
+static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
 {
     struct bstr param = bstr0(*value);
     int ret = M_OPT_INVALID;
@@ -39,6 +42,10 @@ static int vk_validate_dev(struct mp_log *log, const struct m_option *opt,
     // Create a dummy instance to validate/list the devices
     VkInstanceCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pApplicationInfo = &(VkApplicationInfo) {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .apiVersion = VK_API_VERSION_1_1,
+        }
     };
 
     VkInstance inst;
@@ -54,7 +61,7 @@ static int vk_validate_dev(struct mp_log *log, const struct m_option *opt,
         goto done;
 
     devices = talloc_array(NULL, VkPhysicalDevice, num);
-    vkEnumeratePhysicalDevices(inst, &num, devices);
+    res = vkEnumeratePhysicalDevices(inst, &num, devices);
     if (res != VK_SUCCESS)
         goto done;
 
@@ -64,21 +71,44 @@ static int vk_validate_dev(struct mp_log *log, const struct m_option *opt,
         ret = M_OPT_EXIT;
     }
 
+    AVUUID param_uuid;
+    bool is_uuid = av_uuid_parse(*value, param_uuid) == 0;
+
     for (int i = 0; i < num; i++) {
-        VkPhysicalDeviceProperties prop;
-        vkGetPhysicalDeviceProperties(devices[i], &prop);
+        VkPhysicalDeviceDriverProperties driver_prop = { 0 };
+        driver_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+
+        VkPhysicalDeviceIDPropertiesKHR id_prop = { 0 };
+        id_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR;
+        id_prop.pNext = &driver_prop;
+
+        VkPhysicalDeviceProperties2KHR prop2 = { 0 };
+        prop2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+        prop2.pNext = &id_prop;
+
+        vkGetPhysicalDeviceProperties2(devices[i], &prop2);
+
+        const VkPhysicalDeviceProperties *prop = &prop2.properties;
 
         if (help) {
-            mp_info(log, "  '%s' (GPU %d, ID %x:%x)\n", prop.deviceName, i,
-                    (unsigned)prop.vendorID, (unsigned)prop.deviceID);
-        } else if (bstr_equals0(param, prop.deviceName)) {
+            char device_uuid[37];
+            av_uuid_unparse(id_prop.deviceUUID, device_uuid);
+            mp_info(log, "  '%s' (GPU %d, PCI ID %x:%x, UUID %s, Driver %s)\n",
+                    prop->deviceName, i, (unsigned)prop->vendorID,
+                    (unsigned)prop->deviceID, device_uuid,
+                    driver_prop.driverName);
+        } else if (bstr_equals0(param, prop->deviceName)) {
+            ret = 0;
+            goto done;
+        } else if (is_uuid && av_uuid_equal(param_uuid, id_prop.deviceUUID)) {
             ret = 0;
             goto done;
         }
     }
 
     if (!help)
-        mp_err(log, "No device with name '%.*s'!\n", BSTR_P(param));
+        mp_err(log, "No device with %s '%.*s'!\n", is_uuid ? "UUID" : "name",
+               BSTR_P(param));
 
 done:
     talloc_free(devices);
@@ -98,7 +128,6 @@ const struct m_sub_options vulkan_conf = {
         {"vulkan-queue-count", OPT_INT(queue_count), M_RANGE(1, 8)},
         {"vulkan-async-transfer", OPT_BOOL(async_transfer)},
         {"vulkan-async-compute", OPT_BOOL(async_compute)},
-        {"vulkan-disable-events", OPT_REMOVED("Unused")},
         {0}
     },
     .size = sizeof(struct vulkan_opts),
@@ -108,18 +137,19 @@ const struct m_sub_options vulkan_conf = {
         .async_transfer = true,
         .async_compute = true,
     },
+    .change_flags = UPDATE_VO,
 };
 
 struct priv {
-    struct mpvk_ctx *vk;
+    struct dmpvk_ctx *vk;
     struct vulkan_opts *opts;
-    struct ra_vk_ctx_params params;
+    struct ra_ctx_params params;
     struct ra_tex proxy_tex;
 };
 
 static const struct ra_swapchain_fns vulkan_swapchain;
 
-struct mpvk_ctx *ra_vk_ctx_get(struct ra_ctx *ctx)
+struct dmpvk_ctx *ra_vk_ctx_get(struct ra_ctx *ctx)
 {
     if (!ctx->swapchain || ctx->swapchain->fns != &vulkan_swapchain)
         return NULL;
@@ -134,7 +164,7 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
         return;
 
     struct priv *p = ctx->swapchain->priv;
-    struct mpvk_ctx *vk = p->vk;
+    struct dmpvk_ctx *vk = p->vk;
 
     if (ctx->ra) {
         pl_gpu_finish(vk->gpu);
@@ -148,8 +178,8 @@ void ra_vk_ctx_uninit(struct ra_ctx *ctx)
     TA_FREEP(&ctx->swapchain);
 }
 
-bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
-                    struct ra_vk_ctx_params params,
+bool ra_vk_ctx_init(struct ra_ctx *ctx, struct dmpvk_ctx *vk,
+                    struct ra_ctx_params params,
                     VkPresentModeKHR preferred_mode)
 {
     struct ra_swapchain *sw = ctx->swapchain = talloc_zero(NULL, struct ra_swapchain);
@@ -165,56 +195,121 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
     };
 
-#if HAVE_VULKAN_INTEROP
-    /*
-     * Request the additional extensions and features required to make full use
-     * of the ffmpeg Vulkan hwcontext and video decoding capability.
-     */
     const char *opt_extensions[] = {
-        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
+        /* Base extensions without dependencies */
         VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
+        "VK_KHR_synchronization2", /* VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME */
+        VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
         VK_KHR_VIDEO_DECODE_H265_EXTENSION_NAME,
-        VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
-        // This is a literal string as it's not in the official headers yet.
-        "VK_MESA_video_decode_av1",
-    };
-
-    VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_feature = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
-        .pNext = NULL,
-        .descriptorBuffer = true,
-        .descriptorBufferPushDescriptors = true,
+        VK_KHR_ZERO_INITIALIZE_WORKGROUP_MEMORY_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        "VK_KHR_video_decode_vp9", /* VK_KHR_VIDEO_DECODE_VP9_EXTENSION_NAME */
+        "VK_KHR_video_decode_av1", /* VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME */
+        "VK_KHR_video_maintenance1", /* VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME */
+        "VK_KHR_video_maintenance2", /* VK_KHR_VIDEO_MAINTENANCE_2_EXTENSION_NAME */
+        "VK_KHR_shader_expect_assume", /* VK_KHR_SHADER_EXPECT_ASSUME_EXTENSION_NAME */
+        "VK_KHR_internally_synchronized_queues", /* VK_KHR_INTERNALLY_SYNCHRONIZED_QUEUES_EXTENSION_NAME */
     };
 
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomic_float_feature = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
-        .pNext = &descriptor_buffer_feature,
         .shaderBufferFloat32Atomics = true,
-        .shaderBufferFloat32AtomicAdd = true,
+        // XXX: My hardware doesn't actually support this.
+        .shaderBufferFloat32AtomicAdd = false,
     };
 
-    features.pNext = &atomic_float_feature;
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+        .dynamicRendering = true,
+    };
+
+    VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR zero_init_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ZERO_INITIALIZE_WORKGROUP_MEMORY_FEATURES_KHR,
+        .shaderZeroInitializeWorkgroupMemory = true,
+    };
+
+#ifdef VK_KHR_video_maintenance2
+    VkPhysicalDeviceVideoMaintenance2FeaturesKHR video_maintenance_2_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VIDEO_MAINTENANCE_2_FEATURES_KHR,
+        .videoMaintenance2 = true,
+    };
 #endif
 
-    assert(vk->pllog);
-    assert(vk->vkinst);
-    vk->vulkan = pl_vulkan_create(vk->pllog, &(struct pl_vulkan_params) {
+#ifdef VK_KHR_shader_expect_assume
+    VkPhysicalDeviceShaderExpectAssumeFeaturesKHR shader_expect_assume_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EXPECT_ASSUME_FEATURES_KHR,
+        .shaderExpectAssume = true,
+    };
+#endif
+
+#ifdef VK_KHR_video_maintenance1
+    VkPhysicalDeviceVideoMaintenance1FeaturesKHR video_maintenance_1_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VIDEO_MAINTENANCE_1_FEATURES_KHR,
+        .videoMaintenance1 = true,
+    };
+#endif
+
+#ifdef VK_KHR_video_decode_vp9
+    VkPhysicalDeviceVideoDecodeVP9FeaturesKHR video_decode_vp9_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VIDEO_DECODE_VP9_FEATURES_KHR,
+        .videoDecodeVP9 = true,
+    };
+#endif
+
+#ifdef VK_KHR_internally_synchronized_queues
+    VkPhysicalDeviceInternallySynchronizedQueuesFeaturesKHR synchronized_queues_feature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INTERNALLY_SYNCHRONIZED_QUEUES_FEATURES_KHR,
+        .internallySynchronizedQueues = true,
+    };
+#endif
+
+#define VK_CHAIN(s) do { *pnext = &(s); pnext = &(s).pNext; } while (0)
+    void **pnext = &features.pNext;
+    VK_CHAIN(atomic_float_feature);
+    VK_CHAIN(dynamic_rendering_feature);
+    VK_CHAIN(zero_init_feature);
+#ifdef VK_KHR_video_maintenance2
+    VK_CHAIN(video_maintenance_2_feature);
+#endif
+#ifdef VK_KHR_shader_expect_assume
+    VK_CHAIN(shader_expect_assume_feature);
+#endif
+#ifdef VK_KHR_video_maintenance1
+    VK_CHAIN(video_maintenance_1_feature);
+#endif
+#ifdef VK_KHR_video_decode_vp9
+    VK_CHAIN(video_decode_vp9_feature);
+#endif
+#ifdef VK_KHR_internally_synchronized_queues
+    VK_CHAIN(synchronized_queues_feature);
+#endif
+#undef VK_CHAIN
+
+    AVUUID param_uuid = { 0 };
+    bool is_uuid = p->opts->device &&
+                   av_uuid_parse(p->opts->device, param_uuid) == 0;
+
+    mp_assert(vk->pllog);
+    mp_assert(vk->vkinst);
+    struct pl_vulkan_params device_params = {
         .instance = vk->vkinst->instance,
         .get_proc_addr = vk->vkinst->get_proc_addr,
         .surface = vk->surface,
         .async_transfer = p->opts->async_transfer,
         .async_compute = p->opts->async_compute,
         .queue_count = p->opts->queue_count,
-        .device_name = p->opts->device,
-#if HAVE_VULKAN_INTEROP
         .extra_queues = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
         .opt_extensions = opt_extensions,
         .num_opt_extensions = MP_ARRAY_SIZE(opt_extensions),
-#endif
         .features = &features,
-    });
+        .device_name = is_uuid ? NULL : p->opts->device,
+    };
+    if (is_uuid)
+        av_uuid_copy(device_params.device_uuid, param_uuid);
+
+    vk->vulkan = pl_vulkan_create(vk->pllog, &device_params);
     if (!vk->vulkan)
         goto error;
 
@@ -228,9 +323,9 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
         .surface = vk->surface,
         .present_mode = preferred_mode,
         .swapchain_depth = ctx->vo->opts->swapchain_depth,
-        // mpv already handles resize events, so gracefully allow suboptimal
-        // swapchains to exist in order to make resizing even smoother
-        .allow_suboptimal = true,
+#if PL_API_VER >= 359
+        .alpha_bits = ctx->opts.want_alpha ? 8 : 0,
+#endif
     };
 
     if (p->opts->swap_mode >= 0) // user override
@@ -272,11 +367,6 @@ char *ra_vk_ctx_get_device_name(struct ra_ctx *ctx)
     return device_name;
 }
 
-static int color_depth(struct ra_swapchain *sw)
-{
-    return 0; // TODO: implement this somehow?
-}
-
 static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
 {
     struct priv *p = sw->priv;
@@ -286,7 +376,6 @@ static bool start_frame(struct ra_swapchain *sw, struct ra_fbo *out_fbo)
     if (p->params.check_visible)
         visible = p->params.check_visible(sw->ctx);
 
-    // If out_fbo is NULL, this was called from vo_gpu_next. Bail out.
     if (out_fbo == NULL || !visible)
         return visible;
 
@@ -326,7 +415,6 @@ static void get_vsync(struct ra_swapchain *sw,
 }
 
 static const struct ra_swapchain_fns vulkan_swapchain = {
-    .color_depth   = color_depth,
     .start_frame   = start_frame,
     .submit_frame  = submit_frame,
     .swap_buffers  = swap_buffers,

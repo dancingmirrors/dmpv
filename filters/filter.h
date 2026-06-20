@@ -1,10 +1,11 @@
 #pragma once
 
 #include <stdbool.h>
+#include <libavutil/hwcontext.h>
 
 #include "frame.h"
 
-struct mpv_global;
+struct dmpv_global;
 struct mp_filter;
 
 // A filter input or output. These always come in pairs: one mp_pin is for
@@ -309,8 +310,9 @@ struct mp_filter {
     // this.
     void *priv;
 
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
+    struct demux_packet_pool *packet_pool;
 
     // Array of public pins. API users can read this, but are not allowed to
     // modify the array. Filter implementations use mp_filter_add_pin() to add
@@ -376,6 +378,7 @@ struct mp_filter_command {
     enum mp_filter_command_type type;
 
     // For MP_FILTER_COMMAND_TEXT
+    const char *target;
     const char *cmd;
     const char *arg;
 
@@ -401,14 +404,17 @@ struct mp_stream_info {
 
     struct mp_hwdec_devices *hwdec_devs;
     struct osd_state *osd;
+    bool vflip;
     bool rotate90;
     struct vo *dr_vo; // for calling vo_get_image()
+    int max_texture_wh; // Maximum texture width/height supported by GPU
 };
 
 // Search for a parent filter (including f) that has this set, and return it.
 struct mp_stream_info *mp_filter_find_stream_info(struct mp_filter *f);
 
-struct mp_hwdec_ctx *mp_filter_load_hwdec_device(struct mp_filter *f, int imgfmt);
+struct mp_hwdec_ctx *mp_filter_load_hwdec_device(struct mp_filter *f, int imgfmt,
+                                                 enum AVHWDeviceType device_type);
 
 // Perform filtering. This runs until the filter graph is blocked (due to
 // missing external input or unread output). It returns whether any outside
@@ -446,12 +452,12 @@ void mp_filter_graph_interrupt(struct mp_filter *root);
 // - passing it as parent filter to top-level filters
 // - driving the filter loop between the shared filters
 // - setting the wakeup callback for async filtering
-// - implicitly passing down global data like mpv_global and keeping filter
+// - implicitly passing down global data like dmpv_global and keeping filter
 //   constructor functions simple
 // Note that you can still connect pins of filters with different parents or
 // root filters, but then you may have to manually invoke mp_filter_graph_run()
 // on the root filters of the connected filters to drive data flow.
-struct mp_filter *mp_filter_create_root(struct mpv_global *global);
+struct mp_filter *mp_filter_create_root(struct dmpv_global *global);
 
 // Asynchronous filters may need to wakeup the user thread if the status of any
 // mp_pin has changed. If this is called, the callback provider should get the

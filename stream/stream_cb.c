@@ -14,11 +14,11 @@
 #include "options/m_option.h"
 #include "options/path.h"
 #include "player/client.h"
-#include "libmpv/stream_cb.h"
+#include "misc/stream_cb.h"
 #include "misc/thread_tools.h"
 
 struct priv {
-    mpv_stream_cb_info info;
+    dmpv_stream_cb_info info;
     struct mp_cancel *cancel;
 };
 
@@ -62,16 +62,16 @@ static int open_cb(stream_t *stream)
     char *proto = bstrto0(stream, bproto);
 
     void *user_data;
-    mpv_stream_cb_open_ro_fn open_fn;
+    dmpv_stream_cb_open_ro_fn open_fn;
 
     if (!mp_streamcb_lookup(stream->global, proto, &user_data, &open_fn))
         return STREAM_UNSUPPORTED;
 
-    mpv_stream_cb_info info = {0};
+    dmpv_stream_cb_info info = {0};
 
     int r = open_fn(user_data, stream->url, &info);
     if (r < 0) {
-        if (r != MPV_ERROR_LOADING_FAILED)
+        if (r != DMPV_ERROR_LOADING_FAILED)
             MP_WARN(stream, "unknown error from user callback\n");
         return STREAM_ERROR;
     }

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <math.h>
@@ -41,7 +41,7 @@ static void pass_sample_separated_get_weights(struct gl_shader_cache *sc,
                                               struct scaler *scaler)
 {
     gl_sc_uniform_texture(sc, "lut", scaler->lut);
-    GLSLF("float ypos = LUT_POS(fcoord, %d.0);\n", scaler->lut_size);
+    GLSLF("float ypos = LUT_POS(fcoord, %d.0);\n", scaler->lut->params.h);
 
     int N = scaler->kernel->size;
     int width = (N + 3) / 4; // round up
@@ -103,7 +103,7 @@ void pass_sample_separated_gen(struct gl_shader_cache *sc, struct scaler *scaler
 static void polar_sample(struct gl_shader_cache *sc, struct scaler *scaler,
                          int x, int y, int components, bool planar)
 {
-    double radius = scaler->kernel->f.radius * scaler->kernel->filter_scale;
+    double radius = scaler->kernel->radius * scaler->kernel->filter_scale;
     double radius_cutoff = scaler->kernel->radius_cutoff;
 
     // Since we can't know the subpixel position in advance, assume a
@@ -123,10 +123,10 @@ static void polar_sample(struct gl_shader_cache *sc, struct scaler *scaler,
     // get the weight for this pixel
     if (scaler->lut->params.dimensions == 1) {
         GLSLF("w = tex1D(lut, LUT_POS(d * 1.0/%f, %d.0)).r;\n",
-              radius, scaler->lut_size);
+              radius, scaler->lut->params.w);
     } else {
         GLSLF("w = texture(lut, vec2(0.5, LUT_POS(d * 1.0/%f, %d.0))).r;\n",
-              radius, scaler->lut_size);
+              radius, scaler->lut->params.h);
     }
     GLSL(wsum += w;)
 
@@ -340,7 +340,7 @@ static const float SLOG_A = 0.432699,
 // absolute scale, multiply the result by `mp_trc_nom_peak(trc)`
 void pass_linearize(struct gl_shader_cache *sc, enum mp_csp_trc trc)
 {
-    if (trc == MP_CSP_TRC_LINEAR)
+    if (trc == MP_CSP_TRC_LINEAR || trc == MP_CSP_TRC_SCRGB)
         return;
 
     GLSLF("// linearize\n");
@@ -440,7 +440,7 @@ void pass_linearize(struct gl_shader_cache *sc, enum mp_csp_trc trc)
 // Like pass_linearize, this functions ingests values on an normalized scale
 void pass_delinearize(struct gl_shader_cache *sc, enum mp_csp_trc trc)
 {
-    if (trc == MP_CSP_TRC_LINEAR)
+    if (trc == MP_CSP_TRC_LINEAR || trc == MP_CSP_TRC_SCRGB)
         return;
 
     GLSLF("// delinearize\n");
@@ -960,7 +960,7 @@ const struct deband_opts deband_opts_def = {
 #define OPT_BASE_STRUCT struct deband_opts
 const struct m_sub_options deband_conf = {
     .opts = (const m_option_t[]) {
-        {"iterations", OPT_INT(iterations), M_RANGE(1, 16)},
+        {"iterations", OPT_INT(iterations), M_RANGE(0, 16)},
         {"threshold", OPT_FLOAT(threshold), M_RANGE(0.0, 4096.0)},
         {"range", OPT_FLOAT(range), M_RANGE(1.0, 64.0)},
         {"grain", OPT_FLOAT(grain), M_RANGE(0.0, 4096.0)},

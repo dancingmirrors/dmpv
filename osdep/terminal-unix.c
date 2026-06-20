@@ -1,37 +1,39 @@
 /*
  * Based on GyS-TermIO v2.0 (for GySmail v3) (copyright (C) 1999 A'rpi/ESP-team)
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <pthread.h>
-#include <assert.h>
+#include <sys/select.h>
 
+#include "misc/mp_assert.h"
+
+#include <poll.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include "osdep/io.h"
 #include "osdep/threads.h"
-#include "osdep/polldev.h"
 
 #include "common/common.h"
 #include "misc/bstr.h"
@@ -40,21 +42,30 @@
 #include "misc/ctype.h"
 #include "terminal.h"
 
+static int polldev(struct pollfd fds[], nfds_t nfds, int timeout) {
+    return poll(fds, nfds, timeout);
+}
+
 // Timeout in ms after which the (normally ambiguous) ESC key is detected.
 #define ESC_TIMEOUT 100
 
 // Timeout in ms after which the poll for input is aborted. The FG/BG state is
 // tested before every wait, and a positive value allows reactivating input
-// processing when mpv is brought to the foreground while it was running in the
-// background. In such a situation, an infinite timeout (-1) will keep mpv
+// processing when dmpv is brought to the foreground while it was running in the
+// background. In such a situation, an infinite timeout (-1) will keep dmpv
 // waiting for input without realizing the terminal state changed - and thus
 // buffer all keypresses until ENTER is pressed.
 #define INPUT_TIMEOUT 1000
 
-static volatile struct termios tio_orig;
-static volatile int tio_orig_set;
+static struct termios tio_orig;
 
 static int tty_in = -1, tty_out = -1;
+
+enum entry_type {
+    ENTRY_TYPE_KEY = 0,
+    ENTRY_TYPE_MOUSE_BUTTON,
+    ENTRY_TYPE_MOUSE_MOVE,
+};
 
 struct key_entry {
     const char *seq;
@@ -63,91 +74,95 @@ struct key_entry {
     // existing sequence is replaced by the following string. Matching
     // continues normally, and mpkey is or-ed into the final result.
     const char *replace;
+    // Extend the match length by a certain length, so the contents
+    // after the match can be processed with custom logic.
+    int skip;
+    enum entry_type type;
 };
 
 static const struct key_entry keys[] = {
-    {"\010", MP_KEY_BS},
-    {"\011", MP_KEY_TAB},
-    {"\012", MP_KEY_ENTER},
-    {"\177", MP_KEY_BS},
+    {"\010", MP_KEY_BS, .replace = NULL},
+    {"\011", MP_KEY_TAB, .replace = NULL},
+    {"\012", MP_KEY_ENTER, .replace = NULL},
+    {"\177", MP_KEY_BS, .replace = NULL},
 
-    {"\033[1~", MP_KEY_HOME},
-    {"\033[2~", MP_KEY_INS},
-    {"\033[3~", MP_KEY_DEL},
-    {"\033[4~", MP_KEY_END},
-    {"\033[5~", MP_KEY_PGUP},
-    {"\033[6~", MP_KEY_PGDWN},
-    {"\033[7~", MP_KEY_HOME},
-    {"\033[8~", MP_KEY_END},
+    {"\033[1~", MP_KEY_HOME, .replace = NULL},
+    {"\033[2~", MP_KEY_INS, .replace = NULL},
+    {"\033[3~", MP_KEY_DEL, .replace = NULL},
+    {"\033[4~", MP_KEY_END, .replace = NULL},
+    {"\033[5~", MP_KEY_PGUP, .replace = NULL},
+    {"\033[6~", MP_KEY_PGDWN, .replace = NULL},
+    {"\033[7~", MP_KEY_HOME, .replace = NULL},
+    {"\033[8~", MP_KEY_END, .replace = NULL},
 
-    {"\033[11~", MP_KEY_F+1},
-    {"\033[12~", MP_KEY_F+2},
-    {"\033[13~", MP_KEY_F+3},
-    {"\033[14~", MP_KEY_F+4},
-    {"\033[15~", MP_KEY_F+5},
-    {"\033[17~", MP_KEY_F+6},
-    {"\033[18~", MP_KEY_F+7},
-    {"\033[19~", MP_KEY_F+8},
-    {"\033[20~", MP_KEY_F+9},
-    {"\033[21~", MP_KEY_F+10},
-    {"\033[23~", MP_KEY_F+11},
-    {"\033[24~", MP_KEY_F+12},
+    {"\033[11~", MP_KEY_F+1, .replace = NULL},
+    {"\033[12~", MP_KEY_F+2, .replace = NULL},
+    {"\033[13~", MP_KEY_F+3, .replace = NULL},
+    {"\033[14~", MP_KEY_F+4, .replace = NULL},
+    {"\033[15~", MP_KEY_F+5, .replace = NULL},
+    {"\033[17~", MP_KEY_F+6, .replace = NULL},
+    {"\033[18~", MP_KEY_F+7, .replace = NULL},
+    {"\033[19~", MP_KEY_F+8, .replace = NULL},
+    {"\033[20~", MP_KEY_F+9, .replace = NULL},
+    {"\033[21~", MP_KEY_F+10, .replace = NULL},
+    {"\033[23~", MP_KEY_F+11, .replace = NULL},
+    {"\033[24~", MP_KEY_F+12, .replace = NULL},
 
-    {"\033OA", MP_KEY_UP},
-    {"\033OB", MP_KEY_DOWN},
-    {"\033OC", MP_KEY_RIGHT},
-    {"\033OD", MP_KEY_LEFT},
-    {"\033[A", MP_KEY_UP},
-    {"\033[B", MP_KEY_DOWN},
-    {"\033[C", MP_KEY_RIGHT},
-    {"\033[D", MP_KEY_LEFT},
-    {"\033[E", MP_KEY_KP5},
-    {"\033[F", MP_KEY_END},
-    {"\033[H", MP_KEY_HOME},
+    {"\033OA", MP_KEY_UP, .replace = NULL},
+    {"\033OB", MP_KEY_DOWN, .replace = NULL},
+    {"\033OC", MP_KEY_RIGHT, .replace = NULL},
+    {"\033OD", MP_KEY_LEFT, .replace = NULL},
+    {"\033[A", MP_KEY_UP, .replace = NULL},
+    {"\033[B", MP_KEY_DOWN, .replace = NULL},
+    {"\033[C", MP_KEY_RIGHT, .replace = NULL},
+    {"\033[D", MP_KEY_LEFT, .replace = NULL},
+    {"\033[E", MP_KEY_KP5, .replace = NULL},
+    {"\033[F", MP_KEY_END, .replace = NULL},
+    {"\033[H", MP_KEY_HOME, .replace = NULL},
 
-    {"\033[[A", MP_KEY_F+1},
-    {"\033[[B", MP_KEY_F+2},
-    {"\033[[C", MP_KEY_F+3},
-    {"\033[[D", MP_KEY_F+4},
-    {"\033[[E", MP_KEY_F+5},
+    {"\033[[A", MP_KEY_F+1, .replace = NULL},
+    {"\033[[B", MP_KEY_F+2, .replace = NULL},
+    {"\033[[C", MP_KEY_F+3, .replace = NULL},
+    {"\033[[D", MP_KEY_F+4, .replace = NULL},
+    {"\033[[E", MP_KEY_F+5, .replace = NULL},
 
-    {"\033OE", MP_KEY_KP5}, // mintty?
-    {"\033OM", MP_KEY_KPENTER},
-    {"\033OP", MP_KEY_F+1},
-    {"\033OQ", MP_KEY_F+2},
-    {"\033OR", MP_KEY_F+3},
-    {"\033OS", MP_KEY_F+4},
+    {"\033OE", MP_KEY_KP5, .replace = NULL}, // mintty?
+    {"\033OM", MP_KEY_KPENTER, .replace = NULL},
+    {"\033OP", MP_KEY_F+1, .replace = NULL},
+    {"\033OQ", MP_KEY_F+2, .replace = NULL},
+    {"\033OR", MP_KEY_F+3, .replace = NULL},
+    {"\033OS", MP_KEY_F+4, .replace = NULL},
 
-    {"\033Oa", MP_KEY_UP | MP_KEY_MODIFIER_CTRL}, // urxvt
-    {"\033Ob", MP_KEY_DOWN | MP_KEY_MODIFIER_CTRL},
-    {"\033Oc", MP_KEY_RIGHT | MP_KEY_MODIFIER_CTRL},
-    {"\033Od", MP_KEY_LEFT | MP_KEY_MODIFIER_CTRL},
-    {"\033Oj", '*'}, // also keypad, but we don't have separate codes for them
-    {"\033Ok", '+'},
-    {"\033Om", '-'},
-    {"\033On", MP_KEY_KPDEC},
-    {"\033Oo", '/'},
-    {"\033Op", MP_KEY_KP0},
-    {"\033Oq", MP_KEY_KP1},
-    {"\033Or", MP_KEY_KP2},
-    {"\033Os", MP_KEY_KP3},
-    {"\033Ot", MP_KEY_KP4},
-    {"\033Ou", MP_KEY_KP5},
-    {"\033Ov", MP_KEY_KP6},
-    {"\033Ow", MP_KEY_KP7},
-    {"\033Ox", MP_KEY_KP8},
-    {"\033Oy", MP_KEY_KP9},
+    {"\033Oa", MP_KEY_UP | MP_KEY_MODIFIER_CTRL, .replace = NULL}, // urxvt
+    {"\033Ob", MP_KEY_DOWN | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033Oc", MP_KEY_RIGHT | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033Od", MP_KEY_LEFT | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033Oj", '*', .replace = NULL}, // also keypad, but we don't have separate codes for them
+    {"\033Ok", '+', .replace = NULL},
+    {"\033Om", '-', .replace = NULL},
+    {"\033On", MP_KEY_KPDEC, .replace = NULL},
+    {"\033Oo", '/', .replace = NULL},
+    {"\033Op", MP_KEY_KP0, .replace = NULL},
+    {"\033Oq", MP_KEY_KP1, .replace = NULL},
+    {"\033Or", MP_KEY_KP2, .replace = NULL},
+    {"\033Os", MP_KEY_KP3, .replace = NULL},
+    {"\033Ot", MP_KEY_KP4, .replace = NULL},
+    {"\033Ou", MP_KEY_KP5, .replace = NULL},
+    {"\033Ov", MP_KEY_KP6, .replace = NULL},
+    {"\033Ow", MP_KEY_KP7, .replace = NULL},
+    {"\033Ox", MP_KEY_KP8, .replace = NULL},
+    {"\033Oy", MP_KEY_KP9, .replace = NULL},
 
-    {"\033[a", MP_KEY_UP | MP_KEY_MODIFIER_SHIFT}, // urxvt
-    {"\033[b", MP_KEY_DOWN | MP_KEY_MODIFIER_SHIFT},
-    {"\033[c", MP_KEY_RIGHT | MP_KEY_MODIFIER_SHIFT},
-    {"\033[d", MP_KEY_LEFT | MP_KEY_MODIFIER_SHIFT},
-    {"\033[2^", MP_KEY_INS | MP_KEY_MODIFIER_CTRL},
-    {"\033[3^", MP_KEY_DEL | MP_KEY_MODIFIER_CTRL},
-    {"\033[5^", MP_KEY_PGUP | MP_KEY_MODIFIER_CTRL},
-    {"\033[6^", MP_KEY_PGDWN | MP_KEY_MODIFIER_CTRL},
-    {"\033[7^", MP_KEY_HOME | MP_KEY_MODIFIER_CTRL},
-    {"\033[8^", MP_KEY_END | MP_KEY_MODIFIER_CTRL},
+    {"\033[a", MP_KEY_UP | MP_KEY_MODIFIER_SHIFT, .replace = NULL}, // urxvt
+    {"\033[b", MP_KEY_DOWN | MP_KEY_MODIFIER_SHIFT, .replace = NULL},
+    {"\033[c", MP_KEY_RIGHT | MP_KEY_MODIFIER_SHIFT, .replace = NULL},
+    {"\033[d", MP_KEY_LEFT | MP_KEY_MODIFIER_SHIFT, .replace = NULL},
+    {"\033[2^", MP_KEY_INS | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033[3^", MP_KEY_DEL | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033[5^", MP_KEY_PGUP | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033[6^", MP_KEY_PGDWN | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033[7^", MP_KEY_HOME | MP_KEY_MODIFIER_CTRL, .replace = NULL},
+    {"\033[8^", MP_KEY_END | MP_KEY_MODIFIER_CTRL, .replace = NULL},
 
     {"\033[1;2", MP_KEY_MODIFIER_SHIFT, .replace = "\033["}, // xterm
     {"\033[1;3", MP_KEY_MODIFIER_ALT, .replace = "\033["},
@@ -159,9 +174,21 @@ static const struct key_entry keys[] = {
      MP_KEY_MODIFIER_CTRL | MP_KEY_MODIFIER_ALT | MP_KEY_MODIFIER_SHIFT,
      .replace = "\033["},
 
-    {"\033[29~", MP_KEY_MENU},
-    {"\033[Z", MP_KEY_TAB | MP_KEY_MODIFIER_SHIFT},
+    {"\033[29~", MP_KEY_MENU, .replace = NULL},
+    {"\033[Z", MP_KEY_TAB | MP_KEY_MODIFIER_SHIFT, .replace = NULL},
 
+    // Mouse button inputs. 2 bytes of position information requires special processing.
+    {"\033[M ", MP_MBTN_LEFT | MP_KEY_STATE_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_BUTTON, .replace = NULL},
+    {"\033[M!", MP_MBTN_MID | MP_KEY_STATE_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_BUTTON, .replace = NULL},
+    {"\033[M\"", MP_MBTN_RIGHT | MP_KEY_STATE_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_BUTTON},
+    {"\033[M#", MP_INPUT_RELEASE_ALL, .skip = 2, .type = ENTRY_TYPE_MOUSE_BUTTON, .replace = NULL},
+    {"\033[M`", MP_WHEEL_UP, .skip = 2, .type = ENTRY_TYPE_MOUSE_BUTTON, .replace = NULL},
+    {"\033[Ma", MP_WHEEL_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_BUTTON, .replace = NULL},
+    // Mouse move inputs. No key events should be generated for them.
+    {"\033[M@", MP_MBTN_LEFT | MP_KEY_STATE_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_MOVE, .replace = NULL},
+    {"\033[MA", MP_MBTN_MID | MP_KEY_STATE_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_MOVE, .replace = NULL},
+    {"\033[MB", MP_MBTN_RIGHT | MP_KEY_STATE_DOWN, .skip = 2, .type = ENTRY_TYPE_MOUSE_MOVE, .replace = NULL},
+    {"\033[MC", MP_INPUT_RELEASE_ALL, .skip = 2, .type = ENTRY_TYPE_MOUSE_MOVE, .replace = NULL},
     {0}
 };
 
@@ -175,7 +202,7 @@ struct termbuf {
 
 static void skip_buf(struct termbuf *b, unsigned int count)
 {
-    assert(count <= b->len);
+    mp_assert(count <= b->len);
 
     memmove(&b->b[0], &b->b[count], b->len - count);
     b->len -= count;
@@ -220,6 +247,13 @@ static void process_input(struct input_ctx *input_ctx, bool timeout)
             int mods = 0;
             if (buf.b[0] == '\033') {
                 if (buf.len > 1 && buf.b[1] == '[') {
+                    // Throw away unrecognized mouse CSI sequences.
+                    // Cannot be handled by the loop below since the bytes
+                    // afterwards can be out of that range.
+                    if (buf.len > 2 && buf.b[2] == 'M') {
+                        skip_buf(&buf, buf.len);
+                        continue;
+                    }
                     // unknown CSI sequence. wait till it completes
                     for (int i = 2; i < buf.len; i++) {
                         if (buf.b[i] >= 0x40 && buf.b[i] <= 0x7E)  {
@@ -252,13 +286,13 @@ static void process_input(struct input_ctx *input_ctx, bool timeout)
             continue;
         }
 
-        int seq_len = strlen(match->seq);
+        int seq_len = strlen(match->seq) + match->skip;
         if (seq_len > buf.len)
             goto read_more; /* partial match */
 
         if (match->replace) {
             int rep = strlen(match->replace);
-            assert(rep <= seq_len);
+            mp_assert(rep <= seq_len);
             memcpy(buf.b, match->replace, rep);
             memmove(buf.b + rep, buf.b + seq_len, buf.len - seq_len);
             buf.len = rep + buf.len - seq_len;
@@ -266,27 +300,44 @@ static void process_input(struct input_ctx *input_ctx, bool timeout)
             continue;
         }
 
-        mp_input_put_key(input_ctx, buf.mods | match->mpkey);
+        // Parse the initially skipped mouse position information.
+        // The positions are 1-based character cell positions plus 32.
+        // Treat mouse position as the pixel values at the center of the cell.
+        if ((match->type == ENTRY_TYPE_MOUSE_BUTTON ||
+             match->type == ENTRY_TYPE_MOUSE_MOVE) && seq_len >= 6)
+        {
+            int num_rows        = 80;
+            int num_cols        = 25;
+            int total_px_width  = 0;
+            int total_px_height = 0;
+            terminal_get_size2(&num_rows, &num_cols, &total_px_width, &total_px_height);
+            mp_input_set_mouse_pos(input_ctx,
+                (buf.b[4] - 32.5) * (total_px_width / num_cols),
+                (buf.b[5] - 32.5) * (total_px_height / num_rows));
+        }
+        if (match->type != ENTRY_TYPE_MOUSE_MOVE)
+            mp_input_put_key(input_ctx, buf.mods | match->mpkey);
         skip_buf(&buf, seq_len);
     }
 
 read_more: ;  /* need more bytes */
 }
 
-static volatile int getch2_active  = 0;
-static volatile int getch2_enabled = 0;
+static int getch2_active  = 0;
+static int getch2_enabled = 0;
 static bool read_terminal;
 
 static void enable_kx(bool enable)
 {
     // This check is actually always true, as enable_kx calls are all guarded
     // by read_terminal, which is true only if both stdin and stdout are a
-    // tty. Note that stderr being redirected away has no influence over mpv's
+    // tty. Note that stderr being redirected away has no influence over dmpv's
     // I/O handling except for disabling the terminal OSD, and thus stderr
     // shouldn't be relied on here either.
     if (isatty(tty_out)) {
         char *cmd = enable ? "\033=" : "\033>";
-        (void)write(tty_out, cmd, strlen(cmd));
+        ssize_t ignored = write(tty_out, cmd, strlen(cmd));
+        (void)ignored;
     }
 }
 
@@ -299,11 +350,6 @@ static void do_activate_getch2(void)
 
     struct termios tio_new;
     tcgetattr(tty_in,&tio_new);
-
-    if (!tio_orig_set) {
-        tio_orig = tio_new;
-        tio_orig_set = 1;
-    }
 
     tio_new.c_lflag &= ~(ICANON|ECHO); /* Clear ICANON and ECHO. */
     tio_new.c_cc[VMIN] = 1;
@@ -319,12 +365,7 @@ static void do_deactivate_getch2(void)
         return;
 
     enable_kx(false);
-
-    if (tio_orig_set) {
-        // once set, it will never be set again
-        // so we can cast away volatile here
-        tcsetattr(tty_in, TCSANOW, (const struct termios *) &tio_orig);
-    }
+    tcsetattr(tty_in, TCSANOW, &tio_orig);
 
     getch2_active = 0;
 }
@@ -360,9 +401,18 @@ static void getch2_poll(void)
         do_deactivate_getch2();
 }
 
+static mp_thread input_thread;
+static struct input_ctx *input_ctx;
+static int death_pipe[2] = {-1, -1};
+enum { PIPE_STOP, PIPE_CONT };
+static int stop_cont_pipe[2] = {-1, -1};
+
 static void stop_sighandler(int signum)
 {
-    do_deactivate_getch2();
+    int saved_errno = errno;
+    ssize_t ignored = write(stop_cont_pipe[1], &(char){PIPE_STOP}, 1);
+    (void)ignored;
+    errno = saved_errno;
 
     // note: for this signal, we use SA_RESETHAND but do NOT mask signals
     // so this will invoke the default handler
@@ -371,22 +421,27 @@ static void stop_sighandler(int signum)
 
 static void continue_sighandler(int signum)
 {
+    int saved_errno = errno;
     // SA_RESETHAND has reset SIGTSTP, so we need to restore it here
     setsigaction(SIGTSTP, stop_sighandler, SA_RESETHAND, false);
 
-    getch2_poll();
+    ssize_t ignored = write(stop_cont_pipe[1], &(char){PIPE_CONT}, 1);
+    (void)ignored;
+    errno = saved_errno;
 }
 
-static pthread_t input_thread;
-static struct input_ctx *input_ctx;
-static int death_pipe[2] = {-1, -1};
+static void safe_close(int *p)
+{
+    if (*p >= 0)
+        close(*p);
+    *p = -1;
+}
 
-static void close_death_pipe(void)
+static void close_sig_pipes(void)
 {
     for (int n = 0; n < 2; n++) {
-        if (death_pipe[n] >= 0)
-            close(death_pipe[n]);
-        death_pipe[n] = -1;
+        safe_close(&death_pipe[n]);
+        safe_close(&stop_cont_pipe[n]);
     }
 }
 
@@ -400,36 +455,40 @@ static void close_tty(void)
 
 static void quit_request_sighandler(int signum)
 {
-    do_deactivate_getch2();
-
-    (void)write(death_pipe[1], &(char){1}, 1);
+    int saved_errno = errno;
+    ssize_t ignored = write(death_pipe[1], &(char){1}, 1);
+    (void)ignored;
+    errno = saved_errno;
 }
 
-static void *terminal_thread(void *ptr)
+static MP_THREAD_VOID terminal_thread(void *ptr)
 {
-    mpthread_set_name("terminal");
+    mp_thread_set_name("terminal");
     bool stdin_ok = read_terminal; // if false, we still wait for SIGTERM
     while (1) {
         getch2_poll();
-        struct pollfd fds[2] = {
+        struct pollfd fds[3] = {
             { .events = POLLIN, .fd = death_pipe[0] },
+            { .events = POLLIN, .fd = stop_cont_pipe[0] },
             { .events = POLLIN, .fd = tty_in }
         };
-        /*
-         * if the process isn't in foreground process group, then on macos
-         * polldev() doesn't rest and gets into 100% cpu usage (see issue #11795)
-         * with read() returning EIO. but we shouldn't quit on EIO either since
-         * the process might be foregrounded later.
-         *
-         * so just avoid poll-ing tty_in when we know the process is not in the
-         * foreground. there's a small race window, but the timeout will take
-         * care of it so it's fine.
-         */
+
         bool is_fg = tcgetpgrp(tty_in) == getpgrp();
-        int r = polldev(fds, stdin_ok && is_fg ? 2 : 1, buf.len ? ESC_TIMEOUT : INPUT_TIMEOUT);
-        if (fds[0].revents)
+        int r = polldev(fds, stdin_ok && is_fg ? 3 : 2, buf.len ? ESC_TIMEOUT : INPUT_TIMEOUT);
+        if (fds[0].revents) {
+            do_deactivate_getch2();
             break;
-        if (fds[1].revents) {
+        }
+        if (fds[1].revents & POLLIN) {
+            int8_t c = -1;
+            ssize_t ignored = read(stop_cont_pipe[0], &c, 1);
+            (void)ignored;
+            if (c == PIPE_STOP)
+                do_deactivate_getch2();
+            else if (c == PIPE_CONT)
+                getch2_poll();
+        }
+        if (fds[2].revents) {
             int retval = read(tty_in, &buf.b[buf.len], BUF_LEN - buf.len);
             if (!retval || (retval == -1 && errno != EINTR && errno != EAGAIN && errno != EIO))
                 break; // EOF/closed
@@ -449,7 +508,7 @@ static void *terminal_thread(void *ptr)
         if (cmd)
             mp_input_queue_cmd(input_ctx, cmd);
     }
-    return NULL;
+    MP_THREAD_RETURN();
 }
 
 void terminal_setup_getch(struct input_ctx *ictx)
@@ -459,24 +518,28 @@ void terminal_setup_getch(struct input_ctx *ictx)
 
     if (mp_make_wakeup_pipe(death_pipe) < 0)
         return;
+    if (mp_make_wakeup_pipe(stop_cont_pipe) < 0) {
+        close_sig_pipes();
+        return;
+    }
 
     // Disable reading from the terminal even if stdout is not a tty, to make
-    //   mpv ... | less
+    //   dmpv ... | less
     // do the right thing.
     read_terminal = isatty(tty_in) && isatty(STDOUT_FILENO);
 
     input_ctx = ictx;
 
-    if (pthread_create(&input_thread, NULL, terminal_thread, NULL)) {
+    if (mp_thread_create(&input_thread, terminal_thread, NULL)) {
         input_ctx = NULL;
-        close_death_pipe();
+        close_sig_pipes();
         close_tty();
         return;
     }
 
     setsigaction(SIGINT,  quit_request_sighandler, SA_RESETHAND, false);
-    setsigaction(SIGQUIT, quit_request_sighandler, SA_RESETHAND, false);
-    setsigaction(SIGTERM, quit_request_sighandler, SA_RESETHAND, false);
+    setsigaction(SIGQUIT, quit_request_sighandler, 0, true);
+    setsigaction(SIGTERM, quit_request_sighandler, 0, true);
 }
 
 void terminal_uninit(void)
@@ -494,9 +557,10 @@ void terminal_uninit(void)
     setsigaction(SIGTTOU, SIG_DFL, 0, false);
 
     if (input_ctx) {
-        (void)write(death_pipe[1], &(char){0}, 1);
-        pthread_join(input_thread, NULL);
-        close_death_pipe();
+        ssize_t ignored = write(death_pipe[1], &(char){0}, 1);
+        (void)ignored;
+        mp_thread_join(input_thread);
+        close_sig_pipes();
         input_ctx = NULL;
     }
 
@@ -537,7 +601,7 @@ void terminal_get_size2(int *rows, int *cols, int *px_width, int *px_height)
 
 void terminal_init(void)
 {
-    assert(!getch2_enabled);
+    mp_assert(!getch2_enabled);
     getch2_enabled = 1;
 
     tty_in = tty_out = open("/dev/tty", O_RDWR | O_CLOEXEC);
@@ -545,6 +609,8 @@ void terminal_init(void)
         tty_in = STDIN_FILENO;
         tty_out = STDOUT_FILENO;
     }
+
+    tcgetattr(tty_in, &tio_orig);
 
     // handlers to fix terminal settings
     setsigaction(SIGCONT, continue_sighandler, 0, true);

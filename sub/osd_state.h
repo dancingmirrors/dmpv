@@ -1,9 +1,8 @@
 #ifndef MP_OSD_STATE_H_
 #define MP_OSD_STATE_H_
 
-#include <pthread.h>
+#include "osdep/threads.h"
 
-#include "osdep/atomic.h"
 #include "osd.h"
 
 enum mp_osdtype {
@@ -71,14 +70,14 @@ struct osd_state {
     struct osd_object *objs[MAX_OSD_PARTS];
 
     bool render_subs_in_filter;
-    mp_atomic_double force_video_pts;
+    _Atomic double force_video_pts;
 
     bool want_redraw;
     bool want_redraw_notification;
 
     struct m_config_cache *opts_cache;
     struct mp_osd_render_opts *opts;
-    struct mpv_global *global;
+    struct dmpv_global *global;
     struct mp_log *log;
     struct stats_ctx *stats;
 

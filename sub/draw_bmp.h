@@ -5,10 +5,10 @@
 
 struct mp_rect;
 struct mp_image;
-struct mpv_global;
+struct dmpv_global;
 struct mp_draw_sub_cache;
 
-struct mp_draw_sub_cache *mp_draw_sub_alloc(void *ta_parent, struct mpv_global *g);
+struct mp_draw_sub_cache *mp_draw_sub_alloc(void *ta_parent, struct dmpv_global *g);
 
 // Only for use in tests.
 struct mp_draw_sub_cache *mp_draw_sub_alloc_test(struct mp_image *dst);

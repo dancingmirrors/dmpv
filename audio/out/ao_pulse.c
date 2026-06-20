@@ -3,20 +3,20 @@
  * Copyright (C) 2006 Lennart Poettering
  * Copyright (C) 2007 Reimar Doeffinger
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdlib.h>
@@ -24,12 +24,12 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
-#include <pthread.h>
 
 #include <pulse/pulseaudio.h>
 
 #include "audio/format.h"
 #include "common/msg.h"
+#include "misc/mp_assert.h"
 #include "options/m_option.h"
 #include "ao.h"
 #include "internal.h"
@@ -72,6 +72,7 @@ static void context_state_cb(pa_context *c, void *userdata)
     case PA_CONTEXT_READY:
     case PA_CONTEXT_TERMINATED:
     case PA_CONTEXT_FAILED:
+    default:
         pa_threaded_mainloop_signal(priv->mainloop, 0);
         break;
     }
@@ -81,7 +82,7 @@ static void subscribe_cb(pa_context *c, pa_subscription_event_type_t t,
                          uint32_t idx, void *userdata)
 {
     struct ao *ao = userdata;
-    int type = t & PA_SUBSCRIPTION_MASK_SINK;
+    int type = t & PA_SUBSCRIPTION_EVENT_TYPE_MASK;
     int fac = t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
     if ((type == PA_SUBSCRIPTION_EVENT_NEW || type == PA_SUBSCRIPTION_EVENT_REMOVE)
         && fac == PA_SUBSCRIPTION_EVENT_SINK)
@@ -110,6 +111,7 @@ static void stream_state_cb(pa_stream *s, void *userdata)
         break;
     case PA_STREAM_READY:
     case PA_STREAM_TERMINATED:
+    default:
         pa_threaded_mainloop_signal(priv->mainloop, 0);
         break;
     }
@@ -119,7 +121,7 @@ static void stream_request_cb(pa_stream *s, size_t length, void *userdata)
 {
     struct ao *ao = userdata;
     struct priv *priv = ao->priv;
-    ao_wakeup_playthread(ao);
+    ao_wakeup(ao);
     pa_threaded_mainloop_signal(priv->mainloop, 0);
 }
 
@@ -136,7 +138,7 @@ static void underflow_cb(pa_stream *s, void *userdata)
     struct priv *priv = ao->priv;
     priv->playing = false;
     priv->underrun_signalled = true;
-    ao_wakeup_playthread(ao);
+    ao_wakeup(ao);
     pa_threaded_mainloop_signal(priv->mainloop, 0);
 }
 
@@ -210,25 +212,25 @@ static pa_encoding_t map_digital_format(int format)
 }
 
 static const int speaker_map[][2] = {
-  {PA_CHANNEL_POSITION_FRONT_LEFT,              MP_SPEAKER_ID_FL},
-  {PA_CHANNEL_POSITION_FRONT_RIGHT,             MP_SPEAKER_ID_FR},
-  {PA_CHANNEL_POSITION_FRONT_CENTER,            MP_SPEAKER_ID_FC},
-  {PA_CHANNEL_POSITION_REAR_CENTER,             MP_SPEAKER_ID_BC},
-  {PA_CHANNEL_POSITION_REAR_LEFT,               MP_SPEAKER_ID_BL},
-  {PA_CHANNEL_POSITION_REAR_RIGHT,              MP_SPEAKER_ID_BR},
-  {PA_CHANNEL_POSITION_LFE,                     MP_SPEAKER_ID_LFE},
-  {PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER,    MP_SPEAKER_ID_FLC},
-  {PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER,   MP_SPEAKER_ID_FRC},
-  {PA_CHANNEL_POSITION_SIDE_LEFT,               MP_SPEAKER_ID_SL},
-  {PA_CHANNEL_POSITION_SIDE_RIGHT,              MP_SPEAKER_ID_SR},
-  {PA_CHANNEL_POSITION_TOP_CENTER,              MP_SPEAKER_ID_TC},
-  {PA_CHANNEL_POSITION_TOP_FRONT_LEFT,          MP_SPEAKER_ID_TFL},
-  {PA_CHANNEL_POSITION_TOP_FRONT_RIGHT,         MP_SPEAKER_ID_TFR},
-  {PA_CHANNEL_POSITION_TOP_FRONT_CENTER,        MP_SPEAKER_ID_TFC},
-  {PA_CHANNEL_POSITION_TOP_REAR_LEFT,           MP_SPEAKER_ID_TBL},
-  {PA_CHANNEL_POSITION_TOP_REAR_RIGHT,          MP_SPEAKER_ID_TBR},
-  {PA_CHANNEL_POSITION_TOP_REAR_CENTER,         MP_SPEAKER_ID_TBC},
-  {PA_CHANNEL_POSITION_INVALID,                 -1}
+    {PA_CHANNEL_POSITION_FRONT_LEFT,              MP_SPEAKER_ID_FL},
+    {PA_CHANNEL_POSITION_FRONT_RIGHT,             MP_SPEAKER_ID_FR},
+    {PA_CHANNEL_POSITION_FRONT_CENTER,            MP_SPEAKER_ID_FC},
+    {PA_CHANNEL_POSITION_REAR_CENTER,             MP_SPEAKER_ID_BC},
+    {PA_CHANNEL_POSITION_REAR_LEFT,               MP_SPEAKER_ID_BL},
+    {PA_CHANNEL_POSITION_REAR_RIGHT,              MP_SPEAKER_ID_BR},
+    {PA_CHANNEL_POSITION_LFE,                     MP_SPEAKER_ID_LFE},
+    {PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER,    MP_SPEAKER_ID_FLC},
+    {PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER,   MP_SPEAKER_ID_FRC},
+    {PA_CHANNEL_POSITION_SIDE_LEFT,               MP_SPEAKER_ID_SL},
+    {PA_CHANNEL_POSITION_SIDE_RIGHT,              MP_SPEAKER_ID_SR},
+    {PA_CHANNEL_POSITION_TOP_CENTER,              MP_SPEAKER_ID_TC},
+    {PA_CHANNEL_POSITION_TOP_FRONT_LEFT,          MP_SPEAKER_ID_TFL},
+    {PA_CHANNEL_POSITION_TOP_FRONT_RIGHT,         MP_SPEAKER_ID_TFR},
+    {PA_CHANNEL_POSITION_TOP_FRONT_CENTER,        MP_SPEAKER_ID_TFC},
+    {PA_CHANNEL_POSITION_TOP_REAR_LEFT,           MP_SPEAKER_ID_TBL},
+    {PA_CHANNEL_POSITION_TOP_REAR_RIGHT,          MP_SPEAKER_ID_TBR},
+    {PA_CHANNEL_POSITION_TOP_REAR_CENTER,         MP_SPEAKER_ID_TBC},
+    {PA_CHANNEL_POSITION_INVALID,                 -1}
 };
 
 static bool chmap_pa_from_mp(pa_channel_map *dst, struct mp_chmap *src)
@@ -315,10 +317,8 @@ static int pa_init_boilerplate(struct ao *ao)
     }
 
     MP_VERBOSE(ao, "Library version: %s\n", pa_get_library_version());
-    MP_VERBOSE(ao, "Proto: %lu\n",
-        (long)pa_context_get_protocol_version(priv->context));
-    MP_VERBOSE(ao, "Server proto: %lu\n",
-        (long)pa_context_get_server_protocol_version(priv->context));
+    MP_VERBOSE(ao, "Proto: %" PRIu32 "\n",
+               pa_context_get_protocol_version(priv->context));
 
     pa_context_set_state_callback(priv->context, context_state_cb, ao);
     pa_context_set_subscribe_callback(priv->context, subscribe_cb, ao);
@@ -335,6 +335,9 @@ static int pa_init_boilerplate(struct ao *ao)
             goto fail;
         pa_threaded_mainloop_wait(priv->mainloop);
     }
+
+    MP_VERBOSE(ao, "Server proto: %" PRIu32 "\n",
+               pa_context_get_server_protocol_version(priv->context));
 
     pa_threaded_mainloop_unlock(priv->mainloop);
     return 0;
@@ -579,8 +582,11 @@ static double get_delay_hackfixed(struct ao *ao)
         GENERIC_ERR_MSG("pa_stream_get_sample_spec() failed");
         return 0;
     }
-    // data left in PulseAudio's main buffers (not written to sink yet)
-    int64_t latency = pa_bytes_to_usec(ti->write_index - ti->read_index, ss);
+    // data left in PulseAudio's main buffers (not written to sink yet).
+    // With prebuf=0, an underrun may make write_index < read_index (negative buf_diff),
+    // which breaks the pa_bytes_to_usec() conversion and can overflow into an infinite drain wait.
+    int64_t buf_diff = ti->write_index - ti->read_index;
+    int64_t latency = buf_diff > 0 ? pa_bytes_to_usec(buf_diff, ss) : 0;
     // since this info may be from a while ago, playback has progressed since
     latency -= ti->transport_usec;
     // data already moved from buffers to sink, but not played yet
@@ -805,6 +811,7 @@ const struct ao_driver audio_out_pulse = {
     .priv_size = sizeof(struct priv),
     .priv_defaults = &(const struct priv) {
         .cfg_buffer = 100,
+        .cfg_latency_hacks = true,
     },
     .options = (const struct m_option[]) {
         {"host", OPT_STRING(cfg_host)},

@@ -1,4 +1,4 @@
-#include <pthread.h>
+#include "osdep/threads.h"
 
 #include "rendezvous.h"
 
@@ -31,7 +31,7 @@ struct waiter {
 intptr_t mp_rendezvous(void *tag, intptr_t value)
 {
     struct waiter wait = { .tag = tag, .value = &value };
-    pthread_mutex_lock(&lock);
+    mp_mutex_lock(&lock);
     struct waiter **prev = &waiters;
     while (*prev) {
         if ((*prev)->tag == tag) {
@@ -47,8 +47,8 @@ intptr_t mp_rendezvous(void *tag, intptr_t value)
     }
     *prev = &wait;
     while (wait.value)
-        pthread_cond_wait(&wakeup, &lock);
+        mp_cond_wait(&wakeup, &lock);
 done:
-    pthread_mutex_unlock(&lock);
+    mp_mutex_unlock(&lock);
     return value;
 }

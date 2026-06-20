@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_M_PROPERTY_H
@@ -71,12 +71,12 @@ enum mp_property_action {
     //  arg: char*
     M_PROPERTY_SET_STRING,
 
-    // Set a mpv_node value.
-    //  arg: mpv_node*
+    // Set a dmpv_node value.
+    //  arg: dmpv_node*
     M_PROPERTY_GET_NODE,
 
-    // Get a mpv_node value.
-    //  arg: mpv_node*
+    // Get a dmpv_node value.
+    //  arg: dmpv_node*
     M_PROPERTY_SET_NODE,
 
     // Multiply numeric property with a factor.
@@ -107,6 +107,9 @@ struct m_property_action_arg {
 };
 
 enum mp_property_return {
+    // Returned from validator if action should be executed.
+    M_PROPERTY_VALID = 2,
+
     // Returned on success.
     M_PROPERTY_OK = 1,
 
@@ -154,7 +157,7 @@ int m_property_do(struct mp_log *log, const struct m_property* prop_list,
 // and rem to "b/c", and return true.
 // If there is no '/' in the path, set prefix to path, and rem to "", and
 // return false.
-bool m_property_split_path(const char *path, bstr *prefix, char **rem);
+bool m_property_split_path(const char *path, bstr *prefix, const char **rem);
 
 // Print a list of properties.
 void m_properties_print_help_list(struct mp_log *log,
@@ -168,9 +171,8 @@ void m_properties_print_help_list(struct mp_log *log,
 //  available.
 //  ${?NAME:STR} expands to STR if the property is available.
 //  ${!NAME:STR} expands to STR if the property is not available.
-//  ${+...} same combinations as above, but also re-expand the result.
-// General syntax: "${" ["+"] ["?" | "!"] ["="] NAME ":" STR "}"
-// STR is recursively expanded using the same rules. Same for ${+...} .
+// General syntax: "${" ["?" | "!"] ["="] NAME ":" STR "}"
+// STR is recursively expanded using the same rules.
 // "$$" can be used to escape "$", and "$}" to escape "}".
 // "$>" disables parsing of "$" for the rest of the string.
 char* m_properties_expand_string(const struct m_property *prop_list,
@@ -213,6 +215,8 @@ struct m_sub_property {
 #define SUB_PROP_PTS(f) \
     .type = {.type = &m_option_type_time}, .value = {.double_ = (f)}
 
+int m_property_read_sub_validate(void *ctx, struct m_property *prop,
+                                 int action, void *arg);
 int m_property_read_sub(const struct m_sub_property *props, int action, void *arg);
 
 

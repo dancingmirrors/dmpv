@@ -1,25 +1,24 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
-#include <assert.h>
 #include <limits.h>
 
-#include "mpv_talloc.h"
+#include "misc/dmpv_talloc.h"
 
 #include "common/common.h"
 #include "img_convert.h"
@@ -31,7 +30,8 @@
 void mp_blur_rgba_sub_bitmap(struct sub_bitmap *d, double gblur)
 {
     struct mp_image *tmp1 = mp_image_alloc(IMGFMT_BGRA, d->w, d->h);
-    if (tmp1) { // on OOM, skip region
+    MP_HANDLE_OOM(tmp1);
+    {
         struct mp_image s = {0};
         mp_image_setfmt(&s, IMGFMT_BGRA);
         mp_image_set_size(&s, d->w, d->h);
@@ -105,7 +105,10 @@ int mp_get_sub_bb_list(struct sub_bitmaps *sbs, struct mp_rect *out_rc_list,
     int num_rc = 0;
     for (int n = 0; n < sbs->num_parts; n++) {
         struct sub_bitmap *sb = &sbs->parts[n];
-        struct mp_rect bb = {sb->x, sb->y, sb->x + sb->dw, sb->y + sb->dh};
+        struct mp_rect bb = {sb->x,
+                             sb->y,
+                             sb->x + sb->dw,
+                             sb->y + sb->dh};
         bool intersects = false;
         for (int r = 0; r < num_rc; r++) {
             struct mp_rect *rc = &out_rc_list[r];

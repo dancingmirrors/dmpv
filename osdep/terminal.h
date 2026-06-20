@@ -1,20 +1,20 @@
 /*
  * Based on GyS-TermIO v2.0 (for GySmail v3) (copyright (C) 1999 A'rpi/ESP-team)
  *
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef MPLAYER_GETCH2_H
@@ -30,6 +30,9 @@
 #define TERM_ESC_CLEAR_SCREEN       "\033[2J"
 #define TERM_ESC_ALT_SCREEN         "\033[?1049h"
 #define TERM_ESC_NORMAL_SCREEN      "\033[?1049l"
+
+#define TERM_ESC_ENABLE_MOUSE       "\033[?1003h"
+#define TERM_ESC_DISABLE_MOUSE      "\033[?1003l"
 
 struct input_ctx;
 
@@ -50,11 +53,5 @@ void terminal_get_size(int *w, int *h);
 
 /* Get terminal-size in columns/rows and width/height in pixels. */
 void terminal_get_size2(int *rows, int *cols, int *px_width, int *px_height);
-
-// Windows only.
-void mp_write_console_ansi(void *wstream, char *buf);
-
-/* Windows-only function to attach to the parent process's console */
-bool terminal_try_attach(void);
 
 #endif /* MPLAYER_GETCH2_H */

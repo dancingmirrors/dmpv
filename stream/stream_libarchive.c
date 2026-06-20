@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <archive.h>
@@ -20,6 +20,7 @@
 
 #include "misc/bstr.h"
 #include "common/common.h"
+#include "misc/mp_assert.h"
 #include "misc/thread_tools.h"
 #include "stream.h"
 
@@ -28,6 +29,18 @@
 #define MP_ARCHIVE_FLAG_MAYBE_ZIP       (MP_ARCHIVE_FLAG_PRIV << 0)
 #define MP_ARCHIVE_FLAG_MAYBE_RAR       (MP_ARCHIVE_FLAG_PRIV << 1)
 #define MP_ARCHIVE_FLAG_MAYBE_VOLUMES   (MP_ARCHIVE_FLAG_PRIV << 2)
+
+#ifdef __NetBSD__
+// NetBSD doesn't support uselocale(), so we define it as a no-op.
+// This will trigger warnings about unused variables and unused values,
+// so we suppress them locally for GCC and Clang.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-value"
+#endif
+#define uselocale(locale) NULL
+#endif
 
 struct mp_archive_volume {
     struct mp_archive *mpa;
@@ -80,7 +93,10 @@ static bool probe_zip(struct stream *s)
 static int mp_archive_probe(struct stream *src)
 {
     int flags = 0;
-    assert(stream_tell(src) == 0);
+    stream_seek(src, 0);
+    if (stream_tell(src) != 0)
+        return flags;
+
     if (probe_zip(src))
         flags |= MP_ARCHIVE_FLAG_MAYBE_ZIP;
 
@@ -168,6 +184,10 @@ static int open_cb(struct archive *arch, void *priv)
                                     vol->mpa->primary_src->stream_origin,
                                  vol->mpa->primary_src->cancel,
                                  vol->mpa->primary_src->global);
+        if (vol->src && vol->src->is_directory) {
+            free_stream(vol->src);
+            vol->src = NULL;
+        }
         // We pretend that failure to open a stream means it was not found,
         // we assume in turn means that the volume doesn't exist (since
         // libarchive builds volumes as some sort of abstraction on top of its
@@ -270,13 +290,13 @@ struct file_pattern {
 };
 
 static const struct file_pattern patterns[] = {
-    { ".part1.rar",    "%.*s.part%.1d.rar", standard_volume_url, 2,    9 },
-    { ".part01.rar",   "%.*s.part%.2d.rar", standard_volume_url, 2,   99 },
-    { ".part001.rar",  "%.*s.part%.3d.rar", standard_volume_url, 2,  999 },
-    { ".part0001.rar", "%.*s.part%.4d.rar", standard_volume_url, 2, 9999 },
-    { ".rar",          "%.*s.%c%.2d",       old_rar_volume_url,  0,   99, true },
-    { ".001",          "%.*s.%.3d",         standard_volume_url, 2, 9999 },
-    { NULL, NULL, NULL, 0, 0 },
+    { ".part1.rar",    "%.*s.part%.1d.rar", standard_volume_url, 2,    9, .legacy = false },
+    { ".part01.rar",   "%.*s.part%.2d.rar", standard_volume_url, 2,   99, .legacy = false },
+    { ".part001.rar",  "%.*s.part%.3d.rar", standard_volume_url, 2,  999, .legacy = false },
+    { ".part0001.rar", "%.*s.part%.4d.rar", standard_volume_url, 2, 9999, .legacy = false },
+    { ".rar",          "%.*s.%c%.2d",       old_rar_volume_url,  0,   99, .legacy = true },
+    { ".001",          "%.*s.%.3d",         standard_volume_url, 2, 9999, .legacy = false },
+    { NULL, NULL, NULL, 0, 0, .legacy = false },
 };
 
 static bool find_volumes(struct mp_archive *mpa, int flags)
@@ -305,7 +325,7 @@ static bool find_volumes(struct mp_archive *mpa, int flags)
 
     MP_WARN(mpa, "This appears to be a multi-volume archive.\n"
             "Support is not very good due to libarchive limitations.\n"
-            "There are known cases of libarchive crashing mpv on these.\n"
+            "There are known cases of libarchive crashing dmpv on these.\n"
             "This is also an excessively inefficient and stupid way to distribute\n"
             "media files. People creating them should rethink this.\n");
 
@@ -425,8 +445,10 @@ bool mp_archive_next_entry(struct mp_archive *mpa)
         // Some archives may have no filenames, or libarchive won't return some.
         const char *fn = archive_entry_pathname(entry);
         char buf[64];
+        if (!fn || bstr_validate_utf8(bstr0(fn)) < 0)
+            fn = archive_entry_pathname_utf8(entry);
         if (!fn || bstr_validate_utf8(bstr0(fn)) < 0) {
-            snprintf(buf, sizeof(buf), "mpv_unknown#%d", mpa->entry_num);
+            snprintf(buf, sizeof(buf), "dmpv_unknown#%d", mpa->entry_num);
             fn = buf;
         }
         mpa->entry = entry;
@@ -511,7 +533,7 @@ static int archive_entry_seek(stream_t *s, int64_t newpos)
         uselocale(oldlocale);
         if (r >= 0)
             return 1;
-        MP_WARN(s, "possibly unsupported seeking - switching to reopening\n");
+        MP_VERBOSE(s, "Possibly broken seeking, so switching to reopening.\n");
         p->broken_seek = true;
         if (reopen_archive(s) < STREAM_OK)
             return -1;
@@ -583,6 +605,8 @@ static int archive_entry_open(stream_t *stream)
 
     char *base = talloc_strdup(p, stream->path);
     char *name = strchr(base, '|');
+    if (!name)
+        return STREAM_ERROR;
     *name++ = '\0';
     if (name[0] == '/')
         name += 1;
@@ -619,3 +643,9 @@ const stream_info_t stream_info_libarchive = {
     .open = archive_entry_open,
     .protocols = (const char*const[]){ "archive", NULL },
 };
+
+#ifdef __NetBSD__
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+#endif

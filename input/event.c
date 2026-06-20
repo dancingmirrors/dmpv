@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "event.h"
@@ -33,6 +33,21 @@ void mp_event_drop_files(struct input_ctx *ictx, int num_files, char **files,
                 "osd-auto",
                 "sub-add",
                 files[i],
+                NULL
+            };
+            mp_input_run_cmd(ictx, cmd);
+        }
+    } else if (action == DND_INSERT_NEXT) {
+        /* To insert the entries in the correct order, we iterate over them
+           backwards */
+        for (int i = num_files - 1; i >= 0; i--) {
+            const char *cmd[] = {
+                "osd-auto",
+                "loadfile",
+                files[i],
+                /* Since we're inserting in reverse, wait til the final item
+                   is added to start playing */
+                (i > 0) ? "insert-next" : "insert-next-play",
                 NULL
             };
             mp_input_run_cmd(ictx, cmd);

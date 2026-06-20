@@ -2,13 +2,13 @@
 #define MP_RECORDER_H_
 
 struct mp_recorder;
-struct mpv_global;
+struct dmpv_global;
 struct demux_packet;
 struct sh_stream;
 struct demux_attachment;
 struct mp_recorder_sink;
 
-struct mp_recorder *mp_recorder_create(struct mpv_global *global,
+struct mp_recorder *mp_recorder_create(struct dmpv_global *global,
                                        const char *target_file,
                                        struct sh_stream **streams,
                                        int num_streams,

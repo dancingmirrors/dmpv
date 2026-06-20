@@ -1,20 +1,21 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <assert.h>
 #include <math.h>
 
 #include <libavutil/cpu.h>
@@ -22,9 +23,10 @@
 #include "common/common.h"
 #include "common/msg.h"
 #include "csputils.h"
+#include "misc/mp_assert.h"
 #include "misc/thread_pool.h"
 #include "misc/thread_tools.h"
-#include "options/m_config.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 #include "repack.h"
 #include "video/fmt-conversion.h"
@@ -47,7 +49,7 @@ static const struct m_opt_choice_alternatives mp_zimg_scalers[] = {
 };
 
 const struct zimg_opts zimg_opts_defaults = {
-    .scaler = ZIMG_RESIZE_LANCZOS,
+    .scaler = ZIMG_RESIZE_BILINEAR,
     .scaler_params = {NAN, NAN},
     .scaler_chroma_params = {NAN, NAN},
     .scaler_chroma = ZIMG_RESIZE_BILINEAR,
@@ -156,9 +158,7 @@ static zimg_transfer_characteristics_e mp_to_z_trc(enum mp_csp_trc trc)
     case MP_CSP_TRC_GAMMA28:    return ZIMG_TRANSFER_BT470_BG;
     case MP_CSP_TRC_PQ:         return ZIMG_TRANSFER_ST2084;
     case MP_CSP_TRC_HLG:        return ZIMG_TRANSFER_ARIB_B67;
-#if HAVE_ZIMG_ST428
     case MP_CSP_TRC_ST428:      return ZIMG_TRANSFER_ST428;
-#endif
     case MP_CSP_TRC_GAMMA18:    // ?
     case MP_CSP_TRC_GAMMA20:
     case MP_CSP_TRC_GAMMA24:
@@ -228,7 +228,7 @@ struct mp_zimg_context *mp_zimg_alloc(void)
 }
 
 void mp_zimg_enable_cmdline_opts(struct mp_zimg_context *ctx,
-                                 struct mpv_global *g)
+                                 struct dmpv_global *g)
 {
     if (ctx->opts_cache)
         return;
@@ -247,8 +247,8 @@ static int repack_entrypoint(void *user, unsigned i, unsigned x0, unsigned x1)
         x0 &= ~(unsigned)(mp_repack_get_align_x(r->repack) - 1);
 
     // mp_repack requirements and zimg guarantees.
-    assert(!(i & (mp_repack_get_align_y(r->repack) - 1)));
-    assert(!(x0 & (mp_repack_get_align_x(r->repack) - 1)));
+    mp_assert(!(i & (mp_repack_get_align_y(r->repack) - 1)));
+    mp_assert(!(x0 & (mp_repack_get_align_x(r->repack) - 1)));
 
     unsigned i_src = i & (r->pack ? r->zmask[0] : ZIMG_BUFFER_MAX);
     unsigned i_dst = i & (r->pack ? ZIMG_BUFFER_MAX : r->zmask[0]);
@@ -262,13 +262,19 @@ static bool wrap_buffer(struct mp_zimg_state *st, struct mp_zimg_repack *r,
                         struct mp_image *a_mpi)
 {
     zimg_image_buffer *buf = &r->zbuf;
-    *buf = (zimg_image_buffer){ZIMG_API_VERSION};
-
+    *buf = (zimg_image_buffer){.version = ZIMG_API_VERSION};
     struct mp_image *mpi = a_mpi;
     if (r->pack) {
         mpi = &r->cropped_tmp;
         *mpi = *a_mpi;
-        mp_image_crop(mpi, 0, st->slice_y, mpi->w, st->slice_y + st->slice_h);
+        int y1 = st->slice_y + st->slice_h;
+        // Due to subsampling we may assume the image to be bigger than it
+        // actually is (see real_h in setup_format).
+        if (mpi->h < y1) {
+            mp_assert(y1 - mpi->h < 4);
+            mp_image_set_size(mpi, mpi->w, y1);
+        }
+        mp_image_crop(mpi, 0, st->slice_y, mpi->w, y1);
     }
 
     bool direct[MP_MAX_PLANES] = {0};
@@ -380,7 +386,7 @@ static bool setup_format(zimg_image_format *zfmt, struct mp_zimg_repack *r,
 
     // Take care of input/output size, including slicing.
     // Note: formats with subsampled chroma may have odd width or height in
-    // mpv and FFmpeg. This is because the width/height is actually a cropping
+    // dmpv and FFmpeg. This is because the width/height is actually a cropping
     // rectangle. Reconstruct the image allocation size and set the cropping.
     zfmt->width = r->real_w = MP_ALIGN_UP(fmt.w, 1 << desc.chroma_xs);
     zfmt->height = r->real_h = MP_ALIGN_UP(fmt.h, 1 << desc.chroma_ys);
@@ -389,7 +395,7 @@ static bool setup_format(zimg_image_format *zfmt, struct mp_zimg_repack *r,
             zfmt->height = r->real_h = st->slice_h =
                 MPMIN(st->slice_y + st->slice_h, r->real_h) - st->slice_y;
 
-            assert(MP_IS_ALIGNED(r->real_h, 1 << desc.chroma_ys));
+            mp_assert(MP_IS_ALIGNED(r->real_h, 1 << desc.chroma_ys));
         } else {
             // Relies on st->dst being initialized first.
             struct mp_zimg_repack *dst = st->dst;
@@ -446,13 +452,13 @@ static bool setup_format(zimg_image_format *zfmt, struct mp_zimg_repack *r,
     zfmt->chroma_location = mp_to_z_chroma(fmt.chroma_location);
 
     if (ctx && ctx->opts.fast) {
-        // mpv's default for RGB output slows down zimg significantly.
+        // dmpv's default for RGB output slows down zimg significantly.
         if (zfmt->transfer_characteristics == ZIMG_TRANSFER_IEC_61966_2_1 &&
             zfmt->color_family == ZIMG_COLOR_RGB)
             zfmt->transfer_characteristics = ZIMG_TRANSFER_BT709;
     }
 
-    // mpv treats _some_ gray formats as RGB; zimg doesn't like this.
+    // dmpv treats _some_ gray formats as RGB; zimg doesn't like this.
     if (zfmt->color_family == ZIMG_COLOR_GREY &&
         zfmt->matrix_coefficients == ZIMG_MATRIX_RGB)
         zfmt->matrix_coefficients = ZIMG_MATRIX_BT470_BG;
@@ -476,7 +482,7 @@ static bool allocate_buffer(struct mp_zimg_state *st, struct mp_zimg_repack *r)
     r->zmask[0] = zimg_select_buffer_mask(lines);
 
     // Either ZIMG_BUFFER_MAX, or a power-of-2 slice buffer.
-    assert(r->zmask[0] == ZIMG_BUFFER_MAX || MP_IS_POWER_OF_2(r->zmask[0] + 1));
+    mp_assert(r->zmask[0] == ZIMG_BUFFER_MAX || MP_IS_POWER_OF_2(r->zmask[0] + 1));
 
     int h = r->zmask[0] == ZIMG_BUFFER_MAX ? r->real_h : r->zmask[0] + 1;
     if (h >= r->real_h) {
@@ -612,7 +618,7 @@ bool mp_zimg_config(struct mp_zimg_context *ctx)
             goto fail;
     }
 
-    assert(ctx->num_states == slices);
+    mp_assert(ctx->num_states == slices);
 
     return true;
 
@@ -637,11 +643,11 @@ bool mp_zimg_config_image_params(struct mp_zimg_context *ctx)
 
 static void do_convert(struct mp_zimg_state *st)
 {
-    assert(st->graph);
+    mp_assert(st->graph);
 
     // An annoyance.
     zimg_image_buffer *zsrc = &st->src->zbuf;
-    zimg_image_buffer_const zsrc_c = {ZIMG_API_VERSION};
+    zimg_image_buffer_const zsrc_c = {.version = ZIMG_API_VERSION};
     for (int n = 0; n < MP_ARRAY_SIZE(zsrc_c.plane); n++) {
         zsrc_c.plane[n].data = zsrc->plane[n].data;
         zsrc_c.plane[n].stride = zsrc->plane[n].stride;
@@ -690,7 +696,7 @@ bool mp_zimg_convert(struct mp_zimg_context *ctx, struct mp_image *dst,
 
         bool r = mp_thread_pool_run(ctx->tp, do_convert_thread, st);
         // This is guaranteed by the API; and unrolling would be inconvenient.
-        assert(r);
+        mp_assert(r);
     }
 
     do_convert(ctx->states[0]);

@@ -1,18 +1,18 @@
 /*
- * This file is part of mpv.
+ * This file is part of dmpv.
  *
- * mpv is free software; you can redistribute it and/or
+ * dmpv is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * mpv is distributed in the hope that it will be useful,
+ * dmpv is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+ * License along with dmpv.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <libavutil/opt.h>
@@ -23,12 +23,14 @@
 #include <libswresample/swresample.h>
 
 #include "audio/aframe.h"
+#include "audio/chmap_avchannel.h"
 #include "audio/fmt-conversion.h"
 #include "audio/format.h"
 #include "common/common.h"
 #include "common/av_common.h"
 #include "common/msg.h"
-#include "options/m_config.h"
+#include "misc/mp_assert.h"
+#include "options/m_config_core.h"
 #include "options/m_option.h"
 
 #include "f_swresample.h"
@@ -43,8 +45,6 @@ struct priv {
     struct mp_aframe *pre_out_fmt; // format before final conversion
     struct SwrContext *avrctx_out; // for output channel reordering
     struct mp_resample_opts *opts; // opts requested by the user
-    // At least libswresample keeps a pointer around for this:
-    int reorder_in[MP_NUM_CHANNELS];
     int reorder_out[MP_NUM_CHANNELS];
     struct mp_aframe_pool *reorder_buffer;
     struct mp_aframe_pool *out_pool;
@@ -106,53 +106,6 @@ static void close_lavrr(struct priv *p)
 static int rate_from_speed(int rate, double speed)
 {
     return lrint(rate * speed);
-}
-
-static struct mp_chmap fudge_pairs[][2] = {
-    {MP_CHMAP2(BL,  BR),  MP_CHMAP2(SL,  SR)},
-    {MP_CHMAP2(SL,  SR),  MP_CHMAP2(BL,  BR)},
-    {MP_CHMAP2(SDL, SDR), MP_CHMAP2(SL,  SR)},
-    {MP_CHMAP2(SL,  SR),  MP_CHMAP2(SDL, SDR)},
-};
-
-// Modify out_layout and return the new value. The intention is reducing the
-// loss libswresample's rematrixing will cause by exchanging similar, but
-// strictly speaking incompatible channel pairs. For example, 7.1 should be
-// changed to 7.1(wide) without dropping the SL/SR channels. (We still leave
-// it to libswresample to create the remix matrix.)
-static uint64_t fudge_layout_conversion(struct priv *p,
-                                        uint64_t in, uint64_t out)
-{
-    for (int n = 0; n < MP_ARRAY_SIZE(fudge_pairs); n++) {
-        uint64_t a = mp_chmap_to_lavc(&fudge_pairs[n][0]);
-        uint64_t b = mp_chmap_to_lavc(&fudge_pairs[n][1]);
-        if ((in & a) == a && (in & b) == 0 &&
-            (out & a) == 0 && (out & b) == b)
-        {
-            out = (out & ~b) | a;
-
-            MP_VERBOSE(p, "Fudge: %s -> %s\n",
-                       mp_chmap_to_str(&fudge_pairs[n][0]),
-                       mp_chmap_to_str(&fudge_pairs[n][1]));
-        }
-    }
-    return out;
-}
-
-// mp_chmap_get_reorder() performs:
-//  to->speaker[n] = from->speaker[src[n]]
-// but libavresample does:
-//  to->speaker[dst[n]] = from->speaker[n]
-static void transpose_order(int *map, int num)
-{
-    int nmap[MP_NUM_CHANNELS] = {0};
-    for (int n = 0; n < num; n++) {
-        for (int i = 0; i < num; i++) {
-            if (map[n] == i)
-                nmap[i] = n;
-        }
-    }
-    memcpy(map, nmap, sizeof(nmap));
 }
 
 static bool configure_lavrr(struct priv *p, bool verbose)
@@ -233,9 +186,6 @@ static bool configure_lavrr(struct priv *p, bool verbose)
         goto error;
     }
 
-    mp_chmap_get_reorder(p->reorder_in, &map_in, &in_lavc);
-    transpose_order(p->reorder_in, map_in.num);
-
     if (mp_chmap_equals(&out_lavc, &map_out)) {
         // No intermediate step required - output new format directly.
         out_samplefmtp = out_samplefmt;
@@ -267,34 +217,27 @@ static bool configure_lavrr(struct priv *p, bool verbose)
     if (map_out.num > out_lavc.num)
         mp_aframe_set_chmap(p->pool_fmt, &map_out);
 
-    out_ch_layout = fudge_layout_conversion(p, in_ch_layout, out_ch_layout);
-
-    // Real conversion; output is input to avrctx_out.
-    av_opt_set_int(p->avrctx, "in_channel_layout",  in_ch_layout, 0);
-    av_opt_set_int(p->avrctx, "out_channel_layout", out_ch_layout, 0);
+    AVChannelLayout in_layout, out_layout;
+    mp_chmap_to_av_layout_custom(&in_layout, &map_in);
+    mp_chmap_to_av_layout(&out_layout, &out_lavc);
+    av_opt_set_chlayout(p->avrctx, "in_chlayout",  &in_layout, 0);
+    av_opt_set_chlayout(p->avrctx, "out_chlayout", &out_layout, 0);
+    av_channel_layout_uninit(&in_layout);
+    av_channel_layout_uninit(&out_layout);
     av_opt_set_int(p->avrctx, "in_sample_rate",     p->in_rate, 0);
     av_opt_set_int(p->avrctx, "out_sample_rate",    p->out_rate, 0);
     av_opt_set_int(p->avrctx, "in_sample_fmt",      in_samplefmt, 0);
     av_opt_set_int(p->avrctx, "out_sample_fmt",     out_samplefmtp, 0);
 
-    // Just needs the correct number of channels for deplanarization.
-    struct mp_chmap fake_chmap;
-    mp_chmap_set_unknown(&fake_chmap, map_out.num);
-    uint64_t fake_out_ch_layout = mp_chmap_to_lavc_unchecked(&fake_chmap);
-    if (!fake_out_ch_layout)
-        goto error;
-    av_opt_set_int(p->avrctx_out, "in_channel_layout",  fake_out_ch_layout, 0);
-    av_opt_set_int(p->avrctx_out, "out_channel_layout", fake_out_ch_layout, 0);
-
+    AVChannelLayout fake_layout;
+    av_channel_layout_default(&fake_layout, map_out.num);
+    av_opt_set_chlayout(p->avrctx_out, "in_chlayout", &fake_layout, 0);
+    av_opt_set_chlayout(p->avrctx_out, "out_chlayout", &fake_layout, 0);
+    av_channel_layout_uninit(&fake_layout);
     av_opt_set_int(p->avrctx_out, "in_sample_fmt",      out_samplefmtp, 0);
     av_opt_set_int(p->avrctx_out, "out_sample_fmt",     out_samplefmt, 0);
     av_opt_set_int(p->avrctx_out, "in_sample_rate",     p->out_rate, 0);
     av_opt_set_int(p->avrctx_out, "out_sample_rate",    p->out_rate, 0);
-
-    // API has weird requirements, quoting avresample.h:
-    //  * This function can only be called when the allocated context is not open.
-    //  * Also, the input channel layout must have already been set.
-    swr_set_channel_mapping(p->avrctx, p->reorder_in);
 
     p->is_resampling = false;
 
@@ -311,7 +254,7 @@ error:
     return false;
 }
 
-static void reset(struct mp_filter *f)
+static void swresample_reset(struct mp_filter *f)
 {
     struct priv *p = f->priv;
 
@@ -334,8 +277,10 @@ static bool reorder_planes(struct mp_aframe *mpa, int *reorder,
 
     int num_planes = mp_aframe_get_planes(mpa);
     uint8_t **planes = mp_aframe_get_data_rw(mpa);
+    if (num_planes && !planes)
+        return false;
     uint8_t *old_planes[MP_NUM_CHANNELS];
-    assert(num_planes <= MP_NUM_CHANNELS);
+    mp_assert(num_planes <= MP_NUM_CHANNELS);
     for (int n = 0; n < num_planes; n++)
         old_planes[n] = planes[n];
 
@@ -345,11 +290,11 @@ static bool reorder_planes(struct mp_aframe *mpa, int *reorder,
 
     for (int n = 0; n < num_planes; n++) {
         int src = reorder[n];
-        assert(src >= -1 && src < num_planes);
+        mp_assert(src >= -1 && src < num_planes);
         if (src >= 0) {
             planes[n] = old_planes[src];
         } else {
-            assert(next_na < num_planes);
+            mp_assert(next_na < num_planes);
             planes[n] = old_planes[next_na++];
             // The NA planes were never written by avrctx, so clear them.
             af_fill_silence(planes[n],
@@ -455,7 +400,7 @@ error:
     return MP_NO_FRAME;
 }
 
-static void process(struct mp_filter *f)
+static void swresample_process(struct mp_filter *f)
 {
     struct priv *p = f->priv;
 
@@ -487,7 +432,7 @@ static void process(struct mp_filter *f)
     }
 
     if (input) {
-        assert(!p->input);
+        mp_assert(!p->input);
 
         struct mp_swresample *s = &p->public;
 
@@ -616,7 +561,7 @@ double mp_swresample_get_delay(struct mp_swresample *s)
     return get_delay(p);
 }
 
-static bool command(struct mp_filter *f, struct mp_filter_command *cmd)
+static bool swresample_command(struct mp_filter *f, struct mp_filter_command *cmd)
 {
     struct priv *p = f->priv;
 
@@ -628,7 +573,7 @@ static bool command(struct mp_filter *f, struct mp_filter_command *cmd)
     return false;
 }
 
-static void destroy(struct mp_filter *f)
+static void swresample_destroy(struct mp_filter *f)
 {
     struct priv *p = f->priv;
 
@@ -639,10 +584,10 @@ static void destroy(struct mp_filter *f)
 static const struct mp_filter_info swresample_filter = {
     .name = "swresample",
     .priv_size = sizeof(struct priv),
-    .process = process,
-    .command = command,
-    .reset = reset,
-    .destroy = destroy,
+    .process = swresample_process,
+    .command = swresample_command,
+    .reset = swresample_reset,
+    .destroy = swresample_destroy,
 };
 
 struct mp_swresample *mp_swresample_create(struct mp_filter *parent,
